@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type Ref } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import type { ForceGraphMethods, LinkObject, NodeObject } from "react-force-graph-2d";
+import type { ForceGraphMethods, ForceGraphProps, LinkObject, NodeObject } from "react-force-graph-2d";
 
 import type { LinkAnalysisGraphNode } from "../domain/linkAnalysisGraph";
 
@@ -11,6 +11,15 @@ export type LinkAnalysisForceLink = {
   target: string;
   relType: string;
 };
+
+// ponytail: 1.29.x d.ts omits onNodeDblClick; the kapsule still fires it. Drop this cast if types catch up.
+type ForceGraph2DWithDblClick = ComponentType<
+  ForceGraphProps<LinkAnalysisGraphNode, LinkAnalysisForceLink> & {
+    onNodeDblClick?: (node: NodeObject<LinkAnalysisGraphNode>, event: MouseEvent) => void;
+    ref?: Ref<ForceGraphMethods<LinkAnalysisGraphNode, LinkAnalysisForceLink> | undefined>;
+  }
+>;
+const Graph2D = ForceGraph2D as unknown as ForceGraph2DWithDblClick;
 
 function riskFill(score: number | null): string {
   if (score === null) return "rgba(107, 114, 128, 0.95)";
@@ -25,9 +34,17 @@ export type LinkAnalysisForceGraphProps = {
   /** When true, reduce simulation work for very large pruned graphs. */
   largeGraph?: boolean;
   onNodeClick?: LinkAnalysisNodeSelectHandler;
+  highlightIds?: Set<string>;
+  onNodeDoubleClick?: LinkAnalysisNodeSelectHandler;
 };
 
-export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: LinkAnalysisForceGraphProps) {
+export function LinkAnalysisForceGraph({
+  graphData,
+  largeGraph,
+  onNodeClick,
+  highlightIds,
+  onNodeDoubleClick,
+}: LinkAnalysisForceGraphProps) {
   const fgRef = useRef<ForceGraphMethods<LinkAnalysisGraphNode, LinkAnalysisForceLink>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 800, height: 560 });
@@ -66,8 +83,9 @@ export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: L
       ctx.arc(x, y, r, 0, 2 * Math.PI, false);
       ctx.fillStyle = riskFill(node.displayRisk);
       ctx.fill();
-      ctx.strokeStyle = "rgba(15, 23, 42, 0.85)";
-      ctx.lineWidth = 1 / g;
+      const highlighted = Boolean(highlightIds && highlightIds.size > 0 && highlightIds.has(String(node.id)));
+      ctx.strokeStyle = highlighted ? "#60a5fa" : "rgba(15, 23, 42, 0.85)";
+      ctx.lineWidth = (highlighted ? 3 : 1) / g;
       ctx.stroke();
 
       const label = node.id.length > 14 ? `${node.id.slice(0, 12)}…` : node.id;
@@ -82,7 +100,7 @@ export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: L
       ctx.font = `bold ${fontPx}px ui-monospace, monospace`;
       ctx.fillText(riskLabel, x, y + r + fontPx + 2 / g);
     },
-    [],
+    [highlightIds],
   );
 
   const nodePointerAreaPaint = useCallback(
@@ -113,7 +131,7 @@ export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: L
       ref={containerRef}
       className="w-full min-h-[380px] h-[min(70vh,720px)] rounded-lg border border-surface-800 bg-surface-950 overflow-hidden"
     >
-      <ForceGraph2D
+      <Graph2D
         ref={fgRef}
         width={dims.width}
         height={dims.height}
@@ -147,6 +165,14 @@ export function LinkAnalysisForceGraph({ graphData, largeGraph, onNodeClick }: L
             ? (node) => {
                 const id = typeof node.id === "string" || typeof node.id === "number" ? String(node.id) : "";
                 if (id) onNodeClick(id, node as LinkAnalysisGraphNode);
+              }
+            : undefined
+        }
+        onNodeDblClick={
+          onNodeDoubleClick
+            ? (node) => {
+                const id = typeof node.id === "string" || typeof node.id === "number" ? String(node.id) : "";
+                if (id) onNodeDoubleClick(id, node as LinkAnalysisGraphNode);
               }
             : undefined
         }

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Routes, Route, NavLink, Navigate } from 'react-router';
+import { Routes, Route, NavLink, Navigate, useSearchParams } from 'react-router';
 import { MicroDevOnboardingGate } from "./components/MicroDevOnboardingGate";
 import { RequireRole } from "./components/rbac/RequireRole";
 import { getDataSourceSnapshot, subscribeDataSource } from "./api/dataSourceState";
@@ -29,8 +29,7 @@ const SarIntentDetailPage = lazy(() => import("./pages/SarIntentDetailPage"));
 const Disputes = lazy(() => import("./pages/Disputes"));
 const DisputeReviewByIdPage = lazy(() => import("./pages/disputes/[id]"));
 const Rules = lazy(() => import("./pages/Rules"));
-const GraphExplorer = lazy(() => import("./pages/GraphExplorer"));
-const LinkAnalysisPage = lazy(() => import("./pages/LinkAnalysisPage"));
+const GraphInvestigationPage = lazy(() => import("./pages/GraphInvestigationPage"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const RulePerformance = lazy(() => import("./pages/RulePerformance"));
 const AuditLogExplorer = lazy(() => import("./pages/AuditLogExplorer"));
@@ -104,8 +103,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   {
     label: "Investigation",
     items: [
-      { to: "/graph", label: "Graph Explorer", module: "graph" },
-      { to: "/graph/link-analysis", label: "Link analysis (2D)", module: "graph" },
+      { to: "/graph", label: "Graph", module: "graph" },
       { to: "/graph/mule-path", label: "Mule path", module: "graph" },
       { to: "/investigation", label: "Investigation Copilot", module: "investigation" },
       { to: "/investigation/dag-trace", label: "DAG trace", module: "investigation" },
@@ -180,6 +178,12 @@ const NAV_GROUPS = LEAN_NAV
       items: g.items.filter((i) => isProductionSurfacePath(i.to)),
     })).filter((g) => g.items.length > 0)
   : NAV_GROUPS_ALL;
+
+function RedirectLinkAnalysisToGraph() {
+  const [params] = useSearchParams();
+  const qs = params.toString();
+  return <Navigate to={qs ? `/graph?${qs}` : "/graph"} replace />;
+}
 
 /** Demo counts are opt-in so production-like runs do not imply false confidence. */
 
@@ -324,8 +328,8 @@ export default function App() {
             <Route path="/entity-lists" element={<EntityLists />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/ops/backtest" element={<BacktestJobConfigurator />} />
-            <Route path="/graph" element={<GraphExplorer />} />
-            <Route path="/graph/link-analysis" element={<LinkAnalysisPage />} />
+            <Route path="/graph" element={<GraphInvestigationPage />} />
+            <Route path="/graph/link-analysis" element={<RedirectLinkAnalysisToGraph />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/analytics/rule-performance" element={<RulePerformance />} />
             <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
