@@ -1,5 +1,5 @@
-import type { GraphEdge, GraphNode } from "../api/client";
-import { pruneSubgraphForLinkView } from "./linkAnalysisGraph";
+import type { GraphEdge, GraphNode, GraphPathExplanation } from "../api/client";
+import { pruneSubgraphForLinkView, undirectedLinkKey } from "./linkAnalysisGraph";
 
 export type WorkspaceFilter = {
   types: string[] | null;
@@ -99,4 +99,32 @@ export function mergeSubgraphs(
   }
 
   return pruneSubgraphForLinkView([...byId.values()], [...byKey.values()], seedId, maxNodes);
+}
+
+export function pathNodeIds(expl: GraphPathExplanation, seedId: string, selectedId: string): Set<string> {
+  const ids = new Set<string>([seedId, selectedId]);
+  if (expl.subject) ids.add(expl.subject);
+  if (expl.target) ids.add(expl.target);
+  for (const p of expl.paths) {
+    if (p.entity_id) ids.add(p.entity_id);
+    if (p.target_entity_id) ids.add(p.target_entity_id);
+    for (const hop of p.hops ?? []) {
+      if (hop.entity_id) ids.add(hop.entity_id);
+    }
+  }
+  return ids;
+}
+
+export function pathHighlightLinkKeys(expl: GraphPathExplanation): Set<string> {
+  const keys = new Set<string>();
+  for (const p of expl.paths ?? []) {
+    const hops = p.hops ?? [];
+    for (let i = 0; i < hops.length - 1; i++) {
+      const a = hops[i]?.entity_id;
+      const b = hops[i + 1]?.entity_id;
+      if (!a || !b) continue;
+      keys.add(undirectedLinkKey(a, b));
+    }
+  }
+  return keys;
 }

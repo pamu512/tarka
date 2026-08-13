@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { LINK_ANALYSIS_MAX_NODES } from "./linkAnalysisGraph";
+import type { GraphPathExplanation } from "../api/client";
+import { LINK_ANALYSIS_MAX_NODES, undirectedLinkKey } from "./linkAnalysisGraph";
 import {
   filterWorkspaceNodes,
   mergeSubgraphs,
   parseGraphWorkspaceParams,
+  pathHighlightLinkKeys,
   storedDisplayRisk,
   typeHistogram,
 } from "./graphInvestigation";
@@ -104,6 +106,49 @@ describe("mergeSubgraphs", () => {
     );
     expect(r.prunedNodeCount).toBe(LINK_ANALYSIS_MAX_NODES);
     expect(r.nodes.some((x) => x.id === "seed")).toBe(true);
+  });
+});
+
+describe("pathHighlightLinkKeys", () => {
+  const expl = (hops: Array<{ entity_id: string; relationship?: string | null }>): GraphPathExplanation => ({
+    schema_id: "tarka.graph_path_explanation/v1",
+    tenant_id: "t",
+    subject: "seed",
+    target: "c",
+    paths: [
+      {
+        entity_id: "c",
+        target_entity_id: "c",
+        distance: Math.max(0, hops.length - 1),
+        propagated_risk_score: 1,
+        path_description: "",
+        hops,
+        reasons: [],
+      },
+    ],
+    risk_narrative: "",
+    summary: {},
+  });
+
+  it("builds undirected keys for consecutive hops", () => {
+    const keys = pathHighlightLinkKeys(
+      expl([
+        { entity_id: "seed", relationship: null },
+        { entity_id: "b", relationship: "KNOWS" },
+        { entity_id: "c", relationship: "HAS" },
+      ]),
+    );
+    expect(keys.has(undirectedLinkKey("seed", "b"))).toBe(true);
+    expect(keys.has(undirectedLinkKey("b", "c"))).toBe(true);
+    expect(keys.has(undirectedLinkKey("b", "seed"))).toBe(true);
+    expect(keys.size).toBe(2);
+  });
+
+  it("skips hops with empty entity ids", () => {
+    const keys = pathHighlightLinkKeys(
+      expl([{ entity_id: "seed" }, { entity_id: "" }, { entity_id: "c" }]),
+    );
+    expect(keys.size).toBe(0);
   });
 });
 

@@ -7,7 +7,6 @@ import {
   type FraudRingResult,
   type GraphEdge,
   type GraphNode,
-  type GraphPathExplanation,
 } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { LinkAnalysisForceGraph } from "../components/LinkAnalysisForceGraph";
@@ -17,6 +16,8 @@ import { useFailoverPlanes } from "../context/FailoverPlaneContext";
 import {
   filterWorkspaceNodes,
   parseGraphWorkspaceParams,
+  pathHighlightLinkKeys,
+  pathNodeIds,
   storedDisplayRisk,
   typeHistogram,
   mergeSubgraphs,
@@ -62,20 +63,6 @@ function defaultTenantId(): string {
 function paintStoredRisk(nodes: GraphNode[]): LinkAnalysisGraphNode[] {
   const stored = new Map(nodes.map((n) => [n.id, storedDisplayRisk(n)]));
   return nodes.map((n) => ({ ...n, displayRisk: stored.get(n.id) ?? null }));
-}
-
-function pathNodeIds(expl: GraphPathExplanation, seedId: string, selectedId: string): Set<string> {
-  const ids = new Set<string>([seedId, selectedId]);
-  if (expl.subject) ids.add(expl.subject);
-  if (expl.target) ids.add(expl.target);
-  for (const p of expl.paths) {
-    if (p.entity_id) ids.add(p.entity_id);
-    if (p.target_entity_id) ids.add(p.target_entity_id);
-    for (const hop of p.hops ?? []) {
-      if (hop.entity_id) ids.add(hop.entity_id);
-    }
-  }
-  return ids;
 }
 
 function pruneBanner(originalNodeCount: number, prunedNodeCount: number, rawNodeCount: number): string {
@@ -132,6 +119,7 @@ export default function GraphInvestigationPage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [dossierMessage, setDossierMessage] = useState<string | null>(null);
   const [highlightIds, setHighlightIds] = useState<Set<string> | undefined>(undefined);
+  const [highlightLinkKeys, setHighlightLinkKeys] = useState<Set<string> | undefined>(undefined);
 
   const [communities, setCommunities] = useState<CommunityResult[]>([]);
   const [fraudRings, setFraudRings] = useState<FraudRingResult[]>([]);
@@ -141,7 +129,14 @@ export default function GraphInvestigationPage() {
   loadedRef.current = loaded;
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
+  const expandingRef = useRef(false);
   const seedLoadGenRef = useRef(0);
+  const entityIdRef = useRef(entityId);
+  entityIdRef.current = entityId;
+  const tenantIdRef = useRef(tenantId);
+  tenantIdRef.current = tenantId;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     setTenantDraft(tenantId);
@@ -244,6 +239,8 @@ export default function GraphInvestigationPage() {
 
   useEffect(() => {
     seedLoadGenRef.current += 1;
+    setCommunities([]);
+    setFraudRings([]);
     if (graphPlaneDisabled || !entityId) {
       if (!entityId) {
         setLoaded(null);
@@ -251,6 +248,7 @@ export default function GraphInvestigationPage() {
         setSelectedId(null);
         setSelectedNode(null);
         setHighlightIds(undefined);
+        setHighlightLinkKeys(undefined);
         setDossierMessage(null);
       }
       setLoading(false);
@@ -261,6 +259,7 @@ export default function GraphInvestigationPage() {
     setError(null);
     setPruneNote("");
     setHighlightIds(undefined);
+    setHighlightLinkKeys(undefined);
     setDossierMessage(null);
     void (async () => {
       try {
@@ -295,9 +294,10 @@ export default function GraphInvestigationPage() {
   const expandNode = useCallback(
     async (id: string) => {
       if (graphPlaneDisabled || !id || !tenantId || !entityId) return;
-      if (loadingRef.current) return;
+      if (loadingRef.current || expandingRef.current) return;
       const seedAtStart = entityId;
       const genAtStart = seedLoadGenRef.current;
+      expandingRef.current = true;
       setExpanding(true);
       setError(null);
       try {
@@ -317,6 +317,7 @@ export default function GraphInvestigationPage() {
         if (seedLoadGenRef.current !== genAtStart) return;
         setError(toUserFacingError(e, { subject: "Entity graph", action: "expand neighborhood" }));
       } finally {
+        expandingRef.current = false;
         setExpanding(false);
       }
     },
@@ -325,6 +326,9 @@ export default function GraphInvestigationPage() {
 
   const pathFromSeed = useCallback(async () => {
     if (graphPlaneDisabled || !entityId || !selectedId || selectedId === entityId) return;
+    const genAtStart = seedLoadGenRef.current;
+    const seedAtStart = entityId;
+    const selectedAtStart = selectedId;
     setDossierMessage(null);
     try {
       const expl = await graph.pathExplain({
@@ -333,24 +337,32 @@ export default function GraphInvestigationPage() {
         target: selectedId,
         depth: 3,
       });
+      if (seedLoadGenRef.current !== genAtStart) return;
+      if (entityIdRef.current !== seedAtStart || selectedIdRef.current !== selectedAtStart) return;
       if (!expl.paths || expl.paths.length === 0) {
         setDossierMessage("No path found between seed and this entity.");
         return;
       }
-      setHighlightIds(pathNodeIds(expl, entityId, selectedId));
+      setHighlightIds(pathNodeIds(expl, seedAtStart, selectedAtStart));
+      setHighlightLinkKeys(pathHighlightLinkKeys(expl));
     } catch (e) {
+      if (seedLoadGenRef.current !== genAtStart) return;
+      if (entityIdRef.current !== seedAtStart || selectedIdRef.current !== selectedAtStart) return;
       setDossierMessage(toUserFacingError(e, { subject: "Path", action: "explain path from seed" }));
     }
   }, [entityId, graphPlaneDisabled, selectedId, tenantId]);
 
   const loadRings = useCallback(async () => {
     if (graphPlaneDisabled || !tenantId) return;
+    const tenantAtStart = tenantId;
+    const genAtStart = seedLoadGenRef.current;
     setAnalyzing(true);
     try {
       const [comm, rings] = await Promise.allSettled([
         graph.communities(tenantId),
         graph.fraudRings(tenantId),
       ]);
+      if (seedLoadGenRef.current !== genAtStart || tenantIdRef.current !== tenantAtStart) return;
       if (comm.status === "fulfilled") setCommunities(comm.value.communities ?? []);
       if (rings.status === "fulfilled") setFraudRings(rings.value.rings ?? []);
     } finally {
@@ -363,6 +375,7 @@ export default function GraphInvestigationPage() {
       if (!loaded) return;
       const onCanvas = new Set(loaded.nodes.map((n) => n.id));
       setHighlightIds(new Set(ids.filter((id) => onCanvas.has(id))));
+      setHighlightLinkKeys(undefined);
     },
     [loaded],
   );
@@ -664,12 +677,14 @@ export default function GraphInvestigationPage() {
                 graphData={graphData}
                 largeGraph={largeGraph}
                 highlightIds={highlightIds}
+                highlightLinkKeys={highlightLinkKeys}
                 onNodeClick={(id, node) => {
                   setSelectedId(id);
                   setSelectedNode(node);
                   setDossierMessage(null);
                 }}
                 onNodeDoubleClick={(id) => {
+                  if (expandingRef.current) return;
                   void expandNode(id);
                 }}
               />

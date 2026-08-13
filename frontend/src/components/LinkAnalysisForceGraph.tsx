@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import ForceGraph2D from "react-force-graph-2d";
 import type { ForceGraphMethods, ForceGraphProps, LinkObject, NodeObject } from "react-force-graph-2d";
 
-import type { LinkAnalysisGraphNode } from "../domain/linkAnalysisGraph";
+import { undirectedLinkKey, type LinkAnalysisGraphNode } from "../domain/linkAnalysisGraph";
 
 export type LinkAnalysisNodeSelectHandler = (entityId: string, node: LinkAnalysisGraphNode) => void;
 
@@ -35,14 +35,35 @@ export type LinkAnalysisForceGraphProps = {
   largeGraph?: boolean;
   onNodeClick?: LinkAnalysisNodeSelectHandler;
   highlightIds?: Set<string>;
+  highlightLinkKeys?: Set<string>;
   onNodeDoubleClick?: LinkAnalysisNodeSelectHandler;
 };
+
+function forceEndpointId(end: unknown): string {
+  if (typeof end === "string" || typeof end === "number") return String(end);
+  if (end && typeof end === "object" && "id" in end) {
+    const id = (end as { id?: unknown }).id;
+    if (typeof id === "string" || typeof id === "number") return String(id);
+  }
+  return "";
+}
+
+function linkIsHighlighted(
+  link: LinkObject<LinkAnalysisGraphNode, LinkAnalysisForceLink>,
+  highlightLinkKeys: Set<string> | undefined,
+): boolean {
+  if (!highlightLinkKeys || highlightLinkKeys.size === 0) return false;
+  const s = forceEndpointId(link.source);
+  const t = forceEndpointId(link.target);
+  return Boolean(s && t && highlightLinkKeys.has(undirectedLinkKey(s, t)));
+}
 
 export function LinkAnalysisForceGraph({
   graphData,
   largeGraph,
   onNodeClick,
   highlightIds,
+  highlightLinkKeys,
   onNodeDoubleClick,
 }: LinkAnalysisForceGraphProps) {
   const fgRef = useRef<ForceGraphMethods<LinkAnalysisGraphNode, LinkAnalysisForceLink>>(undefined);
@@ -117,7 +138,17 @@ export function LinkAnalysisForceGraph({
     [],
   );
 
-  const linkColor = useCallback(() => "rgba(148, 163, 184, 0.35)", []);
+  const linkColor = useCallback(
+    (link: LinkObject<LinkAnalysisGraphNode, LinkAnalysisForceLink>) =>
+      linkIsHighlighted(link, highlightLinkKeys) ? "rgba(96, 165, 250, 0.95)" : "rgba(148, 163, 184, 0.35)",
+    [highlightLinkKeys],
+  );
+
+  const linkWidth = useCallback(
+    (link: LinkObject<LinkAnalysisGraphNode, LinkAnalysisForceLink>) =>
+      linkIsHighlighted(link, highlightLinkKeys) ? 2.4 : 0.6,
+    [highlightLinkKeys],
+  );
 
   const simTuning = useMemo(() => {
     if (largeGraph) {
@@ -141,7 +172,7 @@ export function LinkAnalysisForceGraph({
         linkSource="source"
         linkTarget="target"
         linkColor={linkColor}
-        linkWidth={0.6}
+        linkWidth={linkWidth}
         linkDirectionalArrowLength={0}
         enableNodeDrag
         enableZoomInteraction
