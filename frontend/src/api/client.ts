@@ -1825,6 +1825,16 @@ export const decisions = {
     );
   },
 
+  trendPromoteDraft(draftId: string, tenantId: string, backtestJobId: string) {
+    return request<{ ok: boolean; draft: Record<string, unknown> }>(
+      `/api/decisions/v1/ops/trend/drafts/${encodeURIComponent(draftId)}/promote`,
+      {
+        method: "POST",
+        body: JSON.stringify({ tenant_id: tenantId, backtest_job_id: backtestJobId }),
+      },
+    );
+  },
+
   trendHilOverride(body: {
     tenant_id: string;
     entity_id: string;
@@ -3431,6 +3441,7 @@ export interface InvestigationChatResponse {
   degraded_reasons?: string[];
   /** Durable AgentRun id (omniscient spine); GET /v1/agent-runs/{run_id}. */
   agent_run_id?: string;
+  graph_missing?: boolean;
 }
 
 export const investigation = {
@@ -3507,6 +3518,7 @@ export const investigation = {
       turn_id?: string;
       tenant_id?: string;
       case_id?: string | null;
+      graph_missing?: boolean;
       claims?: Array<Record<string, unknown>>;
       context_snapshot?: {
         freshness?: Record<string, string>;
@@ -3515,6 +3527,23 @@ export const investigation = {
       };
       [key: string]: unknown;
     }>(`/api/investigation/v1/agent-runs/${encodeURIComponent(runId)}?${q}`);
+  },
+
+  listCaseStatusProposals(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ case_id: caseId, tenant_id: tenantId });
+    return request<{ items: Array<{
+      proposal_id: string;
+      to_status: string;
+      reason_code: string;
+      status: string;
+      agent_run_id: string;
+    }> }>(`/api/investigation/v1/case-status-proposals?${q}`);
+  },
+  ackCaseStatusProposal(proposalId: string, tenantId: string, status: "confirmed" | "rejected") {
+    return request<{ status: string }>(
+      `/api/investigation/v1/case-status-proposals/${encodeURIComponent(proposalId)}/ack`,
+      { method: "POST", body: JSON.stringify({ tenant_id: tenantId, status }) },
+    );
   },
 
   listAgentRunsForTurn(turnId: string, tenantId: string) {
@@ -5245,6 +5274,23 @@ export const orchestrator = {
       `/api/orchestrator/v1/entities/${encodeURIComponent(entityId)}/hil-overrides`,
       { method: "POST", body: JSON.stringify(body) },
     );
+  },
+
+  /** Lifecycle confirm — same orchestrator ``PUT /v1/cases/{id}/status`` as case_transition_api. */
+  putCaseStatus(caseId: string, status: string, reasonCode: string) {
+    // ponytail: desk_actor as X-Auth-Token (same actor source as cases.update). Ceiling: orchestrator may require a real token; upgrade when SPA shares that credential.
+    const actor =
+      (typeof localStorage !== "undefined" && localStorage.getItem("tarka.desk_actor")) || "analyst-web";
+    return request<{
+      case_id: string;
+      status: string;
+      history_row_id: number;
+      audit_log_id: number;
+    }>(`/api/orchestrator/v1/cases/${encodeURIComponent(caseId)}/status`, {
+      method: "PUT",
+      headers: { "X-Auth-Token": actor },
+      body: JSON.stringify({ status, reason_code: reasonCode }),
+    });
   },
 };
 
