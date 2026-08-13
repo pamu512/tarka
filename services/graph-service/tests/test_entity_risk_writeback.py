@@ -186,3 +186,27 @@ def test_get_entity_risk_persist_failure_still_200(monkeypatch):
         r = client.get("/v1/analytics/entity-risk", params={"tenant_id": "t", "entity_id": "u1"})
     assert r.status_code == 200
     assert r.json()["scored"] is True
+
+
+def test_create_link_adds_observed_at_when_missing():
+    from graph_service.neo4j_client import _link_properties_with_observed_at
+    props = _link_properties_with_observed_at({})
+    assert "observed_at" in props
+    kept = _link_properties_with_observed_at({"observed_at": "2020-01-01T00:00:00Z"})
+    assert kept["observed_at"] == "2020-01-01T00:00:00Z"
+
+
+@pytest.mark.asyncio
+async def test_refresh_caps_at_50_and_puts_touched_first():
+    hops = AsyncMock(side_effect=lambda t, e: [f"n{i}" for i in range(60)] if e == "a" else [])
+    compute = AsyncMock(return_value={"entity_id": "x", "risk_factors": [], "risk_score": 0, "relation_count": 0, "relation_growth_1h": 0, "relation_growth_24h": 0})
+    persist = AsyncMock()
+    with patch("graph_service.entity_risk_writeback.list_one_hop_ids", hops), \
+         patch("graph_service.entity_risk_writeback.compute_entity_risk", compute), \
+         patch("graph_service.entity_risk_writeback.persist_entity_risk", persist):
+        from graph_service.entity_risk_writeback import refresh_touched_and_neighbors
+        await refresh_touched_and_neighbors("t", ["a", "b"])
+    assert persist.await_count == 50
+    first = persist.await_args_list[0].args[1]
+    second = persist.await_args_list[1].args[1]
+    assert first == "a" and second == "b"

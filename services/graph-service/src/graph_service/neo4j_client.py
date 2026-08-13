@@ -6,6 +6,7 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
+from .entity_risk_score import _link_properties_with_observed_at
 from .hetero_schema import validate_typed_edge_or_raise
 
 _driver: AsyncDriver | None = None
@@ -149,6 +150,7 @@ async def create_link(
     if rel not in (ALLOWED_RELS | tenant_rels):
         rel = "RELATED"
     rel = _sanitize_rel(rel)
+    rel_props = _link_properties_with_observed_at(properties)
     q_meta = """
     MATCH (a {tenant_id: $tenant_id, external_id: $from_id})
     MATCH (b {tenant_id: $tenant_id, external_id: $to_id})
@@ -177,8 +179,23 @@ async def create_link(
             tenant_id=tenant_id,
             from_id=from_external_id,
             to_id=to_external_id,
-            rel_props=properties or {},
+            rel_props=rel_props,
         )
+
+
+async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
+    driver = await get_driver()
+    q = """
+    MATCH (n {tenant_id: $tenant_id, external_id: $entity_id})-[r]-(m)
+    WHERE m.tenant_id = $tenant_id
+    RETURN collect(DISTINCT m.external_id) AS ids
+    """
+    async with driver.session() as session:
+        result = await session.run(q, tenant_id=tenant_id, entity_id=entity_id)
+        rec = await result.single()
+        if not rec or rec["ids"] is None:
+            return []
+        return [str(x) for x in rec["ids"] if x]
 
 
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:

@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 from typing import Any
 
 FAST_GROWTH_1H = 5
 FAST_GROWTH_24H = 15
 _HIGH_RISK_TAGS = frozenset({"fraud", "suspicious", "flagged", "blocked", "chargedback"})
+
+
+def _link_properties_with_observed_at(properties: dict[str, Any] | None) -> dict[str, Any]:
+    props = dict(properties or {})
+    if "observed_at" not in props:
+        props["observed_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return props
 
 
 def p90_degree(values: list[int]) -> int | None:

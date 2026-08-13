@@ -84,6 +84,20 @@ async def create_link(
     await store.create_link(tenant_id, from_external_id, to_external_id, relationship, properties)
 
 
+async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
+    if settings.graph_backend == "janusgraph":
+        from graph_service import janusgraph_store as store
+
+        return await store.list_one_hop_ids(tenant_id, entity_id)
+    if settings.graph_backend == "age":
+        from graph_service import age_client as store
+
+        return await store.list_one_hop_ids(tenant_id, entity_id)
+    from graph_service import neo4j_client as store
+
+    return await store.list_one_hop_ids(tenant_id, entity_id)
+
+
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
     if settings.graph_backend == "janusgraph":
         from graph_service import janusgraph_store as store
