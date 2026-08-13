@@ -139,8 +139,7 @@ export default function GraphInvestigationPage() {
   const [tenantDraft, setTenantDraft] = useState(tenantId);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
-  const entityIdRef = useRef(entityId);
-  entityIdRef.current = entityId;
+  const seedLoadGenRef = useRef(0);
 
   useEffect(() => {
     setTenantDraft(tenantId);
@@ -242,6 +241,7 @@ export default function GraphInvestigationPage() {
   }, [graphPlaneDisabled, entityId, tenantId]);
 
   useEffect(() => {
+    seedLoadGenRef.current += 1;
     if (graphPlaneDisabled || !entityId) {
       if (!entityId) {
         setLoaded(null);
@@ -294,11 +294,12 @@ export default function GraphInvestigationPage() {
     async (id: string) => {
       if (graphPlaneDisabled || !id || !tenantId || !entityId) return;
       const seedAtStart = entityId;
+      const genAtStart = seedLoadGenRef.current;
       setExpanding(true);
       setError(null);
       try {
         const extra = await graph.subgraph(id, tenantId, 1);
-        if (entityIdRef.current !== seedAtStart) return;
+        if (seedLoadGenRef.current !== genAtStart) return;
         const merged = mergeSubgraphs(
           seedAtStart,
           loadedRef.current ?? { nodes: [], edges: [] },
@@ -310,7 +311,7 @@ export default function GraphInvestigationPage() {
           setPruneNote(pruneBanner(merged.originalNodeCount, merged.prunedNodeCount, merged.originalNodeCount));
         }
       } catch (e) {
-        if (entityIdRef.current !== seedAtStart) return;
+        if (seedLoadGenRef.current !== genAtStart) return;
         setError(toUserFacingError(e, { subject: "Entity graph", action: "expand neighborhood" }));
       } finally {
         setExpanding(false);
