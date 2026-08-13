@@ -93,6 +93,12 @@ def stored_risk_view(props: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def decorate_subgraph_node(node: dict[str, Any]) -> dict[str, Any]:
+    props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+    view = stored_risk_view(props)
+    return {**node, **view}
+
+
 def score_entity_risk(
     *,
     entity_id: str,
