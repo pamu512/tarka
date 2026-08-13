@@ -78,7 +78,7 @@ paths:
   /v1/entities/search:
     get:
       operationId: searchEntities
-      summary: Find graph nodes by external_id contains and optional label
+      summary: Find graph nodes by allowlisted property contains and optional identity resolve
       parameters:
         - name: tenant_id
           in: query
@@ -354,13 +354,23 @@ components:
               properties: { type: object, additionalProperties: true }
     EntitySearchHit:
       type: object
-      required: [entity_id, tenant_id, labels, scored]
+      required: [entity_id, tenant_id, labels, scored, matched_on]
       properties:
         entity_id: { type: string }
         tenant_id: { type: string }
         labels: { type: array, items: { type: string } }
         scored: { type: boolean }
         risk_score: { type: number, nullable: true }
+        matched_on:
+          type: string
+          enum: [external_id, email, device_id, address, line1, phone, ip, user_id, card_id]
+        via:
+          type: object
+          nullable: true
+          required: [entity_id, labels]
+          properties:
+            entity_id: { type: string }
+            labels: { type: array, items: { type: string } }
     EntitySearchResponse:
       type: object
       required: [entities]

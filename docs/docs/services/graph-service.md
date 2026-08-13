@@ -71,7 +71,7 @@ POST /v1/entities
 
 ### Search Entities
 
-Typeahead over graph nodes by case-insensitive contains on entity id (`external_id`). Optional `label` keeps hits where that string is in `labels`.
+Typeahead over graph nodes by case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. Identifier labels `Email`/`Device`/`IP`/`Phone`/`Address`/`Card` also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve and keeps hits where that string is in `labels`.
 
 ```
 GET /v1/entities/search?tenant_id=acme&q=user-4&label=Account&limit=20
@@ -89,7 +89,9 @@ Empty or missing `q` returns `{ "entities": [] }` (no scan). `limit` defaults to
       "tenant_id": "acme",
       "labels": ["Account"],
       "scored": true,
-      "risk_score": 55
+      "risk_score": 55,
+      "matched_on": "external_id",
+      "via": null
     }
   ]
 }

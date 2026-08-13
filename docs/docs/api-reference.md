@@ -252,7 +252,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `POST` | `/v1/entities` | Upsert entity node |
-| `GET` | `/v1/entities/search` | Graph nodes by id contains + optional label |
+| `GET` | `/v1/entities/search` | Graph nodes by property contains + identity resolve |
 | `POST` | `/v1/entities/{external_id}/tags` | Update entity tags |
 | `GET` | `/v1/entities/{external_id}/tags` | Get entity tags |
 | `POST` | `/v1/links` | Create relationship between entities |
@@ -307,7 +307,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 
 **Parameters:** `tenant_id` (required), `q` (optional), `label` (optional), `limit` (default 20, clamped 1–50).
 
-Empty `q` returns `{ "entities": [] }`. Match is case-insensitive contains on entity id. Optional `label` keeps nodes where that string is in `labels`. `risk_score` is `null` when unscored. Does not live-compute risk.
+Empty `q` returns `{ "entities": [] }`. Match is case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. Identifier labels also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve. `risk_score` is `null` when unscored. Does not live-compute risk.
 
 **Response `200`:**
 
@@ -317,9 +317,11 @@ Empty `q` returns `{ "entities": [] }`. Match is case-insensitive contains on en
     {
       "entity_id": "user-42",
       "tenant_id": "acme",
-      "labels": ["Account"],
+      "labels": ["Person"],
       "scored": false,
-      "risk_score": null
+      "risk_score": null,
+      "matched_on": "email",
+      "via": { "entity_id": "alice@acme.com", "labels": ["Email"] }
     }
   ]
 }
