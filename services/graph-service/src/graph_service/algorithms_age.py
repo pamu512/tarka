@@ -445,11 +445,11 @@ async def compute_entity_risk(
              collect(coalesce(e.observed_at, e.created_at, e.updated_at)) AS edge_timestamps
         RETURN
           n.tags              AS tags,
-          labels(n)           AS node_labels,
           conn_count,
           flagged_neighbors,
           community_size,
           shared_device_count,
+          labels(n)           AS node_labels,
           edge_timestamps
     $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype, node_labels agtype, edge_timestamps agtype);
     """

@@ -453,12 +453,7 @@ async def compute_entity_risk(
 
     OPTIONAL MATCH (n)-[e]-()
     WITH n, conn_count, flagged_neighbors, community_size, shared_device_count, neighbor_device_count,
-         e,
          coalesce(e.observed_at, e.created_at, e.updated_at) AS ts
-    WITH n, conn_count, flagged_neighbors, community_size, shared_device_count, neighbor_device_count,
-         collect(ts) AS edge_timestamps,
-         sum(CASE WHEN ts IS NOT NULL AND datetime(ts) >= datetime() - duration('PT1H') THEN 1 ELSE 0 END) AS relation_growth_1h,
-         sum(CASE WHEN ts IS NOT NULL AND datetime(ts) >= datetime() - duration('PT24H') THEN 1 ELSE 0 END) AS relation_growth_24h
     RETURN
       n.tags              AS tags,
       n.updated_at        AS updated_at,
@@ -470,9 +465,7 @@ async def compute_entity_risk(
       community_size,
       shared_device_count,
       neighbor_device_count,
-      relation_growth_1h,
-      relation_growth_24h,
-      edge_timestamps
+      collect(ts) AS edge_timestamps
     """
 
     async with await _open_session(driver) as session:
