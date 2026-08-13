@@ -6,6 +6,8 @@ import logging
 import os
 from typing import Any
 
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -67,6 +69,52 @@ def _require_window_rows(raw: Any) -> list[dict[str, Any]]:
             },
         )
     return rows
+
+
+async def maybe_enqueue_trend_agent_run(
+    *,
+    tenant_id: str,
+    entity_id: str,
+    turn_id: str,
+    context_snapshot: dict[str, Any],
+    claims: list[dict[str, Any]] | None = None,
+) -> str | None:
+    """Fire-and-forget; return run_id if the agent responded, else None. Never raise."""
+    base = (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
+    if not base or not tenant_id.strip():
+        return None
+    url = f"{base.rstrip('/')}/v1/internal/agent-runs"
+    headers = {"Content-Type": "application/json"}
+    secret = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
+    if secret:
+        headers["x-internal-secret"] = secret
+    try:
+        timeout = float((os.environ.get("AGENT_RUN_INGEST_TIMEOUT_SEC") or "2").strip() or "2")
+    except ValueError:
+        timeout = 2.0
+    payload = {
+        "turn_id": turn_id[:128],
+        "tenant_id": tenant_id.strip(),
+        "analyst_id": "system:trend",
+        "entity_ids": [entity_id.strip()] if entity_id.strip() else [],
+        "source": "trend",
+        "context_snapshot": context_snapshot,
+        "claims": list(claims or []),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code == 200:
+            rid = resp.json().get("run_id")
+            return str(rid) if rid else None
+    except Exception:
+        log.warning(
+            "trend_agent_run_enqueue_failed tenant_id=%s entity_id=%s",
+            tenant_id,
+            entity_id,
+            exc_info=True,
+        )
+    return None
 
 
 def _tick_skip_llm(explicit: bool | None) -> bool:
@@ -299,6 +347,30 @@ async def trend_tick(
             skip_llm=skip,
         )
         evaluated += 1
+        run_id = await maybe_enqueue_trend_agent_run(
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            turn_id=f"trend:{entity_id}",
+            context_snapshot={
+                "freshness": {"entity_velocity": "present", "graph": "missing"},
+                "keys_present": ["entity_velocity"],
+            },
+        )
+        draft_id = out.get("draft_rule_id")
+        if draft_id and run_id:
+            try:
+                trend_store.set_draft_agent_run_id(
+                    tenant_id=tenant_id,
+                    draft_id=str(draft_id),
+                    agent_run_id=run_id,
+                )
+            except Exception:
+                log.warning(
+                    "trend_draft_agent_run_id_failed tenant_id=%s draft_id=%s",
+                    tenant_id,
+                    draft_id,
+                    exc_info=True,
+                )
         results.append(
             {
                 "tenant_id": tenant_id,

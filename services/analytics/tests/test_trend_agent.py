@@ -260,3 +260,22 @@ def test_envelope_action_payload_shape(trend_db: Path) -> None:
     assert payload["target_signature"]["metric_key"] == "sub_1min_velocity"
     assert payload["target_signature"]["threshold_limit"] == 40
     assert payload["flag_for_hil_review"] is True
+
+
+def test_draft_stores_agent_run_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TREND_AGENT_DATA_DIR", str(tmp_path))
+    from analytics import trend_store
+
+    trend_store.reset_connection_for_tests()
+    did = trend_store.insert_draft_rule(
+        tenant_id="t",
+        entity_id="e",
+        rule_package={"wasm_ready": False, "status": "PENDING_VALIDATION"},
+        envelope={},
+        agent_run_id="run-abc",
+    )
+    row = trend_store.get_draft_rule(tenant_id="t", draft_id=did)
+    assert row is not None
+    assert row["agent_run_id"] == "run-abc"
+    assert row["gitops_ready"] is False
+    trend_store.reset_connection_for_tests()
