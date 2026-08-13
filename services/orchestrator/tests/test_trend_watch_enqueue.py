@@ -64,3 +64,47 @@ async def test_maybe_enqueue_swallows_errors(monkeypatch: pytest.MonkeyPatch) ->
         entity_id="ent-1",
         reason="x",
     )
+
+
+@pytest.mark.asyncio
+async def test_maybe_enqueue_agent_run_posts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INVESTIGATION_AGENT_URL", "http://inv.test")
+    monkeypatch.setenv("INVESTIGATION_INTERNAL_SECRET", "s3")
+    monkeypatch.setenv("AGENT_RUN_INGEST_TIMEOUT_SEC", "2")
+    from transaction_ingest import maybe_enqueue_agent_run
+
+    http = AsyncMock()
+    http.post = AsyncMock(return_value=MagicMock())
+    await maybe_enqueue_agent_run(
+        http=http,
+        tenant_id="ten-a",
+        entity_id="ent-1",
+        turn_id="ingest:tx-1",
+        source="shadow",
+        context_snapshot={"freshness": {"graph": "present"}},
+        claims=[{"text": "hub", "source": "shadow", "evidence_ids": ["graph:1"]}],
+    )
+    http.post.assert_awaited()
+    args, kwargs = http.post.await_args
+    assert args[0].endswith("/v1/internal/agent-runs")
+    assert kwargs["json"]["source"] == "shadow"
+    assert kwargs["headers"]["x-internal-secret"] == "s3"
+
+
+@pytest.mark.asyncio
+async def test_maybe_enqueue_agent_run_swallows_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("INVESTIGATION_AGENT_URL", "http://inv.test")
+    from transaction_ingest import maybe_enqueue_agent_run
+
+    http = AsyncMock()
+    http.post = AsyncMock(side_effect=RuntimeError("down"))
+    await maybe_enqueue_agent_run(
+        http=http,
+        tenant_id="ten-a",
+        entity_id="ent-1",
+        turn_id="ingest:tx-1",
+        source="shadow",
+        context_snapshot={},
+    )

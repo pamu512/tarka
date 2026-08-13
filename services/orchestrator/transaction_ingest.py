@@ -418,6 +418,59 @@ async def maybe_enqueue_trend_watch(
         )
 
 
+def _agent_run_ingest_timeout_sec() -> float:
+    raw = (os.environ.get("AGENT_RUN_INGEST_TIMEOUT_SEC") or "2").strip()
+    try:
+        v = float(raw)
+    except ValueError:
+        return 2.0
+    return v if v > 0 else 2.0
+
+
+async def maybe_enqueue_agent_run(
+    *,
+    tenant_id: str,
+    entity_id: str,
+    turn_id: str,
+    source: str,
+    context_snapshot: dict[str, Any],
+    claims: list[dict[str, Any]] | None = None,
+    http: httpx.AsyncClient | None = None,
+) -> None:
+    """Fire-and-forget AgentRun ingest — never raises to callers."""
+    base = (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
+    if not base or not tenant_id.strip():
+        return
+    url = f"{base.rstrip('/')}/v1/internal/agent-runs"
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    secret = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
+    if secret:
+        headers["x-internal-secret"] = secret
+    payload = {
+        "turn_id": (turn_id or "")[:128],
+        "tenant_id": tenant_id.strip(),
+        "analyst_id": f"system:{source}"[:128],
+        "entity_ids": [entity_id.strip()] if entity_id.strip() else [],
+        "source": source,
+        "context_snapshot": context_snapshot if isinstance(context_snapshot, dict) else {},
+        "claims": list(claims or []),
+    }
+    timeout = _agent_run_ingest_timeout_sec()
+    try:
+        if http is not None:
+            await http.post(url, json=payload, headers=headers, timeout=timeout)
+        else:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                await client.post(url, json=payload, headers=headers)
+    except Exception:
+        logger.warning(
+            "orchestrator_agent_run_enqueue_failed tenant_id=%s turn_id=%s",
+            tenant_id,
+            turn_id,
+            exc_info=True,
+        )
+
+
 def graph_indicators_nonzero(
     rule_data: dict[str, Any],
     transaction: TransactionSchema,
@@ -911,6 +964,30 @@ async def execute_transaction_ingest(
                 entity_id=str(entity_for_watch),
                 reason=",".join(reasons),
                 decision_api_url=str(decision_base) if decision_base else None,
+            )
+        if isinstance(shadow_data, dict) and tenant_for_watch:
+            graph_obj = graph_signals if isinstance(graph_signals, dict) and graph_signals else None
+            snap = {
+                "schema_id": "tarka.context_snapshot/v1",
+                "tenant_id": tenant_for_watch,
+                "entity_id": str(entity_for_watch),
+                "freshness": {"graph": "present" if graph_obj else "missing"},
+                "keys_present": ["graph"] if graph_obj else [],
+                "artifacts": [],
+            }
+            await maybe_enqueue_agent_run(
+                tenant_id=tenant_for_watch,
+                entity_id=str(entity_for_watch),
+                turn_id=f"ingest:{tid}",
+                source="shadow",
+                context_snapshot=snap,
+                claims=[
+                    {
+                        "text": str(shadow_data.get("agent_notes") or "shadow")[:2000],
+                        "source": "shadow",
+                        "evidence_ids": [],
+                    }
+                ],
             )
     except Exception:
         logger.warning("orchestrator_trend_watch_hook_failed transaction_id=%s", tid, exc_info=True)
