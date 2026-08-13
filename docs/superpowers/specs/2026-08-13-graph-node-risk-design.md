@@ -1,7 +1,7 @@
 # Persisted node risk — lookup, subgraph, top-N
 
 **Date:** 2026-08-13  
-**Status:** Amended (pending re-review)  
+**Status:** Approved  
 **Related:** [graph-service](../../docs/services/graph-service.md), [AgentRun spine](./2026-08-13-agent-run-spine-design.md), OpenAPI `contracts/openapi/graph-service.yaml`
 
 ## Goal
