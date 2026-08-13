@@ -2430,6 +2430,24 @@ class CaseBriefBody(BaseModel):
     case: dict[str, Any] = Field(default_factory=dict)
 
 
+class InternalAgentRunBody(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    turn_id: str = Field(..., min_length=1, max_length=128)
+    tenant_id: str = Field(..., min_length=1, max_length=128)
+    analyst_id: str = Field(default="system", max_length=128)
+    case_id: str | None = None
+    entity_ids: list[str] = Field(default_factory=list)
+    trace_ids: list[str] = Field(default_factory=list)
+    source: str = "chat"
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    context_snapshot: dict[str, Any] = Field(default_factory=dict)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    prompt_version: str = ""
+    model: str = ""
+    agent_build: str = ""
+
+
 def _require_internal_hook_auth(request: Request) -> None:
     expected = (os.environ.get("INVESTIGATION_INTERNAL_SECRET") or "").strip()
     if expected:
@@ -2486,6 +2504,39 @@ async def internal_case_brief(request: Request, body: CaseBriefBody):
         "brief_markdown": brief,
         "context_snapshot": snapshot,
         "llm_used": False,
+    }
+
+
+@app.post("/v1/internal/agent-runs")
+async def internal_agent_run(request: Request, body: InternalAgentRunBody):
+    _require_internal_hook_auth(request)
+    src = (body.source or "chat").strip().lower()
+    if src not in {"chat", "shadow", "trend"}:
+        raise HTTPException(status_code=400, detail="invalid_source")
+    try:
+        rid = agent_run_store.persist_agent_run(
+            turn_id=body.turn_id.strip(),
+            tenant_id=body.tenant_id.strip(),
+            analyst_id=(body.analyst_id or "system").strip(),
+            case_id=body.case_id,
+            entity_ids=body.entity_ids,
+            trace_ids=body.trace_ids,
+            prompt_version=body.prompt_version,
+            model=body.model,
+            agent_build=body.agent_build,
+            tool_calls=body.tool_calls,
+            claims=body.claims,
+            context_snapshot=body.context_snapshot,
+            source=src,
+        )
+    except Exception:
+        raise HTTPException(status_code=503, detail="agent_run_persist_failed") from None
+    row = agent_run_store.get_agent_run(run_id=rid, tenant_id=body.tenant_id.strip())
+    return {
+        "ok": True,
+        "run_id": rid,
+        "source": src,
+        "graph_missing": bool(row and row.get("graph_missing")),
     }
 
 

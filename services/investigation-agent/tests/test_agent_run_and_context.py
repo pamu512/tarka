@@ -185,6 +185,60 @@ def test_citations_bind_evidence_ids() -> None:
     assert ("okf_concept", "ring.cross_role") in ids
 
 
+def test_internal_agent_run_post_round_trip(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("INVESTIGATION_INTERNAL_SECRET", "brief-secret")
+    from investigation_agent.context_assembler import assemble_context_snapshot
+    from investigation_agent.main import app
+    from fastapi.testclient import TestClient
+
+    snap = assemble_context_snapshot(
+        tenant_id="t1",
+        entity_id="ent-1",
+        graph_neighborhood={"vertices": [{"id": "ip:9"}]},
+    )
+    with TestClient(app) as client:
+        denied = client.post(
+            "/v1/internal/agent-runs",
+            json={
+                "turn_id": "ingest:tx-1",
+                "tenant_id": "t1",
+                "analyst_id": "system:shadow",
+                "source": "shadow",
+                "entity_ids": ["ent-1"],
+                "context_snapshot": snap,
+                "claims": [{"text": "device hub", "source": "shadow", "evidence_ids": ["graph:x"]}],
+            },
+            headers={"x-internal-secret": "wrong"},
+        )
+        assert denied.status_code == 401
+
+        r = client.post(
+            "/v1/internal/agent-runs",
+            json={
+                "turn_id": "ingest:tx-1",
+                "tenant_id": "t1",
+                "analyst_id": "system:shadow",
+                "source": "shadow",
+                "entity_ids": ["ent-1"],
+                "context_snapshot": snap,
+                "claims": [{"text": "device hub", "source": "shadow", "evidence_ids": ["graph:x"]}],
+            },
+            headers={"x-internal-secret": "brief-secret"},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["ok"] is True
+        assert body["source"] == "shadow"
+        assert body["graph_missing"] is False
+        rid = body["run_id"]
+        g = client.get(f"/v1/agent-runs/{rid}", params={"tenant_id": "t1"})
+        assert g.status_code == 200
+        assert g.json()["source"] == "shadow"
+        assert g.json()["claims"][0]["evidence_ids"] == ["graph:x"]
+
+
 def test_graph_missing_and_source_on_get(data_dir: Path) -> None:
     from investigation_agent import agent_run_store
     from investigation_agent.context_assembler import assemble_context_snapshot
