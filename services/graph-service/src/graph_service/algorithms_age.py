@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from .age_client import get_pool
+from .entity_risk_score import entity_not_found_payload, score_entity_risk
 
 """
 Graph analytics functions using Apache AGE via asyncpg.
@@ -444,16 +445,9 @@ async def compute_entity_risk(
         row = await conn.fetchrow(q, params_json)
 
     if not row or not row["conn_count"] or row["conn_count"] == "null":
-        return {
-            "entity_id": entity_id,
-            "risk_score": 0,
-            "risk_factors": ["entity_not_found"],
-            "connected_flagged_count": 0,
-            "community_size": 0,
-            "graph_checkpoint": checkpoint,
-            "graph_profile": profile.get("_profile_name"),
-            "graph_profile_max_neighbor_hops": hop_depth,
-        }
+        return entity_not_found_payload(
+            entity_id, checkpoint, profile.get("_profile_name"), hop_depth
+        )
 
     tags = json.loads(row["tags"]) if row["tags"] and row["tags"] != "null" else []
     conn_count: int = json.loads(row["conn_count"])
@@ -461,46 +455,20 @@ async def compute_entity_risk(
     community_size: int = json.loads(row["community_size"])
     shared_devices: int = json.loads(row["shared_device_count"])
 
-    score = 0.0
-    factors: list[str] = []
-
-    own_risky = _HIGH_RISK_TAGS & set(tags)
-    if own_risky:
-        score += 30
-        factors.append(f"own_tags:{','.join(sorted(own_risky))}")
-
-    if flagged > 0:
-        score += min(flagged * 10, 25)
-        factors.append(f"connected_flagged:{flagged}")
-
-    if community_size >= 5:
-        score += 15
-        factors.append(f"large_community:{community_size}")
-    elif community_size >= 3:
-        score += 8
-        factors.append(f"medium_community:{community_size}")
-
-    if shared_devices > 0:
-        score += min(shared_devices * 10, 20)
-        factors.append(f"shared_devices:{shared_devices}")
-
-    if conn_count >= 10:
-        score += 10
-        factors.append(f"high_connectivity:{conn_count}")
-    elif conn_count >= 5:
-        score += 5
-        factors.append(f"moderate_connectivity:{conn_count}")
-
-    score = min(round(score * mult), 100)
-
-    return {
-        "entity_id": entity_id,
-        "risk_score": score,
-        "risk_factors": factors,
-        "connected_flagged_count": flagged,
-        "community_size": community_size,
-        "graph_checkpoint": checkpoint,
-        "graph_profile": profile.get("_profile_name"),
-        "graph_profile_multiplier": mult,
-        "graph_profile_max_neighbor_hops": hop_depth,
-    }
+    return score_entity_risk(
+        entity_id=entity_id,
+        tags=tags,
+        conn_count=conn_count,
+        flagged=flagged,
+        community_size=community_size,
+        shared_devices=shared_devices,
+        neighbor_device_count=0,
+        relation_growth_1h=0,
+        relation_growth_24h=0,
+        peer_p90=None,
+        checkpoint=checkpoint,
+        profile=profile.get("_profile_name"),
+        hop_depth=hop_depth,
+        freshness=None,
+        multiplier=mult,
+    )

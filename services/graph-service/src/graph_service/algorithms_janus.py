@@ -8,6 +8,7 @@ from typing import Any
 import networkx as nx
 
 from .config import settings
+from .entity_risk_score import entity_not_found_payload, score_entity_risk
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 from .janusgraph_store import _vertex_external_id
 
@@ -286,17 +287,9 @@ async def compute_entity_risk(
         g = get_traversal_source()
         vl = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
         if not vl:
-            return {
-                "entity_id": entity_id,
-                "risk_score": 0,
-                "risk_factors": ["entity_not_found"],
-                "connected_flagged_count": 0,
-                "community_size": 0,
-                "neighbor_device_count": 0,
-                "graph_checkpoint": checkpoint,
-                "graph_profile": profile.get("_profile_name"),
-                "graph_profile_max_neighbor_hops": hop_cap,
-            }
+            return entity_not_found_payload(
+                entity_id, checkpoint, profile.get("_profile_name"), hop_cap
+            )
         v = vl[0]
         tags = _tags_list_from_vertex(g, v)
         neighbors: list[Any] = []
@@ -359,33 +352,6 @@ async def compute_entity_risk(
             frontier = nxt
         community_size = len(seen_bfs)
 
-        score = 0.0
-        factors: list[str] = []
-        own_risky = _HIGH_RISK_TAGS & {t.lower() for t in tags}
-        if own_risky:
-            score += 30
-            factors.append(f"own_tags:{','.join(sorted(own_risky))}")
-        if flagged > 0:
-            score += min(flagged * 10, 25)
-            factors.append(f"connected_flagged:{flagged}")
-        if community_size >= 5:
-            score += 15
-            factors.append(f"large_community:{community_size}")
-        elif community_size >= 3:
-            score += 8
-            factors.append(f"medium_community:{community_size}")
-        if shared_devices > 0:
-            score += min(shared_devices * 10, 20)
-            factors.append(f"shared_devices:{shared_devices}")
-        if conn_count >= 10:
-            score += 10
-            factors.append(f"high_connectivity:{conn_count}")
-        elif conn_count >= 5:
-            score += 5
-            factors.append(f"moderate_connectivity:{conn_count}")
-
-        score = min(round(score * mult), 100)
-
         from .graph_data_freshness import graph_data_as_of_iso
 
         freshness_props: dict[str, Any] = {}
@@ -394,20 +360,22 @@ async def compute_entity_risk(
                 freshness_props[key] = v.value(key)
         freshness = graph_data_as_of_iso(freshness_props)
 
-        out = {
-            "entity_id": entity_id,
-            "risk_score": score,
-            "risk_factors": factors,
-            "connected_flagged_count": flagged,
-            "community_size": community_size,
-            "neighbor_device_count": neighbor_device_count,
-            "graph_checkpoint": checkpoint,
-            "graph_profile": profile.get("_profile_name"),
-            "graph_profile_multiplier": mult,
-            "graph_profile_max_neighbor_hops": hop_depth,
-        }
-        if freshness:
-            out["graph_data_as_of"] = freshness
-        return out
+        return score_entity_risk(
+            entity_id=entity_id,
+            tags=tags,
+            conn_count=conn_count,
+            flagged=flagged,
+            community_size=community_size,
+            shared_devices=shared_devices,
+            neighbor_device_count=neighbor_device_count,
+            relation_growth_1h=0,
+            relation_growth_24h=0,
+            peer_p90=None,
+            checkpoint=checkpoint,
+            profile=profile.get("_profile_name"),
+            hop_depth=hop_depth,
+            freshness=freshness,
+            multiplier=mult,
+        )
 
     return await run_in_gremlin_thread(sync)
