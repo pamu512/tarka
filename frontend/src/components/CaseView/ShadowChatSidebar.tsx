@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from 'react-router';
-import { investigation } from "../../api/client";
+import { investigation, orchestrator } from "../../api/client";
 import { MARKETPLACE_COD_COURIER_HOLD_PLAYBOOK } from "../../utils/inferInvestigationPlaybook";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
@@ -13,6 +13,17 @@ type ChatMessage = {
 };
 
 type PlaybookOption = { id: string; title: string; vertical: string };
+
+type CaseStatusProposal = {
+  proposal_id: string;
+  to_status: string;
+  reason_code: string;
+  status: string;
+  agent_run_id: string;
+};
+
+const GRAPH_MISSING_BANNER =
+  "Graph neighborhood missing — narratives are ungrounded; status changes and promote stay blocked.";
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
@@ -54,6 +65,10 @@ export function ShadowChatSidebar({
   const [runDetail, setRunDetail] = useState<string | null>(null);
   const [playbooks, setPlaybooks] = useState<PlaybookOption[]>([]);
   const [selectedPlaybookId, setSelectedPlaybookId] = useState("");
+  const [graphMissing, setGraphMissing] = useState(false);
+  const [proposals, setProposals] = useState<CaseStatusProposal[]>([]);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const gotFinalRef = useRef(false);
   const draftRef = useRef<HTMLTextAreaElement | null>(null);
@@ -84,6 +99,23 @@ export function ShadowChatSidebar({
     }
     return undefined;
   }, [open]);
+
+  const loadProposals = useCallback(async () => {
+    if (!caseId.trim() || !tenantId.trim()) {
+      setProposals([]);
+      return;
+    }
+    try {
+      const body = await investigation.listCaseStatusProposals(caseId.trim(), tenantId.trim());
+      setProposals(body.items ?? []);
+    } catch {
+      setProposals([]);
+    }
+  }, [caseId, tenantId]);
+
+  useEffect(() => {
+    void loadProposals();
+  }, [loadProposals]);
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort();
@@ -150,6 +182,20 @@ export function ShadowChatSidebar({
         ]);
         setStreamingText("");
       }
+      const rid =
+        typeof result.agent_run_id === "string" ? result.agent_run_id : undefined;
+      if (typeof result.graph_missing === "boolean") {
+        setGraphMissing(result.graph_missing);
+      } else if (rid) {
+        try {
+          const run = await investigation.getAgentRun(rid, tenantId);
+          setGraphMissing(Boolean(run.graph_missing));
+        } catch {
+          setGraphMissing(false);
+        }
+      } else {
+        setGraphMissing(false);
+      }
       if (!gotFinalRef.current && !ac.signal.aborted) {
         setConn("dropped");
         setLastError(
@@ -158,6 +204,7 @@ export function ShadowChatSidebar({
       } else {
         setConn(ac.signal.aborted ? "aborted" : "complete");
       }
+      void loadProposals();
     } catch (e: unknown) {
       if (isAbortError(e)) {
         setConn("aborted");
@@ -175,7 +222,30 @@ export function ShadowChatSidebar({
       abortRef.current = null;
       setStreamingText((t) => (gotFinalRef.current ? "" : t));
     }
-  }, [caseId, conn, draft, messages, selectedPlaybookId, tenantId]);
+  }, [caseId, conn, draft, loadProposals, messages, selectedPlaybookId, tenantId]);
+
+  const confirmProposal = useCallback(
+    async (p: CaseStatusProposal) => {
+      if (confirmingId) return;
+      setConfirmingId(p.proposal_id);
+      setProposalError(null);
+      try {
+        await orchestrator.putCaseStatus(caseId.trim(), p.to_status, p.reason_code);
+        await investigation.ackCaseStatusProposal(p.proposal_id, tenantId.trim(), "confirmed");
+        await loadProposals();
+      } catch (e: unknown) {
+        setProposalError(
+          toUserFacingError(e, {
+            subject: "Case status proposal",
+            action: "confirm lifecycle status",
+          }),
+        );
+      } finally {
+        setConfirmingId(null);
+      }
+    },
+    [caseId, confirmingId, loadProposals, tenantId],
+  );
 
   const busy = conn === "streaming";
   const investigationHref = `/investigation?case_id=${encodeURIComponent(caseId)}&tenant_id=${encodeURIComponent(tenantId)}`;
@@ -227,6 +297,12 @@ export function ShadowChatSidebar({
           Close
         </button>
       </div>
+
+      {graphMissing ? (
+        <div className="shrink-0 border-b border-amber-500/40 bg-amber-950/30 px-3 py-2 text-[11px] leading-relaxed text-amber-100">
+          {GRAPH_MISSING_BANNER}
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         <p className="text-[11px] leading-relaxed text-gray-500">
@@ -299,6 +375,43 @@ export function ShadowChatSidebar({
             </button>
           </div>
           {runDetail ? <p className="break-all text-gray-500">{runDetail}</p> : null}
+        </div>
+      ) : null}
+
+      {proposalError ? (
+        <div className="shrink-0 border-t border-surface-800 px-3 py-2 text-[11px] text-rose-200">
+          {proposalError}
+        </div>
+      ) : null}
+
+      {proposals.some((p) => p.status === "pending") ? (
+        <div className="shrink-0 space-y-1.5 border-t border-surface-800 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+            Status proposals
+          </p>
+          {proposals
+            .filter((p) => p.status === "pending")
+            .map((p) => (
+              <div
+                key={p.proposal_id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-surface-700 bg-surface-950/60 px-2 py-1.5"
+              >
+                <div className="min-w-0 text-[11px] text-gray-300">
+                  <div className="font-mono">
+                    {p.to_status}
+                    <span className="ml-1 text-gray-500">{p.reason_code}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="rounded border border-brand-500/40 bg-brand-600/80 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-brand-500 disabled:opacity-40"
+                  disabled={confirmingId !== null}
+                  onClick={() => void confirmProposal(p)}
+                >
+                  {confirmingId === p.proposal_id ? "Confirming…" : "Confirm"}
+                </button>
+              </div>
+            ))}
         </div>
       ) : null}
 

@@ -411,6 +411,7 @@ type TrendDraft = {
   id?: string;
   entity_id?: string;
   status?: string;
+  gitops_ready?: boolean;
   rule_package?: Record<string, unknown>;
   created_at?: number;
 };
@@ -424,6 +425,7 @@ function TrendOpsPanel({ tenantId }: { tenantId: string }) {
   const [hilEntity, setHilEntity] = useState("");
   const [hilType, setHilType] = useState("ALLOW_SEASONAL_SPIKE");
   const [hilNote, setHilNote] = useState("");
+  const [jobIds, setJobIds] = useState<Record<string, string>>({});
 
   async function loadDrafts() {
     if (!tenantId.trim()) return;
@@ -486,6 +488,23 @@ function TrendOpsPanel({ tenantId }: { tenantId: string }) {
     }
   }
 
+  async function promoteDraft(id: string) {
+    const jobId = (jobIds[id] ?? "").trim();
+    if (!jobId) return;
+    setBusy(true);
+    setTrendErr(null);
+    try {
+      await decisions.trendPromoteDraft(id, tenantId.trim(), jobId);
+      await loadDrafts();
+    } catch (e) {
+      setTrendErr(
+        toUserFacingError(e, { subject: "Trend promote", action: "POST /v1/ops/trend/drafts/{id}/promote" }),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitHil() {
     if (!hilEntity.trim()) return;
     setBusy(true);
@@ -515,6 +534,7 @@ function TrendOpsPanel({ tenantId }: { tenantId: string }) {
         Drafts are never Wasm-promotable. Tick uses EWMA baselines (never invents means) and defaults to{" "}
         <span className="font-mono">skip_llm</span>.
       </p>
+      <p className="text-xs text-gray-500">Does not install live Wasm. Status stays PENDING_VALIDATION.</p>
       {trendErr ? <p className="text-sm text-red-300">{trendErr}</p> : null}
       {postureLine ? <p className="font-mono text-xs text-gray-400">{postureLine}</p> : null}
       {tickSummary ? <p className="font-mono text-xs text-brand-300">{tickSummary}</p> : null}
@@ -551,15 +571,36 @@ function TrendOpsPanel({ tenantId }: { tenantId: string }) {
                 <div className="text-gray-500">
                   wasm_ready={String((d.rule_package as { wasm_ready?: boolean } | undefined)?.wasm_ready ?? false)}
                 </div>
+                <div className="text-gray-500">gitops_ready={String(d.gitops_ready ?? false)}</div>
               </div>
-              <button
-                type="button"
-                disabled={busy || !d.id}
-                onClick={() => d.id && void rejectDraft(String(d.id))}
-                className="rounded border border-red-800/60 px-2 py-1 text-xs text-red-200 disabled:opacity-40"
-              >
-                Reject
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="w-40 rounded border border-surface-600 bg-surface-950 px-2 py-1 text-xs text-gray-200"
+                  placeholder="backtest_job_id"
+                  value={d.id ? (jobIds[d.id] ?? "") : ""}
+                  disabled={busy || !d.id}
+                  onChange={(e) => {
+                    if (!d.id) return;
+                    setJobIds((prev) => ({ ...prev, [d.id as string]: e.target.value }));
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !d.id || !(jobIds[String(d.id)] ?? "").trim()}
+                  onClick={() => d.id && void promoteDraft(String(d.id))}
+                  className="rounded border border-brand-500/40 bg-brand-600/80 px-2 py-1 text-xs text-white disabled:opacity-40"
+                >
+                  Mark GitOps-ready
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !d.id}
+                  onClick={() => d.id && void rejectDraft(String(d.id))}
+                  className="rounded border border-red-800/60 px-2 py-1 text-xs text-red-200 disabled:opacity-40"
+                >
+                  Reject
+                </button>
+              </div>
             </div>
           ))
         )}
