@@ -167,3 +167,8 @@ export function toForceGraphLinks(edges: LinkPruneEdge[]): { source: string; tar
     relType: e.type,
   }));
 }
+
+/** Canonical undirected link id so path overlays match regardless of stored direction. */
+export function undirectedLinkKey(a: string, b: string): string {
+  return a < b ? `${a}\0${b}` : `${b}\0${a}`;
+}
