@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from 'react-router';
-import { investigation, isApiRequestError, orchestrator } from "../../api/client";
+import { investigation, orchestrator } from "../../api/client";
 import { MARKETPLACE_COD_COURIER_HOLD_PLAYBOOK } from "../../utils/inferInvestigationPlaybook";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
@@ -27,11 +27,6 @@ const GRAPH_MISSING_BANNER =
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
-}
-
-function isIllegalTransitionPut(error: unknown): boolean {
-  if (!isApiRequestError(error) || error.status !== 409) return false;
-  return /illegal_transition|illegal transition/i.test(error.message);
 }
 
 const DEFAULT_ANALYST = "analyst-1";
@@ -242,13 +237,7 @@ export function ShadowChatSidebar({
       setConfirmingId(p.proposal_id);
       setProposalError(null);
       try {
-        try {
-          await orchestrator.putCaseStatus(caseId.trim(), p.to_status, p.reason_code);
-        } catch (putErr: unknown) {
-          // PUT 200 → ack. Same-status PUT is 200 when already at to_status.
-          // Retry after PUT-ok/ack-fail may 409 illegal_transition — still ack.
-          if (!isIllegalTransitionPut(putErr)) throw putErr;
-        }
+        await orchestrator.putCaseStatus(caseId.trim(), p.to_status, p.reason_code);
         await investigation.ackCaseStatusProposal(p.proposal_id, tenantId.trim(), "confirmed");
         await loadProposals();
       } catch (e: unknown) {
