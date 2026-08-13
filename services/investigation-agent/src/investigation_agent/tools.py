@@ -1233,7 +1233,10 @@ def tool_propose_case_status(
     except case_status_proposals.GraphRequiredError:
         return {"error": "graph_required"}
     except ValueError as e:
-        return {"error": "invalid_to_status", "detail": str(e)[:400]}
+        msg = str(e).strip()
+        if msg == "case_id_mismatch":
+            return {"error": "case_id_mismatch"}
+        return {"error": "invalid_to_status", "detail": msg[:400]}
     return {"proposal_id": pid, "status": "pending"}
 
 
