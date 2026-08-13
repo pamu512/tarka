@@ -310,6 +310,8 @@ async def trend_promote_draft(
     draft = trend_store.get_draft_rule(tenant_id=tid, draft_id=did)
     if draft is None:
         raise HTTPException(status_code=404, detail="draft_not_found")
+    if draft.get("status") != "PENDING_VALIDATION":
+        raise _refuse_promote(tid, did)
     run_id = str(draft.get("agent_run_id") or "").strip()
     run = await _fetch_agent_run(run_id, tid) if run_id else None
     if run is None or run.get("graph_missing"):
@@ -348,6 +350,11 @@ async def trend_promote_draft(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="draft_not_found")
+    pkg = row.get("rule_package") if isinstance(row.get("rule_package"), dict) else {}
+    if row.get("status") != "PENDING_VALIDATION" or row.get("gitops_ready") is not True:
+        raise _refuse_promote(tid, did)
+    if pkg.get("wasm_ready") is True:
+        raise _refuse_promote(tid, did)
     return {"ok": True, "draft": row}
 
 
