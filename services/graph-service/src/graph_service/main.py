@@ -29,7 +29,7 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import is_found_payload
-from .entity_risk_writeback import persist_entity_risk
+from .entity_risk_writeback import persist_entity_risk, refresh_touched_and_neighbors
 from .graph_risk_model import score_graph_risk_beta
 from .schemas import EntityRiskResponse
 from .graph_runtime import (
@@ -175,6 +175,14 @@ async def upsert_entity_endpoint(body: UpsertEntityRequest):
         body.properties,
         tags=body.tags,
     )
+    try:
+        await refresh_touched_and_neighbors(body.tenant_id, [body.external_id])
+    except Exception:
+        log.exception(
+            "mutation risk refresh failed after upsert tenant=%s entity=%s",
+            body.tenant_id,
+            body.external_id,
+        )
     return EntityResponse(
         graph_id=gid,
         entity_type=body.entity_type,
@@ -185,6 +193,14 @@ async def upsert_entity_endpoint(body: UpsertEntityRequest):
 @app.post("/v1/entities/{external_id}/tags")
 async def update_entity_tags(external_id: str, body: TagsRequest):
     result = await update_tags(body.tenant_id, external_id, body.tags)
+    try:
+        await refresh_touched_and_neighbors(body.tenant_id, [external_id])
+    except Exception:
+        log.exception(
+            "mutation risk refresh failed after tags tenant=%s entity=%s",
+            body.tenant_id,
+            external_id,
+        )
     return {"tags": result}
 
 
@@ -231,6 +247,17 @@ async def links_endpoint(body: LinkRequest):
     except Exception:
         log.exception("create_link failed")
         raise HTTPException(status_code=502, detail="Unable to create graph link") from None
+    try:
+        await refresh_touched_and_neighbors(
+            body.tenant_id, [body.from_external_id, body.to_external_id]
+        )
+    except Exception:
+        log.exception(
+            "mutation risk refresh failed after link tenant=%s from=%s to=%s",
+            body.tenant_id,
+            body.from_external_id,
+            body.to_external_id,
+        )
     return {"ok": True}
 
 

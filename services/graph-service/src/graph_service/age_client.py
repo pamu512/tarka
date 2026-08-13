@@ -6,6 +6,7 @@ import asyncpg
 
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
+from .entity_risk_score import _link_properties_with_observed_at
 from .hetero_schema import validate_typed_edge_or_raise
 
 _pool: asyncpg.Pool | None = None
@@ -167,6 +168,7 @@ async def create_link(
     if rel not in (ALLOWED_RELS | tenant_rels):
         rel = "RELATED"
     rel = _sanitize_rel(rel)
+    rel_props = _link_properties_with_observed_at(properties)
 
     q_meta = """
     SELECT CAST(CAST(la AS VARCHAR) AS JSON) as la, CAST(CAST(lb AS VARCHAR) AS JSON) as lb FROM cypher('tarka', $$
@@ -191,7 +193,7 @@ async def create_link(
             "tenant_id": tenant_id,
             "from_id": from_external_id,
             "to_id": to_external_id,
-            "rel_props": properties or {},
+            "rel_props": rel_props,
         }
     )
 
@@ -203,6 +205,26 @@ async def create_link(
             validate_typed_edge_or_raise(tenant_id, rel, la, lb)
 
         await conn.execute(q, params_json)
+
+
+async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
+    pool = await get_pool()
+    q = """
+    SELECT CAST(CAST(ids AS VARCHAR) AS JSON) as ids FROM cypher('tarka', $$
+        MATCH (n {tenant_id: $tenant_id, external_id: $entity_id})-[r]-(m)
+        WHERE m.tenant_id = $tenant_id
+        RETURN collect(DISTINCT m.external_id)
+    $$, %s) as (ids agtype);
+    """
+    params_json = json.dumps({"tenant_id": tenant_id, "entity_id": entity_id})
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(q, params_json)
+    if not row or not row["ids"] or row["ids"] == "null":
+        return []
+    raw = json.loads(row["ids"])
+    if not isinstance(raw, list):
+        return []
+    return [str(x) for x in raw if x]
 
 
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:

@@ -11,6 +11,7 @@ from gremlin_python.process.traversal import Cardinality
 
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
+from .entity_risk_score import _link_properties_with_observed_at
 from .hetero_schema import validate_typed_edge_or_raise
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
@@ -203,8 +204,9 @@ def _create_link_sync(
         la, lb = "Custom", "Custom"
     validate_typed_edge_or_raise(tenant_id, rel, [la], [lb])
 
+    rel_props = _link_properties_with_observed_at(properties)
     trav = g.V(a[0]).addE(rel).to(__.V(b[0]))
-    for pk, pv in (properties or {}).items():
+    for pk, pv in rel_props.items():
         if isinstance(pk, str) and _SAFE_IDENTIFIER.match(pk) and pv is not None:
             if isinstance(pv, (list, dict)):
                 trav = trav.property(pk, json.dumps(pv))
@@ -229,6 +231,26 @@ async def create_link(
             properties,
         ),
     )
+
+
+def _list_one_hop_ids_sync(tenant_id: str, entity_id: str) -> list[str]:
+    g = get_traversal_source()
+    found = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    if not found:
+        return []
+    raw = (
+        g.V(found[0])
+        .both()
+        .has("tenant_id", tenant_id)
+        .values("external_id")
+        .dedup()
+        .toList()
+    )
+    return [str(x) for x in raw if x]
+
+
+async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
+    return await run_in_gremlin_thread(lambda: _list_one_hop_ids_sync(tenant_id, entity_id))
 
 
 def _query_subgraph_sync(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
