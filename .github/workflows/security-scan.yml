@@ -96,17 +96,22 @@ jobs:
             echo "== METADATA =="; find /usr /app /root -name METADATA 2>/dev/null | grep -Ei "setuptools|msgpack" || true
             echo "== version strings =="; grep -RsnE "70\.3\.0|Name: msgpack|Name: setuptools" /usr/local/lib/python3.12/site-packages /app 2>/dev/null | head -80 || true
           '
-          # Trivy JSON: show pkg path for remaining setuptools/msgpack vulns
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /tmp v0.70.0
-          /tmp/trivy image --format json --quiet --severity CRITICAL,HIGH,MEDIUM --ignore-unfixed tarka/core-api:scan \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin);
-for res in d.get("Results") or []:
-  vulns=res.get("Vulnerabilities") or []
-  hit=[v for v in vulns if (v.get("PkgName") or "").lower() in {"setuptools","msgpack"}]
-  if hit:
-    print("TARGET", res.get("Target"), "CLASS", res.get("Class"), "TYPE", res.get("Type"))
-    for v in hit:
-      print({k:v.get(k) for k in ("VulnerabilityID","PkgName","InstalledVersion","PkgPath","PkgIdentifier","Layer")})'
+          /tmp/trivy image --format json --quiet --severity CRITICAL,HIGH,MEDIUM --ignore-unfixed tarka/core-api:scan > /tmp/trivy-core.json
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("/tmp/trivy-core.json").read_text())
+          for res in data.get("Results") or []:
+            vulns = res.get("Vulnerabilities") or []
+            hit = [v for v in vulns if (v.get("PkgName") or "").lower() in {"setuptools", "msgpack"}]
+            if not hit:
+              continue
+            print("TARGET", res.get("Target"), "CLASS", res.get("Class"), "TYPE", res.get("Type"))
+            for v in hit:
+              keys = ("VulnerabilityID", "PkgName", "InstalledVersion", "PkgPath", "PkgIdentifier", "Layer")
+              print({k: v.get(k) for k in keys})
+          PY
         continue-on-error: true
 
       - name: Upload SARIF
