@@ -287,3 +287,77 @@ async def test_human_promote_gitops_ready_not_live(
     assert draft["gitops_ready"] is True
     assert draft["rule_package"].get("wasm_ready") is False
     assert draft["agent_run_id"] == "run-graph"
+
+
+@pytest.mark.asyncio
+async def test_human_promote_rejected_draft_stays_409(
+    trend_http: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from analytics import trend_store
+
+    rows = [
+        {
+            "metric_key": "sub_1min_velocity",
+            "window": "sub_1min",
+            "observed": 100.0,
+            "baseline_mean": 10.0,
+            "baseline_std": 2.0,
+        }
+    ]
+    r = await trend_http.post(
+        "/v1/ops/trend/evaluate",
+        json={
+            "tenant_id": "ten-a",
+            "entity_id": "ent-1",
+            "window_rows": rows,
+            "skip_llm": True,
+        },
+    )
+    draft_id = r.json()["draft_rule_id"]
+    trend_store.set_draft_agent_run_id(
+        tenant_id="ten-a", draft_id=draft_id, agent_run_id="run-graph"
+    )
+    rejected = await trend_http.post(
+        f"/v1/ops/trend/drafts/{draft_id}/reject",
+        params={"tenant_id": "ten-a"},
+    )
+    assert rejected.status_code == 200
+    assert rejected.json()["draft"]["status"] == "REJECTED"
+
+    async def _fake_get(self, url, **kwargs):  # noqa: ANN001
+        class _R:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "run_id": "run-graph",
+                    "graph_missing": False,
+                    "context_snapshot": {"freshness": {"graph": "present"}},
+                }
+
+        return _R()
+
+    import httpx
+
+    monkeypatch.setenv("INVESTIGATION_AGENT_URL", "http://inv.test")
+    monkeypatch.setattr(httpx.AsyncClient, "get", _fake_get)
+
+    def _ok_gate(**kwargs):  # noqa: ANN003
+        return {
+            "schema_id": "tarka.backtest_before_promote/v1",
+            "promote_allowed": True,
+            "blockers": [],
+            "waived": False,
+            "job_id": kwargs.get("job_id"),
+            "job_status": "succeeded",
+        }
+
+    monkeypatch.setattr(
+        "decision_api.trend_agent_api.backtest_before_promote_gate", _ok_gate
+    )
+
+    out = await trend_http.post(
+        f"/v1/ops/trend/drafts/{draft_id}/promote",
+        json={"tenant_id": "ten-a", "backtest_job_id": "job-1"},
+    )
+    assert out.status_code == 409, out.text
