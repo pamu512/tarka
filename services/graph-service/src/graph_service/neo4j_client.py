@@ -335,12 +335,13 @@ async def search_entities(
     )
 
     limit = clamp_search_limit(limit)
-    pred = cypher_search_prop_predicate("n")  # toLower(n.email) CONTAINS toLower($q)
+    pred = cypher_search_prop_predicate("n")
     driver = await get_driver()
     match_cypher = f"""
     MATCH (n {{tenant_id: $tenant_id}})
     WHERE NOT n:GraphRiskStats
       AND n.external_id IS NOT NULL AND n.external_id <> ''
+      AND $q <> ''
       AND ({pred})
     RETURN n.external_id AS entity_id,
            labels(n) AS labels,
