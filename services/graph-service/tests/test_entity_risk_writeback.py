@@ -196,6 +196,30 @@ def test_create_link_adds_observed_at_when_missing():
     assert kept["observed_at"] == "2020-01-01T00:00:00Z"
 
 
+def test_link_props_stamp_create_not_match():
+    from graph_service.entity_risk_score import link_props_for_create, link_props_for_match
+
+    create_empty = link_props_for_create({})
+    assert "observed_at" in create_empty
+    match_empty = link_props_for_match({})
+    assert "observed_at" not in match_empty
+    match_other = link_props_for_match({"weight": 1})
+    assert match_other == {"weight": 1}
+    supplied = {"observed_at": "2020-01-01T00:00:00Z", "weight": 2}
+    assert link_props_for_create(supplied)["observed_at"] == "2020-01-01T00:00:00Z"
+    assert link_props_for_match(supplied)["observed_at"] == "2020-01-01T00:00:00Z"
+
+
+def test_neo4j_age_create_link_on_create_not_blind_set():
+    import inspect
+    from graph_service import age_client, neo4j_client
+
+    for src in (inspect.getsource(neo4j_client.create_link), inspect.getsource(age_client.create_link)):
+        assert "ON CREATE SET r += $create_props" in src
+        assert "ON MATCH SET r += $match_props" in src
+        assert "SET r += $rel_props" not in src
+
+
 @pytest.mark.asyncio
 async def test_refresh_caps_at_50_and_puts_touched_first():
     hops = AsyncMock(side_effect=lambda t, e: [f"n{i}" for i in range(60)] if e == "a" else [])

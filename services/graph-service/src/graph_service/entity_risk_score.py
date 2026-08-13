@@ -9,11 +9,21 @@ FAST_GROWTH_24H = 15
 _HIGH_RISK_TAGS = frozenset({"fraud", "suspicious", "flagged", "blocked", "chargedback"})
 
 
-def _link_properties_with_observed_at(properties: dict[str, Any] | None) -> dict[str, Any]:
+def link_props_for_create(properties: dict[str, Any] | None) -> dict[str, Any]:
+    """Stamp observed_at=now when omitted. Use for ON CREATE / Janus addE (new edges)."""
     props = dict(properties or {})
     if "observed_at" not in props:
         props["observed_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     return props
+
+
+def link_props_for_match(properties: dict[str, Any] | None) -> dict[str, Any]:
+    """Caller-supplied props only. Do not inject observed_at on MERGE match."""
+    return dict(properties or {})
+
+
+def _link_properties_with_observed_at(properties: dict[str, Any] | None) -> dict[str, Any]:
+    return link_props_for_create(properties)
 
 
 def p90_degree(values: list[int]) -> int | None:
