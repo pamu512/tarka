@@ -185,6 +185,88 @@ def test_citations_bind_evidence_ids() -> None:
     assert ("okf_concept", "ring.cross_role") in ids
 
 
+def test_graph_missing_and_source_on_get(data_dir: Path) -> None:
+    from investigation_agent import agent_run_store
+    from investigation_agent.context_assembler import assemble_context_snapshot
+
+    snap = assemble_context_snapshot(tenant_id="ten-a", case_id="c9", case_payload={"id": "c9"})
+    rid = agent_run_store.persist_agent_run(
+        turn_id="turn-1",
+        tenant_id="ten-a",
+        analyst_id="analyst-1",
+        case_id="c9",
+        context_snapshot=snap,
+        source="shadow",
+    )
+    got = agent_run_store.get_agent_run(run_id=rid, tenant_id="ten-a")
+    assert got is not None
+    assert got["source"] == "shadow"
+    assert got["graph_missing"] is True
+
+    snap_g = assemble_context_snapshot(
+        tenant_id="ten-a",
+        case_id="c9",
+        case_payload={"id": "c9"},
+        graph_neighborhood={"vertices": [{"id": "device:1"}]},
+    )
+    rid2 = agent_run_store.persist_agent_run(
+        turn_id="turn-2",
+        tenant_id="ten-a",
+        analyst_id="analyst-1",
+        context_snapshot=snap_g,
+        source="chat",
+    )
+    got2 = agent_run_store.get_agent_run(run_id=rid2, tenant_id="ten-a")
+    assert got2 is not None
+    assert got2["graph_missing"] is False
+
+
+def test_chat_includes_graph_missing(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("ALLOWED_ANALYSTS", "*")
+    from investigation_agent.main import app
+
+    with TestClient(app) as client:
+        chat = client.post(
+            "/v1/chat",
+            json={
+                "tenant_id": "t-chat",
+                "analyst_id": "analyst-chat",
+                "case_id": "case-chat-1",
+                "messages": [{"role": "user", "content": "Summarize this case risk"}],
+            },
+        )
+        assert chat.status_code == 200, chat.text
+        assert chat.json()["graph_missing"] is True
+
+
+def test_chat_persist_failure_is_503(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("ALLOWED_ANALYSTS", "*")
+    from investigation_agent import agent_run_store
+    from investigation_agent.main import app
+
+    def _boom(**kwargs):  # noqa: ANN003
+        raise RuntimeError("sqlite down")
+
+    monkeypatch.setattr(agent_run_store, "persist_agent_run", _boom)
+    with TestClient(app) as client:
+        chat = client.post(
+            "/v1/chat",
+            json={
+                "tenant_id": "t-chat",
+                "analyst_id": "analyst-chat",
+                "case_id": "case-chat-1",
+                "messages": [{"role": "user", "content": "x"}],
+            },
+        )
+        assert chat.status_code == 503
+
+
 def test_claims_evidence_binding_is_grounded_not_slap_all() -> None:
     from investigation_agent.context_assembler import claims_with_evidence_ids
 

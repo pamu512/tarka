@@ -712,19 +712,24 @@ def _persist_and_attach_agent_run(
         tool_results=tool_calls,
     )
     enriched = _claims_with_evidence_ids(claims, snapshot)
-    run_id = agent_run_store.persist_agent_run(
-        turn_id=turn_id,
-        tenant_id=tenant_id,
-        analyst_id=analyst_id,
-        case_id=case_id,
-        prompt_version=settings.copilot_prompt_version,
-        model=_effective_chat_model(),
-        agent_build=(settings.agent_build_id or "").strip(),
-        tool_calls=tool_calls,
-        claims=enriched,
-        context_snapshot=snapshot,
-    )
+    try:
+        run_id = agent_run_store.persist_agent_run(
+            turn_id=turn_id,
+            tenant_id=tenant_id,
+            analyst_id=analyst_id,
+            case_id=case_id,
+            prompt_version=settings.copilot_prompt_version,
+            model=_effective_chat_model(),
+            agent_build=(settings.agent_build_id or "").strip(),
+            tool_calls=tool_calls,
+            claims=enriched,
+            context_snapshot=snapshot,
+            source="chat",
+        )
+    except Exception:
+        raise HTTPException(status_code=503, detail="agent_run_persist_failed")
     out["agent_run_id"] = run_id
+    out["graph_missing"] = agent_run_store.graph_missing_from_snapshot(snapshot)
     out["claims"] = enriched
     # Re-bind citations to exact evidence_ids from the context snapshot when present.
     if "citations" in out or enriched:

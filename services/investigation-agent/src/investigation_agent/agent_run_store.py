@@ -13,6 +13,8 @@ from typing import Any
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
 
+_ALLOWED_SOURCES = frozenset({"chat", "shadow", "trend"})
+
 
 def _data_dir() -> str:
     d = os.environ.get("INVESTIGATION_DATA_DIR", "").strip()
@@ -69,6 +71,9 @@ def _init_schema(c: sqlite3.Connection) -> None:
     c.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_runs_tenant_time ON agent_runs (tenant_id, created_at DESC)"
     )
+    cols = {r[1] for r in c.execute("PRAGMA table_info(agent_runs)").fetchall()}
+    if "source" not in cols:
+        c.execute("ALTER TABLE agent_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'chat'")
     c.commit()
 
 
@@ -119,6 +124,12 @@ def _normalize_claims(claims: list[dict[str, Any]] | None) -> list[dict[str, Any
     return out[:80]
 
 
+def graph_missing_from_snapshot(snapshot: dict[str, Any] | None) -> bool:
+    if not isinstance(snapshot, dict):
+        return True
+    return (snapshot.get("freshness") or {}).get("graph") != "present"
+
+
 def persist_agent_run(
     *,
     turn_id: str,
@@ -134,8 +145,12 @@ def persist_agent_run(
     claims: list[dict[str, Any]] | None = None,
     context_snapshot: dict[str, Any] | None = None,
     run_id: str | None = None,
+    source: str = "chat",
 ) -> str:
     rid = (run_id or "").strip() or str(uuid.uuid4())
+    src = (source or "chat").strip().lower()
+    if src not in _ALLOWED_SOURCES:
+        src = "chat"
     c = _get_conn()
     now = time.time()
     with _lock:
@@ -144,8 +159,8 @@ def persist_agent_run(
             INSERT OR REPLACE INTO agent_runs (
                 run_id, turn_id, tenant_id, analyst_id, case_id,
                 entity_ids_json, trace_ids_json, prompt_version, model, agent_build,
-                tool_trace_redacted_json, claims_json, context_snapshot_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tool_trace_redacted_json, claims_json, context_snapshot_json, created_at, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 rid,
@@ -164,6 +179,7 @@ def persist_agent_run(
                     context_snapshot or {}, sort_keys=True, default=str, separators=(",", ":")
                 ),
                 now,
+                src,
             ),
         )
         c.commit()
@@ -171,6 +187,7 @@ def persist_agent_run(
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
+    snapshot = json.loads(row[12] or "{}")
     return {
         "run_id": row[0],
         "turn_id": row[1],
@@ -184,15 +201,17 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "agent_build": row[9],
         "tool_trace_redacted": json.loads(row[10] or "[]"),
         "claims": json.loads(row[11] or "[]"),
-        "context_snapshot": json.loads(row[12] or "{}"),
+        "context_snapshot": snapshot,
         "created_at": row[13],
+        "source": row[14] if len(row) > 14 else "chat",
+        "graph_missing": graph_missing_from_snapshot(snapshot),
     }
 
 
 _SELECT = """
     SELECT run_id, turn_id, tenant_id, analyst_id, case_id,
            entity_ids_json, trace_ids_json, prompt_version, model, agent_build,
-           tool_trace_redacted_json, claims_json, context_snapshot_json, created_at
+           tool_trace_redacted_json, claims_json, context_snapshot_json, created_at, source
     FROM agent_runs
 """
 
