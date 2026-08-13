@@ -252,6 +252,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `POST` | `/v1/entities` | Upsert entity node |
+| `GET` | `/v1/entities/search` | Graph nodes by id contains + optional label |
 | `POST` | `/v1/entities/{external_id}/tags` | Update entity tags |
 | `GET` | `/v1/entities/{external_id}/tags` | Get entity tags |
 | `POST` | `/v1/links` | Create relationship between entities |
@@ -299,6 +300,30 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 ```
 
 **Entity types:** `Person`, `Account`, `Device`, `Payment`, `Document`, `Custom` (plus tenant-specific custom types).
+
+---
+
+### `GET /v1/entities/search`
+
+**Parameters:** `tenant_id` (required), `q` (optional), `label` (optional), `limit` (default 20, clamped 1–50).
+
+Empty `q` returns `{ "entities": [] }`. Match is case-insensitive contains on entity id. Optional `label` keeps nodes where that string is in `labels`. `risk_score` is `null` when unscored. Does not live-compute risk.
+
+**Response `200`:**
+
+```json
+{
+  "entities": [
+    {
+      "entity_id": "user-42",
+      "tenant_id": "acme",
+      "labels": ["Account"],
+      "scored": false,
+      "risk_score": null
+    }
+  ]
+}
+```
 
 ---
 
