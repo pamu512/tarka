@@ -75,6 +75,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SubgraphResponse"
+  /v1/entities/search:
+    get:
+      operationId: searchEntities
+      summary: Find graph nodes by external_id contains and optional label
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 256 }
+        - name: label
+          in: query
+          required: false
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 20 }
+          description: Clamped to 1–50
+      responses:
+        "200":
+          description: Empty list when q is blank; otherwise matching nodes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitySearchResponse"
   /v1/analytics/entity-risk:
     get:
       operationId: computeEntityRisk
@@ -323,6 +352,22 @@ components:
               to_id: { type: string }
               type: { type: string }
               properties: { type: object, additionalProperties: true }
+    EntitySearchHit:
+      type: object
+      required: [entity_id, tenant_id, labels, scored]
+      properties:
+        entity_id: { type: string }
+        tenant_id: { type: string }
+        labels: { type: array, items: { type: string } }
+        scored: { type: boolean }
+        risk_score: { type: number, nullable: true }
+    EntitySearchResponse:
+      type: object
+      required: [entities]
+      properties:
+        entities:
+          type: array
+          items: { $ref: "#/components/schemas/EntitySearchHit" }
     EntityRiskResponse:
       type: object
       properties:

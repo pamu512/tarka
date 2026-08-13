@@ -1613,6 +1613,29 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     return { ...mockCases[0], ...body, updated_at: nowIso() };
   }
 
+  if (path.includes("/api/graph/v1/entities/search")) {
+    const u = new URL(url, "http://localhost");
+    const q = u.searchParams.get("q") ?? "";
+    if (!q.trim()) return { entities: [] };
+    if (!/frank/i.test(q)) return { entities: [] };
+    const label = u.searchParams.get("label");
+    const labels = ["Person"];
+    if (label && !labels.includes(label)) return { entities: [] };
+    return {
+      entities: [
+        {
+          entity_id: "fraud_frank",
+          tenant_id: u.searchParams.get("tenant_id") ?? "demo",
+          labels,
+          scored: true,
+          risk_score: 72,
+        },
+      ],
+    };
+  }
+  if (path.includes("/api/graph/v1/schema/")) {
+    return { entity_types: ["Person", "Account", "Device", "Payment", "Email", "IP", "Address"] };
+  }
   if (path.includes("/api/graph/v1/subgraph")) {
     return {
       nodes: [
@@ -1670,6 +1693,11 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
           source: "current_entity_risk",
         },
       ],
+    };
+  }
+  if (path.includes("/api/graph/v1/analytics/entity-risk/top")) {
+    return {
+      entities: [{ entity_id: "fraud_frank", labels: ["Person"], risk_score: 72 }],
     };
   }
   if (path.includes("/api/graph/v1/analytics/entity-risk")) {
