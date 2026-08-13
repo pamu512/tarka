@@ -363,3 +363,33 @@ def _load_peer_p90_sync(tenant_id: str, label: str) -> int | None:
 
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
     return await run_in_gremlin_thread(lambda: _load_peer_p90_sync(tenant_id, label))
+
+
+def _set_entity_risk_properties_sync(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:
+    g = get_traversal_source()
+    found = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    if not found:
+        return
+    v = found[0]
+    trav = g.V(v)
+    for key in (
+        "risk_score",
+        "risk_factors",
+        "risk_computed_at",
+        "relation_count",
+        "relation_growth_1h",
+        "relation_growth_24h",
+    ):
+        val = props.get(key)
+        if val is None:
+            continue
+        if key == "risk_factors" or isinstance(val, (list, dict)):
+            val = json.dumps(val)
+        trav = trav.property(Cardinality.single, key, val)
+    trav.iterate()
+
+
+async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:
+    await run_in_gremlin_thread(
+        lambda: _set_entity_risk_properties_sync(tenant_id, entity_id, props)
+    )

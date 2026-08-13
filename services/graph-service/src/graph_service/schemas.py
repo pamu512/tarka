@@ -28,3 +28,7 @@ class EntityRiskResponse(BaseModel):
     graph_profile_max_neighbor_hops: int | None = None
     graph_data_as_of: str | None = None
     gnn_beta: dict[str, Any] | None = None
+    scored: bool = False
+    relation_count: int = Field(default=0, ge=0)
+    relation_growth_1h: int = Field(default=0, ge=0)
+    relation_growth_24h: int = Field(default=0, ge=0)
