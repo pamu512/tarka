@@ -355,6 +355,16 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     return {"nodes": nodes_out, "edges": edges_out}
 
 
+async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[str, Any] | None:
+    from .entity_context_shape import shape_deep_context_from_nodes
+
+    sub = await query_subgraph(tenant_id, external_id, 2)
+    nodes = sub.get("nodes") or []
+    if not nodes or not any(n.get("id") == external_id for n in nodes):
+        return None
+    return shape_deep_context_from_nodes(external_id, tenant_id, nodes)
+
+
 def _age_json(val: Any) -> Any:
     if val is None or val == "null":
         return None

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 from datetime import UTC, datetime
 from typing import Any
@@ -62,6 +63,20 @@ def is_found_payload(payload: dict[str, Any]) -> bool:
     return "entity_not_found" not in [str(x) for x in factors]
 
 
+def _risk_factors_list(raw: Any) -> list:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return list(raw)
+    if isinstance(raw, str):
+        try:
+            val = json.loads(raw)
+            return list(val) if isinstance(val, list) else []
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return [raw] if raw else []
+    return [raw]
+
+
 def stored_risk_view(props: dict[str, Any] | None) -> dict[str, Any]:
     p = props if isinstance(props, dict) else {}
     computed = p.get("risk_computed_at")
@@ -86,7 +101,7 @@ def stored_risk_view(props: dict[str, Any] | None) -> dict[str, Any]:
         "scored": True,
         "risk_score": _num("risk_score"),
         "risk_computed_at": str(computed),
-        "risk_factors": list(p.get("risk_factors") or []),
+        "risk_factors": _risk_factors_list(p.get("risk_factors")),
         "relation_count": _num("relation_count"),
         "relation_growth_1h": _num("relation_growth_1h"),
         "relation_growth_24h": _num("relation_growth_24h"),
