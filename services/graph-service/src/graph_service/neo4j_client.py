@@ -10,7 +10,6 @@ from .entity_risk_score import (
     _link_properties_with_observed_at,
     decorate_subgraph_node,
     link_props_for_match,
-    search_hit_from_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
 
@@ -323,46 +322,106 @@ def _entity_risk_top_row(rec: Any) -> dict[str, Any]:
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
 ) -> list[dict[str, Any]]:
+    from .entity_risk_score import (
+        OWNER_LABELS,
+        cap_identifier_owners,
+        clamp_search_limit,
+        cypher_search_prop_predicate,
+        eligible_search_node,
+        labels_are_identifier,
+        labels_are_owner,
+        merge_search_hits,
+        search_hit_from_node,
+    )
+
+    limit = clamp_search_limit(limit)
+    pred = cypher_search_prop_predicate("n")  # toLower(n.email) CONTAINS toLower($q)
     driver = await get_driver()
-    cypher = """
-    MATCH (n {tenant_id: $tenant_id})
-    WHERE n.external_id IS NOT NULL
-      AND NOT n:GraphRiskStats
-      AND toLower(n.external_id) CONTAINS toLower($q)
-      AND ($label IS NULL OR $label IN labels(n))
+    match_cypher = f"""
+    MATCH (n {{tenant_id: $tenant_id}})
+    WHERE NOT n:GraphRiskStats
+      AND n.external_id IS NOT NULL AND n.external_id <> ''
+      AND ({pred})
     RETURN n.external_id AS entity_id,
            labels(n) AS labels,
            properties(n) AS props
-    ORDER BY CASE WHEN n.risk_computed_at IS NULL THEN 1 ELSE 0 END,
-             n.risk_score DESC,
-             n.external_id ASC
-    LIMIT $limit
     """
     async with driver.session() as session:
-        result = await session.run(
-            cypher,
-            tenant_id=tenant_id,
-            q=q,
-            label=label,
-            limit=limit,
-        )
+        result = await session.run(match_cypher, tenant_id=tenant_id, q=q)
         rows = await result.data()
-    hits: list[dict[str, Any]] = []
+    directs: list[dict[str, Any]] = []
+    ident_ids: list[str] = []
+    ident_meta: dict[str, dict[str, Any]] = {}
     for rec in rows or []:
         if not rec:
             continue
+        eid = str(rec.get("entity_id") or "").strip()
         labs = rec.get("labels") or []
         if not isinstance(labs, list):
             labs = list(labs)
-        hits.append(
-            search_hit_from_node(
-                tenant_id,
-                rec.get("entity_id") or "",
-                labs,
-                rec.get("props"),
-            )
+        props = rec.get("props") or {}
+        if not isinstance(props, dict):
+            props = dict(props)
+        matched = eligible_search_node(eid, props, q)
+        if not matched:
+            continue
+        hit = search_hit_from_node(
+            tenant_id, eid, labs, props, matched_on=matched, via=None
         )
-    return hits
+        directs.append(hit)
+        if labels_are_identifier(labs):
+            ident_ids.append(eid)
+            ident_meta[eid] = hit
+    owners: list[dict[str, Any]] = []
+    if ident_ids:
+        owner_cypher = """
+        MATCH (n {tenant_id: $tenant_id})--(m)
+        WHERE n.external_id IN $ids
+          AND NOT m:GraphRiskStats
+          AND m.external_id IS NOT NULL AND m.external_id <> ''
+          AND any(l IN labels(m) WHERE l IN $owner_labels)
+        RETURN n.external_id AS via_id,
+               m.external_id AS entity_id,
+               labels(m) AS labels,
+               properties(m) AS props
+        ORDER BY m.external_id ASC
+        """
+        async with driver.session() as session:
+            result = await session.run(
+                owner_cypher,
+                tenant_id=tenant_id,
+                ids=ident_ids,
+                owner_labels=list(OWNER_LABELS),
+            )
+            orows = await result.data()
+        raw_owners: list[dict[str, Any]] = []
+        for rec in orows or []:
+            if not rec:
+                continue
+            ident = ident_meta.get(str(rec.get("via_id") or ""))
+            if not ident:
+                continue
+            eid = str(rec.get("entity_id") or "").strip()
+            labs = rec.get("labels") or []
+            if not isinstance(labs, list):
+                labs = list(labs)
+            if not eid or not labels_are_owner(labs):
+                continue
+            props = rec.get("props") or {}
+            if not isinstance(props, dict):
+                props = dict(props)
+            raw_owners.append(
+                search_hit_from_node(
+                    tenant_id,
+                    eid,
+                    labs,
+                    props,
+                    matched_on=ident["matched_on"],
+                    via={"entity_id": ident["entity_id"], "labels": ident["labels"]},
+                )
+            )
+        owners = cap_identifier_owners(raw_owners)
+    return merge_search_hits(directs + owners, label=label, limit=limit)
 
 
 async def list_entity_risk_top(

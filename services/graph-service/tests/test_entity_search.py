@@ -47,6 +47,12 @@ def test_neo4j_search_cypher_is_parameterized_contains():
     assert "$tenant_id" in src
     assert "GraphRiskStats" in src
     assert "toLower" in src
+    assert "email" in src
+    assert "merge_search_hits" in src
+    assert "--(m)" in src or "-- (m)" in src
+    assert "IN $ids" in src or "IN $ident_ids" in src
+    assert "f\"{q}" not in src
+    assert "f'{q}" not in src
 
 
 def test_search_http_empty_q_no_store(monkeypatch):
