@@ -98,6 +98,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EntityRiskResponse"
+  /v1/analytics/entity-risk/top:
+    get:
+      operationId: listEntityRiskTop
+      summary: Ranked stored entity risk scores for a tenant
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50 }
+          description: Clamped to 1–200; out of range is clamped, not 400
+        - name: min_score
+          in: query
+          required: false
+          schema: { type: number, default: 0 }
+      responses:
+        "200":
+          description: Scored entities ordered by risk_score DESC, external_id ASC
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityRiskTopResponse"
+  /v1/analytics/entity-risk/refresh:
+    post:
+      operationId: refreshEntityRisk
+      summary: Recompute and persist entity risk for one entity or a tenant scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntityRiskRefreshRequest"
+      responses:
+        "200":
+          description: Persist counts; tenant scan also rewrites GraphRiskStats p90
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityRiskRefreshResponse"
+        "404":
+          description: entity_id given but entity is not in the graph
   /v1/analytics/ring-suspicion:
     get:
       operationId: ringSuspicion
@@ -309,6 +353,67 @@ components:
           type: object
           nullable: true
           additionalProperties: true
+        scored:
+          type: boolean
+          default: false
+          description: true when the entity exists and a score was computed (0 is a real score)
+        relation_count:
+          type: integer
+          minimum: 0
+          default: 0
+        relation_growth_1h:
+          type: integer
+          minimum: 0
+          default: 0
+        relation_growth_24h:
+          type: integer
+          minimum: 0
+          default: 0
+    EntityRiskTopResponse:
+      type: object
+      required: [entities]
+      properties:
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntityRiskTopItem"
+    EntityRiskTopItem:
+      type: object
+      properties:
+        entity_id: { type: string }
+        labels:
+          type: array
+          items: { type: string }
+        risk_score: { type: number }
+        risk_factors:
+          type: array
+          items: { type: string }
+        risk_computed_at:
+          type: string
+          format: date-time
+          nullable: true
+        relation_count: { type: integer }
+        relation_growth_1h: { type: integer }
+        relation_growth_24h: { type: integer }
+    EntityRiskRefreshRequest:
+      type: object
+      required: [tenant_id]
+      properties:
+        tenant_id: { type: string }
+        entity_id:
+          type: string
+          description: If set, refresh this entity only (no GraphRiskStats rewrite)
+        limit:
+          type: integer
+          default: 5000
+          description: Tenant scan cap; clamped to 1–20000
+    EntityRiskRefreshResponse:
+      type: object
+      required: [updated, skipped, truncated]
+      properties:
+        updated: { type: integer }
+        skipped: { type: integer }
+        truncated: { type: boolean }
     RingSuspicionResponse:
       type: object
       required: [tenant_id, entity_id, suspicion_level, score, reasons, ring_samples]

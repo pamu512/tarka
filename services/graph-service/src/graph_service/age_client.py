@@ -353,3 +353,124 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
                         )
 
     return {"nodes": nodes_out, "edges": edges_out}
+
+
+def _age_json(val: Any) -> Any:
+    if val is None or val == "null":
+        return None
+    if isinstance(val, (dict, list, int, float, bool)):
+        return val
+    try:
+        return json.loads(val)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return val
+
+
+async def list_entity_risk_top(
+    tenant_id: str, limit: int = 50, min_score: float = 0
+) -> list[dict[str, Any]]:
+    from .entity_risk_writeback import clamp_top_limit
+
+    limit = clamp_top_limit(limit)
+    try:
+        min_score = float(min_score)
+    except (TypeError, ValueError):
+        min_score = 0.0
+    pool = await get_pool()
+    q = f"""
+    SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id,
+           CAST(CAST(labels AS VARCHAR) AS JSON) as labels,
+           CAST(CAST(risk_score AS VARCHAR) AS JSON) as risk_score,
+           CAST(CAST(risk_factors AS VARCHAR) AS JSON) as risk_factors,
+           CAST(CAST(risk_computed_at AS VARCHAR) AS JSON) as risk_computed_at,
+           CAST(CAST(relation_count AS VARCHAR) AS JSON) as relation_count,
+           CAST(CAST(relation_growth_1h AS VARCHAR) AS JSON) as relation_growth_1h,
+           CAST(CAST(relation_growth_24h AS VARCHAR) AS JSON) as relation_growth_24h
+    FROM cypher('tarka', $$
+        MATCH (n {{tenant_id: $tenant_id}})
+        WHERE n.risk_computed_at IS NOT NULL AND n.risk_score >= $min_score
+        RETURN n.external_id, labels(n), n.risk_score, n.risk_factors,
+               n.risk_computed_at, n.relation_count, n.relation_growth_1h, n.relation_growth_24h
+        ORDER BY n.risk_score DESC, n.external_id ASC
+        LIMIT {int(limit)}
+    $$, %s) as (
+        entity_id agtype, labels agtype, risk_score agtype, risk_factors agtype,
+        risk_computed_at agtype, relation_count agtype, relation_growth_1h agtype,
+        relation_growth_24h agtype
+    );
+    """
+    params_json = json.dumps({"tenant_id": tenant_id, "min_score": min_score})
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(q, params_json)
+    out: list[dict[str, Any]] = []
+    for row in rows or []:
+        labels = _age_json(row["labels"]) or []
+        if not isinstance(labels, list):
+            labels = [labels]
+        factors = _age_json(row["risk_factors"]) or []
+        if not isinstance(factors, list):
+            factors = [factors] if factors else []
+        eid = _age_json(row["entity_id"])
+        out.append(
+            {
+                "entity_id": str(eid or ""),
+                "labels": [str(x) for x in labels],
+                "risk_score": float(_age_json(row["risk_score"]) or 0),
+                "risk_factors": [str(x) for x in factors],
+                "risk_computed_at": _age_json(row["risk_computed_at"]),
+                "relation_count": int(_age_json(row["relation_count"]) or 0),
+                "relation_growth_1h": int(_age_json(row["relation_growth_1h"]) or 0),
+                "relation_growth_24h": int(_age_json(row["relation_growth_24h"]) or 0),
+            }
+        )
+    return out
+
+
+async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
+    from .entity_risk_writeback import clamp_refresh_limit
+
+    limit = clamp_refresh_limit(limit)
+    fetch = int(limit) + 1
+    pool = await get_pool()
+    q = f"""
+    SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id
+    FROM cypher('tarka', $$
+        MATCH (n {{tenant_id: $tenant_id}})
+        WHERE n.external_id IS NOT NULL
+        RETURN n.external_id
+        ORDER BY n.external_id ASC
+        LIMIT {fetch}
+    $$, %s) as (entity_id agtype);
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(q, json.dumps({"tenant_id": tenant_id}))
+    ids: list[str] = []
+    for row in rows or []:
+        eid = _age_json(row["entity_id"])
+        if eid:
+            ids.append(str(eid))
+    truncated = len(ids) > limit
+    return ids[:limit], truncated
+
+
+async def upsert_graph_risk_stats(
+    tenant_id: str, p90_degree_by_label: dict[str, int], stats_computed_at: str
+) -> None:
+    pool = await get_pool()
+    q = """
+    SELECT * FROM cypher('tarka', $$
+        MERGE (s:GraphRiskStats {tenant_id: $tenant_id})
+        SET s.p90_degree_by_label = $p90_json,
+            s.stats_computed_at = $stats_computed_at
+        RETURN s
+    $$, %s) as (s agtype);
+    """
+    params_json = json.dumps(
+        {
+            "tenant_id": tenant_id,
+            "p90_json": json.dumps(p90_degree_by_label or {}),
+            "stats_computed_at": stats_computed_at,
+        }
+    )
+    async with pool.acquire() as conn:
+        await conn.execute(q, params_json)

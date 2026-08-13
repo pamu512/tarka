@@ -299,6 +299,100 @@ async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict
         )
 
 
+def _entity_risk_top_row(rec: Any) -> dict[str, Any]:
+    get = rec.get if hasattr(rec, "get") else lambda k, d=None: rec[k] if k in rec else d
+    labels = get("labels") or []
+    if not isinstance(labels, list):
+        labels = list(labels)
+    factors = get("risk_factors") or []
+    if not isinstance(factors, list):
+        factors = list(factors) if factors else []
+    return {
+        "entity_id": str(get("entity_id") or ""),
+        "labels": [str(x) for x in labels],
+        "risk_score": float(get("risk_score") or 0),
+        "risk_factors": [str(x) for x in factors],
+        "risk_computed_at": get("risk_computed_at"),
+        "relation_count": int(get("relation_count") or 0),
+        "relation_growth_1h": int(get("relation_growth_1h") or 0),
+        "relation_growth_24h": int(get("relation_growth_24h") or 0),
+    }
+
+
+async def list_entity_risk_top(
+    tenant_id: str, limit: int = 50, min_score: float = 0
+) -> list[dict[str, Any]]:
+    from .entity_risk_writeback import clamp_top_limit
+
+    limit = clamp_top_limit(limit)
+    try:
+        min_score = float(min_score)
+    except (TypeError, ValueError):
+        min_score = 0.0
+    driver = await get_driver()
+    q = """
+    MATCH (n {tenant_id: $tenant_id})
+    WHERE n.risk_computed_at IS NOT NULL AND n.risk_score >= $min_score
+    RETURN n.external_id AS entity_id,
+           labels(n) AS labels,
+           n.risk_score AS risk_score,
+           n.risk_factors AS risk_factors,
+           n.risk_computed_at AS risk_computed_at,
+           n.relation_count AS relation_count,
+           n.relation_growth_1h AS relation_growth_1h,
+           n.relation_growth_24h AS relation_growth_24h
+    ORDER BY n.risk_score DESC, n.external_id ASC
+    LIMIT $limit
+    """
+    async with driver.session() as session:
+        result = await session.run(
+            q, tenant_id=tenant_id, min_score=min_score, limit=limit
+        )
+        rows = await result.data()
+    return [_entity_risk_top_row(r) for r in (rows or []) if r]
+
+
+async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
+    from .entity_risk_writeback import clamp_refresh_limit
+
+    limit = clamp_refresh_limit(limit)
+    fetch = limit + 1
+    driver = await get_driver()
+    q = """
+    MATCH (n {tenant_id: $tenant_id})
+    WHERE n.external_id IS NOT NULL AND NOT n:GraphRiskStats
+    RETURN n.external_id AS entity_id
+    ORDER BY n.external_id ASC
+    LIMIT $fetch
+    """
+    async with driver.session() as session:
+        result = await session.run(q, tenant_id=tenant_id, fetch=fetch)
+        rows = await result.data()
+    ids = [str(r["entity_id"]) for r in (rows or []) if r and r.get("entity_id")]
+    truncated = len(ids) > limit
+    return ids[:limit], truncated
+
+
+async def upsert_graph_risk_stats(
+    tenant_id: str, p90_degree_by_label: dict[str, int], stats_computed_at: str
+) -> None:
+    import json
+
+    driver = await get_driver()
+    q = """
+    MERGE (s:GraphRiskStats {tenant_id: $tenant_id})
+    SET s.p90_degree_by_label = $p90_json,
+        s.stats_computed_at = $stats_computed_at
+    """
+    async with driver.session() as session:
+        await session.run(
+            q,
+            tenant_id=tenant_id,
+            p90_json=json.dumps(p90_degree_by_label or {}),
+            stats_computed_at=stats_computed_at,
+        )
+
+
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
     from .graph_runtime import parse_p90_degree_by_label
 

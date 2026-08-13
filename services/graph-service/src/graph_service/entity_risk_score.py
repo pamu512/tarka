@@ -116,6 +116,7 @@ def score_entity_risk(
     hop_depth: int,
     freshness: str | None,
     multiplier: float = 1.0,
+    primary_label: str | None = None,
 ) -> dict[str, Any]:
     score = 0.0
     factors: list[str] = []
@@ -166,6 +167,7 @@ def score_entity_risk(
         "relation_count": int(conn_count),
         "relation_growth_1h": int(relation_growth_1h),
         "relation_growth_24h": int(relation_growth_24h),
+        "primary_label": str(primary_label or ""),
     }
     if freshness:
         out["graph_data_as_of"] = freshness

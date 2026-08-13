@@ -29,13 +29,22 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import is_found_payload
-from .entity_risk_writeback import persist_entity_risk, refresh_touched_and_neighbors
+from .entity_risk_writeback import (
+    EntityRiskNotFound,
+    clamp_refresh_limit,
+    clamp_top_limit,
+    persist_entity_risk,
+    refresh_entity,
+    refresh_tenant,
+    refresh_touched_and_neighbors,
+)
 from .graph_risk_model import score_graph_risk_beta
 from .schemas import EntityRiskResponse
 from .graph_runtime import (
     close_graph_backend,
     create_link,
     get_tags,
+    list_entity_risk_top,
     query_entity_deep_context,
     query_subgraph,
     update_tags,
@@ -416,6 +425,35 @@ async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str |
                 entity_id,
             )
     return EntityRiskResponse.model_validate(base)
+
+
+class EntityRiskRefreshRequest(BaseModel):
+    tenant_id: str
+    entity_id: str | None = None
+    limit: int | None = None
+
+
+@app.get("/v1/analytics/entity-risk/top")
+async def entity_risk_top(tenant_id: str, limit: int = 50, min_score: float = 0):
+    rows = await list_entity_risk_top(
+        tenant_id, limit=clamp_top_limit(limit), min_score=min_score
+    )
+    return {"entities": rows}
+
+
+@app.post("/v1/analytics/entity-risk/refresh")
+async def entity_risk_refresh(body: EntityRiskRefreshRequest):
+    if body.entity_id:
+        try:
+            return await refresh_entity(
+                body.tenant_id, body.entity_id, compute_fn=compute_entity_risk
+            )
+        except EntityRiskNotFound:
+            raise HTTPException(status_code=404, detail="entity_not_found") from None
+    limit = clamp_refresh_limit(
+        body.limit if body.limit is not None else 5000
+    )
+    return await refresh_tenant(body.tenant_id, limit=limit)
 
 
 @app.get("/v1/analytics/ring-suspicion", response_model=RingSuspicionResponse)
