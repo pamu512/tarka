@@ -27,6 +27,8 @@ dependencies = [
   "pyarrow>=14.0.0",
   "bleach>=6.2.0",
   "paramiko>=3.5.0",
+  "setuptools>=83.0.0",
+  "msgpack>=1.2.1",
 ]
 
 [project.optional-dependencies]

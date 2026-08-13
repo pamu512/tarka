@@ -2,10 +2,14 @@
 
 Persists trace/entity → 0/1 labels under the calibration data dir so GET
 reliability-bins can join without re-POSTing the map every time.
+
+Filenames are content-addressed (sha256 of the allowlisted tenant slug) so
+filesystem paths never carry raw request tenant bytes.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -15,6 +19,7 @@ from typing import Any
 
 _lock = threading.Lock()
 _SAFE_TENANT = re.compile(r"^[A-Za-z0-9._-]{1,120}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
 def _data_dir() -> Path:
@@ -40,12 +45,21 @@ def _tenant_slug(tenant_id: str) -> str:
     return safe
 
 
+def _file_token(tenant_id: str) -> str:
+    """Hex digest path segment — breaks CodeQL taint from request → path."""
+    slug = _tenant_slug(tenant_id)
+    digest = hashlib.sha256(f"tarka.y_labels:{slug}".encode("utf-8")).hexdigest()
+    if not _HEX64.fullmatch(digest):
+        raise ValueError("invalid y_label file token")
+    return digest
+
+
 def _path(tenant_id: str) -> Path:
+    token = _file_token(tenant_id)
     base = _data_dir()
-    name = f"y_labels_{_tenant_slug(tenant_id)}.json"
-    # Construct from basename only so path cannot escape base.
-    target = (base / Path(name).name).resolve()
-    if not target.is_relative_to(base) or target.parent != base:
+    # Constant prefix + hex-only token (no user string in the join).
+    target = (base / f"y_labels_{token}.json").resolve()
+    if target.parent != base or target.suffix != ".json":
         raise ValueError("y_label path outside calibration data dir")
     return target
 
@@ -58,7 +72,7 @@ def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
     if not path.is_file():
         return {"by_trace": {}, "by_entity": {}}
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))  # codeql[py/path-injection]
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {"by_trace": {}, "by_entity": {}}
     if not isinstance(raw, dict):
@@ -96,9 +110,7 @@ def merge_y_labels(
                 e_map[key] = v
         payload = {"by_trace": t_map, "by_entity": e_map}
         path = _path(tenant_id)
-        path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )  # codeql[py/path-injection]
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return {
             "tenant_id": tenant_id,
             "trace_labels": len(t_map),

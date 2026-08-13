@@ -7,7 +7,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repo/services/decision-api
-RUN pip install --no-cache-dir pip -U "setuptools>=83.0.0" "msgpack>=1.2.1" wheel
+RUN pip install --no-cache-dir -U pip wheel \
+    && pip uninstall -y setuptools msgpack || true \
+    && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && rm -rf /usr/local/lib/python*/ensurepip/_bundled/setuptools*.whl \
+              /usr/local/lib/python*/ensurepip/_bundled/wheel*.whl || true
 COPY services/core /repo/services/core
 COPY services/analytics /repo/services/analytics
 COPY services/decision-api/pyproject.toml /repo/services/decision-api/
@@ -19,7 +23,9 @@ COPY services/decision-api/rules /repo/services/decision-api/rules
 COPY services/decision-api/static /repo/services/decision-api/static
 COPY adapters /repo/adapters
 RUN pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir -U "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && pip uninstall -y setuptools msgpack || true \
+    && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && python -c "import importlib.metadata as m; s=m.version('setuptools'); p=m.version('msgpack'); assert tuple(int(x) for x in s.split('.')[:2])>=(83,0), s; assert tuple(int(x) for x in p.split('.')[:2])>=(1,2), p" \
     && rm -rf /root/.cache /root/.cargo/registry /root/.cargo/git 2>/dev/null || true
 ENV RULES_PATH=/repo/services/decision-api/rules
 ENV PYTHONPATH=/repo/services/decision-api/src:/repo/services/shared:/repo
