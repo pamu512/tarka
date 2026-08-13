@@ -6,8 +6,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-# Base image often ships vulnerable setuptools; pin before/after install for Trivy.
-RUN pip install --no-cache-dir pip -U "setuptools>=83.0.0" "msgpack>=1.2.1" wheel
+# Base image / ensurepip often ship vulnerable setuptools+msgpack; force-replace for Trivy.
+RUN pip install --no-cache-dir -U pip wheel \
+    && pip uninstall -y setuptools msgpack || true \
+    && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && rm -rf /usr/local/lib/python*/ensurepip/_bundled/setuptools*.whl \
+              /usr/local/lib/python*/ensurepip/_bundled/wheel*.whl || true
 # Local path deps in pyproject.toml (file:../core, file:../analytics) must exist before `pip install`;
 # sed below rewrites them to file:./core and file:./analytics under WORKDIR.
 COPY services/core /app/core
@@ -33,7 +37,9 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
     && pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir -U "setuptools>=83.0.0" "msgpack>=1.2.1"
+    && pip uninstall -y setuptools msgpack || true \
+    && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
+    && python -c "import importlib.metadata as m; s=m.version('setuptools'); p=m.version('msgpack'); assert tuple(int(x) for x in s.split('.')[:2])>=(83,0), s; assert tuple(int(x) for x in p.split('.')[:2])>=(1,2), p; print('setuptools', s, 'msgpack', p)"
 ENV PYTHONPATH=/app/src:/app:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
 CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]

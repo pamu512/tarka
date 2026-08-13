@@ -19,7 +19,7 @@ def test_y_label_from_ground_truth():
 
 def test_y_label_store_persists(tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
-    from decision_api.y_label_store import load_y_labels, merge_y_labels
+    from decision_api.y_label_store import _path, load_y_labels, merge_y_labels
 
     snap = merge_y_labels("demo", by_trace={"t1": "1"}, by_entity={"e1": "0"})
     assert snap["trace_labels"] == 1
@@ -31,6 +31,11 @@ def test_y_label_store_persists(tmp_path, monkeypatch):
     again = load_y_labels("demo")
     assert again["by_trace"]["t1"] == "1"
     assert again["by_trace"]["t2"] == "0"
+    # Path segment is hex digest — never the raw tenant / traversal payload.
+    p = _path("../evil")
+    assert p.parent == tmp_path.resolve()
+    assert "evil" not in p.name
+    assert ".." not in p.name
 
 
 def test_reliability_bins_body_proxy_off_by_default():
