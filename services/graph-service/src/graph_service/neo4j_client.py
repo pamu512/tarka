@@ -10,6 +10,7 @@ from .entity_risk_score import (
     _link_properties_with_observed_at,
     decorate_subgraph_node,
     link_props_for_match,
+    search_hit_from_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
 
@@ -317,6 +318,51 @@ def _entity_risk_top_row(rec: Any) -> dict[str, Any]:
         "relation_growth_1h": int(get("relation_growth_1h") or 0),
         "relation_growth_24h": int(get("relation_growth_24h") or 0),
     }
+
+
+async def search_entities(
+    tenant_id: str, q: str, label: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    driver = await get_driver()
+    cypher = """
+    MATCH (n {tenant_id: $tenant_id})
+    WHERE n.external_id IS NOT NULL
+      AND NOT n:GraphRiskStats
+      AND toLower(n.external_id) CONTAINS toLower($q)
+      AND ($label IS NULL OR $label IN labels(n))
+    RETURN n.external_id AS entity_id,
+           labels(n) AS labels,
+           properties(n) AS props
+    ORDER BY CASE WHEN n.risk_computed_at IS NULL THEN 1 ELSE 0 END,
+             n.risk_score DESC,
+             n.external_id ASC
+    LIMIT $limit
+    """
+    async with driver.session() as session:
+        result = await session.run(
+            cypher,
+            tenant_id=tenant_id,
+            q=q,
+            label=label,
+            limit=limit,
+        )
+        rows = await result.data()
+    hits: list[dict[str, Any]] = []
+    for rec in rows or []:
+        if not rec:
+            continue
+        labs = rec.get("labels") or []
+        if not isinstance(labs, list):
+            labs = list(labs)
+        hits.append(
+            search_hit_from_node(
+                tenant_id,
+                rec.get("entity_id") or "",
+                labs,
+                rec.get("props"),
+            )
+        )
+    return hits
 
 
 async def list_entity_risk_top(

@@ -187,3 +187,27 @@ def score_entity_risk(
     if freshness:
         out["graph_data_as_of"] = freshness
     return out
+
+
+def clamp_search_limit(limit: int | None) -> int:
+    if limit is None:
+        return 20
+    try:
+        n = int(limit)
+    except (TypeError, ValueError):
+        return 20
+    return max(1, min(50, n))
+
+
+def search_hit_from_node(
+    tenant_id: str, entity_id: str, labels: list, props: dict[str, Any] | None
+) -> dict[str, Any]:
+    view = stored_risk_view(props)
+    labs = [str(x) for x in (labels or [])]
+    return {
+        "entity_id": str(entity_id),
+        "tenant_id": str(tenant_id),
+        "labels": labs,
+        "scored": bool(view["scored"]),
+        "risk_score": view["risk_score"],
+    }

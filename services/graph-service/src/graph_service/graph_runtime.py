@@ -130,6 +130,12 @@ def _store():
     return store
 
 
+async def search_entities(
+    tenant_id: str, q: str, label: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    return await _store().search_entities(tenant_id, q, label=label, limit=limit)
+
+
 async def list_entity_risk_top(
     tenant_id: str, limit: int = 50, min_score: float = 0
 ) -> list[dict[str, Any]]:
