@@ -49,7 +49,7 @@ export const ACCESS_GROUPS: { id: AccessGroupId; label: string; modules: ModuleC
     id: "investigation",
     label: "Investigation",
     modules: [
-      { id: "graph", label: "Graph Explorer", route: "/graph", highRisk: true },
+      { id: "graph", label: "Graph", route: "/graph", highRisk: true },
       { id: "investigation", label: "Investigation Copilot", route: "/investigation", highRisk: true },
       { id: "osint", label: "OSINT", route: "/osint", highRisk: true },
       { id: "analytics", label: "Analytics", route: "/analytics" },

@@ -42,13 +42,22 @@ export type GraphContextPanelProps = {
   entityId: string | null;
   /** Optional subgraph node for header chips while loading. */
   nodeHint?: GraphNode | null;
+  /** In-column dossier (investigation workspace); skip the slide-over overlay. */
+  embedded?: boolean;
 };
 
 /**
  * Slide-over panel: loads ``graph.entityDeepContext`` when opened for a node.
  * Shows skeleton while loading; 404 is surfaced as a calm empty state (no stack traces).
  */
-export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint }: GraphContextPanelProps) {
+export function GraphContextPanel({
+  open,
+  onClose,
+  tenantId,
+  entityId,
+  nodeHint,
+  embedded,
+}: GraphContextPanelProps) {
   const titleId = useId();
   const [state, setState] = useState<LoadState>("idle");
   const [data, setData] = useState<GraphEntityDeepContext | null>(null);
@@ -105,21 +114,27 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open || !entityId) return null;
+  if (!open || !entityId) {
+    if (embedded) {
+      return (
+        <div className="h-full flex items-center justify-center px-3 text-xs text-gray-500 text-center">
+          Select a node on the canvas
+        </div>
+      );
+    }
+    return null;
+  }
 
-  return (
-    <div className="fixed inset-0 z-[80] flex justify-end" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
-        aria-label="Close context panel"
-        onClick={onClose}
-      />
+  const shell = (
       <aside
-        role="dialog"
-        aria-modal="true"
+        role={embedded ? "region" : "dialog"}
+        aria-modal={embedded ? undefined : true}
         aria-labelledby={titleId}
-        className="relative h-full w-full max-w-md border-l border-surface-700 bg-surface-950 shadow-2xl flex flex-col transition-transform duration-200"
+        className={
+          embedded
+            ? "relative h-full w-full flex flex-col bg-surface-950"
+            : "relative h-full w-full max-w-md border-l border-surface-700 bg-surface-950 shadow-2xl flex flex-col transition-transform duration-200"
+        }
       >
         <header className="shrink-0 border-b border-surface-800 px-4 py-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -293,6 +308,19 @@ export function GraphContextPanel({ open, onClose, tenantId, entityId, nodeHint 
           ) : null}
         </div>
       </aside>
+  );
+
+  if (embedded) return shell;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex justify-end" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
+        aria-label="Close context panel"
+        onClick={onClose}
+      />
+      {shell}
     </div>
   );
 }
