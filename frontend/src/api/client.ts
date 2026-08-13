@@ -607,6 +607,12 @@ export interface GraphNode {
   id: string;
   labels: string[];
   properties: Record<string, unknown>;
+  scored?: boolean;
+  risk_score?: number | null;
+  risk_factors?: string[] | null;
+  relation_count?: number | null;
+  relation_growth_1h?: number | null;
+  relation_growth_24h?: number | null;
 }
 
 export interface GraphEdge {
