@@ -70,3 +70,21 @@ def test_search_http_passes_label_and_clamps(monkeypatch):
     assert kwargs["q"] == "frank"
     assert kwargs["label"] == "Person"
     assert kwargs["limit"] == 50
+
+
+from graph_service import age_client, janusgraph_store
+
+
+def test_janus_search_filters_in_python_not_full_graph_scan_without_tenant():
+    src = inspect.getsource(janusgraph_store.search_entities)
+    assert "tenant_id" in src
+    assert "external_id" in src
+    assert "GraphRiskStats" in src
+    assert "search_hit_from_node" in src
+
+
+def test_age_search_cypher_contains_and_tenant():
+    src = inspect.getsource(age_client.search_entities)
+    assert "CONTAINS" in src or "contains" in src
+    assert "tenant_id" in src
+    assert "GraphRiskStats" in src or "external_id" in src

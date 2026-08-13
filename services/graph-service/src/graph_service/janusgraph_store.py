@@ -11,7 +11,12 @@ from gremlin_python.process.traversal import Cardinality
 
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
-from .entity_risk_score import _link_properties_with_observed_at, decorate_subgraph_node
+from .entity_risk_score import (
+    _link_properties_with_observed_at,
+    clamp_search_limit,
+    decorate_subgraph_node,
+    search_hit_from_node,
+)
 from .hetero_schema import validate_typed_edge_or_raise
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 
@@ -484,6 +489,49 @@ async def list_entity_risk_top(
     return await run_in_gremlin_thread(
         lambda: _list_entity_risk_top_sync(tenant_id, limit, min_score)
     )
+
+
+async def search_entities(
+    tenant_id: str, q: str, label: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    limit = clamp_search_limit(limit)
+    needle = str(q or "").casefold()
+
+    def _search_entities_sync() -> list[dict[str, Any]]:
+        g = get_traversal_source()
+        hits: list[dict[str, Any]] = []
+        # ponytail: full tenant vertex scan; upgrade = mixed index on external_id
+        for v in g.V().has("tenant_id", tenant_id).toList():
+            if str(getattr(v, "label", "") or "") == "GraphRiskStats":
+                continue
+            try:
+                em = dict(g.V(v).elementMap().next())
+            except StopIteration:
+                continue
+            eid = str(em.get("external_id") or "")
+            if not eid:
+                continue
+            if needle not in eid.casefold():
+                continue
+            raw_lbl = em.get("label")
+            if isinstance(raw_lbl, list):
+                labels = [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
+            else:
+                labels = [str(raw_lbl or "Custom")]
+            if label is not None and label not in labels:
+                continue
+            props = {k: val for k, val in em.items() if k not in ("id", "label")}
+            hits.append(search_hit_from_node(tenant_id, eid, labels, props))
+        hits.sort(
+            key=lambda h: (
+                not h.get("scored"),
+                -(float(h["risk_score"]) if h.get("risk_score") is not None else 0.0),
+                str(h.get("entity_id") or ""),
+            )
+        )
+        return hits[:limit]
+
+    return await run_in_gremlin_thread(_search_entities_sync)
 
 
 def _scan_tenant_entity_ids_sync(tenant_id: str, limit: int) -> tuple[list[str], bool]:

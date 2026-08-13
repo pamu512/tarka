@@ -6,7 +6,13 @@ import asyncpg
 
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
-from .entity_risk_score import decorate_subgraph_node, link_props_for_create, link_props_for_match
+from .entity_risk_score import (
+    clamp_search_limit,
+    decorate_subgraph_node,
+    link_props_for_create,
+    link_props_for_match,
+    search_hit_from_node,
+)
 from .hetero_schema import validate_typed_edge_or_raise
 
 _pool: asyncpg.Pool | None = None
@@ -434,6 +440,48 @@ async def list_entity_risk_top(
             }
         )
     return out
+
+
+async def search_entities(
+    tenant_id: str, q: str, label: str | None = None, limit: int = 20
+) -> list[dict[str, Any]]:
+    limit = clamp_search_limit(limit)
+    pool = await get_pool()
+    stmt = f"""
+    SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id,
+           CAST(CAST(labels AS VARCHAR) AS JSON) as labels,
+           CAST(CAST(risk_score AS VARCHAR) AS JSON) as risk_score,
+           CAST(CAST(risk_computed_at AS VARCHAR) AS JSON) as risk_computed_at
+    FROM cypher('tarka', $$
+        MATCH (n {{tenant_id: $tenant_id}})
+        WHERE n.external_id IS NOT NULL
+          AND NOT n:GraphRiskStats
+          AND toLower(n.external_id) CONTAINS toLower($q)
+          AND ($label IS NULL OR $label IN labels(n))
+        RETURN n.external_id, labels(n), n.risk_score, n.risk_computed_at
+        ORDER BY CASE WHEN n.risk_computed_at IS NULL THEN 1 ELSE 0 END,
+                 n.risk_score DESC,
+                 n.external_id ASC
+        LIMIT {int(limit)}
+    $$, %s) as (
+        entity_id agtype, labels agtype, risk_score agtype, risk_computed_at agtype
+    );
+    """
+    params_json = json.dumps({"tenant_id": tenant_id, "q": q, "label": label})
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(stmt, params_json)
+    hits: list[dict[str, Any]] = []
+    for row in rows or []:
+        labels = _age_json(row["labels"]) or []
+        if not isinstance(labels, list):
+            labels = [labels]
+        eid = _age_json(row["entity_id"])
+        props = {
+            "risk_score": _age_json(row["risk_score"]),
+            "risk_computed_at": _age_json(row["risk_computed_at"]),
+        }
+        hits.append(search_hit_from_node(tenant_id, str(eid or ""), labels, props))
+    return hits
 
 
 async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
