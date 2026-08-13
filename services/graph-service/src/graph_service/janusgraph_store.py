@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -339,3 +340,26 @@ async def query_entity_deep_context(tenant_id: str, entity_id: str) -> dict[str,
     return await run_in_gremlin_thread(
         lambda: _query_entity_deep_context_sync(tenant_id, entity_id)
     )
+
+
+def _load_peer_p90_sync(tenant_id: str, label: str) -> int | None:
+    from .graph_runtime import parse_p90_degree_by_label
+
+    try:
+        g = get_traversal_source()
+        found = g.V().hasLabel("GraphRiskStats").has("tenant_id", tenant_id).limit(1).toList()
+        if not found:
+            return None
+        raw = None
+        with contextlib.suppress(Exception):
+            raw = found[0].value("p90_degree_by_label")
+        if raw is None:
+            with contextlib.suppress(Exception):
+                raw = g.V(found[0]).values("p90_degree_by_label").limit(1).next()
+        return parse_p90_degree_by_label(raw, label)
+    except Exception:
+        return None
+
+
+async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
+    return await run_in_gremlin_thread(lambda: _load_peer_p90_sync(tenant_id, label))

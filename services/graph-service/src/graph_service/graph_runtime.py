@@ -1,10 +1,32 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from .config import settings
 
 """Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
+
+
+def parse_p90_degree_by_label(raw: Any, label: str) -> int | None:
+    try:
+        if raw is None:
+            return None
+        if isinstance(raw, (bytes, bytearray)):
+            raw = raw.decode()
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text:
+                return None
+            raw = json.loads(text)
+        elif not isinstance(raw, dict):
+            raw = dict(raw)
+        val = raw.get(label)
+        if val is None:
+            return None
+        return int(val)
+    except Exception:
+        return None
 
 
 async def upsert_entity(
@@ -80,6 +102,23 @@ async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[st
     from graph_service import neo4j_client as store
 
     return await store.query_entity_deep_context(tenant_id, external_id)
+
+
+async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
+    try:
+        if settings.graph_backend == "janusgraph":
+            from graph_service import janusgraph_store as store
+
+            return await store.load_peer_p90_by_label(tenant_id, label)
+        if settings.graph_backend == "age":
+            from graph_service import age_client as store
+
+            return await store.load_peer_p90_by_label(tenant_id, label)
+        from graph_service import neo4j_client as store
+
+        return await store.load_peer_p90_by_label(tenant_id, label)
+    except Exception:
+        return None
 
 
 async def close_graph_backend() -> None:

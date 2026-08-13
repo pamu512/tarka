@@ -3,12 +3,14 @@ from __future__ import annotations
 import contextlib
 import logging
 from collections import defaultdict, deque
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import networkx as nx
 
 from .config import settings
 from .entity_risk_score import entity_not_found_payload, score_entity_risk
+from .graph_data_freshness import _parse_timestamp
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 from .janusgraph_store import _vertex_external_id
 
@@ -34,6 +36,39 @@ _HIGH_RISK_TAGS = frozenset(
 
 def _clamp_depth(depth: int) -> int:
     return max(1, min(int(depth), 5))
+
+
+def _coalesce_edge_ts(edge: Any) -> Any:
+    for key in ("observed_at", "created_at", "updated_at"):
+        with contextlib.suppress(Exception):
+            val = edge.value(key)
+            if val is not None and str(val).strip():
+                return val
+    return None
+
+
+def _count_edge_growth(timestamps: list[Any]) -> tuple[int, int]:
+    now = datetime.now(UTC)
+    g1 = g24 = 0
+    for ts in timestamps:
+        dt = _parse_timestamp(ts)
+        if dt is None:
+            continue
+        delta = now - dt
+        if delta <= timedelta(hours=1):
+            g1 += 1
+        if delta <= timedelta(hours=24):
+            g24 += 1
+    return g1, g24
+
+
+async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
+    try:
+        from .graph_runtime import load_peer_p90_by_label
+
+        return await load_peer_p90_by_label(tenant_id, label)
+    except Exception:
+        return None
 
 
 def _tags_list_from_vertex(g, v: Any) -> list[str]:
@@ -293,7 +328,11 @@ async def compute_entity_risk(
         v = vl[0]
         tags = _tags_list_from_vertex(g, v)
         neighbors: list[Any] = []
+        edge_timestamps: list[Any] = []
         for e in g.V(v).bothE().toList():
+            ts = _coalesce_edge_ts(e)
+            if ts is not None:
+                edge_timestamps.append(ts)
             other = e.inV().next() if e.outV().next().id == v.id else e.outV().next()
             try:
                 if str(other.value("tenant_id")) != tenant_id:
@@ -301,6 +340,11 @@ async def compute_entity_risk(
             except Exception:
                 continue
             neighbors.append(other)
+
+        relation_growth_1h, relation_growth_24h = _count_edge_growth(edge_timestamps)
+        primary_label = ""
+        with contextlib.suppress(Exception):
+            primary_label = str(g.V(v).label().next()) or ""
 
         flagged = 0
         for nb in neighbors:
@@ -360,22 +404,39 @@ async def compute_entity_risk(
                 freshness_props[key] = v.value(key)
         freshness = graph_data_as_of_iso(freshness_props)
 
-        return score_entity_risk(
-            entity_id=entity_id,
-            tags=tags,
-            conn_count=conn_count,
-            flagged=flagged,
-            community_size=community_size,
-            shared_devices=shared_devices,
-            neighbor_device_count=neighbor_device_count,
-            relation_growth_1h=0,
-            relation_growth_24h=0,
-            peer_p90=None,
-            checkpoint=checkpoint,
-            profile=profile.get("_profile_name"),
-            hop_depth=hop_depth,
-            freshness=freshness,
-            multiplier=mult,
-        )
+        return {
+            "tags": tags,
+            "conn_count": conn_count,
+            "flagged": flagged,
+            "community_size": community_size,
+            "shared_devices": shared_devices,
+            "neighbor_device_count": neighbor_device_count,
+            "relation_growth_1h": relation_growth_1h,
+            "relation_growth_24h": relation_growth_24h,
+            "primary_label": primary_label,
+            "hop_depth": hop_depth,
+            "freshness": freshness,
+        }
 
-    return await run_in_gremlin_thread(sync)
+    data = await run_in_gremlin_thread(sync)
+    if "conn_count" not in data:
+        return data
+    primary_label = str(data.get("primary_label") or "")
+    peer_p90 = await load_peer_p90_for_label(tenant_id, primary_label) if primary_label else None
+    return score_entity_risk(
+        entity_id=entity_id,
+        tags=data["tags"],
+        conn_count=data["conn_count"],
+        flagged=data["flagged"],
+        community_size=data["community_size"],
+        shared_devices=data["shared_devices"],
+        neighbor_device_count=data["neighbor_device_count"],
+        relation_growth_1h=data["relation_growth_1h"],
+        relation_growth_24h=data["relation_growth_24h"],
+        peer_p90=peer_p90,
+        checkpoint=checkpoint,
+        profile=profile.get("_profile_name"),
+        hop_depth=data["hop_depth"],
+        freshness=data["freshness"],
+        multiplier=mult,
+    )

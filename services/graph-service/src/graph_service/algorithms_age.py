@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from .age_client import get_pool
+from .algorithms_neo4j import _relation_growth_counts
 from .entity_risk_score import entity_not_found_payload, score_entity_risk
 
 """
@@ -380,6 +381,15 @@ _HIGH_RISK_TAGS = frozenset(
 )
 
 
+async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
+    try:
+        from .graph_runtime import load_peer_p90_by_label
+
+        return await load_peer_p90_by_label(tenant_id, label)
+    except Exception:
+        return None
+
+
 async def compute_entity_risk(
     tenant_id: str,
     entity_id: str,
@@ -399,7 +409,9 @@ async def compute_entity_risk(
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
            CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,
            CAST(CAST(community_size AS VARCHAR) AS JSON) as community_size,
-           CAST(CAST(shared_device_count AS VARCHAR) AS JSON) as shared_device_count
+           CAST(CAST(shared_device_count AS VARCHAR) AS JSON) as shared_device_count,
+           CAST(CAST(node_labels AS VARCHAR) AS JSON) as node_labels,
+           CAST(CAST(edge_timestamps AS VARCHAR) AS JSON) as edge_timestamps
     FROM cypher('tarka', $$
         MATCH (n {{tenant_id: $tenant_id, external_id: $entity_id}})
 
@@ -428,13 +440,18 @@ async def compute_entity_risk(
         WITH n, conn_count, flagged_neighbors, community_size,
              count(DISTINCT other) AS shared_device_count
 
+        OPTIONAL MATCH (n)-[e]-()
+        WITH n, conn_count, flagged_neighbors, community_size, shared_device_count,
+             collect(coalesce(e.observed_at, e.created_at, e.updated_at)) AS edge_timestamps
         RETURN
           n.tags              AS tags,
+          labels(n)           AS node_labels,
           conn_count,
           flagged_neighbors,
           community_size,
-          shared_device_count
-    $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype);
+          shared_device_count,
+          edge_timestamps
+    $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype, node_labels agtype, edge_timestamps agtype);
     """
 
     params_json = json.dumps(
@@ -454,6 +471,21 @@ async def compute_entity_risk(
     flagged: int = json.loads(row["flagged_neighbors"])
     community_size: int = json.loads(row["community_size"])
     shared_devices: int = json.loads(row["shared_device_count"])
+    node_labels = (
+        json.loads(row["node_labels"])
+        if row["node_labels"] and row["node_labels"] != "null"
+        else []
+    )
+    primary_label = str(node_labels[0]) if node_labels else ""
+    edge_timestamps = (
+        json.loads(row["edge_timestamps"])
+        if row["edge_timestamps"] and row["edge_timestamps"] != "null"
+        else []
+    )
+    if not isinstance(edge_timestamps, list):
+        edge_timestamps = []
+    relation_growth_1h, relation_growth_24h = _relation_growth_counts(edge_timestamps)
+    peer_p90 = await load_peer_p90_for_label(tenant_id, primary_label) if primary_label else None
 
     return score_entity_risk(
         entity_id=entity_id,
@@ -463,9 +495,9 @@ async def compute_entity_risk(
         community_size=community_size,
         shared_devices=shared_devices,
         neighbor_device_count=0,
-        relation_growth_1h=0,
-        relation_growth_24h=0,
-        peer_p90=None,
+        relation_growth_1h=relation_growth_1h,
+        relation_growth_24h=relation_growth_24h,
+        peer_p90=peer_p90,
         checkpoint=checkpoint,
         profile=profile.get("_profile_name"),
         hop_depth=hop_depth,

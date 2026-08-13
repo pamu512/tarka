@@ -205,6 +205,28 @@ async def create_link(
         await conn.execute(q, params_json)
 
 
+async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
+    from .graph_runtime import parse_p90_degree_by_label
+
+    try:
+        pool = await get_pool()
+        q = """
+        SELECT CAST(CAST(raw AS VARCHAR) AS JSON) as raw
+        FROM cypher('tarka', $$
+            MATCH (s:GraphRiskStats {tenant_id: $tenant_id})
+            RETURN s.p90_degree_by_label
+        $$, %s) as (raw agtype);
+        """
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(q, json.dumps({"tenant_id": tenant_id}))
+        if not row or not row["raw"] or row["raw"] == "null":
+            return None
+        raw = json.loads(row["raw"])
+        return parse_p90_degree_by_label(raw, label)
+    except Exception:
+        return None
+
+
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
     pool = await get_pool()
     depth = max(1, min(int(depth), 5))
