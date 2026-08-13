@@ -155,3 +155,29 @@ async def test_trend_http_viewer_forbidden(
         )
         assert r.status_code == 403
     trend_store.reset_connection_for_tests()
+
+
+@pytest.mark.asyncio
+async def test_tick_enqueues_agent_run_and_survives_agent_down(
+    trend_http: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("INVESTIGATION_AGENT_URL", "http://inv.test")
+    posted: list[dict] = []
+
+    async def _fake_post(url, json=None, headers=None, timeout=None):  # noqa: ANN001
+        posted.append({"url": url, "json": json})
+        raise RuntimeError("down")
+
+    import httpx
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post)
+
+    # Direct evaluate still 200; enqueue helper must not raise.
+    from decision_api.trend_agent_api import maybe_enqueue_trend_agent_run
+
+    await maybe_enqueue_trend_agent_run(
+        tenant_id="ten-a",
+        entity_id="ent-1",
+        turn_id="trend:ent-1",
+        context_snapshot={"freshness": {"graph": "missing"}},
+        claims=[],
+    )

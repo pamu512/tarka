@@ -107,6 +107,13 @@ def _init_schema(c: sqlite3.Connection) -> None:
         );
         """
     )
+    cols = {r[1] for r in c.execute("PRAGMA table_info(trend_draft_rules)").fetchall()}
+    if "agent_run_id" not in cols:
+        c.execute("ALTER TABLE trend_draft_rules ADD COLUMN agent_run_id TEXT")
+    if "gitops_ready" not in cols:
+        c.execute("ALTER TABLE trend_draft_rules ADD COLUMN gitops_ready INTEGER NOT NULL DEFAULT 0")
+    if "backtest_job_id" not in cols:
+        c.execute("ALTER TABLE trend_draft_rules ADD COLUMN backtest_job_id TEXT")
     c.commit()
 
 
@@ -158,6 +165,7 @@ def insert_draft_rule(
     rule_package: dict[str, Any],
     envelope: dict[str, Any],
     status: str = "PENDING_VALIDATION",
+    agent_run_id: str | None = None,
 ) -> str:
     # Never auto-PROMOTED from the agent path.
     if status not in ("PENDING_VALIDATION", "REJECTED"):
@@ -168,8 +176,9 @@ def insert_draft_rule(
         c.execute(
             """
             INSERT INTO trend_draft_rules
-            (id, tenant_id, entity_id, status, rule_package_json, envelope_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (id, tenant_id, entity_id, status, rule_package_json, envelope_json,
+             created_at, agent_run_id, gitops_ready, backtest_job_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 rid,
@@ -179,6 +188,9 @@ def insert_draft_rule(
                 json.dumps(rule_package, sort_keys=True, default=str),
                 json.dumps(envelope, sort_keys=True, default=str),
                 time.time(),
+                agent_run_id,
+                0,
+                None,
             ),
         )
         c.commit()
@@ -265,7 +277,8 @@ def list_pending_drafts(*, tenant_id: str) -> list[dict[str, Any]]:
     c = _get_conn()
     rows = c.execute(
         """
-        SELECT id, entity_id, status, rule_package_json, created_at
+        SELECT id, entity_id, status, rule_package_json, created_at,
+               agent_run_id, gitops_ready, backtest_job_id
         FROM trend_draft_rules
         WHERE tenant_id = ? AND status = 'PENDING_VALIDATION'
         ORDER BY created_at DESC LIMIT 50
@@ -279,6 +292,9 @@ def list_pending_drafts(*, tenant_id: str) -> list[dict[str, Any]]:
             "status": r[2],
             "rule_package": json.loads(r[3] or "{}"),
             "created_at": r[4],
+            "agent_run_id": r[5],
+            "gitops_ready": bool(r[6]),
+            "backtest_job_id": r[7],
         }
         for r in rows
     ]
@@ -288,7 +304,8 @@ def get_draft_rule(*, tenant_id: str, draft_id: str) -> dict[str, Any] | None:
     c = _get_conn()
     row = c.execute(
         """
-        SELECT id, entity_id, status, rule_package_json, envelope_json, created_at
+        SELECT id, entity_id, status, rule_package_json, envelope_json, created_at,
+               agent_run_id, gitops_ready, backtest_job_id
         FROM trend_draft_rules
         WHERE tenant_id = ? AND id = ?
         LIMIT 1
@@ -304,7 +321,24 @@ def get_draft_rule(*, tenant_id: str, draft_id: str) -> dict[str, Any] | None:
         "rule_package": json.loads(row[3] or "{}"),
         "envelope": json.loads(row[4] or "{}"),
         "created_at": row[5],
+        "agent_run_id": row[6],
+        "gitops_ready": bool(row[7]),
+        "backtest_job_id": row[8],
     }
+
+
+def set_draft_agent_run_id(*, tenant_id: str, draft_id: str, agent_run_id: str) -> None:
+    c = _get_conn()
+    with _lock:
+        c.execute(
+            """
+            UPDATE trend_draft_rules
+            SET agent_run_id = ?
+            WHERE tenant_id = ? AND id = ?
+            """,
+            (agent_run_id, tenant_id, draft_id),
+        )
+        c.commit()
 
 
 def reject_draft_rule(*, tenant_id: str, draft_id: str) -> dict[str, Any] | None:
