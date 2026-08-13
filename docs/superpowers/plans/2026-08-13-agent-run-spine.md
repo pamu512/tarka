@@ -672,7 +672,7 @@ async def maybe_enqueue_trend_agent_run(
             rid = resp.json().get("run_id")
             return str(rid) if rid else None
     except Exception:
-        logger.warning(
+        log.warning(
             "trend_agent_run_enqueue_failed tenant_id=%s entity_id=%s",
             tenant_id,
             entity_id,
@@ -680,6 +680,8 @@ async def maybe_enqueue_trend_agent_run(
         )
     return None
 ```
+
+`trend_agent_api.py` already has `log = logging.getLogger("decision-api.trend")`. Add `import httpx`.
 
 Call after each successful `run_trend_evaluation` in `trend_tick` with `context_snapshot={"freshness": {"entity_velocity": "present", "graph": "missing"}, "keys_present": ["entity_velocity"]}`. If `draft_rule_id` is set and enqueue returns a run id, `trend_store.set_draft_agent_run_id(...)`. On enqueue failure leave `agent_run_id` null. **Never raise.**
 
