@@ -248,6 +248,31 @@ def _rel_to_dict(r: Any) -> dict[str, Any]:
     }
 
 
+async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:
+    driver = await get_driver()
+    q = """
+    MATCH (n {tenant_id: $tenant_id, external_id: $entity_id})
+    SET n.risk_score = $risk_score,
+        n.risk_factors = $risk_factors,
+        n.risk_computed_at = $risk_computed_at,
+        n.relation_count = $relation_count,
+        n.relation_growth_1h = $relation_growth_1h,
+        n.relation_growth_24h = $relation_growth_24h
+    """
+    async with driver.session() as session:
+        await session.run(
+            q,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            risk_score=props.get("risk_score"),
+            risk_factors=list(props.get("risk_factors") or []),
+            risk_computed_at=props.get("risk_computed_at"),
+            relation_count=props.get("relation_count"),
+            relation_growth_1h=props.get("relation_growth_1h"),
+            relation_growth_24h=props.get("relation_growth_24h"),
+        )
+
+
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
     from .graph_runtime import parse_p90_degree_by_label
 

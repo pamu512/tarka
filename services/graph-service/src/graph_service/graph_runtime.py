@@ -104,6 +104,22 @@ async def query_entity_deep_context(tenant_id: str, external_id: str) -> dict[st
     return await store.query_entity_deep_context(tenant_id, external_id)
 
 
+async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:
+    if settings.graph_backend == "janusgraph":
+        from graph_service import janusgraph_store as store
+
+        await store.set_entity_risk_properties(tenant_id, entity_id, props)
+        return
+    if settings.graph_backend == "age":
+        from graph_service import age_client as store
+
+        await store.set_entity_risk_properties(tenant_id, entity_id, props)
+        return
+    from graph_service import neo4j_client as store
+
+    await store.set_entity_risk_properties(tenant_id, entity_id, props)
+
+
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
     try:
         if settings.graph_backend == "janusgraph":

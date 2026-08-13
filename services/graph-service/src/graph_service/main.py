@@ -28,6 +28,8 @@ from .custom_schema import (
     load_tenant_schema,
     save_tenant_schema,
 )
+from .entity_risk_score import is_found_payload
+from .entity_risk_writeback import persist_entity_risk
 from .graph_risk_model import score_graph_risk_beta
 from .schemas import EntityRiskResponse
 from .graph_runtime import (
@@ -356,6 +358,12 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
 async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
     """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
     base = await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
+    # Beta may overwrite score/factors; growth always comes from compute.
+    growth = {
+        "relation_count": base.get("relation_count", 0),
+        "relation_growth_1h": base.get("relation_growth_1h", 0),
+        "relation_growth_24h": base.get("relation_growth_24h", 0),
+    }
     beta = await score_graph_risk_beta(tenant_id, entity_id)
     if isinstance(beta, dict):
         try:
@@ -369,6 +377,17 @@ async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str |
             reasons.append("gnn_beta_high_risk")
             base["risk_factors"] = list(dict.fromkeys(str(x) for x in reasons if str(x).strip()))
         base["gnn_beta"] = beta
+    base.update(growth)
+    base["scored"] = is_found_payload(base)
+    if base["scored"]:
+        try:
+            await persist_entity_risk(tenant_id, entity_id, base)
+        except Exception:
+            log.exception(
+                "entity-risk write-through failed tenant=%s entity=%s",
+                tenant_id,
+                entity_id,
+            )
     return EntityRiskResponse.model_validate(base)
 
 
