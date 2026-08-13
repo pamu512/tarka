@@ -2579,6 +2579,28 @@ export const graph = {
     return request<SubgraphResponse>(`/api/graph/v1/subgraph?${q}`);
   },
 
+  searchEntities(params: { tenant_id: string; q: string; label?: string; limit?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id, q: params.q });
+    if (params.label) q.set("label", params.label);
+    if (params.limit != null) q.set("limit", String(params.limit));
+    return request<{ entities: Array<{
+      entity_id: string; tenant_id: string; labels: string[]; scored: boolean; risk_score: number | null;
+    }> }>(`/api/graph/v1/entities/search?${q}`);
+  },
+
+  entityRiskTop(params: { tenant_id: string; limit?: number; min_score?: number }) {
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    if (params.limit != null) q.set("limit", String(params.limit));
+    if (params.min_score != null) q.set("min_score", String(params.min_score));
+    return request<{ entities: Array<{ entity_id: string; labels: string[]; risk_score: number }> }>(
+      `/api/graph/v1/analytics/entity-risk/top?${q}`,
+    );
+  },
+
+  schema(tenantId: string) {
+    return request<{ entity_types: string[] }>(`/api/graph/v1/schema/${encodeURIComponent(tenantId)}`);
+  },
+
   entityTags(entityId: string, tenantId: string) {
     return request<{ tags: string[] }>(
       `/api/graph/v1/entities/${entityId}/tags?tenant_id=${tenantId}`,
@@ -2633,8 +2655,9 @@ export const graph = {
     depth?: number;
     limit?: number;
   }) {
-    const q = new URLSearchParams({ tenant_id: params.tenant_id, subject: params.subject });
-    if (params.target) q.set("target", params.target);
+    const q = new URLSearchParams({ tenant_id: params.tenant_id });
+    q.set("from_entity_id", params.subject);
+    if (params.target) q.set("to_entity_id", params.target);
     if (params.depth != null) q.set("depth", String(params.depth));
     if (params.limit != null) q.set("limit", String(params.limit));
     return request<GraphPathExplanation>(`/api/graph/v1/analytics/path-explain?${q}`);
