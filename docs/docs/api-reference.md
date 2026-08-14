@@ -252,7 +252,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 |---|---|---|
 | `GET` | `/v1/health` | Health check |
 | `POST` | `/v1/entities` | Upsert entity node |
-| `GET` | `/v1/entities/search` | Graph nodes by property contains + identity resolve |
+| `GET` | `/v1/entities/search` | Graph nodes by property match + identity resolve |
 | `POST` | `/v1/entities/{external_id}/tags` | Update entity tags |
 | `GET` | `/v1/entities/{external_id}/tags` | Get entity tags |
 | `POST` | `/v1/links` | Create relationship between entities |
@@ -307,7 +307,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 
 **Parameters:** `tenant_id` (required), `q` (optional), `label` (optional), `limit` (default 20, clamped 1–50).
 
-Empty `q` returns `{ "entities": [] }`. Match is case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. Identifier labels also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve. `risk_score` is `null` when unscored. Does not live-compute risk.
+Empty `q` returns `{ "entities": [] }` (no scan). Neo4j/AGE: case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. JanusGraph: case-insensitive **prefix** on the same keys. Identifier labels also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve. Nodes with blank `external_id` are skipped (do not invent an id). `risk_score` is `null` when unscored. Does not live-compute risk. Non-empty responses include `truncated` (Janus capped-scan flag; Neo4j/AGE always false).
 
 **Response `200`:**
 
@@ -323,7 +323,8 @@ Empty `q` returns `{ "entities": [] }`. Match is case-insensitive CONTAINS on `e
       "matched_on": "email",
       "via": { "entity_id": "alice@acme.com", "labels": ["Email"] }
     }
-  ]
+  ],
+  "truncated": false
 }
 ```
 

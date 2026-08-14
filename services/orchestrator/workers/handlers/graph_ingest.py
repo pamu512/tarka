@@ -25,6 +25,7 @@ from graph.client import (
     GraphHints,
     JanusGraphClient,
     graph_hints_from_transaction,
+    merge_janus_vertex_identity,
 )
 from models.outbox import OUTBOX_EVENT_GRAPH_INGEST
 from workers.handlers.base import BaseOutboxHandler
@@ -135,20 +136,13 @@ def _merge_vertex(
     key_val: str,
     *,
     audit_log_id: int,
+    tenant_id: str,
 ) -> Any:
-    from gremlin_python.process.graph_traversal import __
-
     g = client._g
     vertex = _run_gremlin(
         client,
         f"merge_vertex_{label}",
-        lambda: (
-            g.V()
-            .has(label, key_prop, key_val)
-            .fold()
-            .coalesce(__.unfold(), __.addV(label).property(key_prop, key_val))
-            .next()
-        ),
+        lambda: merge_janus_vertex_identity(g, label, key_prop, key_val, tenant_id),
     )
     if _vertex_matches_audit_log(client, vertex, audit_log_id):
         return vertex
@@ -264,6 +258,15 @@ def _ingest_janus_sync(
     *,
     audit_log_id: int,
 ) -> None:
+    tenant = str((transaction.metadata or {}).get("tenant_id") or "").strip()
+    if not tenant:
+        logger.info(
+            "graph_ingest_noop entity_id=%s audit_log_id=%s reason=no_tenant",
+            transaction.entity_id,
+            audit_log_id,
+        )
+        return
+
     _ensure_connection(client)
 
     hints = graph_hints_from_transaction(transaction)
@@ -286,7 +289,12 @@ def _ingest_janus_sync(
 
     ts = transaction.timestamp.isoformat()
     _apply_janus_mutations(
-        client, hints, transaction_id=transaction_id, observed_at=ts, audit_log_id=audit_log_id
+        client,
+        hints,
+        transaction_id=transaction_id,
+        observed_at=ts,
+        audit_log_id=audit_log_id,
+        tenant_id=tenant,
     )
 
 
@@ -297,22 +305,58 @@ def _apply_janus_mutations(
     transaction_id: str,
     observed_at: str,
     audit_log_id: int,
+    tenant_id: str,
 ) -> None:
     user_v = None
     if hints.user_id:
         user_v = _merge_vertex(
-            client, LABEL_USER, "user_id", hints.user_id, audit_log_id=audit_log_id
+            client,
+            LABEL_USER,
+            "user_id",
+            hints.user_id,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
         )
     if hints.device_id:
-        _merge_vertex(client, LABEL_DEVICE, "device_id", hints.device_id, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client,
+            LABEL_DEVICE,
+            "device_id",
+            hints.device_id,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
+        )
     if hints.ip:
-        _merge_vertex(client, LABEL_IP, "address", hints.ip, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client, LABEL_IP, "address", hints.ip, audit_log_id=audit_log_id, tenant_id=tenant_id
+        )
     if hints.card_id:
-        _merge_vertex(client, LABEL_CARD, "card_id", hints.card_id, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client,
+            LABEL_CARD,
+            "card_id",
+            hints.card_id,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
+        )
     if hints.email:
-        _merge_vertex(client, LABEL_EMAIL, "email", hints.email, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client,
+            LABEL_EMAIL,
+            "email",
+            hints.email,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
+        )
     if hints.address:
-        _merge_vertex(client, LABEL_ADDRESS, "line1", hints.address, audit_log_id=audit_log_id)
+        _merge_vertex(
+            client,
+            LABEL_ADDRESS,
+            "line1",
+            hints.address,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
+        )
 
     g = client._g
     if hints.user_id and hints.device_id:
@@ -401,7 +445,12 @@ def _apply_janus_mutations(
 
     if hints.listing_id:
         _merge_vertex(
-            client, LABEL_LISTING, "listing_id", hints.listing_id, audit_log_id=audit_log_id
+            client,
+            LABEL_LISTING,
+            "listing_id",
+            hints.listing_id,
+            audit_log_id=audit_log_id,
+            tenant_id=tenant_id,
         )
     if hints.user_id and hints.listing_id:
         u = user_v or _run_gremlin(

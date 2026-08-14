@@ -1639,12 +1639,12 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
         via: null,
       };
       const entities = [person, email].filter((h) => !label || h.labels.includes(label));
-      return { entities };
+      return { entities, truncated: false };
     }
-    if (!/frank/i.test(q)) return { entities: [] };
+    if (!/frank/i.test(q)) return { entities: [], truncated: false };
     const label = u.searchParams.get("label");
     const labels = ["Person"];
-    if (label && !labels.includes(label)) return { entities: [] };
+    if (label && !labels.includes(label)) return { entities: [], truncated: false };
     return {
       entities: [
         {
@@ -1657,6 +1657,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
           via: null,
         },
       ],
+      truncated: false,
     };
   }
   if (path.includes("/api/graph/v1/schema/")) {

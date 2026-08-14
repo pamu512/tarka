@@ -2604,7 +2604,7 @@ export const graph = {
     const q = new URLSearchParams({ tenant_id: params.tenant_id, q: params.q });
     if (params.label) q.set("label", params.label);
     if (params.limit != null) q.set("limit", String(params.limit));
-    return request<{ entities: GraphSearchHit[] }>(`/api/graph/v1/entities/search?${q}`);
+    return request<{ entities: GraphSearchHit[]; truncated?: boolean }>(`/api/graph/v1/entities/search?${q}`);
   },
 
   entityRiskTop(params: { tenant_id: string; limit?: number; min_score?: number }) {
