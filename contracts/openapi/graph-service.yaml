@@ -99,7 +99,7 @@ paths:
           description: Clamped to 1–50
       responses:
         "200":
-          description: Empty list when q is blank; otherwise matching nodes
+          description: Empty list when q is blank (no scan, truncated omitted). Otherwise allowlisted match plus 1-hop Person/Account/User. JanusGraph is prefix; Neo4j/AGE are CONTAINS. truncated is true only for a Janus capped scan.
           content:
             application/json:
               schema:
@@ -373,11 +373,18 @@ components:
             labels: { type: array, items: { type: string } }
     EntitySearchResponse:
       type: object
-      required: [entities]
+      required: [entities, truncated]
       properties:
         entities:
           type: array
           items: { $ref: "#/components/schemas/EntitySearchHit" }
+        truncated:
+          type: boolean
+          default: false
+          description: >
+            True when JanusGraph served search from a capped tenant scan because
+            mixed index vertexSearch was not ENABLED. Neo4j/AGE always false.
+            Omitted on empty q (no scan).
     EntityRiskResponse:
       type: object
       properties:

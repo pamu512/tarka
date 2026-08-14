@@ -7,7 +7,9 @@ from graph_service.entity_risk_score import (
     clamp_search_limit,
     cypher_search_prop_predicate,
     eligible_search_node,
+    eligible_search_node_prefix,
     matched_on_from_props,
+    matched_on_from_props_prefix,
     merge_search_hits,
     search_hit_from_node,
 )
@@ -49,7 +51,7 @@ def test_neo4j_search_cypher_is_parameterized_contains():
     assert "merge_search_hits" in src
     assert "--(m)" in src or "-- (m)" in src
     assert "IN $ids" in src or "IN $ident_ids" in src
-    assert "f\"{q}" not in src
+    assert 'f"{q}' not in src
     assert "f'{q}" not in src
     pred_src = inspect.getsource(cypher_search_prop_predicate)
     assert "CONTAINS" in pred_src
@@ -59,35 +61,64 @@ def test_neo4j_search_cypher_is_parameterized_contains():
 
 def test_search_http_empty_q_no_store(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
-    store = AsyncMock(return_value=[{"entity_id": "should_not_run"}])
+    store = AsyncMock(return_value=([], False))
     monkeypatch.setattr("graph_service.main.search_entities", store)
     from fastapi.testclient import TestClient
     from graph_service.main import app
+
     with TestClient(app) as client:
         data = client.get("/v1/entities/search", params={"tenant_id": "t"}).json()
     assert data == {"entities": []}
     store.assert_not_called()
 
 
-def test_search_http_passes_label_and_clamps(monkeypatch):
+def test_search_http_forwards_label_and_limit(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
-    store = AsyncMock(return_value=[
-        {"entity_id": "fraud_frank", "tenant_id": "t", "labels": ["Person"], "scored": True, "risk_score": 72},
-    ])
+    store = AsyncMock(
+        return_value=(
+            [
+                {
+                    "entity_id": "fraud_frank",
+                    "tenant_id": "t",
+                    "labels": ["Person"],
+                    "scored": True,
+                    "risk_score": 72,
+                }
+            ],
+            False,
+        )
+    )
     monkeypatch.setattr("graph_service.main.search_entities", store)
     from fastapi.testclient import TestClient
     from graph_service.main import app
+
     with TestClient(app) as client:
         data = client.get(
             "/v1/entities/search",
             params={"tenant_id": "t", "q": "frank", "label": "Person", "limit": 999},
         ).json()
     assert data["entities"][0]["entity_id"] == "fraud_frank"
+    assert data["truncated"] is False
     store.assert_awaited_once()
     kwargs = store.await_args.kwargs
     assert kwargs["q"] == "frank"
     assert kwargs["label"] == "Person"
     assert kwargs["limit"] == 50
+
+
+def test_search_http_truncated_true(monkeypatch):
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    store = AsyncMock(return_value=([], True))
+    monkeypatch.setattr("graph_service.main.search_entities", store)
+    from fastapi.testclient import TestClient
+    from graph_service.main import app
+
+    with TestClient(app) as client:
+        data = client.get(
+            "/v1/entities/search",
+            params={"tenant_id": "t", "q": "x"},
+        ).json()
+    assert data == {"entities": [], "truncated": True}
 
 
 from graph_service import age_client, janusgraph_store
@@ -97,9 +128,9 @@ def test_janus_search_filters_in_python_not_full_graph_scan_without_tenant():
     src = inspect.getsource(janusgraph_store.search_entities)
     assert "tenant_id" in src
     assert "GraphRiskStats" in src
-    assert "eligible_search_node" in src
+    assert "eligible_search_node_prefix" in src
     assert "merge_search_hits" in src
-    assert "both()" in src
+    assert "both().limit(10)" in src
     assert "search_hit_from_node" in src
 
 
@@ -109,7 +140,7 @@ def test_age_search_cypher_contains_and_tenant():
     assert "$q" in src or "$tenant_id" in src
     assert "merge_search_hits" in src
     assert "GraphRiskStats" in src or "external_id" in src
-    assert "f\"{q}" not in src
+    assert 'f"{q}' not in src
     pred_src = inspect.getsource(cypher_search_prop_predicate)
     assert "CONTAINS" in pred_src or "contains" in pred_src
     assert "$q" in src
@@ -131,11 +162,18 @@ def test_eligible_skips_blank_external_id():
 
 def test_merge_resolve_person_first_keeps_email():
     email = search_hit_from_node(
-        "t", "alice@acme.com", ["Email"], {"email": "alice@acme.com"},
-        matched_on="email", via=None,
+        "t",
+        "alice@acme.com",
+        ["Email"],
+        {"email": "alice@acme.com"},
+        matched_on="email",
+        via=None,
     )
     person = search_hit_from_node(
-        "t", "user-441", ["Person"], {},
+        "t",
+        "user-441",
+        ["Person"],
+        {},
         matched_on="email",
         via={"entity_id": "alice@acme.com", "labels": ["Email"]},
     )
@@ -147,10 +185,18 @@ def test_merge_resolve_person_first_keeps_email():
 
 def test_merge_label_chip_after_resolve():
     email = search_hit_from_node(
-        "t", "alice@acme.com", ["Email"], {}, matched_on="email", via=None,
+        "t",
+        "alice@acme.com",
+        ["Email"],
+        {},
+        matched_on="email",
+        via=None,
     )
     person = search_hit_from_node(
-        "t", "user-441", ["Person"], {},
+        "t",
+        "user-441",
+        ["Person"],
+        {},
         matched_on="email",
         via={"entity_id": "alice@acme.com", "labels": ["Email"]},
     )
@@ -163,11 +209,18 @@ def test_merge_label_chip_after_resolve():
 
 def test_merge_dedupe_keeps_via():
     direct = search_hit_from_node(
-        "t", "user-441", ["Person"], {"email": "alice@acme.com"},
-        matched_on="email", via=None,
+        "t",
+        "user-441",
+        ["Person"],
+        {"email": "alice@acme.com"},
+        matched_on="email",
+        via=None,
     )
     via_hit = search_hit_from_node(
-        "t", "user-441", ["Person"], {},
+        "t",
+        "user-441",
+        ["Person"],
+        {},
         matched_on="email",
         via={"entity_id": "alice@acme.com", "labels": ["Email"]},
     )
@@ -181,7 +234,10 @@ def test_cap_identifier_owners_fanout_10():
     ident = "dev-1"
     owners = [
         search_hit_from_node(
-            "t", f"u-{i:02d}", ["User"], {},
+            "t",
+            f"u-{i:02d}",
+            ["User"],
+            {},
             matched_on="device_id",
             via={"entity_id": ident, "labels": ["Device"]},
         )
@@ -216,6 +272,7 @@ def test_merge_unscored_sorts_after_scored():
 
 def test_cypher_predicate_uses_frozen_keys_not_q():
     from graph_service.entity_risk_score import cypher_search_prop_predicate
+
     src = cypher_search_prop_predicate("n")
     assert "n.email" in src
     assert "n.device_id" in src
@@ -225,3 +282,46 @@ def test_cypher_predicate_uses_frozen_keys_not_q():
     assert "alice" not in src
     for key in SEARCH_PROP_KEYS:
         assert f"n.{key}" in src
+
+
+def test_prefix_recheck_drops_non_prefix_lucene_token():
+    assert matched_on_from_props_prefix({"email": "user alice@acme.com"}, "alice") is None
+    assert matched_on_from_props_prefix({"email": "alice@acme.com"}, "ALICE") == "email"
+    assert matched_on_from_props_prefix({"email": "alice@acme.com"}, "lice") is None
+    assert matched_on_from_props_prefix({"device_id": 99}, "99") is None
+    assert matched_on_from_props_prefix({"email": "alice@acme.com"}, "") is None
+    assert matched_on_from_props({"email": "user alice@acme.com"}, "alice") == "email"
+    assert eligible_search_node_prefix("", {"email": "alice@acme.com"}, "alice") is None
+    assert eligible_search_node_prefix("e1", {"email": "alice@acme.com"}, "alice") == "email"
+
+
+def test_cap_identifier_owners_dedupes_via_owner_pair():
+    ident = "dev-1"
+    owners = []
+    for i in range(10):
+        hit = search_hit_from_node(
+            "t",
+            f"u-{i:02d}",
+            ["User"],
+            {},
+            matched_on="device_id",
+            via={"entity_id": ident, "labels": ["Device"]},
+        )
+        owners.append(hit)
+        owners.append(dict(hit))
+    owners.extend(
+        [
+            search_hit_from_node(
+                "t",
+                f"extra-{i}",
+                ["User"],
+                {},
+                matched_on="device_id",
+                via={"entity_id": ident, "labels": ["Device"]},
+            )
+            for i in range(2)
+        ]
+    )
+    capped = cap_identifier_owners(owners)
+    assert len(capped) == 10
+    assert [h["entity_id"] for h in capped] == [f"u-{i:02d}" for i in range(10)]

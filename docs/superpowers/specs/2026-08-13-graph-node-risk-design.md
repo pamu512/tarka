@@ -191,7 +191,7 @@ Pytest; mock driver where existing algorithm tests already do.
 - PageRank / betweenness / a second importance score
 - Decision-api evaluate reading stored properties (keeps live GET)
 - Replacing `subgraph_with_velocity` transaction overlay
-- Cursor pagination for tenant refresh
+- Keyset pagination for tenant refresh
 - Changing `entity_not_found` GET `risk_score` away from `0`
 - 5-hop recompute on every graph write
 - Fetching 5-hop subgraph on every chat turn

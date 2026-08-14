@@ -300,28 +300,27 @@ async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict
 
 
 def _entity_risk_top_row(rec: Any) -> dict[str, Any]:
-    get = rec.get if hasattr(rec, "get") else lambda k, d=None: rec[k] if k in rec else d
-    labels = get("labels") or []
+    labels = rec.get("labels") or []
     if not isinstance(labels, list):
         labels = list(labels)
-    factors = get("risk_factors") or []
+    factors = rec.get("risk_factors") or []
     if not isinstance(factors, list):
         factors = list(factors) if factors else []
     return {
-        "entity_id": str(get("entity_id") or ""),
+        "entity_id": str(rec.get("entity_id") or ""),
         "labels": [str(x) for x in labels],
-        "risk_score": float(get("risk_score") or 0),
+        "risk_score": float(rec.get("risk_score") or 0),
         "risk_factors": [str(x) for x in factors],
-        "risk_computed_at": get("risk_computed_at"),
-        "relation_count": int(get("relation_count") or 0),
-        "relation_growth_1h": int(get("relation_growth_1h") or 0),
-        "relation_growth_24h": int(get("relation_growth_24h") or 0),
+        "risk_computed_at": rec.get("risk_computed_at"),
+        "relation_count": int(rec.get("relation_count") or 0),
+        "relation_growth_1h": int(rec.get("relation_growth_1h") or 0),
+        "relation_growth_24h": int(rec.get("relation_growth_24h") or 0),
     }
 
 
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     from .entity_risk_score import (
         OWNER_LABELS,
         cap_identifier_owners,
@@ -366,9 +365,7 @@ async def search_entities(
         matched = eligible_search_node(eid, props, q)
         if not matched:
             continue
-        hit = search_hit_from_node(
-            tenant_id, eid, labs, props, matched_on=matched, via=None
-        )
+        hit = search_hit_from_node(tenant_id, eid, labs, props, matched_on=matched, via=None)
         directs.append(hit)
         if labels_are_identifier(labs):
             ident_ids.append(eid)
@@ -422,7 +419,7 @@ async def search_entities(
                 )
             )
         owners = cap_identifier_owners(raw_owners)
-    return merge_search_hits(directs + owners, label=label, limit=limit)
+    return merge_search_hits(directs + owners, label=label, limit=limit), False
 
 
 async def list_entity_risk_top(
@@ -451,9 +448,7 @@ async def list_entity_risk_top(
     LIMIT $limit
     """
     async with driver.session() as session:
-        result = await session.run(
-            q, tenant_id=tenant_id, min_score=min_score, limit=limit
-        )
+        result = await session.run(q, tenant_id=tenant_id, min_score=min_score, limit=limit)
         rows = await result.data()
     return [_entity_risk_top_row(r) for r in (rows or []) if r]
 

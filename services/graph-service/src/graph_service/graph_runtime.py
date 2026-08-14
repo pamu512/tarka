@@ -36,9 +36,7 @@ async def upsert_entity(
     properties: dict[str, Any],
     tags: list[str] | None = None,
 ) -> str:
-    return await _store().upsert_entity(
-        tenant_id, entity_type, external_id, properties, tags=tags
-    )
+    return await _store().upsert_entity(tenant_id, entity_type, external_id, properties, tags=tags)
 
 
 async def update_tags(tenant_id: str, external_id: str, tags: list[str]) -> list[str]:
@@ -132,7 +130,7 @@ def _store():
 
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     return await _store().search_entities(tenant_id, q, label=label, limit=limit)
 
 

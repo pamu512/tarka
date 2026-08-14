@@ -93,6 +93,33 @@ def _safe_graph_key(s: str) -> bool:
     return "\x00" not in s and 0 < len(s) <= 512
 
 
+def merge_janus_vertex_identity(
+    g: Any, label: str, key_prop: str, key_val: str, tenant_id: str
+) -> Any:
+    """Find-or-create a Janus vertex and stamp tenant_id + external_id (= native key)."""
+    from gremlin_python.process.traversal import Cardinality
+
+    tenant = str(tenant_id or "").strip()
+    key = str(key_val or "").strip()
+    if not tenant or not key or not _safe_graph_key(key):
+        raise ValueError("tenant_id and native key are required to merge a Janus vertex")
+    found = g.V().has("tenant_id", tenant).has("external_id", key).limit(1).toList()
+    if not found:
+        found = g.V().has(label, key_prop, key).limit(1).toList()
+    if found:
+        v = found[0]
+    else:
+        v = g.addV(label).property(key_prop, key).next()
+    (
+        g.V(v)
+        .property(Cardinality.single, "tenant_id", tenant)
+        .property(Cardinality.single, "external_id", key)
+        .property(Cardinality.single, key_prop, key)
+        .iterate()
+    )
+    return v
+
+
 # --- Schema constants (labels / rel types are fixed; never interpolated from user metadata) ---
 
 LABEL_USER = "User"
@@ -1085,20 +1112,19 @@ class JanusGraphClient(GraphClient):
 
         return await asyncio.to_thread(self._two_hop_neighbor_network_sync, anchor_user_id)
 
-    def _merge_vertex(self, label: str, key_prop: str, key_val: str) -> Any:
-        from gremlin_python.process.graph_traversal import __
-
-        return (
-            self._g.V()
-            .has(label, key_prop, key_val)
-            .fold()
-            .coalesce(__.unfold(), __.addV(label).property(key_prop, key_val))
-            .next()
-        )
+    def _merge_vertex(self, label: str, key_prop: str, key_val: str, *, tenant_id: str) -> Any:
+        return merge_janus_vertex_identity(self._g, label, key_prop, key_val, tenant_id)
 
     def _ingest_sync(self, transaction: TransactionSchema) -> None:
         from gremlin_python.process.graph_traversal import __
 
+        tenant = str((transaction.metadata or {}).get("tenant_id") or "").strip()
+        if not tenant:
+            logger.info(
+                "graph_ingest_noop entity_id=%s reason=no_tenant",
+                transaction.entity_id,
+            )
+            return
         hints = graph_hints_from_transaction(transaction)
         if not hints.any():
             return
@@ -1107,17 +1133,17 @@ class JanusGraphClient(GraphClient):
         g = self._g
 
         if hints.user_id:
-            self._merge_vertex(LABEL_USER, "user_id", hints.user_id)
+            self._merge_vertex(LABEL_USER, "user_id", hints.user_id, tenant_id=tenant)
         if hints.device_id:
-            self._merge_vertex(LABEL_DEVICE, "device_id", hints.device_id)
+            self._merge_vertex(LABEL_DEVICE, "device_id", hints.device_id, tenant_id=tenant)
         if hints.ip:
-            self._merge_vertex(LABEL_IP, "address", hints.ip)
+            self._merge_vertex(LABEL_IP, "address", hints.ip, tenant_id=tenant)
         if hints.card_id:
-            self._merge_vertex(LABEL_CARD, "card_id", hints.card_id)
+            self._merge_vertex(LABEL_CARD, "card_id", hints.card_id, tenant_id=tenant)
         if hints.email:
-            self._merge_vertex(LABEL_EMAIL, "email", hints.email)
+            self._merge_vertex(LABEL_EMAIL, "email", hints.email, tenant_id=tenant)
         if hints.address:
-            self._merge_vertex(LABEL_ADDRESS, "line1", hints.address)
+            self._merge_vertex(LABEL_ADDRESS, "line1", hints.address, tenant_id=tenant)
 
         if hints.user_id and hints.device_id:
             u = g.V().has(LABEL_USER, "user_id", hints.user_id).next()
@@ -1153,7 +1179,7 @@ class JanusGraphClient(GraphClient):
             ).iterate()
 
         if hints.listing_id:
-            self._merge_vertex(LABEL_LISTING, "listing_id", hints.listing_id)
+            self._merge_vertex(LABEL_LISTING, "listing_id", hints.listing_id, tenant_id=tenant)
         if hints.user_id and hints.listing_id:
             u = g.V().has(LABEL_USER, "user_id", hints.user_id).next()
             lst = g.V().has(LABEL_LISTING, "listing_id", hints.listing_id).next()

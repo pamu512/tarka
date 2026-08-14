@@ -7,8 +7,9 @@ import re
 from typing import Any
 
 from gremlin_python.process.graph_traversal import __
-from gremlin_python.process.traversal import Cardinality
+from gremlin_python.process.traversal import Cardinality, P, T
 
+from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .entity_context_shape import shape_deep_context_from_nodes
 from .entity_risk_score import (
@@ -16,7 +17,11 @@ from .entity_risk_score import (
     decorate_subgraph_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
-from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
+from .janusgraph_gremlin import (
+    get_traversal_source,
+    run_in_gremlin_thread,
+    vertex_search_index_enabled,
+)
 
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")
@@ -77,6 +82,37 @@ def _vertex_to_node(vm: dict) -> dict[str, Any]:
     if "tags" in props:
         props = {**props, "tags": _tags_decode(props.get("tags"))}
     return decorate_subgraph_node({"id": str(vid), "labels": [str(lbl)], "properties": props})
+
+
+def _valuemap_to_element(vm: dict[str, Any] | None) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for k, v in (vm or {}).items():
+        if k in (T.id, "id") or str(k) in ("id", "T.id"):
+            out["id"] = v
+            continue
+        if k in (T.label, "label") or str(k) in ("label", "T.label"):
+            out["label"] = v[0] if isinstance(v, list) and v else v
+            continue
+        key = str(k)
+        if isinstance(v, (list, tuple)):
+            out[key] = v[0] if len(v) == 1 else list(v)
+        else:
+            out[key] = v
+    return out
+
+
+def _labels_from_em(em: dict[str, Any]) -> list[str]:
+    raw_lbl = em.get("label")
+    if isinstance(raw_lbl, list):
+        return [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
+    return [str(raw_lbl or "Custom")]
+
+
+def _batch_valuemap(g: Any, vertices: list[Any]) -> list[dict[str, Any]]:
+    if not vertices:
+        return []
+    raw = g.V(*vertices).valueMap(True).toList()
+    return [_valuemap_to_element(m) for m in raw]
 
 
 def _upsert_entity_sync(
@@ -241,14 +277,7 @@ def _list_one_hop_ids_sync(tenant_id: str, entity_id: str) -> list[str]:
     found = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
     if not found:
         return []
-    raw = (
-        g.V(found[0])
-        .both()
-        .has("tenant_id", tenant_id)
-        .values("external_id")
-        .dedup()
-        .toList()
-    )
+    raw = g.V(found[0]).both().has("tenant_id", tenant_id).values("external_id").dedup().toList()
     return [str(x) for x in raw if x]
 
 
@@ -256,65 +285,82 @@ async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
     return await run_in_gremlin_thread(lambda: _list_one_hop_ids_sync(tenant_id, entity_id))
 
 
-def _query_subgraph_sync(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
-    g = get_traversal_source()
+def _walk_incident_layers(
+    g: Any, root: Any, depth: int
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """One Gremlin round-trip per depth layer. Super-node RAM is a known ceiling (no per-vertex edge cap)."""
     depth = max(1, min(int(depth), 5))
-
-    root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
-    if not root_list:
-        return {"nodes": [], "edges": []}
-    root = root_list[0]
-
     nodes_out: list[dict[str, Any]] = []
     edges_out: list[dict[str, Any]] = []
     seen_edges: set[str] = set()
     seen_nodes: set[str] = set()
 
-    def add_from_element_map(em: dict) -> None:
+    def add_em(em: dict[str, Any]) -> None:
         eid = str(em.get("external_id", "") or "")
         if not eid or eid in seen_nodes:
             return
         seen_nodes.add(eid)
         nodes_out.append(_vertex_to_node(em))
 
-    try:
-        root_map = dict(g.V(root).elementMap().next())
-        add_from_element_map(root_map)
-    except StopIteration:
-        return {"nodes": [], "edges": []}
+    root_maps = _batch_valuemap(g, [root])
+    if not root_maps:
+        return [], []
+    add_em(root_maps[0])
 
-    frontier = [(root, 0)]
-    visited_vertex_ids = {root.id}
-
-    while frontier:
-        v, d = frontier.pop(0)
-        if d >= depth:
-            continue
-        for e in g.V(v).bothE().toList():
-            ekey = str(e.id)
+    frontier: list[Any] = [root]
+    visited: set[Any] = {getattr(root, "id", root)}
+    for _layer in range(depth):
+        if not frontier:
+            break
+        rows = (
+            g.V(*frontier)
+            .bothE()
+            .as_("e")
+            .otherV()
+            .as_("o")
+            .project("eid", "elabel", "from_ext", "to_ext", "oid", "omap")
+            .by(__.select("e").id())
+            .by(__.select("e").label())
+            .by(__.select("e").outV().values("external_id"))
+            .by(__.select("e").inV().values("external_id"))
+            .by(__.select("o").id())
+            .by(__.select("o").valueMap(True))
+            .toList()
+        )
+        next_frontier: list[Any] = []
+        next_seen: set[Any] = set()
+        for row in rows or []:
+            ekey = str(row.get("eid"))
             if ekey in seen_edges:
                 continue
-            outv = e.outV().next()
-            inv = e.inV().next()
-            other = inv if outv.id == v.id else outv
-            if other.id not in visited_vertex_ids:
-                visited_vertex_ids.add(other.id)
-                frontier.append((other, d + 1))
             seen_edges.add(ekey)
             edges_out.append(
                 {
-                    "from_id": _vertex_external_id(outv),
-                    "to_id": _vertex_external_id(inv),
-                    "type": str(e.label),
+                    "from_id": str(row.get("from_ext") or ""),
+                    "to_id": str(row.get("to_ext") or ""),
+                    "type": str(row.get("elabel") or ""),
                     "properties": {},
-                },
+                }
             )
-            try:
-                omap = dict(g.V(other).elementMap().next())
-                add_from_element_map(omap)
-            except StopIteration:
-                pass
+            oid = row.get("oid")
+            if oid not in visited and oid not in next_seen:
+                visited.add(oid)
+                next_seen.add(oid)
+                next_frontier.append(oid)
+            omap = row.get("omap")
+            if isinstance(omap, dict):
+                add_em(_valuemap_to_element(omap))
+        frontier = next_frontier
+    return nodes_out, edges_out
 
+
+def _query_subgraph_sync(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
+    g = get_traversal_source()
+    depth = max(1, min(int(depth), 5))
+    root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    if not root_list:
+        return {"nodes": [], "edges": []}
+    nodes_out, edges_out = _walk_incident_layers(g, root_list[0], depth)
     return {"nodes": nodes_out, "edges": edges_out}
 
 
@@ -328,37 +374,8 @@ def _query_entity_deep_context_sync(tenant_id: str, entity_id: str) -> dict[str,
     root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
     if not root_list:
         return None
-    root = root_list[0]
-    maps_by_eid: dict[str, dict[str, Any]] = {}
-
-    def capture(v: Any) -> None:
-        try:
-            omap = dict(g.V(v).elementMap().next())
-        except StopIteration:
-            return
-        eid = str(omap.get("external_id") or "").strip()
-        if eid:
-            maps_by_eid[eid] = omap
-
-    capture(root)
-    frontier: list[tuple[Any, int]] = [(root, 0)]
-    visited_vertex_ids = {root.id}
-
-    while frontier:
-        v, d = frontier.pop(0)
-        if d >= 2:
-            continue
-        for e in g.V(v).bothE().toList():
-            outv = e.outV().next()
-            inv = e.inV().next()
-            other = inv if outv.id == v.id else outv
-            if other.id not in visited_vertex_ids:
-                visited_vertex_ids.add(other.id)
-                frontier.append((other, d + 1))
-            capture(other)
-
-    api_nodes = [_vertex_to_node(m) for m in maps_by_eid.values()]
-    return shape_deep_context_from_nodes(entity_id, tenant_id, api_nodes)
+    nodes_out, _edges = _walk_incident_layers(g, root_list[0], 2)
+    return shape_deep_context_from_nodes(entity_id, tenant_id, nodes_out)
 
 
 async def query_entity_deep_context(tenant_id: str, entity_id: str) -> dict[str, Any] | None:
@@ -491,11 +508,12 @@ async def list_entity_risk_top(
 
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     from .entity_risk_score import (
+        SEARCH_PROP_KEYS,
         cap_identifier_owners,
         clamp_search_limit,
-        eligible_search_node,
+        eligible_search_node_prefix,
         labels_are_identifier,
         labels_are_owner,
         merge_search_hits,
@@ -505,63 +523,95 @@ async def search_entities(
     limit = clamp_search_limit(limit)
     needle = str(q or "")
 
-    def _search_entities_sync() -> list[dict[str, Any]]:
+    def _capped_scan(g: Any) -> tuple[list[Any], bool]:
+        cap = int(settings.janusgraph_analytics_vertex_cap)
+        found = g.V().has("tenant_id", tenant_id).limit(cap).toList()
+        return found, len(found) >= cap
+
+    def _search_entities_sync() -> tuple[list[dict[str, Any]], bool]:
         g = get_traversal_source()
-        directs: list[dict[str, Any]] = []
-        ident_vids: list[tuple[str, dict[str, Any], Any]] = []
-        # ponytail: full tenant vertex scan; upgrade = mixed index on allowlisted keys
-        for v in g.V().has("tenant_id", tenant_id).toList():
-            if str(getattr(v, "label", "") or "") == "GraphRiskStats":
-                continue
+        truncated = False
+        vertices: list[Any] = []
+        if vertex_search_index_enabled():
             try:
-                em = dict(g.V(v).elementMap().next())
-            except StopIteration:
+                seen: set[Any] = set()
+                for field in SEARCH_PROP_KEYS:
+                    found = (
+                        g.V()
+                        .has("tenant_id", tenant_id)
+                        .has(field, P("textContainsPrefix", needle))
+                        .limit(50)
+                        .toList()
+                    )
+                    for v in found:
+                        vid = getattr(v, "id", v)
+                        if vid in seen:
+                            continue
+                        seen.add(vid)
+                        vertices.append(v)
+            except Exception:
+                log.exception("Janus textContainsPrefix failed; using capped tenant scan")
+                vertices, truncated = _capped_scan(g)
+        else:
+            vertices, truncated = _capped_scan(g)
+
+        maps = _batch_valuemap(g, vertices)
+        directs: list[dict[str, Any]] = []
+        ident_vs: list[tuple[str, dict[str, Any], Any]] = []
+        for v, em in zip(vertices, maps):
+            if str(em.get("label") or "") == "GraphRiskStats":
                 continue
             eid = str(em.get("external_id") or "").strip()
-            raw_lbl = em.get("label")
-            if isinstance(raw_lbl, list):
-                labels = [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
-            else:
-                labels = [str(raw_lbl or "Custom")]
+            labels = _labels_from_em(em)
             props = {k: val for k, val in em.items() if k not in ("id", "label")}
-            matched = eligible_search_node(eid, props, needle)
+            matched = eligible_search_node_prefix(eid, props, needle)
             if not matched:
                 continue
-            hit = search_hit_from_node(
-                tenant_id, eid, labels, props, matched_on=matched, via=None
-            )
+            hit = search_hit_from_node(tenant_id, eid, labels, props, matched_on=matched, via=None)
             directs.append(hit)
             if labels_are_identifier(labels):
-                ident_vids.append((eid, hit, v))
+                ident_vs.append((eid, hit, v))
+
+        owner_meta: list[tuple[Any, dict[str, Any]]] = []
+        for _eid, ident, v in ident_vs:
+            for nv in g.V(v).both().limit(10).toList():
+                owner_meta.append((nv, ident))
+        unique_owners: list[Any] = []
+        seen_n: set[Any] = set()
+        for nv, _ident in owner_meta:
+            nid = getattr(nv, "id", None)
+            if nid in seen_n:
+                continue
+            seen_n.add(nid)
+            unique_owners.append(nv)
+        hydrated = {
+            getattr(nv, "id", None): em
+            for nv, em in zip(unique_owners, _batch_valuemap(g, unique_owners))
+        }
         raw_owners: list[dict[str, Any]] = []
-        for _eid, ident, v in ident_vids:
-            for nv in g.V(v).both().toList():
-                try:
-                    em = dict(g.V(nv).elementMap().next())
-                except StopIteration:
-                    continue
-                oid = str(em.get("external_id") or "").strip()
-                raw_lbl = em.get("label")
-                if isinstance(raw_lbl, list):
-                    olabels = [str(x) for x in raw_lbl] if raw_lbl else ["Custom"]
-                else:
-                    olabels = [str(raw_lbl or "Custom")]
-                if not oid or not labels_are_owner(olabels):
-                    continue
-                oprops = {k: val for k, val in em.items() if k not in ("id", "label")}
-                raw_owners.append(
-                    search_hit_from_node(
-                        tenant_id,
-                        oid,
-                        olabels,
-                        oprops,
-                        matched_on=ident["matched_on"],
-                        via={"entity_id": ident["entity_id"], "labels": ident["labels"]},
-                    )
+        for nv, ident in owner_meta:
+            em = hydrated.get(getattr(nv, "id", None))
+            if not em:
+                continue
+            oid = str(em.get("external_id") or "").strip()
+            olabels = _labels_from_em(em)
+            if not oid or not labels_are_owner(olabels):
+                continue
+            oprops = {k: val for k, val in em.items() if k not in ("id", "label")}
+            raw_owners.append(
+                search_hit_from_node(
+                    tenant_id,
+                    oid,
+                    olabels,
+                    oprops,
+                    matched_on=ident["matched_on"],
+                    via={"entity_id": ident["entity_id"], "labels": ident["labels"]},
                 )
+            )
         raw_owners.sort(key=lambda h: str(h.get("entity_id") or ""))
         owners = cap_identifier_owners(raw_owners)
-        return merge_search_hits(directs + owners, label=label, limit=limit)
+        rows = merge_search_hits(directs + owners, label=label, limit=limit)
+        return rows, truncated
 
     return await run_in_gremlin_thread(_search_entities_sync)
 

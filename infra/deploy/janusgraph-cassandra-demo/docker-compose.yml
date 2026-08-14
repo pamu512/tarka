@@ -48,6 +48,7 @@ services:
     volumes:
       # Canonical properties for this demo (storage.backend=cql, cache.db-cache, etc.)
       - ./janusgraph.properties:/etc/opt/janusgraph/janusgraph.properties:ro
+      - ./ensure-indexes.groovy:/etc/opt/janusgraph/ensure-indexes.groovy:ro
       - jcd_janusgraph_var:/var/lib/janusgraph
     healthcheck:
       # Gremlin Server listens on 8182; bash /dev/tcp avoids extra packages in the image.
