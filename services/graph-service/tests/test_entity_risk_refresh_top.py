@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+
 def _top_row(eid: str, score: float) -> dict:
     return {
         "entity_id": eid,
@@ -22,6 +23,7 @@ def test_top_returns_mock_order(monkeypatch):
     monkeypatch.setattr("graph_service.main.list_entity_risk_top", AsyncMock(return_value=rows))
     from fastapi.testclient import TestClient
     from graph_service.main import app
+
     with TestClient(app) as client:
         data = client.get(
             "/v1/analytics/entity-risk/top",
@@ -32,6 +34,7 @@ def test_top_returns_mock_order(monkeypatch):
 
 def test_limit_clamp():
     from graph_service.entity_risk_writeback import clamp_top_limit, clamp_refresh_limit
+
     assert clamp_top_limit(0) == 1
     assert clamp_top_limit(999) == 200
     assert clamp_refresh_limit(0) == 1
@@ -41,14 +44,18 @@ def test_limit_clamp():
 def test_refresh_entity_404(monkeypatch):
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     from graph_service.entity_risk_score import entity_not_found_payload
+
     monkeypatch.setattr(
         "graph_service.main.compute_entity_risk",
         AsyncMock(return_value=entity_not_found_payload("x", None, None, 3)),
     )
     from fastapi.testclient import TestClient
     from graph_service.main import app
+
     with TestClient(app) as client:
-        r = client.post("/v1/analytics/entity-risk/refresh", json={"tenant_id": "t", "entity_id": "x"})
+        r = client.post(
+            "/v1/analytics/entity-risk/refresh", json={"tenant_id": "t", "entity_id": "x"}
+        )
     assert r.status_code == 404
 
 

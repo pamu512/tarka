@@ -71,13 +71,13 @@ POST /v1/entities
 
 ### Search Entities
 
-Typeahead over graph nodes by case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. Identifier labels `Email`/`Device`/`IP`/`Phone`/`Address`/`Card` also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve and keeps hits where that string is in `labels`.
+Typeahead over graph nodes. Neo4j and AGE use case-insensitive CONTAINS on `external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`. JanusGraph uses case-insensitive **prefix** on the same keys (Lucene mixed index `vertexSearch`, with a Python `startswith` re-check). Identifier labels `Email`/`Device`/`IP`/`Phone`/`Address`/`Card` also return 1-hop `Person`/`Account`/`User` (cap 10). Optional `label` applies after resolve and keeps hits where that string is in `labels`. GRAPH_INGEST vertices are stamped with `tenant_id` + `external_id` (= native key); a vertex still missing those fields is omitted (do not invent an id).
 
 ```
 GET /v1/entities/search?tenant_id=acme&q=user-4&label=Account&limit=20
 ```
 
-Empty or missing `q` returns `{ "entities": [] }` (no scan). `limit` defaults to 20 and is clamped 1–50. `risk_score` is `null` when unscored (`scored: false`). Does not live-compute risk.
+Empty or missing `q` returns `{ "entities": [] }` (no scan). `limit` defaults to 20 and is clamped 1–50. Nodes with blank `external_id` are skipped. `risk_score` is `null` when unscored (`scored: false`). Does not live-compute risk. Non-empty `q` includes `truncated` (boolean; true only when JanusGraph used a capped tenant scan because `vertexSearch` was not ENABLED). Neo4j/AGE always `truncated: false`.
 
 **Response:**
 
@@ -93,7 +93,8 @@ Empty or missing `q` returns `{ "entities": [] }` (no scan). `limit` defaults to
       "matched_on": "external_id",
       "via": null
     }
-  ]
+  ],
+  "truncated": false
 }
 ```
 

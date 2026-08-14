@@ -6,11 +6,11 @@ The graph service exposes a **single** REST contract (`/v1/entities`, `/v1/links
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `GRAPH_BACKEND` | `neo4j` | `neo4j` (Bolt + Cypher) or `janusgraph` (Gremlin Server). |
+| `GRAPH_BACKEND` | `janusgraph` | `neo4j` (Bolt + Cypher), `janusgraph` (Gremlin Server), or `age`. |
 | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | — | Used when `GRAPH_BACKEND=neo4j`. |
 | `JANUSGRAPH_GREMLIN_URL` | `ws://localhost:8182/gremlin` | WebSocket URL to Gremlin Server when `GRAPH_BACKEND=janusgraph`. |
 | `JANUSGRAPH_TRAVERSAL_SOURCE` | `g` | Traversal source name on the server. |
-| `JANUSGRAPH_ANALYTICS_VERTEX_CAP` | `8000` | Upper bound on vertices loaded into memory for Janus-side analytics (100–500000). |
+| `JANUSGRAPH_ANALYTICS_VERTEX_CAP` | `8000` | Upper bound on vertices loaded into memory for Janus-side analytics **and** search fallback when mixed index `vertexSearch` is not ENABLED (100–500000). |
 
 No code changes are required in downstream services: keep `GRAPH_SERVICE_URL` pointed at this service.
 
@@ -28,8 +28,12 @@ Entity upserts return `graph_id`: Neo4j returns `elementId`; JanusGraph returns 
 
 1. Run **Gremlin Server** reachable at `JANUSGRAPH_GREMLIN_URL` (WebSocket).
 2. Bind a **global traversal source** (typically `g`) matching `JANUSGRAPH_TRAVERSAL_SOURCE`.
-3. **Indexes**: composite index on `(tenant_id, external_id)` for vertex lookups is strongly recommended for production latency.
-4. **Mixed indexes** (optional): for large tenants, add indexes aligned with your JanusGraph backend (Elasticsearch, Solr, etc.) per JanusGraph docs.
+3. **Indexes (created on first graph-service connect, and the same Groovy is mounted in the Cassandra demo):**
+   - Unique composite `byTenantExternal` on `(tenant_id, external_id)`. Lookups stay `has("tenant_id").has("external_id")`. REGISTERED/INSTALLED does not block HTTP (unique indexes will not ENABLE while duplicates exist).
+   - Mixed index `vertexSearch` on backend `search` (demo Lucene: `index.search.backend = lucene`): `tenant_id` STRING, allowlisted search keys TEXTSTRING (`external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`).
+4. **Search:** JanusGraph is case-insensitive **prefix** (`textContainsPrefix` + Python `startswith` re-check). Neo4j/AGE remain CONTAINS. If `vertexSearch` is not ENABLED, search scans at most `JANUSGRAPH_ANALYTICS_VERTEX_CAP` vertices and sets `truncated: true` when that cap is hit.
+5. **GRAPH_INGEST** stamps `tenant_id` from `metadata.tenant_id` and `external_id` equal to the native key (`device_id`, `email`, …). Missing tenant → no Gremlin write (`reason=no_tenant`). Vertices that still lack `tenant_id`/`external_id` miss typeahead and cannot seed subgraph.
+6. **Subgraph / deep-context:** one Gremlin round-trip per depth layer. Super-node neighborhoods can be large in RAM (no silent per-vertex edge cap).
 
 ## Analytics parity notes (JanusGraph)
 

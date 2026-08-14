@@ -138,7 +138,7 @@ Files: `test_agent_run_and_context.py`, `test_trend_agent_api.py`, `test_trend_w
 - New AgentRun service or SQLite→Postgres migration
 - Auto-resolve cases; Shadow `FLAG`→`ALLOW`; auto-promote Wasm
 - Changing decision-api allow/deny
-- AGENTS.md / Cursor-rules developer program
+- AGENTS.md / editor-rules developer program
 - Shadow desktop mutating tools
 - LIVE calibration claims
 - Frontend-only tests (banner/button covered by API contracts in this spec)

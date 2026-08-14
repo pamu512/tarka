@@ -83,7 +83,7 @@ curl -s "http://localhost:8001/v1/analytics/communities?tenant_id=acme&min_size=
 
 1. Run community detection with `min_size=3`
 2. For each large community, check the `shared_attributes` for risk tags
-3. Drill into specific entities with the subgraph endpoint
+3. Drill into specific entities with the subgraph endpoint (`GET /v1/subgraph`). SPA `/graph` typeahead uses `GET /v1/entities/search` (Janus prefix / Neo4j CONTAINS; ingest vertices need `tenant_id` + `external_id`).
 4. Use risk propagation to score untagged entities in the cluster
 
 ---

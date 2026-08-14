@@ -227,6 +227,27 @@ def matched_on_from_props(props: dict[str, Any] | None, q: str) -> str | None:
     return None
 
 
+def matched_on_from_props_prefix(props: dict[str, Any] | None, q: str) -> str | None:
+    needle = str(q or "").casefold()
+    if not needle:
+        return None
+    bag = props or {}
+    for key in SEARCH_PROP_KEYS:
+        val = bag.get(key)
+        if isinstance(val, str) and val.casefold().startswith(needle):
+            return key
+    return None
+
+
+def eligible_search_node_prefix(entity_id: str, props: dict[str, Any] | None, q: str) -> str | None:
+    eid = str(entity_id or "").strip()
+    if not eid:
+        return None
+    bag = dict(props or {})
+    bag.setdefault("external_id", eid)
+    return matched_on_from_props_prefix(bag, q)
+
+
 def eligible_search_node(entity_id: str, props: dict[str, Any] | None, q: str) -> str | None:
     eid = str(entity_id or "").strip()
     if not eid:
@@ -266,10 +287,16 @@ def cap_identifier_owners(
     hits: list[dict[str, Any]], fanout: int = SEARCH_OWNER_FANOUT
 ) -> list[dict[str, Any]]:
     counts: dict[str, int] = {}
+    seen: set[tuple[str, str]] = set()
     out: list[dict[str, Any]] = []
     for hit in hits:
         via = hit.get("via") or {}
         via_id = str(via.get("entity_id") or "")
+        oid = str(hit.get("entity_id") or "")
+        pair = (via_id, oid)
+        if pair in seen:
+            continue
+        seen.add(pair)
         n = counts.get(via_id, 0)
         if n >= fanout:
             continue

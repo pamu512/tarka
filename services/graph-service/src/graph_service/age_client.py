@@ -442,7 +442,7 @@ async def list_entity_risk_top(
 
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], bool]:
     from .entity_risk_score import (
         OWNER_LABELS,
         cap_identifier_owners,
@@ -492,9 +492,7 @@ async def search_entities(
         matched = eligible_search_node(eid, props, q)
         if not matched:
             continue
-        hit = search_hit_from_node(
-            tenant_id, eid, labs, props, matched_on=matched, via=None
-        )
+        hit = search_hit_from_node(tenant_id, eid, labs, props, matched_on=matched, via=None)
         directs.append(hit)
         if labels_are_identifier(labs):
             ident_ids.append(eid)
@@ -554,7 +552,7 @@ async def search_entities(
                 )
             )
         owners = cap_identifier_owners(raw_owners)
-    return merge_search_hits(directs + owners, label=label, limit=limit)
+    return merge_search_hits(directs + owners, label=label, limit=limit), False
 
 
 async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str], bool]:
