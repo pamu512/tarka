@@ -31,7 +31,7 @@ class Settings(BaseSettings):
         default=8000,
         ge=100,
         le=500_000,
-        description="Max vertices loaded into memory for JanusGraph analytics fallbacks.",
+        description="Max vertices loaded into memory for JanusGraph analytics and search fallback when vertexSearch is not ENABLED.",
     )
 
     # Optional GNN beta endpoint (non-blocking; heuristics remain source of truth).

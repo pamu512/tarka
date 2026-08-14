@@ -177,17 +177,15 @@ async def health():
 
 
 @app.get("/v1/entities/search")
-async def entities_search(
-    tenant_id: str, q: str = "", label: str | None = None, limit: int = 20
-):
+async def entities_search(tenant_id: str, q: str = "", label: str | None = None, limit: int = 20):
     needle = (q or "").strip()[:256]
     if not needle:
         return {"entities": []}
     lab = (label or "").strip() or None
-    rows = await search_entities(
+    rows, truncated = await search_entities(
         tenant_id, q=needle, label=lab, limit=clamp_search_limit(limit)
     )
-    return {"entities": rows}
+    return {"entities": rows, "truncated": bool(truncated)}
 
 
 @app.post("/v1/entities", response_model=EntityResponse)
@@ -450,9 +448,7 @@ class EntityRiskRefreshRequest(BaseModel):
 
 @app.get("/v1/analytics/entity-risk/top")
 async def entity_risk_top(tenant_id: str, limit: int = 50, min_score: float = 0):
-    rows = await list_entity_risk_top(
-        tenant_id, limit=clamp_top_limit(limit), min_score=min_score
-    )
+    rows = await list_entity_risk_top(tenant_id, limit=clamp_top_limit(limit), min_score=min_score)
     return {"entities": rows}
 
 
@@ -465,9 +461,7 @@ async def entity_risk_refresh(body: EntityRiskRefreshRequest):
             )
         except EntityRiskNotFound:
             raise HTTPException(status_code=404, detail="entity_not_found") from None
-    limit = clamp_refresh_limit(
-        body.limit if body.limit is not None else 5000
-    )
+    limit = clamp_refresh_limit(body.limit if body.limit is not None else 5000)
     return await refresh_tenant(body.tenant_id, limit=limit)
 
 
