@@ -36,7 +36,9 @@ def require_internal_ingest_auth(request: Request) -> None:
         return
     got = (request.headers.get("x-internal-secret") or "").strip()
     if not got or not hmac.compare_digest(got, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_internal_secret")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_internal_secret"
+        )
 
 
 def _graph_payload_from_event(
@@ -81,9 +83,7 @@ def _velocity_payload_from_event(event: dict[str, Any]) -> dict[str, Any]:
         "entity_id": entity_id,
         "device_hash_string": None,
         "client_browser_metadata_context": {
-            k: meta[k]
-            for k in ("ip", "ip_address", "tenant_id", "canvas_fingerprint")
-            if k in meta
+            k: meta[k] for k in ("ip", "ip_address", "tenant_id", "canvas_fingerprint") if k in meta
         }
         or None,
         "amount_cents": amount_cents,

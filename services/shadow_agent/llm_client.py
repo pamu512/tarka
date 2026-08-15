@@ -534,7 +534,9 @@ def _first_env(*keys: str) -> str:
     return ""
 
 
-def build_shadow_llm_client(*, ai_gateway: AIGateway | None = None) -> OllamaLLMClient | OpenAICompatLLMClient:
+def build_shadow_llm_client(
+    *, ai_gateway: AIGateway | None = None
+) -> OllamaLLMClient | OpenAICompatLLMClient:
     """``SHADOW_LLM_BACKEND`` → evaluate client. Default ollama (self-hosted)."""
     raw = (os.environ.get("SHADOW_LLM_BACKEND") or "").strip().lower().replace("-", "_")
     model_override = _first_env("SHADOW_LLM_MODEL", "OPENAI_MODEL")
