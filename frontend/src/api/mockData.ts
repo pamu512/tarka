@@ -2236,7 +2236,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       {
         id: "10482",
         sequence: 10482,
-        subject: "fraud.events.dlq",
+        subject: "fraud.dlq.evaluate",
         received_at: null,
         kind: "evaluate_4xx",
         status_code: 422,
@@ -2258,7 +2258,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       {
         id: "10481",
         sequence: 10481,
-        subject: "fraud.events.dlq",
+        subject: "fraud.dlq.evaluate",
         received_at: null,
         kind: "evaluate_4xx",
         status_code: 400,
@@ -2279,7 +2279,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       {
         id: "10480",
         sequence: 10480,
-        subject: "fraud.events.dlq",
+        subject: "fraud.dlq.evaluate",
         received_at: null,
         kind: "invalid_json",
         status_code: null,
@@ -2298,7 +2298,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
     });
     return {
       stream_name: "FRAUD_EVENTS",
-      dlq_subject: "fraud.events.dlq",
+      dlq_subject: "fraud.dlq.evaluate",
       subject_prefix: "fraud.events",
       nats_connected: true,
       jetstream_enabled: true,

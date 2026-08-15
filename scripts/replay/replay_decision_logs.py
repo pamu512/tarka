@@ -55,12 +55,21 @@ def _score_band(score: float) -> str:
     return "allow_band"
 
 
+def _optional_float(ctx: dict[str, Any], key: str) -> float | None:
+    if key not in ctx or ctx[key] is None:
+        return None
+    try:
+        return float(ctx[key])
+    except (TypeError, ValueError):
+        return None
+
+
 def _inference_slice(ctx: dict[str, Any]) -> dict[str, Any]:
     return {
         "confidence_tier": ctx.get("confidence_tier"),
         "top_signals": sorted(_as_str_list(ctx.get("top_signals"))),
-        "graph_risk_score": float(ctx.get("graph_risk_score", 0.0) or 0.0),
-        "external_signal_score": float(ctx.get("external_signal_score", 0.0) or 0.0),
+        "graph_risk_score": _optional_float(ctx, "graph_risk_score"),
+        "external_signal_score": _optional_float(ctx, "external_signal_score"),
         "policy_experiment_id": ctx.get("policy_experiment_id"),
         "ml_model": ctx.get("ml_model"),
     }
@@ -91,8 +100,16 @@ def _classify_drift(
 ) -> tuple[list[str], dict[str, Any]]:
     old_decision = str(row.get("decision"))
     new_decision = str(fresh.get("decision"))
-    old_score = float(row.get("score", 0.0) or 0.0)
-    new_score = float(fresh.get("score", 0.0) or 0.0)
+    def _score(blob: dict[str, Any]) -> float | None:
+        if "score" not in blob or blob.get("score") is None:
+            return None
+        try:
+            return float(blob["score"])
+        except (TypeError, ValueError):
+            return None
+
+    old_score = _score(row)
+    new_score = _score(fresh)
     old_tags = set(_as_str_list(row.get("tags")))
     new_tags = set(_as_str_list(fresh.get("tags")))
     old_hits = set(_as_str_list(row.get("rule_hits")))
@@ -115,8 +132,15 @@ def _classify_drift(
         categories.add("model_drift")
     if _dependency_related_change(old_tags, new_tags, old_fallback, new_fallback):
         categories.add("dependency_drift")
+    if (old_score is None) != (new_score is None):
+        categories.add("dependency_drift")
 
-    score_delta = abs(new_score - old_score)
+    if old_score is None or new_score is None:
+        score_delta = 0.0
+        score_band_changed = old_score is None or new_score is None
+    else:
+        score_delta = abs(new_score - old_score)
+        score_band_changed = _score_band(old_score) != _score_band(new_score)
     decision_changed = old_decision != new_decision
     inference_changed = old_slice != new_slice
     if (
@@ -127,7 +151,7 @@ def _classify_drift(
     detail = {
         "decision_changed": decision_changed,
         "score_delta": round(score_delta, 4),
-        "score_band_changed": _score_band(old_score) != _score_band(new_score),
+        "score_band_changed": score_band_changed,
         "rule_hits_changed": old_hits != new_hits,
         "tags_changed": old_tags != new_tags,
         "inference_slice_changed": inference_changed,

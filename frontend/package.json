@@ -15,7 +15,6 @@
     "export-brand": "node scripts/export-tarka-brand.mjs"
   },
   "dependencies": {
-    "@apollo/client": "^3.14.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.90.12",
@@ -30,7 +29,6 @@
     "clsx": "^2.1.1",
     "dompurify": "3.4.13",
     "framer-motion": "^12.38.0",
-    "graphql": "^16.12.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.24.0",

@@ -235,17 +235,69 @@ def test_link_props_stamp_create_not_match():
     assert link_props_for_match(supplied)["observed_at"] == "2020-01-01T00:00:00Z"
 
 
-def test_neo4j_age_create_link_on_create_not_blind_set():
-    import inspect
-    from graph_service import age_client, neo4j_client
+@pytest.mark.asyncio
+async def test_neo4j_create_link_sends_on_create_not_blind_set(monkeypatch):
+    from graph_service import neo4j_client
 
-    for src in (
-        inspect.getsource(neo4j_client.create_link),
-        inspect.getsource(age_client.create_link),
-    ):
-        assert "ON CREATE SET r += $create_props" in src
-        assert "ON MATCH SET r += $match_props" in src
-        assert "SET r += $rel_props" not in src
+    queries: list[str] = []
+
+    class _Result:
+        async def single(self):
+            return None
+
+    class _Session:
+        async def run(self, cypher, **_params):
+            queries.append(cypher)
+            return _Result()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_a):
+            return False
+
+    class _Driver:
+        def session(self):
+            return _Session()
+
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver()))
+    await neo4j_client.create_link("acme", "a", "b", "USED", {})
+    joined = "\n".join(queries)
+    assert "ON CREATE SET r += $create_props" in joined
+    assert "ON MATCH SET r += $match_props" in joined
+    assert "SET r += $rel_props" not in joined
+
+
+@pytest.mark.asyncio
+async def test_age_create_link_sends_on_create_not_blind_set(monkeypatch):
+    from graph_service import age_client
+
+    queries: list[str] = []
+
+    class _Conn:
+        async def fetchrow(self, stmt, _params):
+            queries.append(stmt)
+            return None
+
+        async def execute(self, stmt, _params):
+            queries.append(stmt)
+
+    class _Pool:
+        def acquire(self):
+            return self
+
+        async def __aenter__(self):
+            return _Conn()
+
+        async def __aexit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
+    await age_client.create_link("acme", "a", "b", "USED", {})
+    joined = "\n".join(queries)
+    assert "ON CREATE SET r += $create_props" in joined
+    assert "ON MATCH SET r += $match_props" in joined
+    assert "SET r += $rel_props" not in joined
 
 
 @pytest.mark.asyncio

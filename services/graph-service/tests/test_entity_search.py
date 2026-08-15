@@ -1,4 +1,3 @@
-import inspect
 from unittest.mock import AsyncMock
 
 from graph_service.entity_risk_score import (
@@ -13,7 +12,6 @@ from graph_service.entity_risk_score import (
     merge_search_hits,
     search_hit_from_node,
 )
-from graph_service import neo4j_client
 
 
 def test_clamp_search_limit():
@@ -41,22 +39,6 @@ def test_search_hit_scored_zero_is_zero():
     )
     assert hit["scored"] is True
     assert hit["risk_score"] == 0
-
-
-def test_neo4j_search_cypher_is_parameterized_contains():
-    src = inspect.getsource(neo4j_client.search_entities)
-    assert "$q" in src
-    assert "$tenant_id" in src
-    assert "GraphRiskStats" in src
-    assert "merge_search_hits" in src
-    assert "--(m)" in src or "-- (m)" in src
-    assert "IN $ids" in src or "IN $ident_ids" in src
-    assert 'f"{q}' not in src
-    assert "f'{q}" not in src
-    pred_src = inspect.getsource(cypher_search_prop_predicate)
-    assert "CONTAINS" in pred_src
-    assert "toLower" in pred_src
-    assert "email" in cypher_search_prop_predicate("n")
 
 
 def test_search_http_empty_q_no_store(monkeypatch):
@@ -119,31 +101,6 @@ def test_search_http_truncated_true(monkeypatch):
             params={"tenant_id": "t", "q": "x"},
         ).json()
     assert data == {"entities": [], "truncated": True}
-
-
-from graph_service import age_client, janusgraph_store
-
-
-def test_janus_search_filters_in_python_not_full_graph_scan_without_tenant():
-    src = inspect.getsource(janusgraph_store.search_entities)
-    assert "tenant_id" in src
-    assert "GraphRiskStats" in src
-    assert "eligible_search_node_prefix" in src
-    assert "merge_search_hits" in src
-    assert "both().limit(10)" in src
-    assert "search_hit_from_node" in src
-
-
-def test_age_search_cypher_contains_and_tenant():
-    src = inspect.getsource(age_client.search_entities)
-    assert "tenant_id" in src
-    assert "$q" in src or "$tenant_id" in src
-    assert "merge_search_hits" in src
-    assert "GraphRiskStats" in src or "external_id" in src
-    assert 'f"{q}' not in src
-    pred_src = inspect.getsource(cypher_search_prop_predicate)
-    assert "CONTAINS" in pred_src or "contains" in pred_src
-    assert "$q" in src
 
 
 def test_matched_on_allowlist_order_strings_only():

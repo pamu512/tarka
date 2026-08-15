@@ -9,12 +9,20 @@ from decision_api.config import settings
 _SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
     "lists:unavailable": "Signal Entity lists was unavailable",
     "graph:unavailable": "Signal Graph risk was unavailable",
+    "graph:unconfigured": "Signal Graph risk URL unset",
     "enrichment:unavailable": "Signal Feature enrichment was unavailable",
+    "enrichment:unconfigured": "Signal Feature enrichment URL unset",
     "ml:unavailable": "Signal ML scoring was unavailable",
+    "ml:unconfigured": "Signal ML scoring URL unset",
+    "ml:disabled": "Signal ML scoring disabled",
     "opa:unavailable": "Signal Policy (OPA) was unavailable",
+    "opa:unconfigured": "Signal Policy (OPA) URL unset",
     "calibration:unavailable": "Signal Calibration was unavailable",
+    "calibration:unconfigured": "Signal Calibration URL unset",
     "counter:unavailable": "Signal Counter service was unavailable",
+    "counter:unconfigured": "Signal Counter service URL unset",
     "location:unavailable": "Signal Location intelligence was unavailable",
+    "location:unconfigured": "Signal Location intelligence URL unset",
     "redis:tag_merge_unavailable": "Signal Redis tag merge was unavailable",
     "redis:tenant_flags_unavailable": "Signal Redis tenant flags was unavailable",
     "redis:entity_tags_unavailable": "Signal Redis entity tags was unavailable",
@@ -22,6 +30,68 @@ _SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
     "async_osint:unavailable": "Signal Async OSINT cache was unavailable",
     "async_enrich:stale": "Async OSINT cache exceeded lag budget (stale)",
 }
+
+
+EVALUATE_HOP_UNCONFIGURED: dict[str, tuple[str, str]] = {
+    "graph": ("graph_service_url", "graph:unconfigured"),
+    "features": ("feature_service_url", "enrichment:unconfigured"),
+    "ml": ("ml_scoring_url", "ml:unconfigured"),
+    "opa": ("opa_url", "opa:unconfigured"),
+    "counter": ("counter_service_url", "counter:unconfigured"),
+    "location": ("location_service_url", "location:unconfigured"),
+    "calibration": ("calibration_service_url", "calibration:unconfigured"),
+}
+
+
+def tag_unconfigured(degrade_tags: list[str], url: str, tag: str) -> bool:
+    """Tag an empty hop URL. Returns True when the hop should be skipped."""
+    if (url or "").strip():
+        return False
+    if tag not in degrade_tags:
+        degrade_tags.append(tag)
+    return True
+
+
+def tag_hop_unconfigured(
+    degrade_tags: list[str], hop: str, url: str | None = None
+) -> bool:
+    attr, tag = EVALUATE_HOP_UNCONFIGURED[hop]
+    resolved = getattr(settings, attr) if url is None else url
+    return tag_unconfigured(degrade_tags, resolved, tag)
+
+
+def optional_score(data: dict[str, Any] | None, key: str = "score") -> float | None:
+    """Missing / null score is unscored. ``0`` is a real score when the key is present."""
+    if not isinstance(data, dict) or key not in data or data[key] is None:
+        return None
+    try:
+        return float(data[key])
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_ml_score_payload(data: dict[str, Any] | None) -> tuple[float | None, dict[str, Any]]:
+    """Treat disabled / missing score as unscored. ``0`` is a real score when present."""
+    empty: dict[str, Any] = {}
+    if not isinstance(data, dict):
+        return None, {"unscored_reason": "missing_score"}
+    if data.get("scored") is False or data.get("model_version") == "disabled":
+        return None, {"unscored_reason": "disabled"}
+    score = optional_score(data)
+    if score is None:
+        return None, {"unscored_reason": "missing_score"}
+    factors = data.get("ml_top_factors")
+    if not isinstance(factors, list):
+        factors = []
+    summary = data.get("ml_summary")
+    if summary is not None and not isinstance(summary, str):
+        summary = str(summary)[:500]
+    model = data.get("model")
+    return score, {
+        "top_factors": factors,
+        "summary": summary,
+        "model": model if isinstance(model, str) else None,
+    }
 
 
 def blend_scores(rule_score: float, ml_score: float | None) -> float:
@@ -40,10 +110,18 @@ def compute_fallback_reason(
     tag_map = {
         "lists:unavailable": "circuit_list",
         "graph:unavailable": "circuit_graph",
+        "graph:unconfigured": "graph_unconfigured",
         "enrichment:unavailable": "circuit_feature",
+        "enrichment:unconfigured": "feature_unconfigured",
         "ml:unavailable": "circuit_ml",
+        "ml:unconfigured": "ml_unconfigured",
+        "ml:disabled": "ml_disabled",
         "opa:unavailable": "circuit_opa",
+        "opa:unconfigured": "opa_unconfigured",
         "calibration:unavailable": "circuit_calibration",
+        "calibration:unconfigured": "calibration_unconfigured",
+        "counter:unconfigured": "counter_unconfigured",
+        "location:unconfigured": "location_unconfigured",
         "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
         "consortium:unavailable": "circuit_consortium",

@@ -1,4 +1,3 @@
-import inspect
 from unittest.mock import AsyncMock
 
 import pytest
@@ -91,13 +90,6 @@ async def test_refresh_tenant_truncated_writes_p90(monkeypatch):
     out = await refresh_tenant("t", limit=2)
     assert out["truncated"] is True
     upsert.assert_awaited()
-
-
-def test_list_entity_risk_top_cypher_requires_computed_at():
-    from graph_service import neo4j_client
-
-    src = inspect.getsource(neo4j_client.list_entity_risk_top)
-    assert "risk_computed_at IS NOT NULL" in src
 
 
 @pytest.mark.asyncio

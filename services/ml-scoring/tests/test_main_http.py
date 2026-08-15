@@ -40,7 +40,8 @@ def test_score_when_ml_disabled() -> None:
         )
     assert r.status_code == 200
     data = r.json()
-    assert data["score"] == 0.0
+    assert data["score"] is None
+    assert data["scored"] is False
     assert data["model_version"] == "disabled"
 
 

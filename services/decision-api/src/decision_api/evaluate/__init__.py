@@ -4,11 +4,13 @@ from decision_api.evaluate.score import (
     blend_scores,
     compute_fallback_reason,
     decision_runtime_status,
+    parse_ml_score_payload,
     signal_availability_notes_from_tags,
 )
 
 __all__ = [
     "blend_scores",
+    "parse_ml_score_payload",
     "compute_fallback_reason",
     "decision_runtime_status",
     "signal_availability_notes_from_tags",

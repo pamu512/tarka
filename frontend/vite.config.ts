@@ -135,11 +135,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/investigation/, ""),
       },
-      /** Collaboration chat bridge (outbound schema + case actions). Default: :8012. */
-      "/api/bridge": {
-        target: "http://127.0.0.1:8012",
+      /** Collaboration mount on investigation-agent (same hop as production nginx /api/collab). */
+      "/api/collab": {
+        target: "http://localhost:8006",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/bridge/, ""),
+        rewrite: (path) => path.replace(/^\/api\/collab/, "/collab"),
       },
       "/api/ingest": {
         target: "http://localhost:8007",

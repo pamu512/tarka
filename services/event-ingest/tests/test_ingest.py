@@ -73,6 +73,25 @@ class TestHealthEndpoint:
         else:
             assert data["redis_ok"] in (True, False)
 
+    def test_ready_ok_when_nats_up(self, client):
+        r = client.get("/v1/ready")
+        assert r.status_code == 200
+        assert r.json()["ready"] is True
+
+    def test_liveness_http_503_when_nats_down(self):
+        from event_ingest.main import liveness_http
+
+        code, status = liveness_http(nats_ok=False, redis_configured=False, redis_ok=None)
+        assert code == 503
+        assert status == "unavailable"
+
+    def test_liveness_http_ok_when_nats_up(self):
+        from event_ingest.main import liveness_http
+
+        code, status = liveness_http(nats_ok=True, redis_configured=False, redis_ok=None)
+        assert code == 200
+        assert status == "ok"
+
 
 class TestIdempotency:
     def test_same_key_second_call_duplicate(self, client, mock_js):

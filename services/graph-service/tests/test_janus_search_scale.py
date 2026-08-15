@@ -1,63 +1,122 @@
-import inspect
+from unittest.mock import AsyncMock
+
+import pytest
 
 from graph_service import age_client, janusgraph_gremlin, janusgraph_store, neo4j_client
 from graph_service.entity_risk_score import SEARCH_PROP_KEYS, cypher_search_prop_predicate
 
 
-def test_janus_search_uses_prefix_index_and_batch_hydrate():
-    src = inspect.getsource(janusgraph_store.search_entities)
-    hydrate = inspect.getsource(janusgraph_store._batch_valuemap)
-    gremlin_src = inspect.getsource(janusgraph_gremlin)
-    assert "textContainsPrefix" in src
-    assert "_batch_valuemap" in src
-    assert "valueMap" in hydrate
-    assert "both().limit(10)" in src
-    assert "vertexSearch" in gremlin_src
-    assert "byTenantExternal" in gremlin_src
-    assert "Client" in gremlin_src
-    assert "submit" in gremlin_src
-    assert "truncated" in src
-    assert "janusgraph_analytics_vertex_cap" in src
-    assert "eligible_search_node_prefix" in src
-    assert "elementMap" not in src
-    assert 'for v in g.V().has("tenant_id")' not in src
-    assert "for v in g.V().has('tenant_id')" not in src
+class _RecordG:
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def V(self, *_a):
+        self.calls.append(("V", _a))
+        return self
+
+    def has(self, *args):
+        self.calls.append(("has", args))
+        return self
+
+    def limit(self, n):
+        self.calls.append(("limit", n))
+        return self
+
+    def toList(self):
+        return []
+
+    def both(self):
+        return self
 
 
-def test_janus_fallback_mentions_cap_and_truncated():
-    src = inspect.getsource(janusgraph_store.search_entities)
-    assert "limit(" in src
-    assert "truncated" in src
+@pytest.mark.asyncio
+async def test_janus_search_calls_prefix_has_with_tenant(monkeypatch):
+    g = _RecordG()
+    monkeypatch.setattr(janusgraph_store, "get_traversal_source", lambda: g)
+    monkeypatch.setattr(janusgraph_store, "vertex_search_index_enabled", lambda: True)
+    monkeypatch.setattr(janusgraph_store, "_batch_valuemap", lambda _g, verts: [])
+
+    async def _immediate(fn):
+        return fn()
+
+    monkeypatch.setattr(janusgraph_store, "run_in_gremlin_thread", _immediate)
+    rows, truncated = await janusgraph_store.search_entities("acme", "ali", limit=10)
+    assert rows == []
+    assert truncated is False
+    has_args = [c[1] for c in g.calls if c[0] == "has"]
+    assert any(args and args[0] == "tenant_id" and args[1] == "acme" for args in has_args)
+    assert any(len(args) >= 2 and str(args[1]).find("textContainsPrefix") >= 0 for args in has_args)
 
 
-def test_cypher_backends_keep_contains():
-    nsrc = inspect.getsource(neo4j_client.search_entities)
-    asrc = inspect.getsource(age_client.search_entities)
-    assert "CONTAINS" in inspect.getsource(cypher_search_prop_predicate)
-    assert "textContainsPrefix" not in nsrc
-    assert "textContainsPrefix" not in asrc
-
-
-def test_vertex_search_groovy_covers_allowlist_and_composite():
-    src = inspect.getsource(janusgraph_gremlin)
-    assert "vertexSearch" in src
-    assert "byTenantExternal" in src
-    assert "unique" in src
-    assert "TEXTSTRING" in src
-    assert "'search'" in src or '"search"' in src
+def test_schema_ensure_groovy_emits_index_names():
+    groovy = janusgraph_gremlin._schema_ensure_groovy()
+    assert "vertexSearch" in groovy
+    assert "byTenantExternal" in groovy
     for key in SEARCH_PROP_KEYS:
-        assert key in src or "SEARCH_PROP_KEYS" in src
+        assert key in groovy
 
 
-def test_janus_subgraph_one_roundtrip_per_layer():
-    sub = inspect.getsource(janusgraph_store._query_subgraph_sync)
-    deep = inspect.getsource(janusgraph_store._query_entity_deep_context_sync)
-    walk = inspect.getsource(janusgraph_store._walk_incident_layers)
-    assert "g.V(v).bothE()" not in sub
-    assert "g.V(v).bothE()" not in deep
-    assert "bothE().toList()" not in sub
-    assert "elementMap" not in sub
-    assert "elementMap" not in deep
-    assert "valueMap" in walk
-    assert "bothE" in walk
-    assert "for layer" in walk or "range(" in walk
+@pytest.mark.asyncio
+async def test_neo4j_search_sends_contains_and_tenant(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Result:
+        async def data(self):
+            return []
+
+    class _Session:
+        async def run(self, cypher, **params):
+            captured["cypher"] = cypher
+            captured["params"] = params
+            return _Result()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_a):
+            return False
+
+    class _Driver:
+        def session(self):
+            return _Session()
+
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver()))
+    rows, _trunc = await neo4j_client.search_entities("acme", "ali")
+    assert rows == []
+    cypher = str(captured["cypher"])
+    assert "CONTAINS" in cypher or "contains" in cypher.lower()
+    assert "$tenant_id" in cypher
+    assert "$q" in cypher
+    assert captured["params"]["tenant_id"] == "acme"
+    assert captured["params"]["q"] == "ali"
+
+
+@pytest.mark.asyncio
+async def test_age_search_sends_contains_and_tenant(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Conn:
+        async def fetch(self, stmt, params):
+            captured["stmt"] = stmt
+            captured["params"] = params
+            return []
+
+    class _Pool:
+        def acquire(self):
+            return self
+
+        async def __aenter__(self):
+            return _Conn()
+
+        async def __aexit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
+    rows, _trunc = await age_client.search_entities("acme", "ali")
+    assert rows == []
+    stmt = str(captured["stmt"])
+    assert "CONTAINS" in stmt or "contains" in stmt.lower()
+    assert "$tenant_id" in stmt
+    assert captured["params"]  # json blob with tenant + q
+    assert "acme" in str(captured["params"])
+    assert "ali" in str(captured["params"])

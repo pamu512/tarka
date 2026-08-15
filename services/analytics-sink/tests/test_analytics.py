@@ -137,3 +137,22 @@ class TestQueryEndpoints:
     def test_top_entities(self, client):
         r = client.get("/v1/analytics/top-entities", params={"tenant_id": "t1"})
         assert r.status_code == 200
+
+
+def test_health_503_when_clickhouse_configured_and_down(monkeypatch):
+    from analytics_sink import main as asink
+
+    monkeypatch.setattr(asink.settings, "clickhouse_host", "ch.example")
+    monkeypatch.setattr(asink, "_ch_client", None)
+    assert asink.clickhouse_configured() is True
+    assert asink.clickhouse_ok() is False
+    from fastapi.testclient import TestClient
+
+    with patch("analytics_sink.main._init_clickhouse"), patch(
+        "analytics_sink.main.asyncio.create_task"
+    ):
+        with TestClient(asink.app) as client:
+            r = client.get("/v1/health")
+    assert r.status_code == 503
+    assert r.json()["clickhouse"] is False
+    assert r.json()["configured"] is True

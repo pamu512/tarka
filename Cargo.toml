@@ -11,7 +11,5 @@ members = [
 exclude = [
     "crates/tarka-kms",
     "fuzz",
-    "services/event-ingest",
-    "services/analytics-sink",
     "services/batch-ingest",
 ]

@@ -303,7 +303,8 @@ def _background_adaptive_update(numeric_features: dict[str, float]) -> None:
 async def score(body: ScoreRequest, bg: BackgroundTasks):
     if DISABLE_ML:
         return {
-            "score": 0.0,
+            "score": None,
+            "scored": False,
             "model_version": "disabled",
             "ml_top_factors": [],
             "ml_summary": None,

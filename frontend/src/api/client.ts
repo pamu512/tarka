@@ -10,7 +10,7 @@ import {
   type SaarthiFeatureImportanceResponse,
 } from "../lib/saarthi/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
-import { deskStrictEnabled, mocksAllowedForUrl } from "./deskMockPolicy";
+import { deskStrictEnabled, isUpstreamUnavailableBody, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
 import {
   extractSupportIdFromMessage,
@@ -38,8 +38,9 @@ if (IS_PRODUCTION_BUILD && MOCK_MODE === "true") {
  * - `VITE_USE_API_MOCKS=false` -> never allow fallback
  * - `VITE_USE_API_MOCKS=auto` (default) -> allow in dev, never in production
  *
- * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA/trend routes never
- * use auto mock fallback — only explicit VITE_USE_API_MOCKS=true.
+ * Desk-strict (default ON via VITE_DESK_STRICT): case/calibration/QA/trend/graph/
+ * analytics/orchestrator/ingest routes never use auto mock fallback — only
+ * explicit VITE_USE_API_MOCKS=true.
  *
  * Production: mocks are disabled; mock helpers are loaded only via dynamic import so they are not in the main chunk.
  */
@@ -99,7 +100,7 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
       return null;
     }
     if (!res.ok) {
-      if (USE_API_MOCKS) {
+      if (allowMocksForRequest(url) && !isUpstreamUnavailableBody(text)) {
         const mock = await loadMockResponse(url);
         if (mock !== null) {
           const m = mock as { not_found?: boolean };
@@ -111,7 +112,7 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
     }
     return JSON.parse(text) as GraphEntityDeepContext;
   } catch (err) {
-    if (USE_API_MOCKS) {
+    if (allowMocksForRequest(url)) {
       const mock = await loadMockResponse(url);
       if (mock !== null) {
         const m = mock as { not_found?: boolean };
@@ -1326,7 +1327,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
     if (!res.ok) {
-      if (allowMockFallback) {
+      if (allowMockFallback && !isUpstreamUnavailableBody(text)) {
         const mock = await loadMockResponse(url, init);
         if (mock !== null) {
           reportDataOutcome("mock");
@@ -5342,15 +5343,15 @@ export const orchestrator = {
   },
 };
 
-// ── Collaboration chat bridge (outbound schema — Q2-E08) ────────────
+// ── Collaboration mount (investigation-agent /collab — Q2-E08) ──────
 
 export const bridge = {
   caseStateChangeSchema() {
-    return request<Record<string, unknown>>("/api/bridge/v1/outbound/case-state-change/schema");
+    return request<Record<string, unknown>>("/api/collab/outbound/case-state-change/schema");
   },
 
   validateCaseStateChangeFixture(payload: BridgeCaseStateChangePayload, bridgeSecret: string) {
-    return request<{ ok?: boolean }>("/api/bridge/v1/outbound/case-state-change/fixture", {
+    return request<{ ok?: boolean }>("/api/collab/outbound/case-state-change/fixture", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     # R3.1 — reject ingest when Idempotency-Key missing (set INGEST_REQUIRE_IDEMPOTENCY_KEY=true)
     ingest_require_idempotency_key: bool = False
 
-    # E2 DLQ: publish poison / bad-evaluate payloads to JetStream (same stream wildcard fraud.events.>)
-    ingest_dlq_subject: str = "fraud.events.dlq"
-    ingest_dlq_publish_on_evaluate_4xx: bool = False
+    # E2 DLQ: must sit outside subject_prefix.> or the durable re-consumes the park envelope.
+    ingest_dlq_subject: str = "fraud.dlq.evaluate"
+    ingest_dlq_stream_name: str = "FRAUD_DLQ"
+    ingest_dlq_publish_on_evaluate_4xx: bool = True
 
     orchestrator_url: str = ""
     orchestrator_internal_secret: str = ""

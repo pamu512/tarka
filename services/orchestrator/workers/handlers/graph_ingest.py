@@ -285,7 +285,7 @@ def _ingest_janus_sync(
     transaction: TransactionSchema,
     *,
     audit_log_id: int,
-) -> None:
+) -> str | None:
     tenant = str((transaction.metadata or {}).get("tenant_id") or "").strip()
     if not tenant:
         logger.info(
@@ -293,7 +293,7 @@ def _ingest_janus_sync(
             transaction.entity_id,
             audit_log_id,
         )
-        return
+        return "noop:no_tenant"
 
     _ensure_connection(client)
 
@@ -304,7 +304,7 @@ def _ingest_janus_sync(
             transaction.entity_id,
             audit_log_id,
         )
-        return
+        return "noop:no_graph_hints"
 
     transaction_id = str(transaction.entity_id)
     if _ingest_already_committed(client, transaction_id=transaction_id, audit_log_id=audit_log_id):
@@ -331,7 +331,7 @@ def _ingest_janus_from_event(
     event: dict[str, Any],
     *,
     audit_log_id: int,
-) -> None:
+) -> str | None:
     tenant = str(event.get("tenant_id") or "").strip()
     entity_id = str(event.get("entity_id") or "").strip()
     if not tenant:
@@ -340,7 +340,7 @@ def _ingest_janus_from_event(
             entity_id,
             audit_log_id,
         )
-        return
+        return "noop:no_tenant"
 
     _ensure_connection(client)
 
@@ -351,7 +351,7 @@ def _ingest_janus_from_event(
             entity_id,
             audit_log_id,
         )
-        return
+        return "noop:no_graph_hints"
 
     if _ingest_already_committed(client, transaction_id=entity_id, audit_log_id=audit_log_id):
         logger.info(
@@ -555,7 +555,7 @@ class GraphIngestHandler(BaseOutboxHandler):
 
     event_type = OUTBOX_EVENT_GRAPH_INGEST
 
-    async def execute(self, payload: dict[str, Any]) -> None:
+    async def execute(self, payload: dict[str, Any]) -> str | None:
         if not isinstance(payload, dict):
             raise GraphIngestPayloadError("graph ingest payload must be a dict")
 
@@ -564,7 +564,7 @@ class GraphIngestHandler(BaseOutboxHandler):
 
         client = _connect_janusgraph()
         try:
-            await asyncio.to_thread(
+            reason = await asyncio.to_thread(
                 _ingest_janus_from_event,
                 client,
                 event,
@@ -581,8 +581,18 @@ class GraphIngestHandler(BaseOutboxHandler):
         finally:
             await client.close()
 
+        if reason:
+            logger.info(
+                "graph_ingest_handler_skipped entity_id=%s audit_log_id=%s reason=%s",
+                event.get("entity_id"),
+                audit_log_id,
+                reason,
+            )
+            return reason
+
         logger.info(
             "graph_ingest_handler_completed entity_id=%s audit_log_id=%s",
             event.get("entity_id"),
             audit_log_id,
         )
+        return None

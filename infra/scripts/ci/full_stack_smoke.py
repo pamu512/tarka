@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -20,6 +21,7 @@ Used by GitHub Actions; runnable locally from repo root:
 """
 REPO_ROOT = Path(__file__).resolve().parents[3]
 COMPOSE_FILE = REPO_ROOT / "infra" / "deploy" / "docker-compose.yml"
+GRAPH_ENV_FILE = REPO_ROOT / "infra" / "deploy" / "docker-compose.graph-env.yml"
 
 JSON_HEALTH = [
     ("decision-api", "http://127.0.0.1:8000/decisions/v1/health"),
@@ -30,6 +32,10 @@ JSON_HEALTH = [
     ("investigation-agent", "http://127.0.0.1:8006/v1/health"),
     ("data-plane", "http://127.0.0.1:8007/v1/health"),
     ("graphql-gateway", "http://127.0.0.1:8010/v1/health"),
+]
+
+JSON_READY = [
+    ("data-plane-ready", "http://127.0.0.1:8007/v1/ready"),
 ]
 
 HTTP200_ONLY = [
@@ -44,15 +50,25 @@ def _compose_cmd() -> list[str]:
         "compose",
         "-f",
         str(COMPOSE_FILE),
+        "-f",
+        str(GRAPH_ENV_FILE),
         "--profile",
         "full",
     ]
+
+
+def _compose_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("ALLOW_INSECURE_NO_AUTH", "true")
+    env.setdefault("CLICKHOUSE_HOST", "clickhouse")
+    return env
 
 
 def compose_up() -> None:
     subprocess.run(
         _compose_cmd() + ["up", "-d", "--build"],
         cwd=REPO_ROOT,
+        env=_compose_env(),
         check=True,
     )
 
@@ -85,6 +101,18 @@ def probe_json_ok(url: str, timeout: float = 5.0) -> bool:
         return False
 
 
+def probe_ready(url: str, timeout: float = 5.0) -> bool:
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status != 200:
+                return False
+            body = json.loads(resp.read().decode())
+            return body.get("ready") is True
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError):
+        return False
+
+
 def probe_http_200(url: str, timeout: float = 5.0) -> bool:
     try:
         req = urllib.request.Request(url, method="GET")
@@ -96,25 +124,34 @@ def probe_http_200(url: str, timeout: float = 5.0) -> bool:
 
 def wait_for_stack(deadline_seconds: float = 1200.0, poll: float = 5.0) -> None:
     pending_json = dict(JSON_HEALTH)
+    pending_ready = dict(JSON_READY)
     pending_200 = dict(HTTP200_ONLY)
     deadline = time.monotonic() + deadline_seconds
 
-    while (pending_json or pending_200) and time.monotonic() < deadline:
+    while (pending_json or pending_ready or pending_200) and time.monotonic() < deadline:
         for name, url in list(pending_json.items()):
             if probe_json_ok(url):
                 print(f"[ok] {name} {url}")
                 del pending_json[name]
+        for name, url in list(pending_ready.items()):
+            if probe_ready(url):
+                print(f"[ok] {name} {url}")
+                del pending_ready[name]
         for name, url in list(pending_200.items()):
             if probe_http_200(url):
                 print(f"[ok] {name} {url}")
                 del pending_200[name]
-        if pending_json or pending_200:
-            rem = sorted(pending_json) + sorted(pending_200)
+        if pending_json or pending_ready or pending_200:
+            rem = sorted(pending_json) + sorted(pending_ready) + sorted(pending_200)
             print(f"[wait] remaining: {rem} ({int(deadline - time.monotonic())}s left)")
             time.sleep(poll)
 
-    if pending_json or pending_200:
-        print("TIMEOUT waiting for:", sorted(pending_json) + sorted(pending_200), file=sys.stderr)
+    if pending_json or pending_ready or pending_200:
+        print(
+            "TIMEOUT waiting for:",
+            sorted(pending_json) + sorted(pending_ready) + sorted(pending_200),
+            file=sys.stderr,
+        )
         raise TimeoutError("stack health checks")
 
 
@@ -147,6 +184,32 @@ def smoke_evaluate() -> None:
         raise RuntimeError(f"evaluate HTTP {e.code}: {detail[:1200]}") from e
     _assert_evaluate_contract_shape(body)
     print(f"[ok] POST /v1/decisions/evaluate trace_id={body.get('trace_id')}")
+
+
+def smoke_ingest() -> None:
+    payload = json.dumps(
+        {
+            "tenant_id": "ci_stack",
+            "event_type": "login",
+            "entity_id": "ci-smoke-ingest",
+            "payload": {"source": "full_stack_smoke"},
+        }
+    ).encode()
+    req = urllib.request.Request(
+        "http://127.0.0.1:8007/v1/events",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw = resp.read().decode()
+            if resp.status != 200:
+                raise RuntimeError(f"ingest returned {resp.status}: {raw[:1200]}")
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="replace")
+        raise RuntimeError(f"ingest HTTP {e.code}: {detail[:1200]}") from e
+    print("[ok] POST /v1/events accepted")
 
 
 def _assert_evaluate_contract_shape(body: dict[str, object]) -> None:
@@ -210,6 +273,9 @@ def main() -> int:
     if not COMPOSE_FILE.is_file():
         print(f"Missing compose file: {COMPOSE_FILE}", file=sys.stderr)
         return 1
+    if not GRAPH_ENV_FILE.is_file():
+        print(f"Missing graph-env overlay: {GRAPH_ENV_FILE}", file=sys.stderr)
+        return 1
 
     if args.down_only:
         compose_down()
@@ -225,6 +291,8 @@ def main() -> int:
         wait_for_stack(deadline_seconds=args.wait_seconds)
         print("Smoke: synchronous evaluate...")
         smoke_evaluate()
+        print("Smoke: async ingest accept...")
+        smoke_ingest()
         print("Full stack smoke passed.")
         return 0
     except subprocess.CalledProcessError as e:

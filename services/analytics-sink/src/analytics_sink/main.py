@@ -19,6 +19,7 @@ from typing import Any
 import clickhouse_connect
 import nats
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from starlette.responses import JSONResponse
 
 from .config import settings
 
@@ -29,6 +30,14 @@ log = logging.getLogger("analytics-sink")
 
 _ch_client = None
 _SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+
+
+def clickhouse_configured() -> bool:
+    return bool((settings.clickhouse_host or "").strip())
+
+
+def clickhouse_ok() -> bool:
+    return _ch_client is not None
 
 DDL_EVENTS = """
 CREATE TABLE IF NOT EXISTS {db}.decision_events (
@@ -187,6 +196,20 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
         return
     rows = []
     for d in batch:
+        if "score" not in d or d.get("score") is None:
+            log.warning(
+                "analytics_skip_unscored_event trace_id=%s",
+                d.get("trace_id", ""),
+            )
+            continue
+        try:
+            score = float(d["score"])
+        except (TypeError, ValueError):
+            log.warning(
+                "analytics_skip_unscored_event trace_id=%s",
+                d.get("trace_id", ""),
+            )
+            continue
         rows.append(
             [
                 d.get("trace_id", ""),
@@ -194,7 +217,7 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
                 d.get("entity_id", ""),
                 d.get("event_type", ""),
                 d.get("decision", "pending"),
-                float(d.get("score", 0)),
+                score,
                 d.get("tags", []),
                 d.get("rule_hits", []),
                 d.get("signal_tags", []),
@@ -205,6 +228,8 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
                 else datetime.now(UTC),
             ]
         )
+    if not rows:
+        return
     try:
         _ch_client.insert(
             f"{db}.decision_events",
@@ -260,7 +285,13 @@ if os.environ.get("TARKA_DATA_PLANE_SUBAPP", "").strip() != "1":
 
 @app.get("/v1/health")
 async def health():
-    return {"status": "ok", "clickhouse": _ch_client is not None}
+    configured = clickhouse_configured()
+    ok = clickhouse_ok()
+    body = {"status": "ok", "clickhouse": ok, "configured": configured}
+    if configured and not ok:
+        body["status"] = "unavailable"
+        return JSONResponse(status_code=503, content=body)
+    return body
 
 
 @app.get("/v1/analytics/decisions")

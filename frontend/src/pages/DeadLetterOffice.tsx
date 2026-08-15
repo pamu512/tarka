@@ -80,7 +80,7 @@ export default function DeadLetterOffice(): ReactElement {
         <div>
           <PageTitle module="compliance">Dead Letter Office</PageTitle>
           <p className="text-sm text-gray-500 mt-2 max-w-2xl leading-relaxed">
-            Failed ingest messages on the JetStream DLQ (<code className="text-gray-400">fraud.events.dlq</code>).
+            Failed ingest messages on the JetStream DLQ (<code className="text-gray-400">fraud.dlq.evaluate</code>).
             Peeks are non-destructive (NAK) so poison payloads stay on the stream for{" "}
             <code className="text-gray-400">scripts/etl/replay_dlq.py</code>.
           </p>
@@ -131,7 +131,7 @@ export default function DeadLetterOffice(): ReactElement {
           label="Stream pending"
           value={data?.pending_estimate != null ? data.pending_estimate.toLocaleString() : "—"}
         />
-        <StatCard label="DLQ subject" value={data?.dlq_subject ?? "fraud.events.dlq"} mono />
+        <StatCard label="DLQ subject" value={data?.dlq_subject ?? "fraud.dlq.evaluate"} mono />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -2,7 +2,9 @@
 #   docker compose --profile core up -d
 #   docker compose --profile core --profile graph --profile ml up -d
 # Full stack:
-#   docker compose --profile full up -d
+#   docker compose --profile full -f infra/deploy/docker-compose.yml \
+#     -f infra/deploy/docker-compose.graph-env.yml up -d
+# graph-env.yml sets GREMLIN_REMOTE_URL. Omit it for streaming-only (no Janus).
 # CI: GitHub Actions job `stack-smoke` runs infra/scripts/ci/full_stack_smoke.py (health + evaluate smoke).
 
 name: tarka
@@ -58,7 +60,9 @@ services:
       - ./opa:/policies:ro
     ports:
       - "8181:8181"
-    profiles: [opa, full]
+    # Opt-in. core-api OPA_URL is empty unless you set it (same class as GRAPH_SERVICE_URL).
+    # --profile full does not start this; pair with OPA_URL=http://opa:8181.
+    profiles: [opa]
 
   triton:
     image: nvcr.io/nvidia/tritonserver:23.12-py3
@@ -120,19 +124,35 @@ services:
       start_period: 20s
     profiles: [core, full]
 
+  janusgraph:
+    image: docker.io/janusgraph/janusgraph:1.0.0
+    environment:
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
+    ports:
+      - "8182:8182"
+    volumes:
+      - janusgraph_data:/var/lib/janusgraph
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8182'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    profiles: [graph, full]
+
   graph-service:
     build:
       context: ../..
       dockerfile: services/graph-service/Dockerfile
     environment:
-      GRAPH_BACKEND: age
-      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      GRAPH_BACKEND: janusgraph
+      JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
       TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8001:8001"
     depends_on:
-      postgres:
+      janusgraph:
         condition: service_healthy
     profiles: [graph, full]
 
@@ -162,7 +182,7 @@ services:
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
       COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
       DISABLE_ML: ${DISABLE_ML:-false}
-      TRITON_URL: ${TRITON_URL:-http://triton:8020}
+      TRITON_URL: ${TRITON_URL:-}
       TRITON_MODEL_INPUT: ${TRITON_MODEL_INPUT:-X}
       TRITON_MODEL_OUTPUT: ${TRITON_MODEL_OUTPUT:-probabilities}
     ports:
@@ -178,7 +198,7 @@ services:
       dockerfile: services/investigation-agent/Dockerfile
     environment:
       CASE_API_URL: http://core-api:8000/cases
-      GRAPH_SERVICE_URL: http://graph-service:8001
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       DECISION_API_URL: http://core-api:8000/decisions
       ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -225,14 +245,13 @@ services:
       INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
       API_KEYS: ${API_KEYS:-}
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
-      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-}
       CLICKHOUSE_DATABASE: fraud
       DECISIONS_STREAM_NAME: FRAUD_DECISIONS
       DECISIONS_SUBJECT_PATTERN: fraud.decisions.>
       TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
-      # Empty = skip graph/velocity after evaluate (this compose has no orchestrator).
-      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-}
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-http://orchestrator:8790}
       ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
     ports:
       - "8007:8007"
@@ -240,12 +259,57 @@ services:
       - nats
       - core-api
       - redis
+      - orchestrator
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/v1/health')"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 25s
+    profiles: [streaming, analytics, full]
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    environment:
+      RULE_EVAL_BACKEND: decision_api
+      DECISION_API_URL: http://core-api:8000/decisions
+      ORCHESTRATOR_AUDIT_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+      NATS_URL: nats://nats:4222
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
+      ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
+      SHADOW_AGENT_URL: ${SHADOW_AGENT_URL:-}
+      SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-}
+    ports:
+      - "8790:8790"
+    depends_on:
+      - nats
+      - core-api
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8790/health/full')"]
+      interval: 10s
+      timeout: 12s
+      retries: 6
+      start_period: 25s
+    profiles: [streaming, analytics, full]
+
+  outbox-processor:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.outbox_processor"]
+    environment:
+      ORCHESTRATOR_AUDIT_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+      NATS_URL: nats://nats:4222
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
+    depends_on:
+      - orchestrator
     profiles: [streaming, analytics, full]
 
   graphql-gateway:
@@ -255,7 +319,7 @@ services:
     environment:
       DECISION_API_URL: http://core-api:8000/decisions
       CASE_API_URL: http://core-api:8000/cases
-      GRAPH_SERVICE_URL: http://graph-service:8001
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
     ports:
       - "8010:8010"
     depends_on:
@@ -281,3 +345,4 @@ volumes:
   fraud_nats:
   fraud_ch:
   investigation_agent_data:
+  janusgraph_data:
