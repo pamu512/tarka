@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers deploying Tarka from local development through production, including Docker Compose profiles, Kubernetes with Helm, environment variable reference, scaling, and security hardening.
+**SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)

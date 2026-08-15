@@ -1,7 +1,18 @@
 # tarka-shadow-agent
 
 **Canonical Shadow HTTP surface** for the ingest rail: FastAPI `POST /v1/analyze`, audit persistence,
-OpenAI-compatible LLM backends via ``SHADOW_LLM_BACKEND`` (``openai`` | ``ollama``; unset defaults to ollama).
+LLM backends via ``SHADOW_LLM_BACKEND`` (default **ollama**):
+
+| Value | Endpoint | Key |
+|-------|----------|-----|
+| `ollama` | native `/api/chat` (`OLLAMA_HOST`, default `http://localhost:11434`) | optional `OLLAMA_API_KEY` |
+| `self-hosted` / `vllm` | `SHADOW_LLM_BASE_URL` (OpenAI-compatible, e.g. `http://vllm:8000/v1`) | optional `SHADOW_LLM_API_KEY` |
+| `claude` | Anthropic OpenAI-compat (`https://api.anthropic.com/v1`) | `ANTHROPIC_API_KEY` |
+| `gemini` | Gemini OpenAI-compat | `GEMINI_API_KEY` or `GOOGLE_API_KEY` |
+| `qwen` | DashScope compatible-mode | `DASHSCOPE_API_KEY` |
+| `openai` | `https://api.openai.com/v1` | `OPENAI_API_KEY` |
+
+Override model with ``SHADOW_LLM_MODEL``. Evaluate (`POST /v1/analyze`) uses this client. Shadow still **advises only**.
 
 Brand map (vs library `services/shadow` and desktop `tools/shadow`): [`../SHADOW.md`](../SHADOW.md).
 

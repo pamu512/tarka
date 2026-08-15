@@ -343,4 +343,282 @@ class OllamaLLMClient:
                 ]
 
 
-__all__ = ["OllamaLLMClient", "ShadowLLMError"]
+class OpenAICompatLLMClient:
+    """OpenAI-compatible ``/chat/completions`` (vLLM, Claude, Gemini, Qwen, OpenAI)."""
+
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        model: str,
+        api_key: str = "",
+        extra_headers: Mapping[str, str] | None = None,
+        json_object: bool = True,
+        connect_timeout_sec: float = 15.0,
+        read_timeout_sec: float = 300.0,
+        write_timeout_sec: float = 60.0,
+        pool_timeout_sec: float = 10.0,
+        max_retries: int = 5,
+        retry_wait_initial_sec: float = 0.5,
+        retry_wait_max_sec: float = 30.0,
+        limits: httpx.Limits | None = None,
+        client: httpx.AsyncClient | None = None,
+        ai_gateway: AIGateway | None = None,
+    ) -> None:
+        self._ai_gateway = ai_gateway if ai_gateway is not None else build_ai_gateway()
+        self._base_url = base_url.strip().rstrip("/")
+        if not self._base_url:
+            raise ValueError("OpenAI-compatible base_url is required")
+        self._default_model = model.strip()
+        if not self._default_model:
+            raise ValueError("model is required")
+        self._api_key = api_key.strip()
+        self._extra_headers = {k: v for k, v in (extra_headers or {}).items() if v}
+        self._json_object = json_object
+        if max_retries < 1:
+            raise ValueError("max_retries must be >= 1")
+        self._max_retries = max_retries
+        self._retry_wait_initial = retry_wait_initial_sec
+        self._retry_wait_max = retry_wait_max_sec
+        self._own_client = client is None
+        pool_limits = limits or httpx.Limits(max_keepalive_connections=20, max_connections=100)
+        self._default_timeout = httpx.Timeout(
+            connect=connect_timeout_sec,
+            read=read_timeout_sec,
+            write=write_timeout_sec,
+            pool=pool_timeout_sec,
+        )
+        self._client = client or httpx.AsyncClient(
+            base_url=self._base_url,
+            limits=pool_limits,
+            timeout=self._default_timeout,
+        )
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json", **self._extra_headers}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
+
+    async def aclose(self) -> None:
+        if self._own_client and self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+    async def _execute_with_retries(
+        self, operation: str, coro_factory: Callable[[], Awaitable[T]]
+    ) -> T:
+        def _before_sleep(retry_state: RetryCallState) -> None:
+            _log_before_retry(retry_state, operation)
+
+        retrying = AsyncRetrying(
+            stop=stop_after_attempt(self._max_retries),
+            wait=wait_exponential_jitter(
+                initial=self._retry_wait_initial,
+                max=self._retry_wait_max,
+            ),
+            retry=retry_if_exception(_is_retryable),
+            reraise=True,
+            before_sleep=_before_sleep,
+        )
+        async for attempt in retrying:
+            with attempt:
+                return await coro_factory()
+
+    async def chat(
+        self,
+        messages: list[Mapping[str, Any]],
+        *,
+        model: str | None = None,
+        format_json: bool = True,
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        if self._client is None:
+            raise RuntimeError("OpenAICompatLLMClient is closed")
+        use_model = (model or self._default_model).strip()
+        body: dict[str, Any] = {
+            "model": use_model,
+            "messages": [dict(m) for m in messages],
+            "stream": stream,
+            "temperature": 0,
+        }
+        if format_json and self._json_object:
+            body["response_format"] = {"type": "json_object"}
+
+        async def _post_chat() -> dict[str, Any]:
+            response = await self._client.post(
+                "/chat/completions",
+                json=body,
+                headers=self._headers(),
+            )
+            if (
+                response.status_code == 400
+                and format_json
+                and self._json_object
+                and "response_format" in body
+            ):
+                body.pop("response_format", None)
+                self._json_object = False
+                response = await self._client.post(
+                    "/chat/completions",
+                    json=body,
+                    headers=self._headers(),
+                )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ShadowLLMError(
+                    "OpenAI-compatible chat response is not an object.",
+                    reason="invalid_assistant_envelope",
+                    parse_attempts=0,
+                )
+            choices = payload.get("choices")
+            content = ""
+            if isinstance(choices, list) and choices:
+                msg = choices[0].get("message") if isinstance(choices[0], dict) else None
+                if isinstance(msg, dict) and isinstance(msg.get("content"), str):
+                    content = msg["content"]
+            return {"message": {"content": content}, "raw": payload}
+
+        async def _chat_pipeline() -> dict[str, Any]:
+            return await self._execute_with_retries("chat", _post_chat)
+
+        return await self._ai_gateway.run_shadow_investigate_inference(_chat_pipeline)
+
+    async def chat_json_validated(
+        self,
+        messages: list[Mapping[str, Any]],
+        *,
+        model: str | None = None,
+        json_self_correction_retries: int = _DEFAULT_JSON_SELF_CORRECTION_RETRIES,
+    ) -> Any:
+        if json_self_correction_retries < 0:
+            raise ValueError("json_self_correction_retries must be >= 0")
+        base_messages = [dict(m) for m in messages]
+        current_messages: list[dict[str, Any]] = list(base_messages)
+        last_raw: dict[str, Any] | None = None
+        last_text: str | None = None
+        max_parse_attempts = json_self_correction_retries + 1
+        for parse_attempt in range(max_parse_attempts):
+            last_raw = await self.chat(
+                current_messages,
+                model=model,
+                format_json=True,
+                stream=False,
+            )
+            last_text = _assistant_text_from_chat_response(last_raw)
+            try:
+                return _parse_json_from_assistant_text(last_text)
+            except json.JSONDecodeError as exc:
+                if parse_attempt >= json_self_correction_retries:
+                    raise ShadowLLMError(
+                        "Assistant output was not valid JSON after "
+                        f"{json_self_correction_retries} self-correction retries.",
+                        reason="json_decode_exhausted",
+                        raw_content=last_text,
+                        parse_attempts=parse_attempt + 1,
+                        last_chat_response=last_raw,
+                    ) from exc
+                current_messages = [
+                    *base_messages,
+                    {"role": "assistant", "content": last_text},
+                    {"role": "user", "content": _JSON_FIX_USER_PROMPT},
+                ]
+
+
+def _first_env(*keys: str) -> str:
+    for key in keys:
+        raw = (os.environ.get(key) or "").strip()
+        if raw:
+            return raw
+    return ""
+
+
+def build_shadow_llm_client(
+    *, ai_gateway: AIGateway | None = None
+) -> OllamaLLMClient | OpenAICompatLLMClient:
+    """``SHADOW_LLM_BACKEND`` → evaluate client. Default ollama (self-hosted)."""
+    raw = (os.environ.get("SHADOW_LLM_BACKEND") or "").strip().lower().replace("-", "_")
+    model_override = _first_env("SHADOW_LLM_MODEL", "OPENAI_MODEL")
+    key_override = _first_env("SHADOW_LLM_API_KEY")
+    base_override = _first_env("SHADOW_LLM_BASE_URL", "OPENAI_BASE_URL")
+
+    if raw in ("", "ollama"):
+        return OllamaLLMClient(ai_gateway=ai_gateway)
+
+    presets: dict[str, tuple[str, tuple[str, ...], str, dict[str, str]]] = {
+        "openai": (
+            "https://api.openai.com/v1",
+            ("OPENAI_API_KEY",),
+            "gpt-4o-mini",
+            {},
+        ),
+        "claude": (
+            "https://api.anthropic.com/v1",
+            ("ANTHROPIC_API_KEY",),
+            "claude-sonnet-4-5",
+            {"anthropic-version": "2023-06-01"},
+        ),
+        "anthropic": (
+            "https://api.anthropic.com/v1",
+            ("ANTHROPIC_API_KEY",),
+            "claude-sonnet-4-5",
+            {"anthropic-version": "2023-06-01"},
+        ),
+        "gemini": (
+            "https://generativelanguage.googleapis.com/v1beta/openai",
+            ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+            "gemini-2.0-flash",
+            {},
+        ),
+        "qwen": (
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            ("DASHSCOPE_API_KEY", "QWEN_API_KEY"),
+            "qwen-plus",
+            {},
+        ),
+        "dashscope": (
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            ("DASHSCOPE_API_KEY", "QWEN_API_KEY"),
+            "qwen-plus",
+            {},
+        ),
+    }
+    self_hosted = raw in ("self_hosted", "vllm", "openai_compat", "openai_compatible")
+    if self_hosted:
+        base = base_override
+        if not base:
+            raise ValueError(
+                "SHADOW_LLM_BACKEND=self-hosted|vllm requires SHADOW_LLM_BASE_URL "
+                "(OpenAI-compatible origin, e.g. http://vllm:8000/v1)",
+            )
+        return OpenAICompatLLMClient(
+            base_url=base,
+            model=model_override or "llama3.2",
+            api_key=key_override or _first_env("OPENAI_API_KEY"),
+            ai_gateway=ai_gateway,
+        )
+    if raw not in presets:
+        logger.warning("unknown SHADOW_LLM_BACKEND=%r; defaulting to ollama", raw)
+        return OllamaLLMClient(ai_gateway=ai_gateway)
+    default_base, key_names, default_model, extra = presets[raw]
+    key = key_override or _first_env(*key_names)
+    if not key:
+        raise ValueError(
+            f"SHADOW_LLM_BACKEND={raw} requires {key_names[0]} (or SHADOW_LLM_API_KEY)",
+        )
+    return OpenAICompatLLMClient(
+        base_url=base_override or default_base,
+        model=model_override or default_model,
+        api_key=key,
+        extra_headers=extra,
+        ai_gateway=ai_gateway,
+    )
+
+
+__all__ = [
+    "OllamaLLMClient",
+    "OpenAICompatLLMClient",
+    "ShadowLLMError",
+    "build_shadow_llm_client",
+]

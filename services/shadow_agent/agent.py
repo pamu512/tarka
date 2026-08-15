@@ -104,7 +104,7 @@ class ShadowAgent:
         self,
         provider: BaseLLMProvider | None = None,
         *,
-        llm_client: OllamaLLMClient | None = None,
+        llm_client: OllamaLLMClient | object | None = None,
     ) -> None:
         if provider is None and llm_client is None:
             raise ValueError("ShadowAgent requires at least one of: provider, llm_client")

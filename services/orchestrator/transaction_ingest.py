@@ -95,10 +95,16 @@ def _graph_ingest_outbox_payload(
     transaction: TransactionSchema,
     rule_data: dict[str, Any],
     audit_log_id: int,
+    tenant_header: str | None = None,
 ) -> dict[str, Any]:
     transaction_id = str(rule_data.get("transaction_id") or transaction.entity_id)
     entity_id = str(transaction.entity_id)
-    return {
+    event: dict[str, Any] | None = None
+    try:
+        event = map_tx_to_evaluate_request(transaction, tenant_header=tenant_header)
+    except MissingTenantIdError:
+        event = None
+    out: dict[str, Any] = {
         "schema": "tarka.graph_ingest.v1",
         "transaction_id": transaction_id,
         "entity_id": entity_id,
@@ -107,6 +113,9 @@ def _graph_ingest_outbox_payload(
         "blocking_rule_id": _structural_blocking_rule_id(rule_data),
         "edge_transaction_payload_envelope": transaction.model_dump(mode="json"),
     }
+    if event is not None:
+        out["event"] = event
+    return out
 
 
 _BROWSER_METADATA_CONTEXT_KEYS: tuple[str, ...] = (
@@ -1024,6 +1033,7 @@ async def execute_transaction_ingest(
                     transaction=transaction,
                     rule_data=rule_data,
                     audit_log_id=orchestrator_audit_log_id,
+                    tenant_header=_tenant_header_from_request(request),
                 ),
             )
             await OutboxDAO.create_task(

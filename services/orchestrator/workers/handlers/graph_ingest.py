@@ -24,6 +24,7 @@ from graph.client import (
     REL_USED_DEVICE,
     GraphHints,
     JanusGraphClient,
+    graph_hints_from_event,
     graph_hints_from_transaction,
     merge_janus_vertex_identity,
 )
@@ -61,6 +62,33 @@ def _parse_transaction(payload: dict[str, Any]) -> TransactionSchema:
     if not isinstance(envelope, dict):
         raise GraphIngestPayloadError("edge_transaction_payload_envelope missing or not an object")
     return TransactionSchema.model_validate(envelope)
+
+
+def _event_from_graph_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    raw = payload.get("event")
+    if isinstance(raw, dict):
+        return {
+            "tenant_id": str(raw.get("tenant_id") or "").strip(),
+            "entity_id": str(raw.get("entity_id") or "").strip(),
+            "event_type": str(raw.get("event_type") or "payment").strip() or "payment",
+            "payload": raw.get("payload") if isinstance(raw.get("payload"), dict) else {},
+            "metadata": raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {},
+        }
+    envelope = payload.get("edge_transaction_payload_envelope")
+    if not isinstance(envelope, dict):
+        raise GraphIngestPayloadError("event or edge_transaction_payload_envelope is required")
+    meta = envelope.get("metadata") if isinstance(envelope.get("metadata"), dict) else {}
+    return {
+        "tenant_id": str(meta.get("tenant_id") or "").strip(),
+        "entity_id": str(envelope.get("entity_id") or "").strip(),
+        "event_type": str(meta.get("event_type") or "payment").strip() or "payment",
+        "payload": {
+            "amount": envelope.get("amount"),
+            "timestamp": envelope.get("timestamp"),
+            "country": envelope.get("country"),
+        },
+        "metadata": meta,
+    }
 
 
 def _connect_janusgraph() -> JanusGraphClient:
@@ -298,6 +326,54 @@ def _ingest_janus_sync(
     )
 
 
+def _ingest_janus_from_event(
+    client: JanusGraphClient,
+    event: dict[str, Any],
+    *,
+    audit_log_id: int,
+) -> None:
+    tenant = str(event.get("tenant_id") or "").strip()
+    entity_id = str(event.get("entity_id") or "").strip()
+    if not tenant:
+        logger.info(
+            "graph_ingest_noop entity_id=%s audit_log_id=%s reason=no_tenant",
+            entity_id,
+            audit_log_id,
+        )
+        return
+
+    _ensure_connection(client)
+
+    hints = graph_hints_from_event(event)
+    if not hints.any() and hints.user_id is None:
+        logger.info(
+            "graph_ingest_noop entity_id=%s audit_log_id=%s reason=no_graph_hints",
+            entity_id,
+            audit_log_id,
+        )
+        return
+
+    if _ingest_already_committed(client, transaction_id=entity_id, audit_log_id=audit_log_id):
+        logger.info(
+            "graph_ingest_idempotent_skip entity_id=%s audit_log_id=%s",
+            entity_id,
+            audit_log_id,
+        )
+        return
+
+    payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+    observed = payload.get("timestamp")
+    observed_at = observed.isoformat() if hasattr(observed, "isoformat") else str(observed or "")
+    _apply_janus_mutations(
+        client,
+        hints,
+        transaction_id=entity_id,
+        observed_at=observed_at,
+        audit_log_id=audit_log_id,
+        tenant_id=tenant,
+    )
+
+
 def _apply_janus_mutations(
     client: JanusGraphClient,
     hints: GraphHints,
@@ -484,14 +560,14 @@ class GraphIngestHandler(BaseOutboxHandler):
             raise GraphIngestPayloadError("graph ingest payload must be a dict")
 
         audit_log_id = _parse_audit_log_id(payload)
-        transaction = _parse_transaction(payload)
+        event = _event_from_graph_payload(payload)
 
         client = _connect_janusgraph()
         try:
             await asyncio.to_thread(
-                _ingest_janus_sync,
+                _ingest_janus_from_event,
                 client,
-                transaction,
+                event,
                 audit_log_id=audit_log_id,
             )
         except GraphDatabaseConnectionError:
@@ -507,6 +583,6 @@ class GraphIngestHandler(BaseOutboxHandler):
 
         logger.info(
             "graph_ingest_handler_completed entity_id=%s audit_log_id=%s",
-            transaction.entity_id,
+            event.get("entity_id"),
             audit_log_id,
         )

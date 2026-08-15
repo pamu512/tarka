@@ -225,6 +225,37 @@ def ip_velocity_block(
     }
 
 
+def graph_hints_from_event(event: dict[str, Any]) -> GraphHints:
+    """Map ingest-contract v1 event (payload + metadata) into graph upsert hints."""
+    payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+    meta = event.get("metadata") if isinstance(event.get("metadata"), dict) else {}
+    merged: dict[str, Any] = {**payload, **meta}
+    blocked_raw = merged.get("graph_user_is_blocked")
+    user_marked_blocked = blocked_raw is True or str(blocked_raw).strip().lower() in (
+        "true",
+        "1",
+        "yes",
+    )
+    user_id = _meta_str(merged, "user_id", "graph_user_id", "user")
+    if user_id is None:
+        et = str(event.get("event_type") or "").strip()
+        eid = str(event.get("entity_id") or "").strip()
+        if et in {"login", "signup", "session"} and eid:
+            user_id = eid
+    return GraphHints(
+        user_id=user_id,
+        device_id=_meta_str(merged, "device_id", "device_fingerprint", "graph_device_id"),
+        ip=_meta_str(merged, "ip", "ip_address", "graph_ip"),
+        card_id=_meta_str(merged, "card_id", "card_fingerprint", "graph_card_id"),
+        email=_meta_str(merged, "email", "graph_email"),
+        address=_meta_str(merged, "address", "billing_address", "graph_address"),
+        order_id=_meta_str(merged, "order_id", "graph_order_id"),
+        passport_id=_meta_str(merged, "passport_id", "passport_number", "graph_passport_id"),
+        listing_id=_meta_str(merged, "listing_id", "review_listing_id", "marketplace_listing_id"),
+        user_marked_blocked=user_marked_blocked,
+    )
+
+
 def graph_hints_from_transaction(transaction: TransactionSchema) -> GraphHints:
     """Map ``TransactionSchema`` (+ ``metadata``) into graph upsert hints."""
     meta = transaction.metadata or {}
