@@ -16,11 +16,13 @@ import httpx
 import nats
 import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from starlette.responses import JSONResponse
 from nats.aio.client import Client as NatsClient
 from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
 
 from .config import settings
+from .dynamic import heuristic_map_to_evaluate_request
 from .ingest_contract import (
     IngestContractError,
     parse_batch_event_item,
@@ -37,7 +39,9 @@ _INGEST_INTERNAL_KEYS = frozenset({"_ingest_id"})
 
 
 def _payload_for_decision_api(msg: dict[str, Any]) -> dict[str, Any]:
-    return {k: v for k, v in msg.items() if k not in _INGEST_INTERNAL_KEYS}
+    inner = msg.get("evaluate_request")
+    src = inner if isinstance(inner, dict) else msg
+    return {k: v for k, v in src.items() if k not in _INGEST_INTERNAL_KEYS}
 
 
 def _idempotency_redis_key(tenant_id: str, idempotency_key: str) -> str:
@@ -142,6 +146,45 @@ async def _connect_nats() -> tuple[NatsClient, JetStreamContext]:
     return nc, js
 
 
+async def _commit_evaluate_side_effects(
+    http: httpx.AsyncClient,
+    eval_body: dict[str, Any],
+    eval_response: httpx.Response,
+) -> bool:
+    """POST orchestrator side-effect commit. True = ack-safe. Unset URL skips."""
+    base = settings.orchestrator_url.strip()
+    if not base:
+        return True
+    try:
+        rule_data = eval_response.json()
+    except Exception:
+        rule_data = {}
+    if not isinstance(rule_data, dict):
+        rule_data = {}
+    actions = rule_data.get("actions")
+    if not isinstance(actions, list):
+        decision = str(rule_data.get("decision") or "").strip()
+        actions = [decision.upper()] if decision else []
+    headers: dict[str, str] = {"Content-Type": "application/json"}
+    secret = settings.orchestrator_internal_secret.strip()
+    if secret:
+        headers["x-internal-secret"] = secret
+    try:
+        r = await http.post(
+            f"{base.rstrip('/')}/v1/internal/ingest-side-effects",
+            json={"event": eval_body, "rule_data": rule_data, "actions": [str(a) for a in actions]},
+            headers=headers,
+            timeout=10.0,
+        )
+    except Exception as e:
+        log.warning("ingest_side_effects_transport_failed: %s", e)
+        return False
+    if r.status_code >= 500:
+        log.warning("ingest_side_effects_5xx status=%s", r.status_code)
+        return False
+    return True
+
+
 async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
     """Pull events from NATS and forward to Decision API."""
     sub = await js.pull_subscribe(
@@ -168,6 +211,11 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                     )
                     if r.status_code < 400:
                         m.inc("ingest_consumer_evaluate_2xx_total")
+                        committed = await _commit_evaluate_side_effects(http, eval_body, r)
+                        if not committed:
+                            await msg.nak(delay=5)
+                            m.inc("ingest_consumer_nats_nak_total")
+                            continue
                         await msg.ack()
                         m.inc("ingest_consumer_nats_ack_total")
                     elif r.status_code < 500:
@@ -446,6 +494,65 @@ async def ingest_event(request: Request):
         except Exception as e:
             log.warning("idempotency redis set failed: %s", e)
     return response
+
+
+@app.post("/v1/ingest/dynamic", dependencies=[Depends(require_api_key)])
+async def ingest_dynamic(request: Request):
+    """Schemaless JSON → contract v1, then the same NATS publish as ``/v1/events``."""
+    if not _js:
+        raise HTTPException(503, "NATS not connected")
+    try:
+        raw = await request.json()
+    except json.JSONDecodeError:
+        _record_contract_reject(["ingest_json_invalid"])
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "ingest_contract_violation", "reason_codes": ["ingest_json_invalid"]},
+        ) from None
+    if not isinstance(raw, dict):
+        _record_contract_reject(["ingest_body_not_object"])
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": ["ingest_body_not_object"],
+            },
+        )
+    tenant = raw.get("tenant_id") or raw.get("tenantId")
+    if not (isinstance(tenant, str) and tenant.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "tenant_id_required", "reason_codes": ["ingest:tenant_required"]},
+        )
+    mapped = heuristic_map_to_evaluate_request(raw)
+    if mapped is None:
+        return JSONResponse(
+            status_code=202,
+            content={
+                "accepted": False,
+                "mapping_pending": True,
+                "detail": "No heuristic mapping to contract v1 (need entity_id/userId and event_type).",
+            },
+        )
+    try:
+        body = EventPayload.model_validate(mapped)
+    except ValidationError as e:
+        _record_contract_reject(["ingest_model_validation"])
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "ingest_contract_violation",
+                "reason_codes": ["ingest_model_validation"],
+                "detail": e.errors(include_url=False),
+            },
+        ) from e
+    subject = f"{settings.subject_prefix}.{body.tenant_id}.{body.event_type}"
+    data = body.model_dump(mode="json")
+    data["_ingest_id"] = uuid.uuid4().hex
+    ack = await _js.publish(subject, json.dumps(data).encode())
+    with suppress(Exception):
+        get_metrics().inc("events_ingested_total")
+    return {"accepted": True, "stream_seq": ack.seq, "ingest_id": data["_ingest_id"]}
 
 
 @app.post("/v1/events/batch", dependencies=[Depends(require_api_key)])

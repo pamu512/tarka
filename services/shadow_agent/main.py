@@ -23,7 +23,7 @@ from agent import ShadowAgent, _ensure_case_for_shadow_audit
 from dispute_letter import RepresentmentLetterIn, generate_dispute_letter
 from graph_tool import find_linked_entities, neo4j_driver_from_env
 from review_integrity_tool import check_review_integrity
-from llm_client import OllamaLLMClient, ShadowLLMError
+from llm_client import OllamaLLMClient, ShadowLLMError, build_shadow_llm_client
 from retroactive_label import (
     RetroactiveLabelRequest,
     parse_retroactive_tags,
@@ -420,7 +420,7 @@ def build_app(
 
     Parameters:
         shadow_agent: Optional pre-built agent (e.g. ASGI tests with a stub LLM). When omitted,
-            an :class:`~shadow_agent.llm_client.OllamaLLMClient` is created and closed on shutdown.
+            an LLM client from ``SHADOW_LLM_BACKEND`` is created and closed on shutdown.
         database_url: Async SQLAlchemy URL (e.g. ``postgresql+asyncpg://...``). Defaults to
             ``SHADOW_DATABASE_URL`` or in-memory SQLite for local/tests.
         shadow_api_key: Optional API key (tests). When omitted, :envvar:`SHADOW_API_KEY` must be
@@ -441,7 +441,7 @@ def build_app(
         if shadow_agent is not None:
             app.state.shadow_agent = shadow_agent
         else:
-            llm = OllamaLLMClient()
+            llm = build_shadow_llm_client()
             app.state.shadow_agent = ShadowAgent(llm_client=llm)
             app.state._shadow_llm_client = llm
             owns_llm = True
@@ -450,7 +450,7 @@ def build_app(
         if llm_for_runtime is None:
             llm_for_runtime = getattr(app.state.shadow_agent, "_llm_client", None)
         if llm_for_runtime is None:
-            raise RuntimeError("shadow sidecar failed to initialize an OllamaLLMClient")
+            raise RuntimeError("shadow sidecar failed to initialize an LLM client")
         app.state.shadow_runtime = ShadowRuntime(llm_for_runtime)
 
         db_url = database_url or os.environ.get("SHADOW_DATABASE_URL", _DEFAULT_ASYNC_DB_URL)

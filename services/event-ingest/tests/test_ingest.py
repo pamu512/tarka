@@ -248,6 +248,34 @@ class TestWebSocketIngest:
             assert msg.get("error") == "invalid JSON"
 
 
+class TestDynamicIngest:
+    def test_dynamic_maps_and_publishes(self, client, mock_js):
+        r = client.post(
+            "/v1/ingest/dynamic",
+            json={"tenantId": "acme", "userId": "user-1", "type": "payment", "amount": 9},
+        )
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert data["accepted"] is True
+        mock_js.publish.assert_called_once()
+        subject, raw = mock_js.publish.call_args[0][:2]
+        assert subject == "fraud.events.acme.payment"
+        body = json.loads(raw)
+        assert body["tenant_id"] == "acme"
+        assert body["entity_id"] == "user-1"
+        assert body["event_type"] == "payment"
+
+    def test_dynamic_mapping_pending(self, client, mock_js):
+        r = client.post("/v1/ingest/dynamic", json={"tenantId": "acme", "type": "payment"})
+        assert r.status_code == 202
+        assert r.json()["mapping_pending"] is True
+        mock_js.publish.assert_not_called()
+
+    def test_dynamic_tenant_required(self, client):
+        r = client.post("/v1/ingest/dynamic", json={"userId": "u1", "type": "login"})
+        assert r.status_code == 400
+
+
 class TestNatsNotConnected:
     def test_event_fails_without_nats(self):
         with patch("event_ingest.main._js", None):

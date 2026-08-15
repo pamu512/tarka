@@ -18,10 +18,18 @@ Unified index for on-call and release operators. Linked from Prometheus `runbook
 | [Counter replay parity](../guides/counter-replay-parity.md) | Epic C parity failures, AGG_KEY_VERSION cutover |
 | [Chaos template](./runbook-common-failures.md) | Planned chaos / game-day exercises |
 
+## Bring-up and capacity
+
+| Runbook | When to use |
+|---------|-------------|
+| [SRE Compose profiles](./sre-compose-profiles.md) | Linux VM default: desk vs ingest vs graph vs Shadow; what pages; partner fusion |
+
 ## Release and security
 
 | Runbook | When to use |
 |---------|-------------|
+| [Productionization](../guides/repo-productionization-runbook.md) | Desk-strict, trend tick, honesty knobs |
+| [Deployment](../guides/deployment.md) | Compose profiles + Helm (Helm is scale-out, not day-1) |
 
 ## Observability entry points
 

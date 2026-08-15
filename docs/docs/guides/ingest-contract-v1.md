@@ -5,8 +5,10 @@ fields and error codes must not fork.
 
 ## Canonical envelope (async / evaluate-shaped)
 
-Used by **event-ingest** `POST /v1/events` (and batch) and by **decision-api**
-`POST /v1/decisions/evaluate`.
+Used by **Python event-ingest** (`POST /v1/events`, batch, and heuristic
+`POST /v1/ingest/dynamic`) on data-plane `:8007`, and by **decision-api**
+`POST /v1/decisions/evaluate`. The Rust event-ingest binary does not serve
+`/v1/events` or run an evaluate consumer.
 
 | Field | Required | Notes |
 |-------|----------|--------|
@@ -73,9 +75,9 @@ Common reason codes: `ingest_tenant_id_empty`, `ingest_entity_id_empty`,
 
 ## Ownership
 
-- **Public async ingest contract:** event-ingest (+ shared-core helpers)
+- **Public async ingest contract:** Python event-ingest (+ shared-core helpers)
 - **Sync decision brain:** decision-api evaluate only
-- **Orchestrator:** ingress + outbox side-effects; must not reimplement scoring
+- **Orchestrator:** `POST /v1/ingest` adapter + `POST /v1/internal/ingest-side-effects` (audit + graph + velocity outbox). Set `ORCHESTRATOR_URL` on event-ingest so the consumer commits after evaluate 2xx (5xx → NAK, 4xx → ack, unset → skip).
 
 ## Sync evaluate vs async enrichment (CQRS)
 

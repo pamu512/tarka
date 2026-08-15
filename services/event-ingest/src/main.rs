@@ -1,4 +1,4 @@
-//! Event ingest: `POST /v1/events` → NATS JetStream; pull consumer → `POST /v1/decisions/evaluate`.
+//! Event ingest crate (tests + leftover binary). Live accept+consume is Python data-plane.
 
 mod dynamic_ingest;
 
@@ -272,6 +272,7 @@ async fn publish_deadletter_record(js: &jetstream::Context, subject: &str, recor
     }
 }
 
+#[allow(dead_code)]
 fn event_subject(prefix: &str, ev: &Value) -> String {
     let tenant = ev.get("tenant_id").and_then(|v| v.as_str()).unwrap_or("unknown");
     let et = ev
@@ -281,6 +282,7 @@ fn event_subject(prefix: &str, ev: &Value) -> String {
     format!("{}.{}.{}", prefix, tenant, et)
 }
 
+#[allow(dead_code)]
 async fn post_events(
     State(st): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -412,6 +414,7 @@ async fn post_events(
 }
 
 /// Schemaless ingest: map cached/heuristic payloads to strict evaluate shape; async mapping request on miss.
+#[allow(dead_code)]
 async fn post_ingest_dynamic(State(st): State<Arc<AppState>>, headers: HeaderMap, body: Bytes) -> Response {
     if let Err(code) = require_ingest_auth(&headers) {
         return code.into_response();
@@ -606,6 +609,7 @@ struct BatchBody {
     events: Vec<Value>,
 }
 
+#[allow(dead_code)]
 async fn post_events_batch(
     State(st): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -708,6 +712,7 @@ async fn stream_info(
     })))
 }
 
+#[allow(dead_code)]
 async fn evaluate_consumer_loop(st: Arc<AppState>) -> Result<()> {
     let stream = st
         .js
@@ -1027,23 +1032,13 @@ async fn main() -> Result<()> {
         redis_mapping,
     });
 
-    let consumer_st = Arc::clone(&st);
-    tokio::spawn(async move {
-        if let Err(e) = evaluate_consumer_loop(consumer_st).await {
-            error!("evaluate consumer exited: {}", e);
-        }
-    });
-
     let app = Router::new()
         .route("/v1/health", get(health_check))
         .route("/v1/ready", get(ready_check))
-        .route("/v1/events", post(post_events))
-        .route("/v1/ingest/dynamic", post(post_ingest_dynamic))
         .route(
             "/v1/internal/ingest/mapping-cache",
             post(post_register_ingest_mapping),
         )
-        .route("/v1/events/batch", post(post_events_batch))
         .route("/v1/stream/info", get(stream_info))
         .with_state(st);
 

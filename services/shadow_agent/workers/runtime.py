@@ -16,7 +16,7 @@ except ImportError:
     from agent import ShadowAgent
 from ai_gateway.base import AIGateway
 from ai_gateway.factory import build_ai_gateway
-from llm_client import OllamaLLMClient
+from llm_client import OllamaLLMClient, build_shadow_llm_client
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -39,7 +39,7 @@ class ShadowInvestigateRuntime:
     agent: ShadowAgent
     session_factory: async_sessionmaker[AsyncSession]
     engine: AsyncEngine
-    llm_client: OllamaLLMClient
+    llm_client: OllamaLLMClient | object
 
     async def evaluate_retroactive(
         self,
@@ -98,7 +98,7 @@ def evaluation_trace_from_payload(payload: dict[str, Any]) -> list[Any]:
 async def bootstrap_shadow_investigate_runtime() -> ShadowInvestigateRuntime:
     """Initialize AI gateway, LLM client, audit DB, and :class:`~shadow_agent.agent.ShadowAgent`."""
     gateway = build_ai_gateway()
-    llm = OllamaLLMClient(ai_gateway=gateway)
+    llm = build_shadow_llm_client(ai_gateway=gateway)
     agent = ShadowAgent(llm_client=llm)
 
     db_url = (os.environ.get("SHADOW_DATABASE_URL") or _DEFAULT_ASYNC_DB_URL).strip()

@@ -725,7 +725,7 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 | `GET` | `/v1/health` | Health check (includes NATS connection status) |
 | `POST` | `/v1/events` | Ingest single event (async via NATS) |
 | `POST` | `/v1/events/batch` | Ingest batch of events |
-| `POST` | `/v1/ingest/dynamic` | Schemaless JSON ingest: heuristic or cached mapping → canonical event; optional `INGEST_REDIS_URL` for cross-replica map cache; publishes `fraud.ingest.mapping.request` when unmapped (PII-tokenized sample when `INGEST_PII_TOKENIZE` is on) |
+| `POST` | `/v1/ingest/dynamic` | Schemaless JSON → contract v1 via heuristic (`tenantId`/`userId`/`type`); publishes like `/v1/events`. **202** `mapping_pending` when entity or event_type cannot be mapped. **400** if tenant is missing. |
 | `POST` | `/v1/internal/ingest/mapping-cache` | Internal: persist `tenant_id` + `schema_fingerprint` → field mapping for dynamic ingest |
 | `WebSocket` | `/v1/events/ws` | Stream events via WebSocket |
 | `GET` | `/v1/stream/info` | Get NATS stream metadata |

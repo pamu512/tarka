@@ -6,7 +6,7 @@
 #     -f infra/deploy/docker-compose.fraud-desk.yml \
 #     up --build
 #
-# Does NOT enable --profile graph (no JanusGraph / 24GB triad).
+# Does NOT enable --profile graph (no Janus/Gremlin). Desk is the Linux default.
 # Frontend: lean nav + desk-strict (no auto mock fallback on case/calibration/QA).
 
 services:

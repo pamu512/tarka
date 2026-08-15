@@ -6,7 +6,7 @@
 
 **Prove every signal.** Not as a slogan—as a constraint: every risk claim must trace to **durable evidence** (relational audit rows, rule-engine payloads, and **graph edges you can re-walk**). If you cannot point to the vertex, the relationship type, and the observation timestamp, the signal does not ship.
 
-**Vision:** [`VISION.md`](VISION.md) — paradox hook, **Tarka Triad**, market gap, **hardware as moat**.  
+**Vision:** [`VISION.md`](VISION.md) — paradox hook, **Tarka Triad**, market gap, optional local inference.  
 **Operator docs:** [`docs/INDEX.md`](docs/INDEX.md) · [feature data flows](docs/docs/guides/feature-data-flows.md) · [`STUB_REGISTER.md`](STUB_REGISTER.md).
 
 ---
@@ -56,18 +56,11 @@ Shadow’s `cases` table remains the forensic anchor for sidecar work; product *
 
 ---
 
-## Hardware baseline (full stack)
+## Production shape (Linux + Compose)
 
-Target machine for **Gremlin + local LLM + rule evaluation + Postgres/Redis sidecars**:
+Default is a **Linux VM** and Docker Compose — not a laptop triad. Day-1 is **desk** (~8 GB): decision + cases. Graph, async ingest, and local Shadow are add-on profiles.
 
-| Baseline | Spec |
-|----------|------|
-| **SoC** | **Apple M5 Pro** (or equivalent many-core host) |
-| **RAM** | **24 GB** minimum for the **full** beta profile (JanusGraph-adjacent services, Ollama with **Llama 3.2** / **Qwen3-VL:30b-class** weights, Rust engine + Python orchestration). |
-| **Disk** | **SSD**, **≥ 40 GB** free once you count container layers + model weights. |
-| **Software** | **Docker Compose v2**, **Python ≥ 3.11**, **Ollama** on `127.0.0.1:11434` (override with `OLLAMA_BASE` in bootstrap). |
-
-Smaller hosts run **subgraphs** of the stack; do not expect comfortable local inference below **24 GB**.
+SRE: [compose profile runbook](docs/docs/operations/sre-compose-profiles.md) (capacity, health, what pages, what degrades).
 
 ---
 
@@ -75,7 +68,7 @@ Smaller hosts run **subgraphs** of the stack; do not expect comfortable local in
 
 Reproduce **local** figures only from this README. Hypothetical enterprise scale-out projections (if any) live exclusively in [`scripts/benchmarks/README.md`](scripts/benchmarks/README.md) and must never be cited as shipped SLOs.
 
-**Local Dev Baseline:** Apple M-series / 24 GB class host; Redis single-node; lite compose on SSD. Bring up Decision API on `http://127.0.0.1:8000`, then:
+**Local / CI baseline:** Linux or any Docker host that can run **desk** (~8 GB); Redis single-node; lite compose on SSD. Bring up Decision API on `http://127.0.0.1:8000`, then:
 
 ```bash
 python scripts/benchmarks/vertical_benchmark_smoke.py --seed 42 --threshold strict
@@ -99,7 +92,7 @@ Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py) and [`.
 
 ## Start here (fraud desk)
 
-Day-1 path — **decision + cases**, no JanusGraph/Ollama required (~8 GB class host):
+Day-1 path — **decision + cases**, no JanusGraph/Ollama required (~8 GB Linux host):
 
 ```bash
 docker compose \
@@ -111,9 +104,9 @@ docker compose \
 Enforces lean nav + `VITE_DESK_STRICT` (case/calibration/QA never auto-mock).  
 **15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 
-### Full triad (optional)
+### Optional add-ons (after desk works)
 
-Graph + local Shadow/Ollama needs the **24 GB** baseline below. Only after the desk path works:
+Graph (`--profile graph`) and local Shadow/Ollama are **not** the production default. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md). Do not colocate Janus + Ollama on the evaluate host.
 
 ```bash
 ./scripts/bootstrap_beta.sh --launch

@@ -231,6 +231,9 @@ services:
       DECISIONS_SUBJECT_PATTERN: fraud.decisions.>
       TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
+      # Empty = skip graph/velocity after evaluate (this compose has no orchestrator).
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-}
+      ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
     ports:
       - "8007:8007"
     depends_on:

@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Docker + Docker Compose v2
-- ~8 GB RAM free for images
+- ~8 GB RAM free for images (Linux VM or any Docker host; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
 - Ports free: `8000`, `3000`, `5432`, `6379`
 
 ## Steps

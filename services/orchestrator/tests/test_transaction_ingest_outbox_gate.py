@@ -184,6 +184,11 @@ def test_execute_transaction_ingest_writes_outbox_tasks(monkeypatch: pytest.Monk
         assert graph_row.payload["blocking_rule_id"] is None
         assert "11111111-1111-1111-1111-111111111111" in graph_row.payload["resolved_rules"]
         assert graph_row.payload["edge_transaction_payload_envelope"]["entity_id"] == entity_id
+        ev = graph_row.payload["event"]
+        assert ev["tenant_id"] == "tenant-a"
+        assert ev["entity_id"] == entity_id
+        assert ev["event_type"] == "payment"
+        assert ev["payload"]["amount"] == 12.5
         assert len(vel_rows) == 1
         vel_row = vel_rows[0]
         assert vel_row.idempotency_key.startswith(f"velocity_update:{entity_id}:")

@@ -82,6 +82,7 @@ from routes.hil_overrides import router as hil_overrides_router
 from routes.legacy_feedback_bridge import router as legacy_feedback_bridge_router
 from routes.operational_signals import router as operational_signals_router
 from rule_shadow_test import execute_rule_shadow_test
+from ingest_side_effects import IngestSideEffectsRequest, handle_ingest_side_effects_request
 from transaction_ingest import execute_transaction_ingest
 
 logger = logging.getLogger(__name__)
@@ -494,6 +495,17 @@ def create_app(
             request=request,
             transaction=txn,
         )
+
+    @application.post(
+        "/v1/internal/ingest-side-effects",
+        tags=["Ingestion"],
+        include_in_schema=False,
+    )
+    async def v1_internal_ingest_side_effects(
+        body: IngestSideEffectsRequest,
+        request: Request,
+    ) -> dict[str, Any]:
+        return await handle_ingest_side_effects_request(request, body)
 
     @application.get(
         "/v1/decisions/{transaction_id}",

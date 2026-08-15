@@ -81,7 +81,7 @@ def test_graph_ingest_handler_connection_drop_raises() -> None:
             return_value=fake_client,
         ):
             with patch(
-                "workers.handlers.graph_ingest._ingest_janus_sync",
+                "workers.handlers.graph_ingest._ingest_janus_from_event",
                 side_effect=ConnectionResetError("connection dropped"),
             ):
                 with pytest.raises(GraphDatabaseConnectionError):
