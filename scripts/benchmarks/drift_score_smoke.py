@@ -75,7 +75,9 @@ def _scores_http(base_url: str, features_list: list[dict[str, Any]], timeout: fl
             raise RuntimeError(
                 f"HTTP {e.code} on /v1/score: {e.read().decode('utf-8', errors='replace')}"
             ) from e
-        out.append(float(payload.get("score", 0)))
+        if "score" not in payload or payload.get("score") is None:
+            raise RuntimeError("ml-scoring returned unscored payload")
+        out.append(float(payload["score"]))
     return out
 
 

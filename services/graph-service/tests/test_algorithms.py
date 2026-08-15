@@ -1,6 +1,5 @@
 """Unit tests for graph-service algorithm functions."""
 
-import inspect
 import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -339,7 +338,7 @@ def _cypher_return_aliases(return_body: str) -> list[str]:
 
 
 def _age_risk_return_and_as_columns() -> tuple[list[str], list[str]]:
-    src = inspect.getsource(algorithms_age.compute_entity_risk)
+    src = algorithms_age.entity_risk_sql(3)
     ret_m = re.search(r"\bRETURN\b(.*?)\s+\$\$", src, re.S)
     as_m = re.search(r"\$\$, %s\) as \(([^)]+)\)", src)
     assert ret_m is not None and as_m is not None
@@ -368,7 +367,7 @@ class TestAgeRiskColumnOrder:
 
 class TestNeo4jRiskGrowthInPython:
     def test_cypher_does_not_sum_datetime_duration(self):
-        src = inspect.getsource(algorithms_neo4j.compute_entity_risk)
+        src = algorithms_neo4j.entity_risk_cypher(3)
         assert "datetime(" not in src
         assert "duration(" not in src
         assert "collect(ts)" in src

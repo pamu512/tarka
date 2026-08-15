@@ -390,21 +390,8 @@ async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
         return None
 
 
-async def compute_entity_risk(
-    tenant_id: str,
-    entity_id: str,
-    *,
-    checkpoint: str | None = None,
-) -> dict:
-    from .checkpoint_registry import resolve_profile
-
-    profile = resolve_profile(checkpoint)
-    mult = float(profile.get("risk_score_multiplier") or 1.0)
-    hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
-
-    pool = await get_pool()
-
-    q = f"""
+def entity_risk_sql(hop_depth: int) -> str:
+    return f"""
     SELECT CAST(CAST(tags AS VARCHAR) AS JSON) as tags,
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
            CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,
@@ -453,6 +440,22 @@ async def compute_entity_risk(
           edge_timestamps
     $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype, node_labels agtype, edge_timestamps agtype);
     """
+
+
+async def compute_entity_risk(
+    tenant_id: str,
+    entity_id: str,
+    *,
+    checkpoint: str | None = None,
+) -> dict:
+    from .checkpoint_registry import resolve_profile
+
+    profile = resolve_profile(checkpoint)
+    mult = float(profile.get("risk_score_multiplier") or 1.0)
+    hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
+
+    pool = await get_pool()
+    q = entity_risk_sql(hop_depth)
 
     params_json = json.dumps(
         {"tenant_id": tenant_id, "entity_id": entity_id, "high_risk_tags": sorted(_HIGH_RISK_TAGS)}

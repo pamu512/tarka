@@ -75,7 +75,7 @@ Prometheus: **`ingest_contract_reject_total`** and **`ingest_contract_reject_tot
 
 **`GET /v1/ingest/stats`** (authenticated like other ingest routes): in-process totals of contract rejects by `reason_codes` since process start.
 
-**DLQ (optional):** set **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→evaluate worker **acks** 4xx evaluates and publishes a JSON envelope to **`INGEST_DLQ_SUBJECT`** (default `fraud.events.dlq`, same stream `fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`**.
+**DLQ (optional):** set **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→evaluate worker **acks** 4xx evaluates and publishes a JSON envelope to **`INGEST_DLQ_SUBJECT`** (default `fraud.dlq.evaluate` on stream `FRAUD_DLQ`, **outside** `fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`**.
 
 See also: [ingest-contract-v1](./ingest-contract-v1.md).
 
@@ -99,7 +99,7 @@ The NATS → Decision worker increments Prometheus counters (exposed on **`/metr
 
 ### DLQ (optional, Epic E2)
 
-Set **`INGEST_DLQ_SUBJECT`** (e.g. **`fraud.events.dlq`**) and **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→Decision worker **acks** 4xx evaluates and publishes a structured envelope to the DLQ subject (must match the JetStream wildcard, typically **`fraud.events.>`**). Replay: **`scripts/etl/replay_dlq.py`** (`--dry-run` first).
+Set **`INGEST_DLQ_SUBJECT`** (default **`fraud.dlq.evaluate`**) and **`INGEST_DLQ_PUBLISH_ON_EVALUATE_4XX=true`** so the NATS→Decision worker **acks** 4xx evaluates and publishes a structured envelope to stream **`FRAUD_DLQ`**. The subject must **not** sit under the consumer wildcard (`fraud.events.>`). Replay: **`scripts/etl/replay_dlq.py`** (`--dry-run` first).
 
 ### Silver export checks
 

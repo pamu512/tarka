@@ -14,6 +14,7 @@ from tarka_shared.database.session import Base
 class DecisionORM(Base):
     """One row per successful ``/v1/ingest`` policy evaluation when audit DB is configured."""
 
+    # Shared with view_case_timeline (packages/shared-core). Same columns; do not rename.
     __tablename__ = "decisions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

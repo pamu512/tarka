@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { deskStrictEnabled, isDeskApiPath, mocksAllowedForUrl } from "./deskMockPolicy";
+import {
+  deskStrictEnabled,
+  isDeskApiPath,
+  isUpstreamUnavailableBody,
+  mocksAllowedForUrl,
+} from "./deskMockPolicy";
 
 describe("deskMockPolicy", () => {
   it("identifies desk API paths", () => {
@@ -9,7 +14,9 @@ describe("deskMockPolicy", () => {
     expect(isDeskApiPath("/api/decisions/v1/calibration/reliability-bins")).toBe(true);
     expect(isDeskApiPath("/api/decisions/v1/ops/trend/posture?tenant_id=t")).toBe(true);
     expect(isDeskApiPath("/api/decisions/v1/ops/trend/tick")).toBe(true);
-    expect(isDeskApiPath("/api/graph/v1/entities/x/deep-context")).toBe(false);
+    expect(isDeskApiPath("/api/graph/v1/entities/x/deep-context")).toBe(true);
+    expect(isDeskApiPath("/api/analytics/v1/health")).toBe(true);
+    expect(isDeskApiPath("/api/orchestrator/v1/health")).toBe(true);
   });
 
   it("defaults desk strict on", () => {
@@ -39,6 +46,11 @@ describe("deskMockPolicy", () => {
         mockMode: "auto",
         deskStrict: true,
       }),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("treats nginx upstream_unavailable as not mockable", () => {
+    expect(isUpstreamUnavailableBody('{"error":"upstream_unavailable"}')).toBe(true);
+    expect(isUpstreamUnavailableBody("<html>ok</html>")).toBe(false);
   });
 });

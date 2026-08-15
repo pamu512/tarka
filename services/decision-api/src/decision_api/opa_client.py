@@ -2,6 +2,13 @@ from typing import Any
 
 import httpx
 
+from decision_api.evaluate.score import tag_hop_unconfigured
+
+
+def apply_opa_unconfigured(degrade_tags: list[str], opa_url: str) -> bool:
+    """Tag ``opa:unconfigured`` when the hop URL is empty. Returns True if skipped."""
+    return tag_hop_unconfigured(degrade_tags, "opa", opa_url)
+
 
 async def evaluate_opa(
     http: httpx.AsyncClient,

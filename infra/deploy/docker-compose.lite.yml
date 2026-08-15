@@ -1,12 +1,14 @@
 # Tarka Lite — "try it in 5 minutes" deployment
 # Core: postgres, redis, core-api (decision+case), integration-ingress, frontend.
-# Optional OSS path: Gremlin Server (JanusGraph-compatible) + graph-service (profile: graph); signal-api is always on for core-api.
+# Optional OSS path: janusgraph/janusgraph:1.0.0 (BerkeleyJE volume) + graph-service (profile: graph); signal-api is always on for core-api.
 # so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
 #
 # Usage:
 #   docker compose -f infra/deploy/docker-compose.lite.yml up --build
-# Optional async ingest + analytics (NATS + data-plane :8007):
-#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.demo-vertical.yml --profile ingest up --build
+# Optional async ingest (data-plane :8007 + orchestrator :8790 + outbox-processor):
+#   docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up --build
+# Optional graph evaluate read (sets GRAPH_SERVICE_URL):
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.graph-wire.yml --profile graph up --build
 # See README (demo vertical) and infra/scripts/ci/demo_vertical_smoke.py
 
 name: tarka-lite
@@ -48,9 +50,19 @@ services:
       - fraud_nats_lite:/data
 
   janusgraph:
-    image: tinkerpop/gremlin-server:3.7.2
+    image: docker.io/janusgraph/janusgraph:1.0.0
+    environment:
+      JAVA_OPTS: "-Xms512m -Xmx1024m"
     ports:
       - "8182:8182"
+    volumes:
+      - janusgraph_data:/var/lib/janusgraph
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8182'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     profiles: [graph]
 
   # ---------- Core Services ----------
@@ -105,7 +117,8 @@ services:
     ports:
       - "8001:8001"
     depends_on:
-      - janusgraph
+      janusgraph:
+        condition: service_healthy
     profiles: [graph]
 
   signal-api:
@@ -151,28 +164,6 @@ services:
       retries: 5
       start_period: 20s
 
-  data-platform:
-    build:
-      context: ../..
-      dockerfile: services/data-platform/Dockerfile
-    environment:
-      DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
-      REDIS_URL: redis://redis:6379/0
-      ALLOW_INSECURE_NO_AUTH: "true"
-    ports:
-      - "8014:8014"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8014/v1/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
   data-plane:
     build:
       context: ../..
@@ -182,11 +173,12 @@ services:
       DECISION_API_URL: http://core-api:8000/decisions
       REDIS_URL: redis://redis:6379/0
       API_KEYS: ${API_KEYS:-}
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
       INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
-      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-}
       CLICKHOUSE_DATABASE: fraud
-      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-}
+      ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-http://orchestrator:8790}
       ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
     ports:
       - "8007:8007"
@@ -199,6 +191,8 @@ services:
         condition: service_started
       core-api:
         condition: service_healthy
+      orchestrator:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/v1/ready')"]
       interval: 10s
@@ -206,6 +200,95 @@ services:
       retries: 8
       start_period: 35s
     profiles: [ingest]
+
+  # Shared fraud DB. create_all is allowlisted (tarka_outbox + shared decisions; never cases).
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    environment:
+      RULE_EVAL_BACKEND: decision_api
+      DECISION_API_URL: http://core-api:8000/decisions
+      ORCHESTRATOR_AUDIT_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+      NATS_URL: nats://nats:4222
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
+      ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
+      SHADOW_AGENT_URL: ${SHADOW_AGENT_URL:-}
+      SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-}
+    ports:
+      - "8790:8790"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8790/health/full')"]
+      interval: 10s
+      timeout: 12s
+      retries: 6
+      start_period: 25s
+    profiles: [ingest]
+
+  outbox-processor:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.outbox_processor"]
+    environment:
+      ORCHESTRATOR_AUDIT_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+      NATS_URL: nats://nats:4222
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      orchestrator:
+        condition: service_started
+    profiles: [ingest]
+
+  investigation-agent:
+    build:
+      context: ../..
+      dockerfile: services/investigation-agent/Dockerfile
+    environment:
+      CASE_API_URL: http://core-api:8000/cases
+      DECISION_API_URL: http://core-api:8000/decisions
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_PROVIDER_FALLBACKS: ${LLM_PROVIDER_FALLBACKS:-anthropic,gemini,ollama}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      OKF_ENABLED: ${OKF_ENABLED:-true}
+      OKF_SHARED_ROOT: /app/knowledge/shared
+      OKF_TENANT_ROOT: /var/lib/tarka/knowledge/tenants
+      INVESTIGATION_DATA_DIR: /var/lib/tarka/investigation-agent
+    ports:
+      - "8006:8006"
+    volumes:
+      - ${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
+      - investigation_agent_data:/var/lib/tarka/investigation-agent
+    depends_on:
+      core-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   frontend:
     build:
@@ -216,8 +299,8 @@ services:
     depends_on:
       - core-api
       - integration-ingress
-      - data-platform
       - signal-api
+      - investigation-agent
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
       interval: 10s
@@ -228,3 +311,5 @@ volumes:
   fraud_pg:
   fraud_nats_lite:
   trend_agent_data:
+  investigation_agent_data:
+  janusgraph_data:

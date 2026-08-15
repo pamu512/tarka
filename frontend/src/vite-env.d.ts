@@ -10,8 +10,6 @@ interface ImportMetaEnv {
   readonly VITE_AUTH_WITH_CREDENTIALS?: string;
   /** Cooldown after a 5xx before new requests are allowed again (ms). Default 30000. */
   readonly VITE_HTTP_CIRCUIT_COOLDOWN_MS?: string;
-  /** GraphQL HTTP endpoint for Apollo Client (defaults to `/graphql`). */
-  readonly VITE_GRAPHQL_URI?: string;
   /** Health probe URL when runtime tier is `micro`. */
   readonly VITE_HEALTH_URL_MICRO?: string;
   /** Health probe URL when runtime tier is `production`. */

@@ -1,9 +1,7 @@
-import type { ApolloClient, NormalizedCacheObject } from "@apollo/client";
 import type { QueryClient } from "@tanstack/react-query";
 
 export interface RegisteredDataCaches {
   readonly queryClient: QueryClient;
-  readonly apolloClient: ApolloClient<NormalizedCacheObject>;
 }
 
 let registered: RegisteredDataCaches | null = null;
@@ -26,14 +24,13 @@ function assertRegistered(): RegisteredDataCaches {
 }
 
 /**
- * Purges TanStack Query and Apollo in-memory caches. Call after runtime tier changes so stale
+ * Purges TanStack Query in-memory caches. Call after runtime tier changes so stale
  * micro/production responses cannot leak across environments.
  */
 export async function purgeAllDataCaches(): Promise<void> {
-  const { queryClient, apolloClient } = assertRegistered();
+  const { queryClient } = assertRegistered();
   await queryClient.cancelQueries();
   queryClient.clear();
-  await apolloClient.clearStore();
 }
 
 export function getRegisteredDataCaches(): RegisteredDataCaches | null {

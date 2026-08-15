@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wave 5: desk QA path smoke — pure helpers + route contract presence."""
+"""Wave 5: QA sampling helpers. Route wiring is tested in case-api TestClient."""
 
 from __future__ import annotations
 
@@ -30,23 +30,10 @@ def main() -> int:
     assert metrics["reviewed"] == 2
     assert metrics["disagree"] == 1
 
-    main_py = (_REPO / "services" / "case-api" / "src" / "case_api" / "main.py").read_text(
-        encoding="utf-8"
-    )
-    for route in (
-        '/v1/cases/ops/qa-sample',
-        '/v1/cases/ops/qa-review',
-        '/v1/cases/ops/qa-metrics',
-    ):
-        if route not in main_py:
-            print(f"missing route {route}", file=sys.stderr)
-            return 1
-
     out = {
         "ok": True,
         "sampled": len(a),
         "agreement_rate": metrics["agreement_rate"],
-        "routes": ["qa-sample", "qa-review", "qa-metrics"],
     }
     print(json.dumps(out))
 

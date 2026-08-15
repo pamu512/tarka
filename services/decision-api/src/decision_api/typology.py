@@ -238,7 +238,7 @@ def summarize_typologies(results: list[dict[str, Any]]) -> dict[str, Any]:
     pr = (results[0] or {}).get("predicate_registry") or {}
     dv = (results[0] or {}).get("dsl_version")
     if alerts:
-        best = max(alerts, key=lambda x: float(x.get("score") or 0))
+        best = max(alerts, key=lambda x: float(x["score"]) if x.get("score") is not None else float("-inf"))
         return {
             "highest_breach": "alert",
             "recommended_disposition": best.get("disposition", "deny"),
@@ -247,7 +247,7 @@ def summarize_typologies(results: list[dict[str, Any]]) -> dict[str, Any]:
             "predicate_registry": pr,
         }
     if warns:
-        best = max(warns, key=lambda x: float(x.get("score") or 0))
+        best = max(warns, key=lambda x: float(x["score"]) if x.get("score") is not None else float("-inf"))
         return {
             "highest_breach": "warning",
             "recommended_disposition": best.get("disposition", "review"),

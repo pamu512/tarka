@@ -164,15 +164,18 @@ def _build_batch_table(
         if dispute_outcome_allowlist is not None and len(dispute_outcome_allowlist) > 0:
             if outcome not in dispute_outcome_allowlist:
                 continue
+        if "score" not in row or row.get("score") is None:
+            continue
+        try:
+            score = float(row["score"])
+        except (TypeError, ValueError):
+            continue
         tenant_ids.append(tid)
         trace_ids.append(tr)
         entity_ids.append(eid)
         eval_ts.append(_utc_evaluation_ts(row.get("created_at")))
         decisions.append(str(row.get("decision") or ""))
-        try:
-            scores.append(float(row.get("score") or 0.0))
-        except (TypeError, ValueError):
-            scores.append(0.0)
+        scores.append(score)
         cm_labels.append(coerced["case_management_label"])
         sources.append(coerced["case_label_source"])
         outcomes.append(outcome)

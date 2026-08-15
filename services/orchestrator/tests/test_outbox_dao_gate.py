@@ -69,7 +69,7 @@ def test_outbox_dao_lifecycle() -> None:
             async with session.begin():
                 failed_row = await OutboxDAO.create_task(
                     session,
-                    "SHADOW_TAG",
+                    "VELOCITY_UPDATE",
                     "idem-2",
                     {"tag": "x"},
                 )
@@ -95,6 +95,41 @@ def test_outbox_dao_lifecycle() -> None:
                 with pytest.raises(OutboxTaskNotFoundError):
                     await OutboxDAO.mark_failed(session, uuid4(), "no such task")
 
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+
+def test_outbox_completed_noop_persists_last_error() -> None:
+    async def _run() -> None:
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.pool import StaticPool
+
+        from models.outbox import OutboxDAO, OutboxORM, OutboxStatus
+        from tarka_shared.database.session import Base
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all, tables=[OutboxORM.__table__])
+
+        fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+        async with fac() as session:
+            async with session.begin():
+                row = await OutboxDAO.create_task(
+                    session, "GRAPH_INGEST", "idem-noop", {"entity_id": "e1"}
+                )
+                task_id = row.id
+        async with fac() as session:
+            async with session.begin():
+                done = await OutboxDAO.mark_completed(
+                    session, task_id, last_error="noop:no_tenant"
+                )
+                assert done.status == OutboxStatus.COMPLETED.value
+                assert done.last_error == "noop:no_tenant"
         await engine.dispose()
 
     asyncio.run(_run())

@@ -1,7 +1,7 @@
 """
 rs_merkle (1.5) SHA-256 Merkle tree matching ``tarka_core::evidence::merkle``.
 
-Vendored from ``services/tarka-verifier`` so ``tarka-py`` stays self-contained.
+Matches ``tarka_core::evidence::merkle`` so ``tarka-py`` stays self-contained.
 """
 
 from __future__ import annotations

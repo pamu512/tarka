@@ -198,7 +198,12 @@ def analyze_simulation(
     for event, dec in zip(events, decisions):
         is_fraud = event.get("_is_fraud", False)
         decision = dec.get("decision", "allow")
-        score = float(dec.get("score", 0))
+        score = None
+        if isinstance(dec, dict) and "score" in dec and dec["score"] is not None:
+            try:
+                score = float(dec["score"])
+            except (TypeError, ValueError):
+                score = None
         decision_counts[decision] = decision_counts.get(decision, 0) + 1
 
         blocked = decision in ("deny", "review")
@@ -211,6 +216,8 @@ def analyze_simulation(
         else:
             tn += 1
 
+        if score is None:
+            continue
         if is_fraud:
             fraud_scores.append(score)
         else:

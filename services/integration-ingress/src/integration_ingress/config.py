@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://127.0.0.1:11434/v1"
 
     # Dead Letter Office (Prompt 171) — JetStream ingest DLQ peek.
-    nats_dlq_subject: str = "fraud.events.dlq"
-    nats_stream_name: str = "FRAUD_EVENTS"
+    nats_dlq_subject: str = "fraud.dlq.evaluate"
+    nats_stream_name: str = "FRAUD_DLQ"
     ingest_subject_prefix: str = "fraud.events"
 
     # Automated backup indicators (Prompt 173).

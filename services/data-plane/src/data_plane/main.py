@@ -20,6 +20,7 @@ from typing import Any
 os.environ["TARKA_DATA_PLANE_SUBAPP"] = "1"
 
 from fastapi import Depends, FastAPI, Request
+from starlette.responses import JSONResponse
 
 # Shared observability (PYTHONPATH includes services/shared in Docker / CI).
 for parent in Path(__file__).resolve().parents:
@@ -36,6 +37,26 @@ import event_ingest.main as ei  # noqa: E402
 from observability import setup_observability  # noqa: E402
 
 log = logging.getLogger("data-plane")
+
+
+def ready_http(
+    *,
+    nats_ok: bool,
+    http_ok: bool,
+    redis_ok: bool,
+    clickhouse_ok: bool | None = None,
+) -> tuple[int, dict[str, Any]]:
+    ready_flag = bool(nats_ok and http_ok and redis_ok)
+    checks: dict[str, Any] = {
+        "nats_connected": nats_ok,
+        "http_client": http_ok,
+        "redis_ok": redis_ok,
+    }
+    if clickhouse_ok is not None:
+        checks["clickhouse_ok"] = clickhouse_ok
+        ready_flag = ready_flag and bool(clickhouse_ok)
+    body = {"ready": ready_flag, "checks": checks}
+    return (200, body) if ready_flag else (503, body)
 
 
 def _doc_path(path: str | None) -> bool:
@@ -128,7 +149,7 @@ def create_app() -> FastAPI:
     _merge_routes(app, asink.app, skip_paths=skip)
 
     @app.get("/v1/health")
-    async def combined_health(request: Request) -> dict:
+    async def combined_health(request: Request):
         r = getattr(request.app.state, "redis", None)
         redis_configured = r is not None
         redis_ok: bool | None = None
@@ -138,20 +159,31 @@ def create_app() -> FastAPI:
                 redis_ok = True
             except Exception:
                 redis_ok = False
-        ingest_body = {
-            "nats_connected": ei._nc is not None and ei._nc.is_connected,
-            "redis_configured": redis_configured,
-            "redis_ok": redis_ok,
-        }
-        return {
-            "status": "ok",
-            "ingest": ingest_body,
-            "analytics": {"clickhouse": asink._ch_client is not None},
+        nats_ok = ei.nats_connected()
+        code, status = ei.liveness_http(
+            nats_ok=nats_ok, redis_configured=redis_configured, redis_ok=redis_ok
+        )
+        ch_configured = asink.clickhouse_configured()
+        ch_ok = asink.clickhouse_ok()
+        body = {
+            "status": status,
+            "ingest": {
+                "nats_connected": nats_ok,
+                "redis_configured": redis_configured,
+                "redis_ok": redis_ok,
+            },
+            "analytics": {"clickhouse": ch_ok, "configured": ch_configured},
             "platform_compat_port": _compat_port(),
         }
+        if code != 200:
+            return JSONResponse(status_code=code, content=body)
+        if ch_configured and not ch_ok:
+            body["status"] = "unavailable"
+            return JSONResponse(status_code=503, content=body)
+        return body
 
     @app.get("/v1/ready")
-    async def ready(request: Request) -> dict:
+    async def ready(request: Request):
         r = getattr(request.app.state, "redis", None)
         redis_ok: bool | None = None
         if r is not None:
@@ -162,14 +194,15 @@ def create_app() -> FastAPI:
                 redis_ok = False
         http = getattr(request.app.state, "http", None)
         http_ok = http is not None
-        nats_ok = ei._nc is not None and getattr(ei._nc, "is_connected", False)
-        checks = {
-            "nats_connected": nats_ok,
-            "http_client": http_ok,
-            "redis_ok": True if r is None else (redis_ok is True),
-        }
-        ready_flag = bool(nats_ok and http_ok and checks["redis_ok"])
-        return {"ready": ready_flag, "checks": checks}
+        nats_ok = ei.nats_connected()
+        redis_pass = True if r is None else (redis_ok is True)
+        ch_ready = asink.clickhouse_ok() if asink.clickhouse_configured() else None
+        code, body = ready_http(
+            nats_ok=nats_ok, http_ok=http_ok, redis_ok=redis_pass, clickhouse_ok=ch_ready
+        )
+        if code != 200:
+            return JSONResponse(status_code=code, content=body)
+        return body
 
     @app.get("/v1/schema-registry/status", dependencies=[Depends(ei.require_api_key)])
     async def schema_registry_status() -> dict:

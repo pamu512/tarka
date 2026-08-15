@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -112,13 +111,14 @@ def test_ingest_skips_gremlin_when_tenant_missing(caplog: pytest.LogCaptureFixtu
         patch.object(graph_ingest, "_ensure_connection") as ensure,
         caplog.at_level(logging.INFO, logger="workers.handlers.graph_ingest"),
     ):
-        graph_ingest._ingest_janus_sync(
+        reason = graph_ingest._ingest_janus_sync(
             client,
             _tx(user_id="u1", device_id="d1"),
             audit_log_id=7,
         )
     merge.assert_not_called()
     ensure.assert_not_called()
+    assert reason == "noop:no_tenant"
     assert "reason=no_tenant" in caplog.text
 
 
@@ -141,16 +141,6 @@ def test_ingest_passes_tenant_into_merge() -> None:
     assert tenants == {"acme"}
     labels = {c.args[1] for c in merge.call_args_list}
     assert "Device" in labels and "Email" in labels and "User" in labels
-
-
-def test_janus_client_merge_source_stamps_identity() -> None:
-    from graph.client import merge_janus_vertex_identity
-
-    wrap = inspect.getsource(JanusGraphClient._merge_vertex)
-    src = wrap + inspect.getsource(merge_janus_vertex_identity)
-    assert "merge_janus_vertex_identity" in wrap
-    assert "tenant_id" in src
-    assert "external_id" in src
 
 
 def test_janus_client_ingest_skips_without_tenant() -> None:

@@ -36,6 +36,38 @@ A built-in consumer drains NATS and forwards to Decision API.
 """
 # Keys added by ingest; must not be forwarded to Decision API evaluate.
 _INGEST_INTERNAL_KEYS = frozenset({"_ingest_id"})
+_PARKED_EVALUATE_KINDS = frozenset({"evaluate_4xx"})
+
+
+def _dlq_overlaps_consumer(dlq_subject: str, subject_prefix: str) -> bool:
+    """True when a DLQ publish would match ``{prefix}.>`` (re-consume loop)."""
+    subj = (dlq_subject or "").strip()
+    prefix = (subject_prefix or "").strip().rstrip(".")
+    if not subj or not prefix:
+        return False
+    return subj == prefix or subj.startswith(prefix + ".")
+
+
+def _is_parked_evaluate_envelope(payload: object) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    return str(payload.get("kind") or "").strip() in _PARKED_EVALUATE_KINDS
+
+
+def nats_connected() -> bool:
+    return _nc is not None and bool(getattr(_nc, "is_connected", False))
+
+
+def liveness_http(
+    *,
+    nats_ok: bool,
+    redis_configured: bool,
+    redis_ok: bool | None,
+) -> tuple[int, str]:
+    """200 only when NATS is up. Optional Redis down → 503."""
+    if not nats_ok or (redis_configured and redis_ok is False):
+        return 503, "unavailable"
+    return 200, "ok"
 
 
 def _payload_for_decision_api(msg: dict[str, Any]) -> dict[str, Any]:
@@ -130,6 +162,44 @@ async def _publish_evaluate_dlq(
     await js.publish(subj, json.dumps(envelope, default=str).encode())
 
 
+async def _park_evaluate_4xx(
+    js: JetStreamContext,
+    *,
+    nats_subject: str,
+    raw_event: dict[str, Any],
+    eval_body: dict[str, Any],
+    status_code: int,
+    response_text: str,
+) -> bool:
+    """True = ack (parked on DLQ). False = NAK. Never silent-drop a 4xx."""
+    if not settings.ingest_dlq_publish_on_evaluate_4xx:
+        log.warning("ingest_evaluate_4xx_nak reason=dlq_disabled status=%s", status_code)
+        return False
+    if not settings.ingest_dlq_subject.strip():
+        log.warning("ingest_evaluate_4xx_nak reason=dlq_subject_empty status=%s", status_code)
+        return False
+    if _dlq_overlaps_consumer(settings.ingest_dlq_subject, settings.subject_prefix):
+        log.warning(
+            "ingest_evaluate_4xx_nak reason=dlq_subject_inside_consumer_wildcard subject=%s prefix=%s",
+            settings.ingest_dlq_subject,
+            settings.subject_prefix,
+        )
+        return False
+    try:
+        await _publish_evaluate_dlq(
+            js,
+            nats_subject=nats_subject,
+            raw_event=raw_event,
+            eval_body=eval_body,
+            status_code=status_code,
+            response_text=response_text,
+        )
+    except Exception as e:
+        log.warning("ingest_evaluate_4xx_nak reason=dlq_publish_failed status=%s err=%s", status_code, e)
+        return False
+    return True
+
+
 async def _connect_nats() -> tuple[NatsClient, JetStreamContext]:
     nc = await nats.connect(settings.nats_url)
     js = nc.jetstream()
@@ -143,6 +213,19 @@ async def _connect_nats() -> tuple[NatsClient, JetStreamContext]:
             max_msgs=10_000_000,
             max_bytes=1024 * 1024 * 1024,
         )
+    dlq_subj = settings.ingest_dlq_subject.strip()
+    if dlq_subj and not _dlq_overlaps_consumer(dlq_subj, settings.subject_prefix):
+        try:
+            await js.find_stream_name_by_subject(dlq_subj)
+        except Exception:
+            root = dlq_subj.rsplit(".", 1)[0] if "." in dlq_subj else dlq_subj
+            await js.add_stream(
+                name=settings.ingest_dlq_stream_name,
+                subjects=[f"{root}.>"],
+                retention="limits",
+                max_msgs=1_000_000,
+                max_bytes=256 * 1024 * 1024,
+            )
     return nc, js
 
 
@@ -179,8 +262,8 @@ async def _commit_evaluate_side_effects(
     except Exception as e:
         log.warning("ingest_side_effects_transport_failed: %s", e)
         return False
-    if r.status_code >= 500:
-        log.warning("ingest_side_effects_5xx status=%s", r.status_code)
+    if r.status_code in {401, 403} or r.status_code >= 500:
+        log.warning("ingest_side_effects_not_ack_safe status=%s", r.status_code)
         return False
     return True
 
@@ -204,6 +287,10 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         m.inc("ingest_consumer_json_decode_errors_total")
                         await msg.nak(delay=5)
                         continue
+                    if _is_parked_evaluate_envelope(payload):
+                        await msg.ack()
+                        m.inc("ingest_consumer_nats_ack_total")
+                        continue
                     url = f"{settings.decision_api_url.rstrip('/')}/v1/decisions/evaluate"
                     eval_body = _payload_for_decision_api(payload)
                     r = await http.post(
@@ -220,24 +307,21 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         m.inc("ingest_consumer_nats_ack_total")
                     elif r.status_code < 500:
                         m.inc("ingest_consumer_evaluate_4xx_total")
-                        if (
-                            settings.ingest_dlq_publish_on_evaluate_4xx
-                            and settings.ingest_dlq_subject.strip()
-                        ):
-                            try:
-                                await _publish_evaluate_dlq(
-                                    js,
-                                    nats_subject=getattr(msg, "subject", "") or "",
-                                    raw_event=payload,
-                                    eval_body=eval_body,
-                                    status_code=r.status_code,
-                                    response_text=r.text,
-                                )
-                                m.inc("ingest_dlq_published_total")
-                            except Exception as e:
-                                log.warning("ingest DLQ publish failed: %s", e)
-                        await msg.ack()
-                        m.inc("ingest_consumer_nats_ack_total")
+                        parked = await _park_evaluate_4xx(
+                            js,
+                            nats_subject=getattr(msg, "subject", "") or "",
+                            raw_event=payload,
+                            eval_body=eval_body,
+                            status_code=r.status_code,
+                            response_text=r.text,
+                        )
+                        if parked:
+                            m.inc("ingest_dlq_published_total")
+                            await msg.ack()
+                            m.inc("ingest_consumer_nats_ack_total")
+                        else:
+                            await msg.nak(delay=5)
+                            m.inc("ingest_consumer_nats_nak_total")
                     else:
                         m.inc("ingest_consumer_evaluate_5xx_total")
                         await msg.nak(delay=5)
@@ -363,12 +447,29 @@ async def health(request: Request):
             redis_ok = True
         except Exception:
             redis_ok = False
-    return {
-        "status": "ok",
-        "nats_connected": _nc is not None and _nc.is_connected,
+    nats_ok = nats_connected()
+    code, status = liveness_http(
+        nats_ok=nats_ok, redis_configured=redis_configured, redis_ok=redis_ok
+    )
+    body = {
+        "status": status,
+        "nats_connected": nats_ok,
         "redis_configured": redis_configured,
         "redis_ok": redis_ok,
     }
+    if code != 200:
+        return JSONResponse(status_code=code, content=body)
+    return body
+
+
+@app.get("/v1/ready")
+async def ready():
+    nats_ok = nats_connected()
+    code, _status = liveness_http(nats_ok=nats_ok, redis_configured=False, redis_ok=None)
+    body = {"ready": nats_ok, "checks": {"nats_connected": nats_ok}}
+    if code != 200:
+        return JSONResponse(status_code=503, content=body)
+    return body
 
 
 @app.get("/v1/slo")

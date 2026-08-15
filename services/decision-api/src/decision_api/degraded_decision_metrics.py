@@ -16,6 +16,7 @@ _TAG_METRIC_KEYS: tuple[tuple[str, str], ...] = (
     ("graph:stale_skipped", "graph_stale_skipped"),
     ("graph:stale_fail_closed", "graph_stale_fail_closed"),
     ("graph:unavailable", "graph_unavailable"),
+    ("graph:unconfigured", "graph_unconfigured"),
     ("enrichment:unavailable", "enrichment_unavailable"),
     ("ml:unavailable", "ml_unavailable"),
     ("lists:unavailable", "lists_unavailable"),

@@ -1,7 +1,8 @@
 /**
  * Desk-strict mock policy (missed-mark bridge Track A1).
- * Lean desk routes must not silently fall back to mockData unless mocks are
- * explicitly forced with VITE_USE_API_MOCKS=true.
+ * Lean desk routes (cases, calibration, QA, trend, graph, analytics,
+ * orchestrator, ingest) must not silently fall back to mockData unless mocks
+ * are explicitly forced with VITE_USE_API_MOCKS=true.
  */
 
 export function isDeskApiPath(url: string): boolean {
@@ -12,8 +13,23 @@ export function isDeskApiPath(url: string): boolean {
     path.includes("/api/decisions/v1/calibration") ||
     path.includes("/api/decisions/v1/ops/qa") ||
     path.includes("/api/decisions/v1/ops/trend") ||
-    path.includes("/cases/ops/qa")
+    path.includes("/cases/ops/qa") ||
+    path.includes("/api/graph") ||
+    path.includes("/api/analytics") ||
+    path.includes("/api/orchestrator") ||
+    path.includes("/api/ingest")
   );
+}
+
+export function isUpstreamUnavailableBody(text: string): boolean {
+  const raw = text.trim();
+  if (!raw.startsWith("{")) return false;
+  try {
+    const parsed = JSON.parse(raw) as { error?: unknown };
+    return parsed.error === "upstream_unavailable";
+  } catch {
+    return false;
+  }
 }
 
 export function deskStrictEnabled(raw: string | undefined): boolean {
