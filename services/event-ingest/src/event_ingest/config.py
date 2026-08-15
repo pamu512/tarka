@@ -25,5 +25,8 @@ class Settings(BaseSettings):
     ingest_dlq_subject: str = "fraud.events.dlq"
     ingest_dlq_publish_on_evaluate_4xx: bool = False
 
+    orchestrator_url: str = ""
+    orchestrator_internal_secret: str = ""
+
 
 settings = Settings()

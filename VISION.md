@@ -51,19 +51,13 @@ Incumbent **cloud fraud APIs** (e.g. **Sift**, **Forter**, and the same architec
 
 ---
 
-## Hardware as moat
+## Where inference runs
 
-Local-first fraud detection was **economically irrational** on **DDR-limited, discrete-GPU, multi-socket** topologies: copying feature tensors and KV caches across buses dominated **time-to-decision**, and running **Gremlin + Postgres + LLM** on one box felt like a science project.
+**Production default** is a Linux VM and Compose **desk** profile: rules + audit on metal you control. See [SRE compose runbooks](docs/docs/operations/sre-compose-profiles.md).
 
-**Unified memory architectures**—especially **Apple Silicon** (M-series SoC, **CPU + GPU + Neural Engine + large memory pool on one die**)—change the unit economics:
+**Local Shadow** (Ollama on-loopback) is an **optional forensics** add-on so cluster narratives need not leave the VPC. That is a residency choice, not a laptop SKU requirement. Graph and large local weights belong on separate hosts from evaluate.
 
-- **Bandwidth:** Graph traversals, embedding-style work, and transformer inference **fight for the same memory pool** without PCIe-shaped choke points. For **interactive** fraud (sub-second policy + “explain this cluster”), **memory bandwidth is the product**.
-
-- **Power envelope:** A **24 GB+** laptop-class machine can hold **model weights + working set + graph process** in a form factor banks already allow inside a **VPC DMZ** or secure room—no rack of A100s required for **first-line** agentic triage.
-
-- **Deployment reality:** Tarka **1.3.0-beta** explicitly targets **M5 Pro class / 24 GB RAM** as the **full-stack** baseline (Gremlin-adjacent services, Ollama with Llama 3.2 / Qwen3-VL-class models, Rust core, orchestration). That is not snobbery—it is **physics**: local-first **without** unified memory is **pain**; with it, **local-first becomes default-competitive**.
-
-**Moat thesis:** The next decade of fraud defense is won by teams who **co-design software for unified memory**—not who rent the most H100s in Virginia. Tarka is **optimized for that hardware regime** so **LFFI is viable for the first time at institution scale**, not only in labs.
+Colocating Gremlin + a 30B-class model + evaluate on one box is a **demo**, not the baseline.
 
 ---
 
