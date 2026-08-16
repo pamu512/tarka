@@ -26,7 +26,9 @@ def test_bind_runtime_and_feature_fallback() -> None:
 
 
 @pytest.mark.asyncio
-async def test_empty_graph_url_tags_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_empty_graph_url_tags_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     enrichment.bind_runtime(
         circuit_graph=object(),
         circuit_feature=object(),
@@ -48,7 +50,9 @@ async def test_empty_graph_url_tags_unconfigured(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.asyncio
-async def test_empty_feature_url_tags_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_empty_feature_url_tags_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     enrichment.bind_runtime(
         circuit_graph=object(),
         circuit_feature=object(),
@@ -88,7 +92,9 @@ def test_parse_ml_disabled_and_missing_are_unscored_zero_is_real() -> None:
     score, extra = parse_ml_score_payload({})
     assert score is None
     assert extra["unscored_reason"] == "missing_score"
-    score, extra = parse_ml_score_payload({"score": 0.0, "model_version": "fraud-gbm/v1"})
+    score, extra = parse_ml_score_payload(
+        {"score": 0.0, "model_version": "fraud-gbm/v1"}
+    )
     assert score == 0.0
     assert "unscored_reason" not in extra
     parsed, _ = parse_ml_score_payload({"score": 0.0, "model_version": "disabled"})
@@ -102,7 +108,10 @@ def test_evaluate_hop_matrix_empty_url_tags_unconfigured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from decision_api.config import settings
-    from decision_api.evaluate.score import EVALUATE_HOP_UNCONFIGURED, tag_hop_unconfigured
+    from decision_api.evaluate.score import (
+        EVALUATE_HOP_UNCONFIGURED,
+        tag_hop_unconfigured,
+    )
 
     assert set(EVALUATE_HOP_UNCONFIGURED) == {
         "graph",

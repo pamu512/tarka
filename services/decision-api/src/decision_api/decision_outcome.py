@@ -24,7 +24,9 @@ MetricsInc = Callable[..., Any]
 BgAddTask = Callable[..., Any]
 
 
-def wrap_outcome_task(fn: Callable[..., Any], metrics_inc: MetricsInc) -> Callable[..., Any]:
+def wrap_outcome_task(
+    fn: Callable[..., Any], metrics_inc: MetricsInc
+) -> Callable[..., Any]:
     """Preserve ``fn.__name__``; log + metric if the background side effect fails."""
     name = getattr(fn, "__name__", "outcome")
 

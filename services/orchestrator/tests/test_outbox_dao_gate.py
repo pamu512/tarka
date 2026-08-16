@@ -125,9 +125,7 @@ def test_outbox_completed_noop_persists_last_error() -> None:
                 task_id = row.id
         async with fac() as session:
             async with session.begin():
-                done = await OutboxDAO.mark_completed(
-                    session, task_id, last_error="noop:no_tenant"
-                )
+                done = await OutboxDAO.mark_completed(session, task_id, last_error="noop:no_tenant")
                 assert done.status == OutboxStatus.COMPLETED.value
                 assert done.last_error == "noop:no_tenant"
         async with fac() as session:

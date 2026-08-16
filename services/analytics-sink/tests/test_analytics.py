@@ -148,8 +148,9 @@ def test_health_503_when_clickhouse_configured_and_down(monkeypatch):
     assert asink.clickhouse_ok() is False
     from fastapi.testclient import TestClient
 
-    with patch("analytics_sink.main._init_clickhouse"), patch(
-        "analytics_sink.main.asyncio.create_task"
+    with (
+        patch("analytics_sink.main._init_clickhouse"),
+        patch("analytics_sink.main.asyncio.create_task"),
     ):
         with TestClient(asink.app) as client:
             r = client.get("/v1/health")

@@ -195,7 +195,9 @@ async def _park_evaluate_4xx(
             response_text=response_text,
         )
     except Exception as e:
-        log.warning("ingest_evaluate_4xx_nak reason=dlq_publish_failed status=%s err=%s", status_code, e)
+        log.warning(
+            "ingest_evaluate_4xx_nak reason=dlq_publish_failed status=%s err=%s", status_code, e
+        )
         return False
     return True
 
