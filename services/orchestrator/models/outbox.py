@@ -198,10 +198,7 @@ class OutboxDAO:
         if isinstance(last_error, str) and last_error:
             values["last_error"] = last_error[:8192]
         stmt = (
-            update(OutboxORM)
-            .where(OutboxORM.id == task_id)
-            .values(**values)
-            .returning(OutboxORM)
+            update(OutboxORM).where(OutboxORM.id == task_id).values(**values).returning(OutboxORM)
         )
         row = (await session.scalars(stmt)).one_or_none()
         if row is None:

@@ -39,6 +39,7 @@ def clickhouse_configured() -> bool:
 def clickhouse_ok() -> bool:
     return _ch_client is not None
 
+
 DDL_EVENTS = """
 CREATE TABLE IF NOT EXISTS {db}.decision_events (
     trace_id        String,

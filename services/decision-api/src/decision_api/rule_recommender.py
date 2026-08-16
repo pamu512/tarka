@@ -414,7 +414,10 @@ class RuleRecommender:
                 {
                     "decision": o["decision"],
                     "score": score,
-                    "payload_snapshot": {"payload": o.get("features", {}), "metadata": {}},
+                    "payload_snapshot": {
+                        "payload": o.get("features", {}),
+                        "metadata": {},
+                    },
                 }
             )
 
