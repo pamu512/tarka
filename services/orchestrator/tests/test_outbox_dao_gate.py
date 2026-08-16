@@ -130,6 +130,14 @@ def test_outbox_completed_noop_persists_last_error() -> None:
                 )
                 assert done.status == OutboxStatus.COMPLETED.value
                 assert done.last_error == "noop:no_tenant"
+        async with fac() as session:
+            async with session.begin():
+                row = await OutboxDAO.create_task(
+                    session, "GRAPH_INGEST", "idem-noop-obj", {"entity_id": "e1"}
+                )
+                done = await OutboxDAO.mark_completed(session, row.id, last_error=object())
+                assert done.status == OutboxStatus.COMPLETED.value
+                assert done.last_error is None
         await engine.dispose()
 
     asyncio.run(_run())

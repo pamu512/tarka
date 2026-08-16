@@ -195,7 +195,7 @@ class OutboxDAO:
             "status": OutboxStatus.COMPLETED.value,
             "processed_at": now,
         }
-        if last_error:
+        if isinstance(last_error, str) and last_error:
             values["last_error"] = last_error[:8192]
         stmt = (
             update(OutboxORM)

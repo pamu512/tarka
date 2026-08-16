@@ -72,7 +72,6 @@ def optional_score(data: dict[str, Any] | None, key: str = "score") -> float | N
 
 def parse_ml_score_payload(data: dict[str, Any] | None) -> tuple[float | None, dict[str, Any]]:
     """Treat disabled / missing score as unscored. ``0`` is a real score when present."""
-    empty: dict[str, Any] = {}
     if not isinstance(data, dict):
         return None, {"unscored_reason": "missing_score"}
     if data.get("scored") is False or data.get("model_version") == "disabled":
