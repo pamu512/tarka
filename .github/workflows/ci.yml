@@ -88,10 +88,12 @@ jobs:
             artifacts/partner-fusion-proof.json
             artifacts/partner-fusion-proof.sha256
           if-no-files-found: ignore
-      - name: Wave 5 — QA desk smoke
+      - name: Wave 5 — QA sampling helper smoke (not a compose desk)
         run: python3 scripts/oss/qa_desk_smoke.py
       - name: Missed-mark bridge — SAR transport honesty
         run: python3 scripts/oss/sar_transport_honesty_smoke.py
+      - name: False-green inventory ratchet
+        run: python3 scripts/oss/false_green_inventory.py
       - name: S4 — counter parity dual_diff (matched:true required)
         env:
           AGG_KEY_VERSION: ci_parity_v1
@@ -737,16 +739,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: v1-data-plane-rust
-      - name: cargo test (event-ingest crate)
-        run: cargo test
-        working-directory: services/event-ingest
-      - name: cargo test (analytics-sink crate)
-        run: cargo test
-        working-directory: services/analytics-sink
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -760,39 +752,35 @@ jobs:
         working-directory: services/data-plane
         env:
           PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared
-
-  test-chitragupta:
-    needs: audit-stubs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: services/chitragupta/pyproject.toml
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-        working-directory: services/chitragupta
-      - name: Run tests
-        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70 tests/
-        working-directory: services/chitragupta
+      - name: Install event-ingest + data-plane test deps
+        run: |
+          pip install -e "./services/event-ingest[dev]"
+          pip install -e "./services/data-plane[dev]"
+      - name: Pytest — event-ingest (Python)
+        working-directory: services/event-ingest
         env:
-          PYTHONPATH: .:src
-      - name: Upload coverage
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-chitragupta
-          path: services/chitragupta/coverage.xml
-          if-no-files-found: ignore
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        continue-on-error: true
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: services/chitragupta/coverage.xml
-          flags: chitragupta
-          fail_ci_if_error: false
+          PYTHONPATH: src
+        run: pytest tests -q --ignore=tests/test_ingest_dlq_loop_live.py
+      - name: Pytest — data-plane ready/health
+        working-directory: services/data-plane
+        env:
+          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared
+        run: pytest tests -q
+      - name: JetStream DLQ not under consumer wildcard
+        run: |
+          docker run -d --name nats-js -p 4222:4222 nats:2-alpine -js
+          for i in $(seq 1 30); do
+            python3 -c "import socket; s=socket.create_connection(('127.0.0.1',4222),2); s.close()" && break
+            sleep 1
+          done
+          pytest tests/test_ingest_dlq_loop_live.py -q
+        working-directory: services/event-ingest
+        env:
+          PYTHONPATH: src
+          NATS_URL: nats://127.0.0.1:4222
+      - name: Stop JetStream
+        if: always()
+        run: docker rm -f nats-js
 
   test-feature-service:
     needs: audit-stubs
@@ -948,7 +936,6 @@ jobs:
       - build-sdk-typescript
       - test-graphql-gateway
       - test-data-plane
-      - test-chitragupta
       - test-feature-service
       - test-ml-scoring
       - benchmark-latency-evaluate

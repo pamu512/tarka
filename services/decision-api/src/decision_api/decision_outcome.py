@@ -6,6 +6,7 @@ metrics, WS broadcast, NATS/local publish, optional case create for deny/review.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import re
 from dataclasses import dataclass, field
@@ -21,6 +22,28 @@ log = logging.getLogger("decision-api.outcome")
 
 MetricsInc = Callable[..., Any]
 BgAddTask = Callable[..., Any]
+
+
+def wrap_outcome_task(
+    fn: Callable[..., Any], metrics_inc: MetricsInc
+) -> Callable[..., Any]:
+    """Preserve ``fn.__name__``; log + metric if the background side effect fails."""
+    name = getattr(fn, "__name__", "outcome")
+
+    async def _run(*args: Any, **kwargs: Any) -> None:
+        try:
+            result = fn(*args, **kwargs)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            log.exception("decision_outcome_failed task=%s", name)
+            try:
+                metrics_inc(f"tarka_decision_outcome_failed_{name}_total")
+            except Exception:
+                pass
+
+    _run.__name__ = name
+    return _run
 
 
 @dataclass
@@ -72,14 +95,18 @@ def schedule_decision_outcomes(
     shadow_args: tuple[Any, ...] = (),
 ) -> None:
     """Enqueue all post-decision side effects onto a FastAPI BackgroundTasks-like object."""
+
+    def add(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
+        bg.add_task(wrap_outcome_task(fn, metrics_inc), *args, **kwargs)
+
     if ctx.decision_log_record is not None:
-        bg.add_task(emit_decision_log, ctx.decision_log_record)
+        add(emit_decision_log, ctx.decision_log_record)
 
     if not ctx.shadow_request and graph_upsert is not None:
-        bg.add_task(graph_upsert, *graph_upsert_args)
+        add(graph_upsert, *graph_upsert_args)
 
     if not ctx.shadow_request:
-        bg.add_task(
+        add(
             maybe_dispatch_challenge_webhook,
             http=http,
             trace_id=ctx.trace_id,
@@ -107,7 +134,7 @@ def schedule_decision_outcomes(
     )
 
     if not ctx.shadow_request:
-        bg.add_task(
+        add(
             apply_enforcement_adapters,
             http=http,
             trace_id=ctx.trace_id,
@@ -124,7 +151,7 @@ def schedule_decision_outcomes(
             metrics_inc=metrics_inc,
         )
 
-    bg.add_task(
+    add(
         broadcast_decision,
         {
             "trace_id": ctx.trace_id,
@@ -138,7 +165,7 @@ def schedule_decision_outcomes(
         },
     )
 
-    bg.add_task(
+    add(
         publish_decision,
         app_state,
         {
@@ -160,14 +187,14 @@ def schedule_decision_outcomes(
     )
 
     if shadow_evaluation is not None:
-        bg.add_task(shadow_evaluation, *shadow_args)
+        add(shadow_evaluation, *shadow_args)
 
     if (
         not ctx.shadow_request
         and case_create_on_deny_review
         and ctx.decision in ("deny", "review")
     ):
-        bg.add_task(
+        add(
             maybe_create_case_for_outcome,
             http=http,
             case_api_url=case_api_url,
@@ -185,7 +212,7 @@ def schedule_decision_outcomes(
         if should_create_payout_hold(
             metadata=meta, tags=ctx.tags, event_type=ctx.event_type
         ):
-            bg.add_task(
+            add(
                 maybe_create_payout_hold_from_evaluate,
                 http=http,
                 integration_ingress_url=integration_ingress_url,
@@ -212,7 +239,7 @@ def schedule_decision_outcomes(
         if should_record_promo_redemption(
             metadata=meta, tags=ctx.tags, event_type=ctx.event_type
         ):
-            bg.add_task(
+            add(
                 maybe_record_promo_redemption_from_evaluate,
                 http=http,
                 integration_ingress_url=integration_ingress_url,
@@ -235,7 +262,7 @@ def schedule_decision_outcomes(
 
         meta = ctx.metadata if isinstance(ctx.metadata, dict) else None
         if should_record_seller_integrity(metadata=meta, event_type=ctx.event_type):
-            bg.add_task(
+            add(
                 maybe_record_seller_integrity_from_evaluate,
                 http=http,
                 integration_ingress_url=integration_ingress_url,

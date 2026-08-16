@@ -94,6 +94,13 @@ services:
       retries: 8
       start_period: 25s
 
+  orch-audit-init:
+    image: busybox:1.36
+    user: "0:0"
+    volumes:
+      - orch_audit:/var/lib/orchestrator
+    command: ["sh", "-c", "chown -R 10001:10001 /var/lib/orchestrator"]
+
   orchestrator:
     build:
       context: ../..
@@ -103,6 +110,7 @@ services:
     environment:
       RULE_EVAL_BACKEND: decision_api
       DECISION_API_URL: http://decision-api:8000
+      ORCHESTRATOR_AUDIT_DATABASE_URL: sqlite+aiosqlite:////var/lib/orchestrator/audit.db
       # When decision-api enforces API_KEYS, set the same key here (or DECISION_API_KEY):
       # DECISION_API_KEY: ${API_KEYS:-}
       # Optional dual-run / rollback (requires --profile legacy-python-rules):
@@ -113,7 +121,12 @@ services:
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-dev-shadow-token-change-me}
       TREND_WATCH_ON_INGEST: "1"
       SHADOW_ACTION_MODULATION: escalate_only
+    user: "10001:10001"
+    volumes:
+      - orch_audit:/var/lib/orchestrator
     depends_on:
+      orch-audit-init:
+        condition: service_completed_successfully
       decision-api:
         condition: service_healthy
       shadow_agent:
@@ -130,6 +143,25 @@ services:
       timeout: 12s
       retries: 6
       start_period: 20s
+
+  outbox-processor:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.outbox_processor"]
+    environment:
+      ORCHESTRATOR_AUDIT_DATABASE_URL: sqlite+aiosqlite:////var/lib/orchestrator/audit.db
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
+    user: "10001:10001"
+    volumes:
+      - orch_audit:/var/lib/orchestrator
+    depends_on:
+      orch-audit-init:
+        condition: service_completed_successfully
+      orchestrator:
+        condition: service_healthy
 
   # Optional always-on trend tick (no new daemon binary — curl loop).
   # Enable: docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick up -d
@@ -168,3 +200,4 @@ services:
 
 volumes:
   trend_agent_data:
+  orch_audit:

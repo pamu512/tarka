@@ -402,14 +402,24 @@ class RuleRecommender:
         if not positive or not negative:
             return [{"error": "need_both_positive_and_negative_cases"}]
 
-        records = [
-            {
-                "decision": o["decision"],
-                "score": o.get("score", 0),
-                "payload_snapshot": {"payload": o.get("features", {}), "metadata": {}},
-            }
-            for o in self._observations
-        ]
+        records = []
+        for o in self._observations:
+            if "score" not in o or o.get("score") is None:
+                continue
+            try:
+                score = float(o["score"])
+            except (TypeError, ValueError):
+                continue
+            records.append(
+                {
+                    "decision": o["decision"],
+                    "score": score,
+                    "payload_snapshot": {
+                        "payload": o.get("features", {}),
+                        "metadata": {},
+                    },
+                }
+            )
 
         analyze_features(records)
         recs = generate_recommendations(

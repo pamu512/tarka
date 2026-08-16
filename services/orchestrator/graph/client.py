@@ -5,8 +5,8 @@ envelopes into a small entity–relationship graph.
 **Backends**
 
 * **Neo4j** (default when ``NEO4J_URI`` is set): Bolt driver, Cypher ``MERGE`` upserts.
-* **JanusGraph** (``GRAPH_BACKEND=janusgraph`` + ``GREMLIN_REMOTE_URL``): Gremlin traversals
-  via ``gremlinpython`` (optional install).
+* **JanusGraph / Gremlin** (``GRAPH_BACKEND=janusgraph`` or auto when ``GREMLIN_REMOTE_URL`` is set):
+  Gremlin traversals via ``gremlinpython``. ``get_graph_signals`` is implemented (same hop math as Neo4j).
 
 **Metadata → graph (inside ``transaction.metadata``)**
 
@@ -51,6 +51,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
+from graph_signals import (
+    SignalHop,
+    collect_signal_hops,
+    compute_graph_signals,
+    device_hardware_risk_from_hops,
+    gremlin_scalar,
+)
 from ingestor.manifest_schema import TransactionSchema
 
 logger = logging.getLogger(__name__)
@@ -208,6 +215,17 @@ def parse_graph_entity_ref(entity_id: str) -> tuple[Literal["user", "ip"], str]:
     if not _safe_graph_key(raw):
         raise ValueError("invalid user entity_id")
     return "user", raw
+
+
+def _parse_observed_at(raw: Any) -> datetime | None:
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo else raw.replace(tzinfo=UTC)
+    try:
+        return datetime.fromisoformat(str(raw).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def ip_velocity_block(
@@ -1063,7 +1081,9 @@ class JanusGraphClient(GraphClient):
             logger.warning("janusgraph_backend_selected_but_gremlinpython_missing")
             return None
 
-        url = (os.environ.get("GREMLIN_REMOTE_URL") or "ws://127.0.0.1:8182/gremlin").strip()
+        url = (os.environ.get("GREMLIN_REMOTE_URL") or "").strip()
+        if not url:
+            return None
         source = (os.environ.get("GREMLIN_TRAVERSAL_SOURCE") or "g").strip() or "g"
         try:
             conn = DriverRemoteConnection(url, source)
@@ -1241,51 +1261,133 @@ class JanusGraphClient(GraphClient):
 
         return await asyncio.to_thread(self._users_for_ip_sync, ip)
 
+    def _append_both_e(
+        self,
+        label: str,
+        key: str,
+        value: str,
+        hops: list[SignalHop],
+        seen: set[tuple[str, str, str, str, str]],
+    ) -> None:
+        from gremlin_python.process.graph_traversal import __
+
+        g = self._g
+        try:
+            rows = (
+                g.V()
+                .has(label, key, value)
+                .bothE()
+                .project("rel", "obs", "olabel", "oid")
+                .by(__.label())
+                .by(__.coalesce(__.values("observed_at"), __.constant("")))
+                .by(__.otherV().label())
+                .by(
+                    __.otherV().coalesce(
+                        __.values("user_id"),
+                        __.values("address"),
+                        __.values("device_id"),
+                        __.values("card_id"),
+                        __.constant(""),
+                    )
+                )
+                .toList()
+            )
+        except Exception:
+            logger.exception("janus_signal_both_e_failed label=%s key=%s", label, key)
+            return
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            rel = gremlin_scalar(row.get("rel"))
+            olabel = gremlin_scalar(row.get("olabel"))
+            oid = gremlin_scalar(row.get("oid"))
+            if not rel or not olabel or not oid:
+                continue
+            obs = _parse_observed_at(gremlin_scalar(row.get("obs")) or row.get("obs"))
+            sig = (label, value, rel, olabel, oid)
+            if sig in seen:
+                continue
+            seen.add(sig)
+            hops.append(
+                SignalHop(
+                    src_label=label,
+                    src_id=value,
+                    rel=rel,
+                    dst_label=olabel,
+                    dst_id=oid,
+                    observed_at=obs,
+                )
+            )
+
+    def _collect_signal_hops_sync(
+        self, anchor: Literal["user", "ip", "device"], ref: str
+    ) -> list[SignalHop]:
+        if anchor == "ip":
+            seed_label = LABEL_IP
+        elif anchor == "device":
+            seed_label = LABEL_DEVICE
+        else:
+            seed_label = LABEL_USER
+
+        def fetch(lab: str, key: str, nid: str) -> list[SignalHop]:
+            acc: list[SignalHop] = []
+            seen: set[tuple[str, str, str, str, str]] = set()
+            self._append_both_e(lab, key, nid, acc, seen)
+            return acc
+
+        return collect_signal_hops(fetch, seed_label, ref)
+
     async def device_hardware_risk(
         self,
         device_id: str,
         *,
         current_user_id: str | None = None,
     ) -> dict[str, Any]:
-        _ = current_user_id
-        return {
-            "device_id": device_id,
-            "linked_to_blocked_node": False,
-            "blocked_user_count_on_device": 0,
-            "implemented": False,
-            "status": "unavailable",
-            "backend": "janusgraph",
-            "signals_usable": False,
-            "signals_note": "device_hardware_risk not implemented for Gremlin; use Neo4j backend.",
-        }
+        import asyncio
+
+        did = (device_id or "").strip()
+        if not did:
+            return device_hardware_risk_from_hops(device_id, [], current_user_id=current_user_id)
+
+        def _sync() -> dict[str, Any]:
+            hops = self._collect_signal_hops_sync("device", did)
+            return device_hardware_risk_from_hops(did, hops, current_user_id=current_user_id)
+
+        return await asyncio.to_thread(_sync)
 
     async def get_graph_signals(self, entity_id: str) -> dict[str, Any]:
-        anchor, _ = parse_graph_entity_ref(entity_id)
-        return {
-            "entity_ref": entity_id.strip(),
-            "anchor": anchor,
-            "degree_centrality": {"total_distinct_neighbors": 0, "by_neighbor_label": {}},
-            "two_hop_distinct_cards_last_2h": 0,
-            "clustering": {
-                "coefficient": 0.0,
-                "accounts_sharing_three_devices": 0,
-                "neighbor_user_count": 0,
-            },
-            "IP_VELOCITY": ip_velocity_block(distinct_users_last_2h=0),
-            "backend": "janusgraph",
-            "implemented": False,
-            "status": "unavailable",
-            "signals_usable": False,
-            "signals_note": "get_graph_signals not yet implemented for Gremlin; use Neo4j backend.",
-        }
+        import asyncio
+
+        anchor, ref = parse_graph_entity_ref(entity_id)
+
+        def _sync() -> dict[str, Any]:
+            hops = self._collect_signal_hops_sync(anchor, ref)
+            return compute_graph_signals(anchor, ref, hops)
+
+        return await asyncio.to_thread(_sync)
 
 
 def graph_client_from_environment() -> GraphClient:
-    """Pick Neo4j, JanusGraph, or a no-op client from environment variables."""
+    """Pick JanusGraph, Neo4j, or a no-op client from environment variables.
+
+    Unset ``GRAPH_BACKEND`` (or ``auto``): Gremlin URL wins, then Neo4j URI.
+    ``age`` is graph-service only — orchestrator falls through to Janus if Gremlin is set.
+    """
     raw = os.environ.get("GRAPH_BACKEND")
-    backend = "neo4j" if raw is None or not raw.strip() else raw.strip().lower()
+    backend = "" if raw is None else raw.strip().lower()
+    gremlin_set = bool((os.environ.get("GREMLIN_REMOTE_URL") or "").strip())
+    neo4j_set = bool(
+        (os.environ.get("NEO4J_URI") or os.environ.get("GRAPH_NEO4J_URI") or "").strip()
+    )
     if backend in ("none", "off", "disabled"):
         return NullGraphClient()
+    if backend in ("", "auto", "age"):
+        if gremlin_set or backend == "age":
+            backend = "janusgraph"
+        elif neo4j_set:
+            backend = "neo4j"
+        else:
+            return NullGraphClient()
     if backend == "janusgraph":
         jc = JanusGraphClient.try_from_env()
         return jc if jc is not None else NullGraphClient()

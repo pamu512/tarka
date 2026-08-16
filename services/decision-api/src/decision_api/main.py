@@ -132,7 +132,7 @@ from decision_api.json_rules import (
     governance_summary as rules_governance_summary,
 )
 from decision_api.models import AuditRecord
-from decision_api.opa_client import evaluate_opa_or_raise
+from decision_api.opa_client import apply_opa_unconfigured, evaluate_opa_or_raise
 from decision_api.redis_store import redis_tags
 from decision_api.retention import DEFAULT_RETENTION_DAYS, retention_loop
 
@@ -473,7 +473,9 @@ async def _fetch_counter_snapshot_wrapped(
     features: dict[str, Any],
     degrade_tags: list[str],
 ) -> dict[str, Any] | None:
-    if not settings.counter_service_url:
+    from decision_api.evaluate.score import tag_hop_unconfigured
+
+    if tag_hop_unconfigured(degrade_tags, "counter"):
         return None
     try:
         return await _circuit_counter.call(
@@ -566,7 +568,9 @@ async def _fetch_location_evaluation_wrapped(
     features: dict[str, Any],
     degrade_tags: list[str],
 ) -> dict[str, Any] | None:
-    if not settings.location_service_url:
+    from decision_api.evaluate.score import tag_hop_unconfigured
+
+    if tag_hop_unconfigured(degrade_tags, "location"):
         return None
     try:
         return await _circuit_location.call(
@@ -615,7 +619,9 @@ async def _fetch_calibration_adjustment_wrapped(
     features: dict[str, Any],
     degrade_tags: list[str],
 ) -> dict[str, Any] | None:
-    if not settings.calibration_service_url:
+    from decision_api.evaluate.score import tag_hop_unconfigured
+
+    if tag_hop_unconfigured(degrade_tags, "calibration"):
         return None
     try:
         return await _circuit_calibration.call(
@@ -641,14 +647,26 @@ async def _fetch_ml_score_wrapped(
     if tenant_flag_enabled(tenant_flags, "disable_ml"):
         degrade_tags.append("ml:disabled_by_tenant")
         return None, {}
+    from decision_api.evaluate.score import tag_hop_unconfigured
+
+    if tag_hop_unconfigured(degrade_tags, "ml"):
+        return None, {}
     try:
-        return await _circuit_ml.call(
+        score, extra = await _circuit_ml.call(
             lambda: _fetch_ml_score(http, tenant_id, entity_id, event_type, features)
         )
     except CircuitOpenError:
         _circuit_metrics_inc("tarka_circuit_open_total_ml")
         degrade_tags.append("ml:unavailable")
         return None, {}
+    reason = extra.get("unscored_reason") if isinstance(extra, dict) else None
+    if score is None and reason == "disabled":
+        if "ml:disabled" not in degrade_tags:
+            degrade_tags.append("ml:disabled")
+    elif score is None:
+        if "ml:unavailable" not in degrade_tags:
+            degrade_tags.append("ml:unavailable")
+    return score, extra if isinstance(extra, dict) else {}
 
 
 async def _evaluate_opa_wrapped(
@@ -659,6 +677,8 @@ async def _evaluate_opa_wrapped(
 ) -> dict[str, Any] | None:
     if tenant_flag_enabled(tenant_flags, "disable_opa"):
         degrade_tags.append("opa:disabled_by_tenant")
+        return None
+    if apply_opa_unconfigured(degrade_tags, settings.opa_url):
         return None
     try:
         return await _circuit_opa.call(
@@ -2162,21 +2182,9 @@ async def _fetch_ml_score(
     )
     await _maybe_await(r.raise_for_status())
     data = await _maybe_await(r.json())
-    if not isinstance(data, dict):
-        data = {}
-    score = float(data.get("score", 0))
-    factors = data.get("ml_top_factors")
-    if not isinstance(factors, list):
-        factors = []
-    summary = data.get("ml_summary")
-    if summary is not None and not isinstance(summary, str):
-        summary = str(summary)[:500]
-    model = data.get("model")
-    return score, {
-        "top_factors": factors,
-        "summary": summary,
-        "model": model if isinstance(model, str) else None,
-    }
+    from decision_api.evaluate.score import parse_ml_score_payload
+
+    return parse_ml_score_payload(data if isinstance(data, dict) else None)
 
 
 def _quantize_place_cell(lat: float, lon: float, precision: int = 3) -> str:

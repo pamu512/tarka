@@ -1,0 +1,24 @@
+# Set Gremlin on orchestrator/outbox. Merge when janusgraph is actually running
+# (lite --profile graph, or full --profile full / --profile graph).
+#
+#   docker compose -f infra/deploy/docker-compose.yml \
+#     -f infra/deploy/docker-compose.graph-env.yml --profile full up -d
+
+services:
+  orchestrator:
+    environment:
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-janusgraph}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-ws://janusgraph:8182/gremlin}
+  outbox-processor:
+    environment:
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-janusgraph}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-ws://janusgraph:8182/gremlin}
+  core-api:
+    environment:
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
+  investigation-agent:
+    environment:
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
+  graphql-gateway:
+    environment:
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}

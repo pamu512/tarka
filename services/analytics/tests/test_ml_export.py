@@ -154,3 +154,30 @@ def test_run_point_in_time_ml_export_progress_callback(
     )
     assert snapshots
     assert snapshots[-1][0] == 2
+
+
+def test_build_batch_skips_unscored_keeps_zero() -> None:
+    from analytics.ml_export import _build_batch_table
+
+    tbl = _build_batch_table(
+        olap_page=[
+            {"tenant_id": "t", "trace_id": "a", "entity_id": "e", "decision": "allow"},
+            {
+                "tenant_id": "t",
+                "trace_id": "b",
+                "entity_id": "e",
+                "decision": "allow",
+                "score": 0,
+            },
+            {
+                "tenant_id": "t",
+                "trace_id": "c",
+                "entity_id": "e",
+                "decision": "review",
+                "score": "nope",
+            },
+        ],
+        labels_by_trace={},
+    )
+    assert tbl.num_rows == 1
+    assert tbl.column("risk_score").to_pylist() == [0.0]

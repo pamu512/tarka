@@ -28,7 +28,6 @@ from tarka_shared.database.session import Base
 
 OUTBOX_EVENT_GRAPH_INGEST = "GRAPH_INGEST"
 OUTBOX_EVENT_VELOCITY_UPDATE = "VELOCITY_UPDATE"
-OUTBOX_EVENT_SHADOW_TAG = "SHADOW_TAG"
 OUTBOX_EVENT_SHADOW_RETRO_TAG = "SHADOW_RETRO_TAG"
 OUTBOX_EVENT_LABEL_PROPAGATE = "LABEL_PROPAGATE"
 
@@ -180,17 +179,26 @@ class OutboxDAO:
         return row
 
     @classmethod
-    async def mark_completed(cls, session: AsyncSession, task_id: UUID) -> OutboxORM:
-        """Set ``status=COMPLETED`` and ``processed_at`` for ``task_id``."""
+    async def mark_completed(
+        cls,
+        session: AsyncSession,
+        task_id: UUID,
+        last_error: str | None = None,
+    ) -> OutboxORM:
+        """Set ``status=COMPLETED`` and ``processed_at`` for ``task_id``.
+
+        ``last_error`` records a finished noop (e.g. ``noop:no_tenant``) so COMPLETED
+        is not mistaken for a Janus write.
+        """
         now = datetime.now(UTC)
+        values: dict[str, Any] = {
+            "status": OutboxStatus.COMPLETED.value,
+            "processed_at": now,
+        }
+        if isinstance(last_error, str) and last_error:
+            values["last_error"] = last_error[:8192]
         stmt = (
-            update(OutboxORM)
-            .where(OutboxORM.id == task_id)
-            .values(
-                status=OutboxStatus.COMPLETED.value,
-                processed_at=now,
-            )
-            .returning(OutboxORM)
+            update(OutboxORM).where(OutboxORM.id == task_id).values(**values).returning(OutboxORM)
         )
         row = (await session.scalars(stmt)).one_or_none()
         if row is None:

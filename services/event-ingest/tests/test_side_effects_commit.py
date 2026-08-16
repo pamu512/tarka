@@ -50,6 +50,24 @@ async def test_side_effects_4xx_is_ack(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ok is True
 
 
+@pytest.mark.asyncio
+async def test_side_effects_401_is_nak(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "orchestrator_url", "http://orch.test")
+    http = AsyncMock()
+    http.post = AsyncMock(return_value=SimpleNamespace(status_code=401))
+    ok = await _commit_evaluate_side_effects(http, {"entity_id": "e1"}, _Resp(200))
+    assert ok is False
+
+
+@pytest.mark.asyncio
+async def test_side_effects_403_is_nak(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "orchestrator_url", "http://orch.test")
+    http = AsyncMock()
+    http.post = AsyncMock(return_value=SimpleNamespace(status_code=403))
+    ok = await _commit_evaluate_side_effects(http, {"entity_id": "e1"}, _Resp(200))
+    assert ok is False
+
+
 def test_payload_unwraps_evaluate_request() -> None:
     out = _payload_for_decision_api(
         {
