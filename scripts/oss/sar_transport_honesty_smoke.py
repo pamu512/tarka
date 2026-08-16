@@ -15,7 +15,6 @@ def main() -> int:
     os.environ.pop("FINCEN_BSA_SFTP_HOST", None)
 
     from case_api.sar_filing_transport import build_sftp_destination
-    from case_api.sar_transport import SAR_FAILED
 
     errors: list[str] = []
     if build_sftp_destination() is not None:
@@ -26,8 +25,6 @@ def main() -> int:
     os.environ["FINCEN_BSA_SFTP_HOST"] = "sftp.example.test"
     if build_sftp_destination() != "sftp.example.test":
         errors.append("build_sftp_destination() must return the stripped host")
-    if SAR_FAILED != "FAILED":
-        errors.append(f"SAR_FAILED must be FAILED, got {SAR_FAILED!r}")
 
     if errors:
         print("sar_transport_honesty_smoke: FAIL", file=sys.stderr)

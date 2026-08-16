@@ -24,16 +24,22 @@ ORCH_AUDIT_CREATE_TABLES = frozenset(
     }
 )
 
+# sqlite tests own an empty DB. Postgres lite already has case-api ``cases``.
+_SQLITE_SHARED_AUDIT_TABLES = frozenset({"cases", "audit_logs"})
 
-def orchestrator_audit_tables() -> list[Table]:
+
+def orchestrator_audit_tables(dialect: str | None = None) -> list[Table]:
     from tarka_shared.database.session import Base
 
-    return [t for t in Base.metadata.sorted_tables if t.name in ORCH_AUDIT_CREATE_TABLES]
+    names = set(ORCH_AUDIT_CREATE_TABLES)
+    if (dialect or "").startswith("sqlite"):
+        names |= _SQLITE_SHARED_AUDIT_TABLES
+    return [t for t in Base.metadata.sorted_tables if t.name in names]
 
 
 def create_orchestrator_audit_tables(sync_conn: Connection) -> None:
     from tarka_shared.database.session import Base
 
-    tables = orchestrator_audit_tables()
+    tables = orchestrator_audit_tables(sync_conn.dialect.name)
     if tables:
         Base.metadata.create_all(sync_conn, tables=tables)
