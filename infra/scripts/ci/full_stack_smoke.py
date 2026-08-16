@@ -32,7 +32,6 @@ JSON_HEALTH = [
     ("investigation-agent", "http://127.0.0.1:8006/v1/health"),
     ("data-plane", "http://127.0.0.1:8007/v1/health"),
     ("graphql-gateway", "http://127.0.0.1:8010/v1/health"),
-    ("orchestrator", "http://127.0.0.1:8790/health/full"),
 ]
 
 JSON_READY = [
