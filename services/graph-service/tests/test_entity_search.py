@@ -228,8 +228,6 @@ def test_merge_unscored_sorts_after_scored():
 
 
 def test_cypher_predicate_uses_frozen_keys_not_q():
-    from graph_service.entity_risk_score import cypher_search_prop_predicate
-
     src = cypher_search_prop_predicate("n")
     assert "n.email" in src
     assert "n.device_id" in src

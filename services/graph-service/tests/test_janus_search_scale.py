@@ -10,7 +10,7 @@ class _RecordG:
     def __init__(self) -> None:
         self.calls: list[tuple] = []
 
-    def V(self, *_a):
+    def V(self, *_a):  # noqa: N802 — Gremlin traversal API
         self.calls.append(("V", _a))
         return self
 
@@ -22,7 +22,7 @@ class _RecordG:
         self.calls.append(("limit", n))
         return self
 
-    def toList(self):
+    def toList(self):  # noqa: N802 — Gremlin traversal API
         return []
 
     def both(self):
