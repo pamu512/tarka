@@ -38,7 +38,6 @@ from workers.handlers.graph_ingest import GraphIngestHandler
 from workers.handlers.label_propagator import LabelPropagatorHandler
 from workers.handlers.shadow_retro_tag import ShadowRetroTagHandler
 from workers.handlers.velocity_update import VelocityUpdateHandler
-from tarka_shared.database.session import Base
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +153,9 @@ async def build_processor_deps(
 ) -> tuple[OutboxProcessorDeps, AsyncEngine]:
     engine = build_audit_engine(config.audit_database_url)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        from audit_tables import create_orchestrator_audit_tables
+
+        await conn.run_sync(create_orchestrator_audit_tables)
     session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     redis_client: Any | None = None
@@ -261,7 +262,7 @@ async def release_task_claim(
         await session.execute(stmt)
 
 
-async def route_outbox_task(task: OutboxORM, *, deps: OutboxProcessorDeps) -> None:
+async def route_outbox_task(task: OutboxORM, *, deps: OutboxProcessorDeps) -> str | None:
     payload = task.payload if isinstance(task.payload, dict) else {}
     event_type = (task.event_type or "").strip()
     idempotency_key = (task.idempotency_key or "").strip()
@@ -286,7 +287,7 @@ async def route_outbox_task(task: OutboxORM, *, deps: OutboxProcessorDeps) -> No
         raise
 
     try:
-        await handler.execute(payload)
+        return await handler.execute(payload)
     except Exception:
         if lock_acquired and deps.redis_client is not None and idempotency_key:
             await _release_outbox_lock(deps.redis_client, idempotency_key)
@@ -310,9 +311,10 @@ async def claim_pending_batch(
 async def finalize_task_success(
     session_factory: async_sessionmaker[AsyncSession],
     task_id: UUID,
+    note: str | None = None,
 ) -> None:
     async with atomic_transaction(session_factory) as session:
-        await OutboxDAO.mark_completed(session, task_id)
+        await OutboxDAO.mark_completed(session, task_id, last_error=note)
 
 
 async def finalize_task_failure(
@@ -340,7 +342,7 @@ async def process_outbox_batch(deps: OutboxProcessorDeps, *, batch_size: int) ->
 
     for task in tasks:
         try:
-            await route_outbox_task(task, deps=deps)
+            note = await route_outbox_task(task, deps=deps)
         except OutboxLockNotAcquired:
             logger.info(
                 "outbox_processor_lock_skip task_id=%s event_type=%s idempotency_key=%s",
@@ -389,7 +391,7 @@ async def process_outbox_batch(deps: OutboxProcessorDeps, *, batch_size: int) ->
             continue
 
         try:
-            await finalize_task_success(deps.session_factory, task.id)
+            await finalize_task_success(deps.session_factory, task.id, note=note)
         except Exception:
             logger.exception(
                 "outbox_processor_mark_completed_error task_id=%s event_type=%s",

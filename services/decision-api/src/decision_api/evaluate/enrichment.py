@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from decision_api.config import settings
+from decision_api.evaluate.score import tag_hop_unconfigured
 from decision_api.graph_risk_freshness import (
     evaluate_graph_risk_freshness,
     parse_freshness_policy_by_event,
@@ -95,6 +96,8 @@ async def fetch_feature_snapshot_wrapped(
     if tenant_flag_enabled(tenant_flags, "disable_feature_service"):
         degrade_tags.append("enrichment:disabled_by_tenant")
         return feature_snapshot_fallback(body, redis_tag_list)
+    if tag_hop_unconfigured(degrade_tags, "features"):
+        return feature_snapshot_fallback(body, redis_tag_list)
     try:
         return await rt.circuit_feature.call(
             lambda: fetch_feature_snapshot(http, body, redis_tag_list)
@@ -141,6 +144,8 @@ async def fetch_graph_risk_wrapped(
     rt = _require_rt()
     if tenant_flag_enabled(tenant_flags, "disable_graph"):
         degrade_tags.append("graph:disabled_by_tenant")
+        return None
+    if tag_hop_unconfigured(degrade_tags, "graph"):
         return None
     try:
         data = await rt.circuit_graph.call(

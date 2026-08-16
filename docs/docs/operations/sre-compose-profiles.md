@@ -16,8 +16,8 @@ Related: [ports](../guides/service-ports.md) · [SLOs](../guides/service-slos-v1
 |---------|----------|--------|
 | `core-api` `/decisions/v1/health` or `/decisions/v1/ready` down | **Page** | Evaluate is the allow/deny path. See [common failures](./runbook-common-failures.md). |
 | Postgres or Redis down | **Page** | Desk cannot persist audit / velocities. |
-| Graph / Janus / Gremlin down | Degrade | Evaluate should fail-open with `graph:unavailable` when circuits are on. Do not block payments to save the graph. |
-| Data-plane / NATS down | Degrade (sync desk still up) | Async `/v1/events` stalls. Sync `POST /v1/ingest` / evaluate still work if core-api is up. |
+| Graph / Janus / Gremlin down | Degrade | Evaluate fail-opens with `graph:unavailable` when `GRAPH_SERVICE_URL` is set. Empty URL tags `graph:unconfigured` (no 2.5s timeout). Do not block payments to save the graph. |
+| Data-plane / NATS / orchestrator / outbox down | Degrade (sync desk still up) | Async `/v1/events` stalls or side-effects NAK. Sync evaluate still works if core-api is up. |
 | Shadow / LLM down | Degrade | Forensics only. AI never owns allow/deny. Self-hosted Ollama/vLLM **or** Claude / Gemini / Qwen via `SHADOW_LLM_BACKEND`. |
 | Fingerprint / Incognia upstream 5xx | Degrade | Partner fusion fail-closed for that vendor; rules must still evaluate without vendor tags. |
 
@@ -29,9 +29,10 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 
 | Profile | Compose | Services (typical) | Linux RAM floor | When to turn on |
 |---------|---------|--------------------|-----------------|-----------------|
-| **Desk** | `docker-compose.lite.yml` + `docker-compose.fraud-desk.yml` | postgres, redis, nats, core-api, signal-api, integration-ingress, frontend | **~8 GB** | Default. Decision + cases. No graph, no Ollama. |
-| **+ ingest** | lite + `docker-compose.demo-vertical.yml` `--profile ingest` (or data-plane on main compose `streaming`) | data-plane `:8007`, NATS JetStream | **+2–4 GB** | Async `POST /v1/events`. Set `ORCHESTRATOR_URL` only if orchestrator is on the same network. |
-| **+ graph** | lite `--profile graph` | janusgraph (Gremlin `:8182`), graph-service `:8001` | **+8 GB** | Topology / multi-account edges. Optional. Not on the evaluate host if you can split VMs. |
+| **Desk** | `docker-compose.lite.yml` + `docker-compose.fraud-desk.yml` | postgres, redis, nats, core-api, signal-api, integration-ingress, investigation-agent, frontend | **~8 GB** | Default. Decision + cases + investigation tools. No graph, no Ollama. |
+| **+ ingest** | lite `--profile ingest` (optional `docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
+| **+ OPA** | full compose `--profile opa` | `openpolicyagent/opa` `:8181` | **+256 MB** | Set `OPA_URL=http://opa:8181` on core-api. Empty URL skips the hop (no 2s timeout). Not part of `--profile full`. |
+| **+ graph** | lite `--profile graph` + `docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`), graph-service `:8001` | **+8 GB** | Topology / multi-account edges. Overlay sets `GRAPH_SERVICE_URL` and Gremlin on orchestrator/outbox. |
 | **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends (Claude / Gemini / Qwen) add ~256 MB. | Forensics. Advise only. Set `SHADOW_LLM_BACKEND`. |
 | **Full triad on one box** | desk + graph + large local LLM | all of the above | **~24 GB+** | Lab / demo. Not the production default. |
 
@@ -72,15 +73,35 @@ UI: `http://127.0.0.1:3000` (desk-strict: no auto mocks).
 ### Add graph (optional)
 
 ```bash
-docker compose -f infra/deploy/docker-compose.lite.yml --profile graph up -d --build
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.graph-wire.yml \
+  --profile graph up -d --build
 curl -sf http://127.0.0.1:8001/v1/health >/dev/null && echo graph_ok
 ```
 
-Point `GRAPH_SERVICE_URL=http://graph-service:8001` on core-api if you want evaluate to read graph signals.
+`graph-wire.yml` sets `GRAPH_SERVICE_URL=http://graph-service:8001` on core-api. Without it, evaluate tags `graph:unconfigured` and skips the hop.
+
+Ingest + graph (outbox writes Gremlin). `graph-wire.yml` sets `GREMLIN_REMOTE_URL` on orchestrator/outbox. Do not set that URL when `--profile graph` is off (NullGraphClient).
+
+```bash
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.graph-wire.yml \
+  --profile graph --profile ingest up -d --build
+```
+
+Full compose with graph writes: also merge `docker-compose.graph-env.yml` (same Gremlin env; janusgraph is in `--profile full` / `--profile graph`).
 
 ### Add async ingest (optional)
 
-Data-plane health: `http://127.0.0.1:8007/v1/health`. Consumer durable is `decision-worker`. Do not also run a second evaluate consumer on the same stream.
+```bash
+docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up -d --build
+curl -sf http://127.0.0.1:8007/v1/health >/dev/null && echo data_plane_ok
+curl -sf http://127.0.0.1:8790/health/full >/dev/null && echo orchestrator_ok
+```
+
+Starts data-plane, orchestrator, and `outbox-processor` (drains `tarka_outbox`). Consumer durable is `decision-worker`. Do not run a second consumer on that durable.
 
 ---
 
@@ -120,8 +141,10 @@ Do not put Janus + Ollama + evaluate on one VM and call it production.
 | Decision ready | `GET http://<host>:8000/decisions/v1/ready` |
 | Signal API | `GET http://<host>:8004/v1/health` (if exposed) |
 | Frontend | `GET http://<host>:3000/` |
+| Investigation | `GET http://<host>:8006/v1/ready` |
 | Graph (profile on) | `GET http://<host>:8001/v1/health` |
-| Data-plane (profile on) | `GET http://<host>:8007/v1/health` |
+| Data-plane (ingest profile) | `GET http://<host>:8007/v1/health` |
+| Orchestrator (ingest profile) | `GET http://<host>:8790/health/full` |
 
 Full port map: [service-ports.md](../guides/service-ports.md).
 

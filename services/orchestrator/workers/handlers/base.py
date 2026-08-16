@@ -31,5 +31,5 @@ class BaseOutboxHandler(ABC):
         self._deps = deps
 
     @abstractmethod
-    async def execute(self, payload: dict[str, Any]) -> None:
-        """Run the side effect for a decoded outbox payload."""
+    async def execute(self, payload: dict[str, Any]) -> str | None:
+        """Run the side effect. Return a noop reason to persist on COMPLETED, else None."""

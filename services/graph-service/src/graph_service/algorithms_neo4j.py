@@ -393,32 +393,8 @@ _HIGH_RISK_TAGS = frozenset(
 )
 
 
-async def compute_entity_risk(
-    tenant_id: str,
-    entity_id: str,
-    *,
-    checkpoint: str | None = None,
-) -> dict:
-    """
-    Composite risk score (0-100) for a single entity, based on:
-      - own tags
-      - connection count
-      - flagged neighbours
-      - shared devices / attributes
-      - community size
-
-    Optional ``checkpoint`` selects a profile from ``checkpoint_profiles_v1.json`` (risk score multiplier).
-    """
-    from .checkpoint_registry import resolve_profile
-
-    profile = resolve_profile(checkpoint)
-    mult = float(profile.get("risk_score_multiplier") or 1.0)
-    hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
-
-    driver = await get_driver()
-
-    # Cypher requires path depth as a literal (not a parameter); keep bounded via checkpoint profile.
-    q = f"""
+def entity_risk_cypher(hop_depth: int) -> str:
+    return f"""
     MATCH (n {{tenant_id: $tenant_id, external_id: $entity_id}})
 
     OPTIONAL MATCH (n)-[r]-(neighbor)
@@ -467,6 +443,32 @@ async def compute_entity_risk(
       neighbor_device_count,
       collect(ts) AS edge_timestamps
     """
+
+
+async def compute_entity_risk(
+    tenant_id: str,
+    entity_id: str,
+    *,
+    checkpoint: str | None = None,
+) -> dict:
+    """
+    Composite risk score (0-100) for a single entity, based on:
+      - own tags
+      - connection count
+      - flagged neighbours
+      - shared devices / attributes
+      - community size
+
+    Optional ``checkpoint`` selects a profile from ``checkpoint_profiles_v1.json`` (risk score multiplier).
+    """
+    from .checkpoint_registry import resolve_profile
+
+    profile = resolve_profile(checkpoint)
+    mult = float(profile.get("risk_score_multiplier") or 1.0)
+    hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
+
+    driver = await get_driver()
+    q = entity_risk_cypher(hop_depth)
 
     async with await _open_session(driver) as session:
         result = await session.run(

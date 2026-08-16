@@ -101,3 +101,43 @@ def test_ingest_already_committed_short_circuits() -> None:
     client._g.next.return_value = 1
 
     assert _ingest_already_committed(client, transaction_id="tx-1", audit_log_id=7) is True
+
+
+def test_ingest_from_event_no_tenant_returns_reason_not_write() -> None:
+    from workers.handlers.graph_ingest import _ingest_janus_from_event
+
+    apply = MagicMock()
+    client = SimpleNamespace(_g=MagicMock())
+    with (
+        patch("workers.handlers.graph_ingest._apply_janus_mutations", apply),
+        patch("workers.handlers.graph_ingest._ensure_connection") as ensure,
+    ):
+        reason = _ingest_janus_from_event(
+            client,
+            {
+                "entity_id": "tx-1",
+                "payload": {"device_id": "d1", "user_id": "u1"},
+            },
+            audit_log_id=7,
+        )
+    assert reason == "noop:no_tenant"
+    apply.assert_not_called()
+    ensure.assert_not_called()
+
+
+def test_ingest_from_event_no_hints_returns_reason() -> None:
+    from workers.handlers.graph_ingest import _ingest_janus_from_event
+
+    apply = MagicMock()
+    client = SimpleNamespace(_g=MagicMock())
+    with (
+        patch("workers.handlers.graph_ingest._apply_janus_mutations", apply),
+        patch("workers.handlers.graph_ingest._ensure_connection"),
+    ):
+        reason = _ingest_janus_from_event(
+            client,
+            {"tenant_id": "acme", "entity_id": "tx-1", "payload": {}},
+            audit_log_id=7,
+        )
+    assert reason == "noop:no_graph_hints"
+    apply.assert_not_called()

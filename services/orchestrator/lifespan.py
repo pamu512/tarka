@@ -26,7 +26,6 @@ from messaging.nats_jetstream import (
 )
 from messaging.shadow_investigate_jetstream import ensure_shadow_investigate_stream
 from queues.shadow_dispatch import shadow_investigate_subject
-from tarka_shared.database.session import Base
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +202,9 @@ def build_lifespan(config: LifespanConfig):
                 audit_engine = build_audit_engine(config.audit_database_url)
                 fac = async_sessionmaker(audit_engine, expire_on_commit=False, class_=AsyncSession)
                 async with audit_engine.begin() as conn:
-                    await conn.run_sync(Base.metadata.create_all)
+                    from audit_tables import create_orchestrator_audit_tables
+
+                    await conn.run_sync(create_orchestrator_audit_tables)
                 await _verify_postgres(audit_engine)
                 app.state.audit_engine = audit_engine
                 app.state.audit_session_factory = fac

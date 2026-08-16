@@ -26,7 +26,6 @@ from models.operational_signals import (
 from models.outbox import (
     OUTBOX_EVENT_GRAPH_INGEST,
     OUTBOX_EVENT_LABEL_PROPAGATE,
-    OUTBOX_EVENT_SHADOW_TAG,
     OUTBOX_EVENT_VELOCITY_UPDATE,
     OutboxDAO,
     OutboxORM,
@@ -37,7 +36,6 @@ from models.outbox import (
 __all__ = [
     "OUTBOX_EVENT_GRAPH_INGEST",
     "OUTBOX_EVENT_LABEL_PROPAGATE",
-    "OUTBOX_EVENT_SHADOW_TAG",
     "OUTBOX_EVENT_VELOCITY_UPDATE",
     "Case",
     "CaseHistoryORM",

@@ -11,9 +11,9 @@ from pathlib import Path
 """
 Pull messages from the ingest DLQ JetStream subject and optionally re-post to evaluate.
 
-Requires: nats-py, running NATS with a stream covering the DLQ subject (e.g. fraud.events.>).
+Requires: nats-py, running NATS with stream FRAUD_DLQ covering fraud.dlq.>.
 
-  python scripts/etl/replay_dlq.py --nats-url nats://localhost:4222 --subject fraud.events.dlq --max 5 --dry-run
+  python scripts/etl/replay_dlq.py --nats-url nats://localhost:4222 --subject fraud.dlq.evaluate --max 5 --dry-run
   DECISION_API_URL=http://localhost:8000 python scripts/etl/replay_dlq.py --max 1
 """
 _REPO = Path(__file__).resolve().parents[2]
@@ -95,8 +95,12 @@ async def _run(
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Replay DLQ messages to Decision API evaluate.")
     p.add_argument("--nats-url", default=os.environ.get("NATS_URL", "nats://localhost:4222"))
-    p.add_argument("--subject", default=os.environ.get("INGEST_DLQ_SUBJECT", "fraud.events.dlq"))
-    p.add_argument("--stream", default=os.environ.get("INGEST_STREAM_NAME", "FRAUD_EVENTS"))
+    p.add_argument("--subject", default=os.environ.get("INGEST_DLQ_SUBJECT", "fraud.dlq.evaluate"))
+    p.add_argument(
+        "--stream",
+        default=os.environ.get("INGEST_DLQ_STREAM_NAME")
+        or os.environ.get("INGEST_STREAM_NAME", "FRAUD_DLQ"),
+    )
     p.add_argument("--durable", default="dlq-replay-cli")
     p.add_argument("--max", type=int, default=10)
     p.add_argument("--dry-run", action="store_true")

@@ -152,6 +152,8 @@ def test_schedule_enqueues_enforcement() -> None:
     publish_calls = [
         t
         for t in bg.tasks
-        if t[0] is _noop and len(t[1]) == 2 and isinstance(t[1][1], dict)
+        if getattr(t[0], "__name__", "") == "_noop"
+        and len(t[1]) == 2
+        and isinstance(t[1][1], dict)
     ]
     assert any(c[1][1].get("enforcement_action") == "block" for c in publish_calls)
