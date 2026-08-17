@@ -185,6 +185,34 @@ def test_http_decision_endpoints(db_path: Path) -> None:
         assert inv.json()["invalidated_at"]
 
 
+def test_accountability_snapshot(db_path: Path) -> None:
+    from graph_service.decision_context_store import accountability_snapshot, add_edge, record_decision
+
+    a = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="x",
+        scenario="s1",
+        outcome="review",
+        reasoning="r",
+        trace_id="tr-1",
+    )
+    b = record_decision(
+        tenant_id="t1",
+        kind="agent_advise",
+        category="y",
+        scenario="s2",
+        outcome="advise",
+        reasoning="r",
+        case_id="case-1",
+    )
+    add_edge("t1", a, b, "INFLUENCED")
+    snap = accountability_snapshot("t1", case_id="case-1", trace_id="tr-1")
+    assert snap["schema_id"] == "tarka.decision_context/v1"
+    assert len(snap["decisions"]) >= 2
+    assert any(e["to_external_id"] == b for e in snap["edges"])
+
+
 def test_find_latest_and_neighbors(db_path: Path) -> None:
     from graph_service.decision_context_store import (
         find_latest,

@@ -177,7 +177,20 @@ class BenchmarkRunRequest(BaseModel):
 
 @app.get("/v1/health")
 async def health():
-    return {"status": "ok"}
+    from .decision_context_api import decision_graph_enabled
+    from .decision_context_store import _db_path
+
+    dg_enabled = decision_graph_enabled()
+    db_path = _db_path()
+    return {
+        "status": "ok",
+        "decision_graph": {
+            "enabled": dg_enabled,
+            "store": "sqlite",
+            "db_path": str(db_path),
+            "db_exists": db_path.exists(),
+        },
+    }
 
 
 @app.get("/v1/entities/search")

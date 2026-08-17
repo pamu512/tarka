@@ -570,3 +570,40 @@ def get_chain(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str,
 
 def get_impact(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any]:
     return _walk(tenant_id, external_id, direction="outbound", max_depth=max_depth)
+
+
+def accountability_snapshot(
+    tenant_id: str,
+    *,
+    case_id: str | None = None,
+    trace_id: str | None = None,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Local SoR snapshot for bundles and compliance export."""
+    seen: dict[str, dict[str, Any]] = {}
+    for row in search_decisions(
+        tenant_id=tenant_id, case_id=case_id, limit=limit
+    ):
+        seen[row["external_id"]] = row
+    if trace_id:
+        for row in search_decisions(tenant_id=tenant_id, trace_id=trace_id, limit=limit):
+            seen[row["external_id"]] = row
+    decisions = sorted(seen.values(), key=lambda d: str(d.get("created_at") or ""))
+    edges: list[dict[str, str]] = []
+    for d in decisions:
+        did = d["external_id"]
+        for nb in get_neighbor_summary(tenant_id, did).get("inbound") or []:
+            frm = nb.get("from_external_id")
+            if frm in seen:
+                edges.append(
+                    {
+                        "from_external_id": frm,
+                        "to_external_id": did,
+                        "relationship": nb.get("relationship"),
+                    }
+                )
+    return {
+        "schema_id": "tarka.decision_context/v1",
+        "decisions": decisions,
+        "edges": edges,
+    }

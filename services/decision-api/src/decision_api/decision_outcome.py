@@ -27,59 +27,25 @@ BgAddTask = Callable[..., Any]
 def _record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> None:
     """Best-effort Decision vertex for evaluate outcomes."""
     try:
-        from tarka_shared.decision_graph_client import (
-            record_decision_failsoft,
-            resolve_prior_evaluate_id,
-        )
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_payload import build_evaluate_payload
     except ImportError:
         return
-    meta = ctx.metadata if isinstance(ctx.metadata, dict) else {}
-    prior = str(meta.get("prior_decision_id") or "").strip()
-    if not prior:
-        prior = resolve_prior_evaluate_id(ctx.tenant_id, ctx.trace_id) or ""
-    edges: list[dict[str, str]] = []
-    if prior:
-        edges.append({"from_external_id": prior, "relationship": "INFLUENCED"})
-    reasoning_parts = []
-    if ctx.rule_hits:
-        reasoning_parts.append("rules=" + ",".join(ctx.rule_hits[:12]))
-    if ctx.fallback_reason:
-        reasoning_parts.append(f"fallback={ctx.fallback_reason}")
-    entity_ids = [ctx.entity_id] if ctx.entity_id else []
-    payload = ctx.payload if isinstance(ctx.payload, dict) else {}
-    for key in ("device_id", "account_id", "payment_id", "user_id"):
-        val = payload.get(key)
-        if val and str(val) not in entity_ids:
-            entity_ids.append(str(val))
-    audit_log_id = None
-    if isinstance(ctx.decision_log_record, dict):
-        audit_log_id = str(
-            ctx.decision_log_record.get("audit_log_id")
-            or ctx.decision_log_record.get("id")
-            or ""
-        ).strip() or None
-    evidence_ids: list[str] = []
-    for tag in (ctx.tags or [])[:16]:
-        if tag.startswith("evidence:"):
-            evidence_ids.append(tag.split(":", 1)[-1])
-    record_decision_failsoft(
-        {
-            "tenant_id": ctx.tenant_id,
-            "kind": "evaluate",
-            "category": "transaction_evaluate",
-            "scenario": f"{ctx.event_type}:{ctx.entity_id}",
-            "outcome": str(ctx.decision),
-            "reasoning": "; ".join(reasoning_parts) or "evaluate",
-            "confidence": float(ctx.score) if ctx.score is not None else None,
-            "rule_ids": list(ctx.rule_hits or [])[:32],
-            "entity_external_ids": entity_ids[:32],
-            "trace_id": ctx.trace_id,
-            "audit_log_id": audit_log_id,
-            "evidence_ids": evidence_ids,
-            "shadow": bool(ctx.shadow_request),
-            "edges": edges,
-        }
+    payload = build_evaluate_payload(
+        tenant_id=ctx.tenant_id,
+        trace_id=ctx.trace_id,
+        entity_id=ctx.entity_id,
+        event_type=ctx.event_type,
+        decision=ctx.decision,
+        score=ctx.score,
+        rule_hits=ctx.rule_hits,
+        fallback_reason=ctx.fallback_reason,
+        payload=ctx.payload,
+        metadata=ctx.metadata,
+        decision_log_record=ctx.decision_log_record,
+        shadow_request=ctx.shadow_request,
     )
+    record_decision_failsoft(payload)
 
 
 def wrap_outcome_task(
