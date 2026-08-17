@@ -24,6 +24,40 @@ MetricsInc = Callable[..., Any]
 BgAddTask = Callable[..., Any]
 
 
+def _record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> None:
+    """Best-effort Decision vertex for evaluate outcomes."""
+    try:
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+    except ImportError:
+        return
+    meta = ctx.metadata if isinstance(ctx.metadata, dict) else {}
+    prior = str(meta.get("prior_decision_id") or "").strip()
+    edges: list[dict[str, str]] = []
+    if prior:
+        edges.append({"from_external_id": prior, "relationship": "INFLUENCED"})
+    reasoning_parts = []
+    if ctx.rule_hits:
+        reasoning_parts.append("rules=" + ",".join(ctx.rule_hits[:12]))
+    if ctx.fallback_reason:
+        reasoning_parts.append(f"fallback={ctx.fallback_reason}")
+    record_decision_failsoft(
+        {
+            "tenant_id": ctx.tenant_id,
+            "kind": "evaluate",
+            "category": "transaction_evaluate",
+            "scenario": f"{ctx.event_type}:{ctx.entity_id}",
+            "outcome": str(ctx.decision),
+            "reasoning": "; ".join(reasoning_parts) or "evaluate",
+            "confidence": float(ctx.score) if ctx.score is not None else None,
+            "rule_ids": list(ctx.rule_hits or [])[:32],
+            "entity_external_ids": [ctx.entity_id] if ctx.entity_id else [],
+            "trace_id": ctx.trace_id,
+            "shadow": bool(ctx.shadow_request),
+            "edges": edges,
+        }
+    )
+
+
 def wrap_outcome_task(
     fn: Callable[..., Any], metrics_inc: MetricsInc
 ) -> Callable[..., Any]:
@@ -188,6 +222,9 @@ def schedule_decision_outcomes(
 
     if shadow_evaluation is not None:
         add(shadow_evaluation, *shadow_args)
+
+    # Decision context graph (fail-soft; never blocks evaluate).
+    add(_record_evaluate_decision_graph, ctx)
 
     if (
         not ctx.shadow_request

@@ -198,7 +198,69 @@ def persist_agent_run(
             ),
         )
         c.commit()
+    _maybe_record_agent_advise_decision(
+        rid=rid,
+        tenant_id=tenant_id,
+        case_id=case_id,
+        entity_ids=entity_ids,
+        trace_ids=trace_ids,
+        claims=claims,
+        context_snapshot=context_snapshot,
+        source=src,
+    )
     return rid
+
+
+def _maybe_record_agent_advise_decision(
+    *,
+    rid: str,
+    tenant_id: str,
+    case_id: str | None,
+    entity_ids: list[str] | None,
+    trace_ids: list[str] | None,
+    claims: list[dict[str, Any]] | None,
+    context_snapshot: dict[str, Any] | None,
+    source: str,
+) -> None:
+    try:
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+    except ImportError:
+        return
+    evidence: list[str] = []
+    for claim in claims or []:
+        if not isinstance(claim, dict):
+            continue
+        for eid in claim.get("evidence_ids") or []:
+            s = str(eid).strip()
+            if s and s not in evidence:
+                evidence.append(s)
+    prior = ""
+    if isinstance(context_snapshot, dict):
+        prior = str(context_snapshot.get("prior_decision_id") or "").strip()
+    edges: list[dict[str, str]] = []
+    if prior:
+        edges.append({"from_external_id": prior, "relationship": "INFLUENCED"})
+    outcome = "advise"
+    if claims:
+        outcome = str((claims[0] or {}).get("claim") or (claims[0] or {}).get("text") or "advise")[
+            :128
+        ]
+    record_decision_failsoft(
+        {
+            "tenant_id": (tenant_id or "").strip(),
+            "kind": "agent_advise",
+            "category": f"agent_run:{source}",
+            "scenario": f"agent_run case={case_id or '-'}",
+            "outcome": outcome or "advise",
+            "reasoning": f"agent_run_id={rid}; claims={len(claims or [])}",
+            "agent_run_id": rid,
+            "case_id": case_id,
+            "trace_id": (trace_ids or [None])[0],
+            "entity_external_ids": list(entity_ids or [])[:32],
+            "evidence_ids": evidence[:64],
+            "edges": edges,
+        }
+    )
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:

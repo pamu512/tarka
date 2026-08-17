@@ -1,7 +1,8 @@
 # Decision context graph (A+B) — native SoR + Semantica sidecar
 
 **Date:** 2026-08-17  
-**Status:** Draft (awaiting review)  
+**Status:** Approved — implementing (Waves 1–4)  
+**Defaults locked:** property/filter precedents first; MCP at `services/tarka_mcp/`.  
 **Inspired by:** [Open Source Palantir for AI Agents](https://agentnativedev.medium.com/open-source-palantir-for-ai-agents-c6667095a449) / [Semantica](https://github.com/semantica-agi/semantica)  
 **Related:** [AgentRun spine](./2026-08-13-agent-run-spine-design.md), [Omniscient AgentRun](./2026-08-11-omniscient-agent-run-design.md), [AI productionization](./2026-08-12-ai-productionization-design.md)
 
