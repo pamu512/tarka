@@ -105,7 +105,7 @@ export function DecisionTimelinePanel({
           See{" "}
           <a
             className="text-brand-400 hover:underline"
-            href="https://github.com/pamu512/tarka/blob/ide/decision-context-graph-2aff/docs/docs/guides/decision-context-graph.md"
+            href="https://github.com/pamu512/tarka/wiki/Decision-Accountability-Graph"
             target="_blank"
             rel="noreferrer"
           >
