@@ -2,7 +2,6 @@
 
 **Date:** 2026-08-17  
 **Status:** Implemented (Waves 1–4 + depth: auto-link, case UI, Janus mirror, PROV export)  
-**Inspired by:** [Open Source Palantir for AI Agents](https://agentnativedev.medium.com/open-source-palantir-for-ai-agents-c6667095a449) / [Semantica](https://github.com/semantica-agi/semantica)  
 **Related:** [AgentRun spine](./2026-08-13-agent-run-spine-design.md), [Omniscient AgentRun](./2026-08-11-omniscient-agent-run-design.md), [AI productionization](./2026-08-12-ai-productionization-design.md)
 
 ## Goal
@@ -124,7 +123,7 @@ This is the product MCP plane. Semantica MCP (B) is optional and clearly labeled
 
 ### Desk UI (thin)
 
-Case / entity timeline: Decision chips with outcome, kind, link to chain/impact. No second “Palantir” product surface in v1.
+Case / entity timeline: Decision chips with outcome, kind, link to chain/impact. No duplicate accountability surface in v1.
 
 ---
 
@@ -168,7 +167,7 @@ evaluate / AgentRun / disposition
 | Decision-as-object API shape | Production KG built only via Semantica ingest |
 | CAUSED / INFLUENCED / PRECEDENT_FOR vocabulary | Rete as compliance gate |
 | Precedent + blast-radius UX patterns | Replacing Janus |
-| MCP tool naming inspiration | Unpinned `semantica[all]` in prod images |
+| MCP tool naming patterns | Unpinned `semantica[all]` in prod images |
 
 ---
 
