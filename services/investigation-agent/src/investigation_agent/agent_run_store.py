@@ -223,7 +223,10 @@ def _maybe_record_agent_advise_decision(
     source: str,
 ) -> None:
     try:
-        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_client import (
+            record_decision_failsoft,
+            resolve_prior_evaluate_id,
+        )
     except ImportError:
         return
     evidence: list[str] = []
@@ -237,6 +240,8 @@ def _maybe_record_agent_advise_decision(
     prior = ""
     if isinstance(context_snapshot, dict):
         prior = str(context_snapshot.get("prior_decision_id") or "").strip()
+    if not prior and trace_ids:
+        prior = resolve_prior_evaluate_id((tenant_id or "").strip(), str(trace_ids[0])) or ""
     edges: list[dict[str, str]] = []
     if prior:
         edges.append({"from_external_id": prior, "relationship": "INFLUENCED"})

@@ -299,6 +299,92 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+  /v1/decisions:
+    post:
+      operationId: recordDecision
+      summary: Record a decision in the accountability graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordDecisionRequest"
+      responses:
+        "200":
+          description: Decision record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionRecord"
+  /v1/decisions/search:
+    get:
+      operationId: searchDecisions
+      parameters:
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - { name: case_id, in: query, schema: { type: string } }
+        - { name: trace_id, in: query, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: Matching decisions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decisions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DecisionRecord"
+  /v1/decisions/latest:
+    get:
+      operationId: getLatestDecision
+      parameters:
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: trace_id, in: query, schema: { type: string } }
+        - { name: case_id, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Latest matching decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionRecord"
+  /v1/decisions/{external_id}:
+    get:
+      operationId: getDecision
+      parameters:
+        - { name: external_id, in: path, required: true, schema: { type: string } }
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - { name: include_neighbors, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionRecord"
+  /v1/decisions/{external_id}/chain:
+    get:
+      operationId: getDecisionChain
+      parameters:
+        - { name: external_id, in: path, required: true, schema: { type: string } }
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - { name: max_depth, in: query, schema: { type: integer, default: 5 } }
+      responses:
+        "200":
+          description: Causal parent chain
+  /v1/decisions/{external_id}/impact:
+    get:
+      operationId: getDecisionImpact
+      parameters:
+        - { name: external_id, in: path, required: true, schema: { type: string } }
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Downstream blast radius
 components:
   schemas:
     UpsertEntityRequest:
@@ -494,3 +580,42 @@ components:
           items:
             type: object
             additionalProperties: true
+    RecordDecisionRequest:
+      type: object
+      required: [tenant_id, kind, category, scenario, outcome]
+      properties:
+        tenant_id: { type: string }
+        kind:
+          type: string
+          enum: [evaluate, agent_advise, human_disposition, policy_gate]
+        category: { type: string }
+        scenario: { type: string }
+        outcome: { type: string }
+        reasoning: { type: string }
+        trace_id: { type: string }
+        case_id: { type: string }
+        entity_external_ids:
+          type: array
+          items: { type: string }
+    DecisionRecord:
+      type: object
+      required: [external_id, tenant_id, kind, category, scenario, outcome, created_at]
+      properties:
+        external_id: { type: string }
+        tenant_id: { type: string }
+        kind: { type: string }
+        category: { type: string }
+        scenario: { type: string }
+        outcome: { type: string }
+        reasoning: { type: string }
+        trace_id: { type: string }
+        case_id: { type: string }
+        created_at: { type: string }
+        invalidated_at: { type: string, nullable: true }
+        shadow: { type: boolean }
+        rule_ids:
+          type: array
+          items: { type: string }
+        neighbors:
+          type: object
+          additionalProperties: true

@@ -209,14 +209,24 @@ def _maybe_record_human_disposition_decision(
     status: str,
     reason_code: str | None,
     prior_decision_id: str | None = None,
+    trace_id: str | None = None,
 ) -> None:
     try:
-        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_client import (
+            record_decision_failsoft,
+            resolve_prior_agent_advise_id,
+            resolve_prior_evaluate_id,
+        )
     except ImportError:
         return
+    prior = (prior_decision_id or "").strip()
+    if not prior:
+        prior = resolve_prior_agent_advise_id(case.tenant_id, str(case.id)) or ""
+    if not prior and trace_id:
+        prior = resolve_prior_evaluate_id(case.tenant_id, trace_id) or ""
     edges: list[dict[str, str]] = []
-    if prior_decision_id:
-        edges.append({"from_external_id": prior_decision_id, "relationship": "CAUSED"})
+    if prior:
+        edges.append({"from_external_id": prior, "relationship": "CAUSED"})
     record_decision_failsoft(
         {
             "tenant_id": case.tenant_id,
@@ -769,6 +779,7 @@ async def update_case(
             status=str(case.status),
             reason_code=reason_code,
             prior_decision_id=str(body.get("prior_decision_id") or "").strip() or None,
+            trace_id=str(case.trace_id or ""),
         )
     new_state["maker_checker"] = maker_checker_public(case.labels, case.status)
 
@@ -1351,6 +1362,95 @@ async def case_graph(
             "edges": [],
             "message": f"graph_service_http_{exc.response.status_code}",
         }
+    except Exception:
+        return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
+
+
+@app.get("/v1/cases/{case_id}/decisions")
+async def case_decisions(
+    case_id: uuid.UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(..., description="Tenant scope; must match the case"),
+    limit: int = Query(default=50, ge=1, le=100),
+    _=Depends(require_role("analyst")),
+):
+    """Decision context graph for a case (evaluate → advise → disposition chain)."""
+    if not settings.graph_service_url:
+        return {"decisions": [], "message": "GRAPH_SERVICE_URL not set"}
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    base = settings.graph_service_url.rstrip("/")
+    http: httpx.AsyncClient = request.app.state.http
+    headers: dict[str, str] = {}
+    api_key = (os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or "").strip()
+    if api_key:
+        headers["X-API-Key"] = api_key
+    try:
+        by_case = await http.get(
+            f"{base}/v1/decisions/search",
+            params={"tenant_id": case.tenant_id, "case_id": str(case_id), "limit": limit},
+            headers=headers,
+            timeout=5.0,
+        )
+        by_case.raise_for_status()
+        decisions = list((by_case.json() or {}).get("decisions") or [])
+        if case.trace_id and len(decisions) < limit:
+            by_trace = await http.get(
+                f"{base}/v1/decisions/search",
+                params={
+                    "tenant_id": case.tenant_id,
+                    "trace_id": case.trace_id,
+                    "limit": limit,
+                },
+                headers=headers,
+                timeout=5.0,
+            )
+            by_trace.raise_for_status()
+            seen = {d.get("external_id") for d in decisions}
+            for row in (by_trace.json() or {}).get("decisions") or []:
+                eid = row.get("external_id")
+                if eid and eid not in seen:
+                    decisions.append(row)
+                    seen.add(eid)
+        decisions.sort(key=lambda d: str(d.get("created_at") or ""), reverse=True)
+        return {"decisions": decisions[:limit], "case_id": str(case_id)}
+    except httpx.HTTPStatusError as exc:
+        return {
+            "decisions": [],
+            "message": f"graph_service_http_{exc.response.status_code}",
+        }
+    except Exception:
+        return {"decisions": [], "message": "graph_service_unreachable"}
+
+
+@app.get("/v1/cases/{case_id}/decisions/{external_id}/chain")
+async def case_decision_chain(
+    case_id: uuid.UUID,
+    external_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: str = Query(...),
+    max_depth: int = Query(default=5, ge=1, le=20),
+    _=Depends(require_role("analyst")),
+):
+    if not settings.graph_service_url:
+        return {"nodes": [], "edges": [], "message": "GRAPH_SERVICE_URL not set"}
+    await _case_for_tenant(session, case_id, tenant_id)
+    base = settings.graph_service_url.rstrip("/")
+    http: httpx.AsyncClient = request.app.state.http
+    headers: dict[str, str] = {}
+    api_key = (os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or "").strip()
+    if api_key:
+        headers["X-API-Key"] = api_key
+    try:
+        r = await http.get(
+            f"{base}/v1/decisions/{external_id}/chain",
+            params={"tenant_id": tenant_id, "max_depth": max_depth},
+            headers=headers,
+            timeout=5.0,
+        )
+        r.raise_for_status()
+        return r.json()
     except Exception:
         return {"nodes": [], "edges": [], "message": "graph_service_unreachable"}
 

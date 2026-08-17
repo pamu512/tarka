@@ -179,7 +179,43 @@ def test_http_decision_endpoints(db_path: Path) -> None:
 
         inv = client.post(
             f"/v1/decisions/{did}/invalidate",
-            json={"tenant_id": "t1", "reason": "replay"},
+            json={"tenant_id": "t1", "reason": "replay", "supersede_to": cid},
         )
         assert inv.status_code == 200
         assert inv.json()["invalidated_at"]
+
+
+def test_find_latest_and_neighbors(db_path: Path) -> None:
+    from graph_service.decision_context_store import (
+        find_latest,
+        get_neighbor_summary,
+        invalidate_decision,
+        record_decision,
+    )
+
+    a = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="first",
+        outcome="review",
+        reasoning="r1",
+        trace_id="tr-1",
+    )
+    b = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="second",
+        outcome="deny",
+        reasoning="r2",
+        trace_id="tr-1",
+    )
+    latest = find_latest("t1", kind="evaluate", trace_id="tr-1")
+    assert latest is not None
+    assert latest["external_id"] == b
+    neighbors = get_neighbor_summary("t1", b)
+    assert isinstance(neighbors["inbound"], list)
+    invalidate_decision("t1", a, "superseded", supersede_to=b)
+    row = find_latest("t1", kind="evaluate", trace_id="tr-1", exclude_external_id="skip")
+    assert row["external_id"] == b

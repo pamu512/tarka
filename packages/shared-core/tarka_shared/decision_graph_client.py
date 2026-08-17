@@ -41,37 +41,7 @@ def _headers() -> dict[str, str]:
     return h
 
 
-def record_decision_failsoft(payload: dict[str, Any]) -> str | None:
-    """POST /v1/decisions. Returns external_id or None on any failure / disabled."""
-    if not _enabled():
-        return None
-    base = _base_url()
-    if not base:
-        log.debug("decision_graph_skip reason=no_url")
-        return None
-    try:
-        import httpx
-    except ImportError:
-        log.warning("decision_graph_skip reason=no_httpx")
-        return None
-    try:
-        with httpx.Client(timeout=_timeout()) as client:
-            r = client.post(f"{base}/v1/decisions", json=payload, headers=_headers())
-            if r.status_code >= 400:
-                log.warning(
-                    "decision_graph_write_fail status=%s body=%s",
-                    r.status_code,
-                    (r.text or "")[:200],
-                )
-                return None
-            data = r.json()
-            return str(data.get("external_id") or "") or None
-    except Exception:
-        log.warning("decision_graph_write_fail", exc_info=True)
-        return None
-
-
-def get_chain_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any] | None:
+def _request(method: str, path: str, *, params: dict[str, Any] | None = None, json_body: dict | None = None) -> Any:
     if not _enabled():
         return None
     base = _base_url()
@@ -83,14 +53,110 @@ def get_chain_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> 
         return None
     try:
         with httpx.Client(timeout=_timeout()) as client:
-            r = client.get(
-                f"{base}/v1/decisions/{external_id}/chain",
-                params={"tenant_id": tenant_id, "max_depth": max_depth},
+            r = client.request(
+                method,
+                f"{base}{path}",
+                params={k: v for k, v in (params or {}).items() if v is not None},
+                json=json_body,
                 headers=_headers(),
             )
             if r.status_code >= 400:
                 return None
             return r.json()
     except Exception:
-        log.warning("decision_graph_chain_fail", exc_info=True)
+        log.warning("decision_graph_request_fail path=%s", path, exc_info=True)
         return None
+
+
+def record_decision_failsoft(payload: dict[str, Any]) -> str | None:
+    """POST /v1/decisions. Returns external_id or None on any failure / disabled."""
+    data = _request("POST", "/v1/decisions", json_body=payload)
+    if not isinstance(data, dict):
+        log.warning("decision_graph_write_fail")
+        return None
+    return str(data.get("external_id") or "") or None
+
+
+def find_latest_failsoft(
+    tenant_id: str,
+    *,
+    kind: str | None = None,
+    trace_id: str | None = None,
+    case_id: str | None = None,
+    entity_external_id: str | None = None,
+    agent_run_id: str | None = None,
+) -> dict[str, Any] | None:
+    data = _request(
+        "GET",
+        "/v1/decisions/latest",
+        params={
+            "tenant_id": tenant_id,
+            "kind": kind,
+            "trace_id": trace_id,
+            "case_id": case_id,
+            "entity_external_id": entity_external_id,
+            "agent_run_id": agent_run_id,
+        },
+    )
+    return data if isinstance(data, dict) else None
+
+
+def search_decisions_failsoft(
+    tenant_id: str,
+    *,
+    case_id: str | None = None,
+    trace_id: str | None = None,
+    entity_external_id: str | None = None,
+    kind: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    data = _request(
+        "GET",
+        "/v1/decisions/search",
+        params={
+            "tenant_id": tenant_id,
+            "case_id": case_id,
+            "trace_id": trace_id,
+            "entity_external_id": entity_external_id,
+            "kind": kind,
+            "limit": limit,
+        },
+    )
+    if isinstance(data, dict):
+        items = data.get("decisions")
+        return list(items) if isinstance(items, list) else []
+    return []
+
+
+def resolve_prior_evaluate_id(tenant_id: str, trace_id: str | None) -> str | None:
+    tid = (trace_id or "").strip()
+    if not tid:
+        return None
+    row = find_latest_failsoft(tenant_id, kind="evaluate", trace_id=tid)
+    return str(row.get("external_id") or "") if row else None
+
+
+def resolve_prior_agent_advise_id(tenant_id: str, case_id: str | None) -> str | None:
+    cid = (case_id or "").strip()
+    if not cid:
+        return None
+    row = find_latest_failsoft(tenant_id, kind="agent_advise", case_id=cid)
+    return str(row.get("external_id") or "") if row else None
+
+
+def get_chain_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any] | None:
+    data = _request(
+        "GET",
+        f"/v1/decisions/{external_id}/chain",
+        params={"tenant_id": tenant_id, "max_depth": max_depth},
+    )
+    return data if isinstance(data, dict) else None
+
+
+def get_impact_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any] | None:
+    data = _request(
+        "GET",
+        f"/v1/decisions/{external_id}/impact",
+        params={"tenant_id": tenant_id, "max_depth": max_depth},
+    )
+    return data if isinstance(data, dict) else None
