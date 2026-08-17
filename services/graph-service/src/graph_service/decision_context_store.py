@@ -84,6 +84,12 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             ON decision_edges(tenant_id, to_external_id);
         CREATE INDEX IF NOT EXISTS idx_edges_from
             ON decision_edges(tenant_id, from_external_id);
+        CREATE INDEX IF NOT EXISTS idx_decisions_trace
+            ON decisions(tenant_id, trace_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_decisions_case
+            ON decisions(tenant_id, case_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_decisions_kind
+            ON decisions(tenant_id, kind, created_at);
         """
     )
 
@@ -261,7 +267,13 @@ def set_semantica_decision_id(
             conn.close()
 
 
-def invalidate_decision(tenant_id: str, external_id: str, reason: str) -> dict[str, Any] | None:
+def invalidate_decision(
+    tenant_id: str,
+    external_id: str,
+    reason: str,
+    *,
+    supersede_to: str | None = None,
+) -> dict[str, Any] | None:
     tid = (tenant_id or "").strip()
     did = (external_id or "").strip()
     now = _utcnow()
@@ -278,13 +290,71 @@ def invalidate_decision(tenant_id: str, external_id: str, reason: str) -> dict[s
                 (now, str(reason or ""), tid, did),
             )
             conn.commit()
-            row = conn.execute(
-                "SELECT * FROM decisions WHERE tenant_id=? AND external_id=?",
-                (tid, did),
-            ).fetchone()
-            return _row_to_dict(row) if row else None
         finally:
             conn.close()
+    replacement = (supersede_to or "").strip()
+    if replacement:
+        add_edge(tid, replacement, did, "SUPERSEDES")
+    row = get_decision(tid, did)
+    return row
+
+
+def find_latest(
+    tenant_id: str,
+    *,
+    kind: str | None = None,
+    trace_id: str | None = None,
+    case_id: str | None = None,
+    entity_external_id: str | None = None,
+    agent_run_id: str | None = None,
+    exclude_external_id: str | None = None,
+) -> dict[str, Any] | None:
+    hits = search_decisions(
+        tenant_id=tenant_id,
+        kind=kind,
+        trace_id=trace_id,
+        case_id=case_id,
+        entity_external_id=entity_external_id,
+        agent_run_id=agent_run_id,
+        exclude_external_id=exclude_external_id,
+        limit=1,
+    )
+    return hits[0] if hits else None
+
+
+def get_neighbor_summary(tenant_id: str, external_id: str) -> dict[str, Any]:
+    tid = (tenant_id or "").strip()
+    did = (external_id or "").strip()
+    with _LOCK:
+        conn = _connect()
+        try:
+            _ensure_schema(conn)
+            inbound = conn.execute(
+                """
+                SELECT relationship, from_external_id
+                FROM decision_edges WHERE tenant_id=? AND to_external_id=?
+                """,
+                (tid, did),
+            ).fetchall()
+            outbound = conn.execute(
+                """
+                SELECT relationship, to_external_id
+                FROM decision_edges WHERE tenant_id=? AND from_external_id=?
+                """,
+                (tid, did),
+            ).fetchall()
+        finally:
+            conn.close()
+    return {
+        "inbound": [
+            {"relationship": r["relationship"], "from_external_id": r["from_external_id"]}
+            for r in inbound
+        ],
+        "outbound": [
+            {"relationship": r["relationship"], "to_external_id": r["to_external_id"]}
+            for r in outbound
+        ],
+    }
 
 
 def search_decisions(
@@ -293,7 +363,15 @@ def search_decisions(
     entity_external_id: str | None = None,
     category: str | None = None,
     outcome: str | None = None,
+    kind: str | None = None,
+    trace_id: str | None = None,
+    case_id: str | None = None,
+    agent_run_id: str | None = None,
     q: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    exclude_external_id: str | None = None,
+    include_invalidated: bool = True,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     tid = (tenant_id or "").strip()
@@ -309,6 +387,29 @@ def search_decisions(
     if outcome:
         clauses.append("outcome=?")
         params.append(str(outcome))
+    if kind:
+        clauses.append("kind=?")
+        params.append(str(kind))
+    if trace_id:
+        clauses.append("trace_id=?")
+        params.append(str(trace_id).strip())
+    if case_id:
+        clauses.append("case_id=?")
+        params.append(str(case_id).strip())
+    if agent_run_id:
+        clauses.append("agent_run_id=?")
+        params.append(str(agent_run_id).strip())
+    if not include_invalidated:
+        clauses.append("invalidated_at IS NULL")
+    if exclude_external_id:
+        clauses.append("external_id != ?")
+        params.append(str(exclude_external_id).strip())
+    if since:
+        clauses.append("created_at >= ?")
+        params.append(str(since))
+    if until:
+        clauses.append("created_at <= ?")
+        params.append(str(until))
     if q and q.strip():
         needle = f"%{q.strip().lower()}%"
         clauses.append("(lower(scenario) LIKE ? OR lower(reasoning) LIKE ?)")
