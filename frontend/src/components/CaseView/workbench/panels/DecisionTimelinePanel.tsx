@@ -12,6 +12,8 @@ export type DecisionRecord = {
   invalidated_at?: string | null;
   shadow?: boolean;
   rule_ids?: string[];
+  agent_run_id?: string;
+  trace_id?: string;
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -28,6 +30,8 @@ const OUTCOME_COLOR: Record<string, string> = {
   escalated: "text-orange-400",
 };
 
+type WalkMode = "chain" | "impact" | null;
+
 export function DecisionTimelinePanel({
   caseId,
   tenantId,
@@ -38,7 +42,8 @@ export function DecisionTimelinePanel({
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [chain, setChain] = useState<{ nodes: DecisionRecord[] } | null>(null);
+  const [walkMode, setWalkMode] = useState<WalkMode>(null);
+  const [walkNodes, setWalkNodes] = useState<DecisionRecord[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -59,18 +64,23 @@ export function DecisionTimelinePanel({
     void load();
   }, [load]);
 
-  const toggleChain = async (externalId: string) => {
-    if (expanded === externalId) {
+  const toggleWalk = async (externalId: string, mode: WalkMode) => {
+    if (expanded === externalId && walkMode === mode) {
       setExpanded(null);
-      setChain(null);
+      setWalkMode(null);
+      setWalkNodes([]);
       return;
     }
     setExpanded(externalId);
+    setWalkMode(mode);
     try {
-      const res = await cases.getDecisionChain(caseId, externalId, tenantId);
-      setChain({ nodes: (res.nodes ?? []) as DecisionRecord[] });
+      const res =
+        mode === "impact"
+          ? await cases.getDecisionImpact(caseId, externalId, tenantId)
+          : await cases.getDecisionChain(caseId, externalId, tenantId);
+      setWalkNodes((res.nodes ?? []) as DecisionRecord[]);
     } catch {
-      setChain(null);
+      setWalkNodes([]);
     }
   };
 
@@ -88,8 +98,19 @@ export function DecisionTimelinePanel({
         </h4>
         <p className="text-xs text-gray-500">
           {message
-            ? `No decisions recorded (${message}). Enable DECISION_GRAPH_ENABLED on graph-service.`
+            ? `No decisions recorded (${message}). Enable DECISION_GRAPH_ENABLED + graph profile.`
             : "No decisions recorded for this case yet."}
+        </p>
+        <p className="text-[10px] text-gray-600 mt-2">
+          See{" "}
+          <a
+            className="text-brand-400 hover:underline"
+            href="https://github.com/pamu512/tarka/blob/master/docs/docs/guides/decision-context-graph.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            decision context graph guide
+          </a>
         </p>
       </div>
     );
@@ -99,7 +120,7 @@ export function DecisionTimelinePanel({
     <div className="rounded-lg border border-surface-700 bg-surface-900/50 p-3 mb-4 space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-          Decision accountability
+          Decision accountability ({decisions.length})
         </h4>
         <button
           type="button"
@@ -109,7 +130,7 @@ export function DecisionTimelinePanel({
           Refresh
         </button>
       </div>
-      <div className="space-y-2 max-h-64 overflow-y-auto">
+      <div className="space-y-2 max-h-72 overflow-y-auto">
         {decisions.map((d) => (
           <div
             key={d.external_id}
@@ -126,33 +147,58 @@ export function DecisionTimelinePanel({
                   >
                     {d.outcome}
                   </span>
-                  {d.shadow && (
-                    <span className="text-gray-500">shadow</span>
-                  )}
+                  {d.shadow && <span className="text-gray-500">shadow</span>}
                   {d.invalidated_at && (
                     <span className="text-red-500/80">invalidated</span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">{d.scenario}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{d.scenario}</p>
+                {d.reasoning && (
+                  <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">
+                    {d.reasoning}
+                  </p>
+                )}
+                {(d.rule_ids?.length ?? 0) > 0 && (
+                  <p className="text-[10px] text-gray-600 mt-0.5 font-mono">
+                    rules: {d.rule_ids!.slice(0, 4).join(", ")}
+                  </p>
+                )}
                 {d.created_at && (
                   <p className="text-[10px] text-gray-600 mt-0.5">
-                    {new Date(d.created_at).toLocaleString()}
+                    {new Date(d.created_at).toLocaleString()} · {d.external_id}
                   </p>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => void toggleChain(d.external_id)}
-                className="text-[10px] text-brand-400 shrink-0"
-              >
-                {expanded === d.external_id ? "Hide chain" : "Chain"}
-              </button>
+              <div className="flex flex-col gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => void toggleWalk(d.external_id, "chain")}
+                  className="text-[10px] text-brand-400"
+                >
+                  {expanded === d.external_id && walkMode === "chain"
+                    ? "Hide chain"
+                    : "Chain"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void toggleWalk(d.external_id, "impact")}
+                  className="text-[10px] text-orange-400/90"
+                >
+                  {expanded === d.external_id && walkMode === "impact"
+                    ? "Hide impact"
+                    : "Impact"}
+                </button>
+              </div>
             </div>
-            {expanded === d.external_id && chain && (
+            {expanded === d.external_id && walkNodes.length > 0 && (
               <ol className="mt-2 pl-3 border-l border-surface-600 space-y-1">
-                {chain.nodes.map((n) => (
+                <li className="text-[10px] text-gray-600 uppercase">
+                  {walkMode === "impact" ? "Downstream" : "Causal parents"}
+                </li>
+                {walkNodes.map((n) => (
                   <li key={n.external_id} className="text-[10px] text-gray-500">
                     {KIND_LABEL[n.kind] ?? n.kind} → {n.outcome}
+                    {n.invalidated_at ? " (invalidated)" : ""}
                   </li>
                 ))}
               </ol>

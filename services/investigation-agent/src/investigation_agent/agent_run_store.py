@@ -74,6 +74,8 @@ def _init_schema(c: sqlite3.Connection) -> None:
     cols = {r[1] for r in c.execute("PRAGMA table_info(agent_runs)").fetchall()}
     if "source" not in cols:
         c.execute("ALTER TABLE agent_runs ADD COLUMN source TEXT NOT NULL DEFAULT 'chat'")
+    if "decision_external_id" not in cols:
+        c.execute("ALTER TABLE agent_runs ADD COLUMN decision_external_id TEXT")
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS case_status_proposals (
@@ -223,49 +225,30 @@ def _maybe_record_agent_advise_decision(
     source: str,
 ) -> None:
     try:
-        from tarka_shared.decision_graph_client import (
-            record_decision_failsoft,
-            resolve_prior_evaluate_id,
-        )
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_payload import build_agent_advise_payload
     except ImportError:
         return
-    evidence: list[str] = []
-    for claim in claims or []:
-        if not isinstance(claim, dict):
-            continue
-        for eid in claim.get("evidence_ids") or []:
-            s = str(eid).strip()
-            if s and s not in evidence:
-                evidence.append(s)
-    prior = ""
-    if isinstance(context_snapshot, dict):
-        prior = str(context_snapshot.get("prior_decision_id") or "").strip()
-    if not prior and trace_ids:
-        prior = resolve_prior_evaluate_id((tenant_id or "").strip(), str(trace_ids[0])) or ""
-    edges: list[dict[str, str]] = []
-    if prior:
-        edges.append({"from_external_id": prior, "relationship": "INFLUENCED"})
-    outcome = "advise"
-    if claims:
-        outcome = str((claims[0] or {}).get("claim") or (claims[0] or {}).get("text") or "advise")[
-            :128
-        ]
-    record_decision_failsoft(
-        {
-            "tenant_id": (tenant_id or "").strip(),
-            "kind": "agent_advise",
-            "category": f"agent_run:{source}",
-            "scenario": f"agent_run case={case_id or '-'}",
-            "outcome": outcome or "advise",
-            "reasoning": f"agent_run_id={rid}; claims={len(claims or [])}",
-            "agent_run_id": rid,
-            "case_id": case_id,
-            "trace_id": (trace_ids or [None])[0],
-            "entity_external_ids": list(entity_ids or [])[:32],
-            "evidence_ids": evidence[:64],
-            "edges": edges,
-        }
+    payload = build_agent_advise_payload(
+        tenant_id=tenant_id,
+        run_id=rid,
+        case_id=case_id,
+        entity_ids=entity_ids,
+        trace_ids=trace_ids,
+        claims=claims,
+        context_snapshot=context_snapshot,
+        source=source,
     )
+    decision_id = record_decision_failsoft(payload)
+    if not decision_id:
+        return
+    c = _get_conn()
+    with _lock:
+        c.execute(
+            "UPDATE agent_runs SET decision_external_id=? WHERE run_id=? AND tenant_id=?",
+            (decision_id, rid, (tenant_id or "").strip()),
+        )
+        c.commit()
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -286,6 +269,7 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "context_snapshot": snapshot,
         "created_at": row[13],
         "source": row[14] if len(row) > 14 else "chat",
+        "decision_external_id": row[15] if len(row) > 15 else None,
         "graph_missing": graph_missing_from_snapshot(snapshot),
     }
 
@@ -293,7 +277,8 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 _SELECT = """
     SELECT run_id, turn_id, tenant_id, analyst_id, case_id,
            entity_ids_json, trace_ids_json, prompt_version, model, agent_build,
-           tool_trace_redacted_json, claims_json, context_snapshot_json, created_at, source
+           tool_trace_redacted_json, claims_json, context_snapshot_json, created_at, source,
+           decision_external_id
     FROM agent_runs
 """
 

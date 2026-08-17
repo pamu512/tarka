@@ -2371,6 +2371,13 @@ export const cases = {
     );
   },
 
+  getDecisionImpact(caseId: string, externalId: string, tenantId: string, maxDepth: number = 5) {
+    const q = new URLSearchParams({ tenant_id: tenantId, max_depth: String(maxDepth) });
+    return request<{ nodes: unknown[]; edges: unknown[]; message?: string }>(
+      `/api/cases/v1/cases/${caseId}/decisions/${encodeURIComponent(externalId)}/impact?${q}`,
+    );
+  },
+
   getDecisionExplanation(caseId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<CaseDecisionExplanationPayload>(`/api/cases/v1/cases/${caseId}/decision-explanation?${q}`);

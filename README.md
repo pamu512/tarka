@@ -54,6 +54,16 @@ Tarka **1.3.0-beta** moves the operator mental model from “another alert fired
 
 Shadow’s `cases` table remains the forensic anchor for sidecar work; product **case management** is the **investigation** layer on top of committed audit evidence—not a stream of disposable events.
 
+### Decision accountability graph
+
+Beyond AuditLog and traces, Tarka records **decisions as first-class objects** (evaluate → agent advise → human disposition) with causal chains you can query months later—without replaying LLM conversations.
+
+- **SoR:** graph-service SQLite (`/v1/decisions/*`)
+- **Desk:** Case Timeline → “Decision accountability” panel
+- **Export:** evidence bundle `decision_context` + PROV-O script
+
+Enable with `DECISION_GRAPH_ENABLED=1` and `GRAPH_SERVICE_URL` (graph compose profile). Full operator guide: [`docs/docs/guides/decision-context-graph.md`](docs/docs/guides/decision-context-graph.md).
+
 ---
 
 ## Production shape (Linux + Compose)
