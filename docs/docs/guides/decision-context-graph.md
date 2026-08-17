@@ -32,6 +32,41 @@ case disposition (case-api) ──fail-soft──►     + optional Semantica si
 
 **SoR:** SQLite at `DECISION_GRAPH_DB_PATH` (default under `GRAPH_DATA_DIR/decision_context.sqlite`). Janus `Decision` vertices are an optional UX mirror (`DECISION_GRAPH_JANUS_MIRROR=1`).
 
+### End-to-end flow (one investigation)
+
+```mermaid
+sequenceDiagram
+  participant DA as decision-api
+  participant GS as graph-service
+  participant IA as investigation-agent
+  participant CA as case-api
+  participant Desk as Case Timeline UI
+
+  DA->>DA: evaluate allow/deny/review
+  DA-->>GS: POST evaluate (background, fail-soft)
+  Note over DA,GS: INFLUENCED edge to prior evaluate on trace_id
+
+  IA->>IA: persist AgentRun
+  IA-->>GS: POST agent_advise + link evaluate
+
+  CA->>CA: analyst applies status (maker-checker)
+  CA-->>GS: POST human_disposition + CAUSED edge
+
+  Desk->>CA: GET /cases/{id}/decisions
+  CA->>GS: search by case_id + trace_id
+  GS-->>Desk: chain / impact on expand
+```
+
+**Example chain** (same trace):
+
+| Step | kind | outcome | Edge to parent |
+|------|------|---------|----------------|
+| 1 | `evaluate` | `review` | — |
+| 2 | `agent_advise` | cluster summary | `INFLUENCED` ← evaluate |
+| 3 | `human_disposition` | `escalated` | `CAUSED` ← agent_advise |
+
+Invalidation: `POST /v1/decisions/{id}/invalidate` sets `invalidated_at`; optional `supersede_to` adds a `SUPERSEDES` edge. History remains queryable for audit.
+
 ---
 
 ## Decision kinds
