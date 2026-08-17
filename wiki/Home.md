@@ -1,6 +1,8 @@
 # Tarka Wiki
 
-Operator mirror of the docs hub. If this wiki and `docs/` disagree, **trust `docs/INDEX.md` and the code**.
+Short operator mirror of the repo docs hub. **Canonical source:** [`docs/INDEX.md`](https://github.com/pamu512/tarka/blob/master/docs/INDEX.md) in the main repo.
+
+**Last synced with repo:** 2026-08-17 · track **1.3.0-beta** on `master`.
 
 ## Start here
 
@@ -9,8 +11,9 @@ Operator mirror of the docs hub. If this wiki and `docs/` disagree, **trust `doc
 | [Quickstart](Quickstart) | Lite / fraud-desk → first evaluate |
 | [Architecture](Architecture) | Services, stores, authority |
 | [Services](Services) | What each process does |
+| [Decision accountability graph](Decision-Accountability-Graph) | Evaluate → advise → disposition chains |
 | [Rules and Simulation](Rules-and-Simulation) | Packs, backtest, promote |
-| [Operations](Operations) | Compose, ports, trend tick, honesty |
+| [Operations](Operations) | Compose profiles, ports, trend tick |
 | [Security and Compliance](Security-and-Compliance) | Disclosure, residency posture |
 
 ## Product invariants
@@ -18,13 +21,20 @@ Operator mirror of the docs hub. If this wiki and `docs/` disagree, **trust `doc
 - **Prove every signal** — durable audit / graph edges, not vendor scorecards.
 - **`decision-api` decides** — Rust JSON packs via `tarka_rule_engine`.
 - **Shadow / investigation / trend advise** — never silent FLAG→ALLOW or Wasm auto-promote.
+- **Decision graph records accountability** — fail-soft writers; never overrides allow/deny.
 - **Offline / no live-tenant fantasy** — demos and holdouts are local fixtures.
 
 ## Canonical docs (repo)
 
-- Hub: [`docs/INDEX.md`](https://github.com/pamu512/tarka/blob/master/docs/INDEX.md)
-- Flows: [`docs/docs/guides/feature-data-flows.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/feature-data-flows.md)
-- Honesty: [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/STUB_REGISTER.md)
-- Vision: [`VISION.md`](https://github.com/pamu512/tarka/blob/master/VISION.md)
+| Doc | Link |
+|-----|------|
+| Hub | [`docs/INDEX.md`](https://github.com/pamu512/tarka/blob/master/docs/INDEX.md) |
+| Quickstart | [`docs/docs/quickstart.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/quickstart.md) |
+| Feature flows | [`docs/docs/guides/feature-data-flows.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/feature-data-flows.md) |
+| Decision graph | [`docs/docs/guides/decision-context-graph.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/decision-context-graph.md) |
+| Honesty | [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/STUB_REGISTER.md) |
+| Vision | [`VISION.md`](https://github.com/pamu512/tarka/blob/master/VISION.md) |
 
-**Source:** [pamu512/tarka](https://github.com/pamu512/tarka) · track **1.3.0-beta** on `master`.
+**Repo:** [pamu512/tarka](https://github.com/pamu512/tarka)
+
+Maintainers: refresh this wiki from `wiki/` in the repo — `scripts/docs/sync-github-wiki.sh`.

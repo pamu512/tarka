@@ -63,10 +63,13 @@ docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick
 ## Graph (optional)
 
 ```bash
-docker compose -f infra/deploy/docker-compose.lite.yml --profile graph up --build
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.graph-wire.yml \
+  --profile graph up --build
 ```
 
-Prefer JanusGraph/Gremlin for the fraud-graph story; Neo4j remains available via `GRAPH_BACKEND`.
+Set `DECISION_GRAPH_ENABLED=1` for decision accountability chains (see [decision-context-graph](guides/decision-context-graph.md)). Prefer JanusGraph/Gremlin for the fraud-graph story; Neo4j remains available via `GRAPH_BACKEND`.
 
 ## Next
 
