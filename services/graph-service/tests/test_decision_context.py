@@ -1,0 +1,185 @@
+"""Decision context graph — store + HTTP (Wave 1)."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture
+def db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    path = tmp_path / "decisions.sqlite"
+    monkeypatch.setenv("DECISION_GRAPH_DB_PATH", str(path))
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    monkeypatch.setenv("DECISION_GRAPH_ENABLED", "1")
+    return path
+
+
+def test_record_and_get_decision(db_path: Path) -> None:
+    from graph_service.decision_context_store import get_decision, record_decision
+
+    did = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="tx-1 allow/deny",
+        outcome="review",
+        reasoning="rule velocity_spike fired",
+        rule_ids=["velocity_spike"],
+        entity_external_ids=["acct-1"],
+        evidence_ids=["ev-1"],
+        audit_log_id="al-1",
+        confidence=0.81,
+    )
+    assert did.startswith("dec_")
+    row = get_decision("t1", did)
+    assert row is not None
+    assert row["outcome"] == "review"
+    assert row["rule_ids"] == ["velocity_spike"]
+    assert row["entity_external_ids"] == ["acct-1"]
+    assert row["invalidated_at"] is None
+
+
+def test_causal_chain_and_impact(db_path: Path) -> None:
+    from graph_service.decision_context_store import (
+        add_edge,
+        get_chain,
+        get_impact,
+        record_decision,
+    )
+
+    a = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="evaluate",
+        outcome="review",
+        reasoning="rules",
+    )
+    b = record_decision(
+        tenant_id="t1",
+        kind="agent_advise",
+        category="case_status_propose",
+        scenario="propose escalate",
+        outcome="escalated",
+        reasoning="graph ring",
+        agent_run_id="run-1",
+    )
+    c = record_decision(
+        tenant_id="t1",
+        kind="human_disposition",
+        category="case_status",
+        scenario="confirm escalate",
+        outcome="escalated",
+        reasoning="analyst confirms",
+        case_id="case-1",
+    )
+    add_edge("t1", a, b, "INFLUENCED")
+    add_edge("t1", b, c, "CAUSED")
+
+    chain = get_chain("t1", c, max_depth=5)
+    assert [n["external_id"] for n in chain["nodes"]] == [c, b, a]
+    assert len(chain["edges"]) == 2
+
+    impact = get_impact("t1", a, max_depth=5)
+    assert {n["external_id"] for n in impact["nodes"]} == {a, b, c}
+
+
+def test_invalidate_and_search(db_path: Path) -> None:
+    from graph_service.decision_context_store import (
+        get_decision,
+        invalidate_decision,
+        record_decision,
+        search_decisions,
+    )
+
+    did = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="Choose vendor path",
+        outcome="deny",
+        reasoning="sanctions hit",
+        entity_external_ids=["acct-9"],
+    )
+    invalidate_decision("t1", did, reason="false positive")
+    row = get_decision("t1", did)
+    assert row is not None
+    assert row["invalidated_at"]
+    assert row["invalidation_reason"] == "false positive"
+
+    hits = search_decisions(
+        tenant_id="t1",
+        entity_external_id="acct-9",
+        outcome="deny",
+        q="sanctions",
+        limit=10,
+    )
+    assert len(hits) == 1
+    assert hits[0]["external_id"] == did
+
+
+def test_http_decision_endpoints(db_path: Path) -> None:
+    # Fresh import path for env-bound store
+    os.environ["DECISION_GRAPH_DB_PATH"] = str(db_path)
+    from graph_service.main import app
+
+    with TestClient(app) as client:
+        r = client.post(
+            "/v1/decisions",
+            json={
+                "tenant_id": "t1",
+                "kind": "evaluate",
+                "category": "transaction_evaluate",
+                "scenario": "http evaluate",
+                "outcome": "allow",
+                "reasoning": "no rules",
+                "entity_external_ids": ["e1"],
+            },
+        )
+        assert r.status_code == 200, r.text
+        did = r.json()["external_id"]
+
+        r2 = client.get(f"/v1/decisions/{did}", params={"tenant_id": "t1"})
+        assert r2.status_code == 200
+        assert r2.json()["outcome"] == "allow"
+
+        child = client.post(
+            "/v1/decisions",
+            json={
+                "tenant_id": "t1",
+                "kind": "agent_advise",
+                "category": "case_brief",
+                "scenario": "advise",
+                "outcome": "review",
+                "reasoning": "copilot",
+                "edges": [{"from_external_id": did, "relationship": "INFLUENCED"}],
+            },
+        )
+        assert child.status_code == 200
+        cid = child.json()["external_id"]
+
+        chain = client.get(f"/v1/decisions/{cid}/chain", params={"tenant_id": "t1"})
+        assert chain.status_code == 200
+        assert len(chain.json()["nodes"]) >= 2
+
+        impact = client.get(f"/v1/decisions/{did}/impact", params={"tenant_id": "t1"})
+        assert impact.status_code == 200
+        assert len(impact.json()["nodes"]) >= 2
+
+        search = client.get(
+            "/v1/decisions/search",
+            params={"tenant_id": "t1", "q": "http", "limit": 5},
+        )
+        assert search.status_code == 200
+        assert any(x["external_id"] == did for x in search.json()["decisions"])
+
+        inv = client.post(
+            f"/v1/decisions/{did}/invalidate",
+            json={"tenant_id": "t1", "reason": "replay"},
+        )
+        assert inv.status_code == 200
+        assert inv.json()["invalidated_at"]

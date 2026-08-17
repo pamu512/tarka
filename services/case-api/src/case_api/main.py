@@ -202,6 +202,40 @@ def _apply_case_mutations(case: Case, payload: dict[str, Any]) -> None:
     apply_case_payload_to_case(case, payload)
 
 
+def _maybe_record_human_disposition_decision(
+    *,
+    case: Case,
+    actor_id: str,
+    status: str,
+    reason_code: str | None,
+    prior_decision_id: str | None = None,
+) -> None:
+    try:
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+    except ImportError:
+        return
+    edges: list[dict[str, str]] = []
+    if prior_decision_id:
+        edges.append({"from_external_id": prior_decision_id, "relationship": "CAUSED"})
+    record_decision_failsoft(
+        {
+            "tenant_id": case.tenant_id,
+            "kind": "human_disposition",
+            "category": "case_status",
+            "scenario": f"case {case.id} → {status}",
+            "outcome": str(status),
+            "reasoning": (
+                f"actor={actor_id}"
+                + (f"; reason={reason_code}" if reason_code else "")
+            ),
+            "case_id": str(case.id),
+            "entity_external_ids": [case.entity_id] if getattr(case, "entity_id", None) else [],
+            "trace_id": getattr(case, "trace_id", None),
+            "edges": edges,
+        }
+    )
+
+
 class BulkCaseUpdateRequest(BaseModel):
     tenant_id: str = Field(min_length=1, description="Only cases in this tenant may be updated")
     case_ids: list[uuid.UUID] = Field(default_factory=list)
@@ -689,6 +723,7 @@ async def update_case(
     reason_raw = body.get("disposition_reason_code")
     reason_code = str(reason_raw).strip() if reason_raw is not None else None
     status_requested = body.get("status") if "status" in body else None
+    mc = None
     if approve or status_requested is not None or reason_code:
         try:
             mc = apply_status_with_maker_checker(
@@ -727,6 +762,14 @@ async def update_case(
     await session.commit()
     await session.refresh(case)
     new_state = CaseOut.model_validate(case).model_dump(mode="json")
+    if mc is not None and mc.status_applied:
+        _maybe_record_human_disposition_decision(
+            case=case,
+            actor_id=actor_id,
+            status=str(case.status),
+            reason_code=reason_code,
+            prior_decision_id=str(body.get("prior_decision_id") or "").strip() or None,
+        )
     new_state["maker_checker"] = maker_checker_public(case.labels, case.status)
 
     diff = _trail.diff(old_state, CaseOut.model_validate(case).model_dump(mode="json"))
