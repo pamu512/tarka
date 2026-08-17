@@ -2,7 +2,7 @@
 
 Tarka records **decisions as durable objects** — not just logs — so you can answer months later: *what did we decide, why, what influenced it, and what happened next?*
 
-Inspired by [Semantica-style accountability](https://agentnativedev.medium.com/open-source-palantir-for-ai-agents-c6667095a449); implemented natively on graph-service with optional Semantica mirror.
+Native SoR on graph-service; optional mirror sidecar behind feature flags.
 
 **Full guide:** this document · **Spec:** [`docs/superpowers/specs/2026-08-17-decision-context-graph-design.md`](../../superpowers/specs/2026-08-17-decision-context-graph-design.md)
 

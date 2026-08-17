@@ -85,7 +85,7 @@ trace tx-abc
 
 **Enable:** `DECISION_GRAPH_ENABLED=1` + `GRAPH_SERVICE_URL` with the graph compose profile (`infra/deploy/docker-compose.graph-wire.yml`). Smoke: `python3 scripts/oss/decision_context_chain_smoke.py`.
 
-Full operator guide (API tables, MCP tools, Semantica sidecar): [`docs/docs/guides/decision-context-graph.md`](docs/docs/guides/decision-context-graph.md).
+Full operator guide (API tables, MCP tools, optional mirror sidecar): [`docs/docs/guides/decision-context-graph.md`](docs/docs/guides/decision-context-graph.md).
 
 ---
 

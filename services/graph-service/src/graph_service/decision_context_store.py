@@ -1,4 +1,4 @@
-"""Decision context graph — SQLite system of record (Semantica-style decisions).
+"""Decision context graph — SQLite system of record for accountability decisions.
 
 ponytail: SQLite under DECISION_GRAPH_DB_PATH is the accountability SoR for v1.
 Janus Decision vertices are an optional mirror for subgraph UX (Wave 2+), not required
