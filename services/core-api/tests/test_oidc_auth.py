@@ -137,7 +137,9 @@ def test_happy_path_ticket_session_refresh_no_token_in_location(
     seen = _install_idp(monkeypatch)
 
     with TestClient(_app()) as client:
-        login = client.get("/auth/login?next=/rules/visual", headers=DESK_HEADERS, follow_redirects=False)
+        login = client.get(
+            "/auth/login?next=/rules/visual", headers=DESK_HEADERS, follow_redirects=False
+        )
         assert login.status_code == 302
         loc = login.headers["location"]
         parsed = urlparse(loc)
@@ -184,4 +186,3 @@ def test_happy_path_ticket_session_refresh_no_token_in_location(
     assert seen["token"][0]["code_verifier"]
     assert seen["token"][0]["client_secret"] == "desk-secret"
     assert seen["token"][1]["grant_type"] == "refresh_token"
-
