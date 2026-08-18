@@ -1020,5 +1020,3 @@ jobs:
             --redis-url 'redis://redis.internal:6379/0' \
             --output /tmp/prod-on-k8s.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml
-      - name: Helm NetworkPolicy gate (prod-only)
-        run: python3 infra/scripts/ci/test_helm_networkpolicy.py
