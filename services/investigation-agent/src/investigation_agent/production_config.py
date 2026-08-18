@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 
 
 def runtime_readiness_errors() -> list[str]:
-    """Best-effort SQLite/RAG probe for k8s readiness."""
+    """Best-effort RAG store probe for k8s readiness."""
     ok, detail = knowledge_store.rag_health_check()
     if not ok:
-        return [f"rag sqlite unavailable: {detail}"]
+        return [f"rag store unavailable: {detail}"]
     return []
 
 
