@@ -21,6 +21,7 @@ import { TarkaRbacRole } from "./security/rbacConstants";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TarkaCommandCenter = lazy(() => import("./pages/TarkaCommandCenter"));
 const Cases = lazy(() => import("./pages/Cases"));
+const Decisions = lazy(() => import("./pages/Decisions"));
 const WorkloadBalancer = lazy(() => import("./pages/WorkloadBalancer"));
 const BulkTriage = lazy(() => import("./pages/BulkTriage"));
 const CaseComparisonMode = lazy(() => import("./pages/CaseComparisonMode"));
@@ -91,6 +92,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
+      { to: "/decisions", label: "Decisions", module: "dashboard" },
       { to: "/command-center", label: "Command Center", module: "dashboard" },
       { to: "/dashboard", label: "Classic dashboard", module: "dashboard" },
       { to: "/exec-dashboards", label: "Executive KPIs", module: "dashboard" },
@@ -285,7 +287,7 @@ export default function App() {
         </nav>
 
         <div className="px-4 py-3 border-t border-surface-700">
-          <div className="text-xs text-gray-500">Tarka v1.0</div>
+          <div className="text-xs text-gray-500">Tarka v1.3.0-beta</div>
           <div className="text-xs text-gray-600 mt-0.5">
             Prove every signal.
           </div>
@@ -310,6 +312,8 @@ export default function App() {
             <Route path="/403-unauthorized" element={<ForbiddenUnauthorized />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/cases" element={<Cases />} />
+            <Route path="/decisions" element={<Decisions />} />
+            <Route path="/decisions/:traceId" element={<Decisions />} />
             <Route path="/cases/bulk-triage" element={<BulkTriage />} />
             <Route path="/cases/compare" element={<CaseComparisonMode />} />
             <Route path="/cases/:caseId/sar-intent/:intentId" element={<SarIntentDetailPage />} />
@@ -332,7 +336,6 @@ export default function App() {
             <Route path="/graph/link-analysis" element={<RedirectLinkAnalysisToGraph />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/analytics/rule-performance" element={<RulePerformance />} />
-            <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
             <Route path="/analytics/audit-log" element={<AuditLogExplorer />} />
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
             <Route path="/ops/calibration" element={<OpsCalibration />} />
@@ -350,8 +353,6 @@ export default function App() {
             <Route path="/ops/infra" element={<OpsInfraDashboard />} />
             <Route path="/ops/features" element={<FeatureTools />} />
             <Route path="/integrations" element={<Integrations />} />
-            <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
-            <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
             <Route path="/admin" element={<AdminPanel />} />
@@ -381,6 +382,9 @@ export default function App() {
                 <Route path="/ops/backups" element={<AutomatedBackupIndicators />} />
                 <Route path="/integrations/webhook-logs" element={<WebhookLogs />} />
                 <Route path="/integrations/rate-limit-shields" element={<RateLimitShields />} />
+                <Route path="/analytics/promo-abuse" element={<PromoAbuseDashboard />} />
+                <Route path="/integrations/seller-integrity" element={<SellerIntegrityDashboard />} />
+                <Route path="/integrations/payout-delay" element={<PayoutDelayAutomation />} />
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
             ) : (
@@ -407,6 +411,9 @@ export default function App() {
                 <Route path="/ops/backups" element={<Navigate to="/ops/infra" replace />} />
                 <Route path="/integrations/webhook-logs" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
+                <Route path="/analytics/promo-abuse" element={<Navigate to="/cases" replace />} />
+                <Route path="/integrations/seller-integrity" element={<Navigate to="/cases" replace />} />
+                <Route path="/integrations/payout-delay" element={<Navigate to="/cases" replace />} />
                 {/* Stale / unknown paths not in isProductionSurfacePath allowlist */}
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>
