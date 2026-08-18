@@ -80,6 +80,7 @@ import {
 } from "../components/CaseView/MultiPartyLinksRail";
 import { EntityPayoutHoldChip } from "../components/CaseView/EntityPayoutHoldChip";
 import { AnalystWorkbenchLayout } from "../components/CaseView/workbench/AnalystWorkbenchLayout";
+import { DecisionTimelinePanel } from "../components/CaseView/workbench/panels/DecisionTimelinePanel";
 import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/BridgeConfirmDialog";
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
@@ -1591,6 +1592,8 @@ function CaseDetailWorkbench() {
         }
         timeline={
           <TimelineTab
+            caseId={caseData.id}
+            tenantId={caseData.tenant_id}
             comments={caseData.comments ?? []}
             commentText={commentText}
             onTextChange={setCommentText}
@@ -1655,12 +1658,16 @@ function InfoCard({
 }
 
 function TimelineTab({
+  caseId,
+  tenantId,
   comments,
   commentText,
   onTextChange,
   onSubmit,
   submitting,
 }: {
+  caseId: string;
+  tenantId: string;
   comments: NonNullable<Case["comments"]>;
   commentText: string;
   onTextChange: (v: string) => void;
@@ -1669,6 +1676,7 @@ function TimelineTab({
 }) {
   return (
     <div className="space-y-4">
+      <DecisionTimelinePanel caseId={caseId} tenantId={tenantId} />
       <div className="space-y-3 max-h-96 overflow-y-auto">
         {comments.map((c, i) => (
           <div

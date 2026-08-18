@@ -24,6 +24,30 @@ MetricsInc = Callable[..., Any]
 BgAddTask = Callable[..., Any]
 
 
+def _record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> None:
+    """Best-effort Decision vertex for evaluate outcomes."""
+    try:
+        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_payload import build_evaluate_payload
+    except ImportError:
+        return
+    payload = build_evaluate_payload(
+        tenant_id=ctx.tenant_id,
+        trace_id=ctx.trace_id,
+        entity_id=ctx.entity_id,
+        event_type=ctx.event_type,
+        decision=ctx.decision,
+        score=ctx.score,
+        rule_hits=ctx.rule_hits,
+        fallback_reason=ctx.fallback_reason,
+        payload=ctx.payload,
+        metadata=ctx.metadata,
+        decision_log_record=ctx.decision_log_record,
+        shadow_request=ctx.shadow_request,
+    )
+    record_decision_failsoft(payload)
+
+
 def wrap_outcome_task(
     fn: Callable[..., Any], metrics_inc: MetricsInc
 ) -> Callable[..., Any]:
@@ -188,6 +212,9 @@ def schedule_decision_outcomes(
 
     if shadow_evaluation is not None:
         add(shadow_evaluation, *shadow_args)
+
+    # Decision context graph (fail-soft; never blocks evaluate).
+    add(_record_evaluate_decision_graph, ctx)
 
     if (
         not ctx.shadow_request

@@ -75,6 +75,7 @@ nav:
       - Service ports: guides/service-ports.md
       - Ingest & replay: guides/ingest-replay-onboarding.md
       - Graph analysis: guides/graph-analysis.md
+      - Decision context graph: guides/decision-context-graph.md
       - Shadow & A/B: guides/shadow-and-ab-testing.md
       - Auth vs forensics path: guides/auth-vs-forensics-path.md
       - Degraded operations: guides/degraded-operations.md
