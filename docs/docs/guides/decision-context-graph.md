@@ -106,6 +106,7 @@ Each record has: `scenario`, `reasoning` (defendable only — no hidden CoT), `r
 |--------|------|---------|
 | POST | `/v1/decisions` | Record + optional `edges[]` |
 | GET | `/v1/decisions/search` | Filter by tenant, case, trace, kind, entity, text |
+| GET | `/v1/decisions/precedents` | Rank similar decisions (entity / category / outcome / rule overlap; no embeddings) |
 | GET | `/v1/decisions/latest` | Newest match |
 | GET | `/v1/decisions/{id}` | Get (`include_neighbors=true`) |
 | GET | `/v1/decisions/{id}/chain` | Causal parents |
