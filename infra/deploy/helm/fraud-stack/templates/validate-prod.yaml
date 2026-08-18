@@ -22,9 +22,11 @@
 {{- if or (eq $redisUrl "") (contains "__" $redisUrl) }}
 {{- fail "global.environment=prod requires a resolved global.externalServices.redis.redisUrl" }}
 {{- end }}
+{{- if .Values.postgres.enabled }}
 {{- $pw := default "" ((.Values.postgres.auth).password) }}
-{{- if eq $pw "fraud" }}
-{{- fail "global.environment=prod forbids postgres.auth.password=fraud" }}
+{{- if or (eq $pw "") (eq $pw "fraud") }}
+{{- fail "global.environment=prod forbids in-cluster postgres.auth.password of fraud/empty" }}
+{{- end }}
 {{- end }}
 {{- if ((.Values.coreApi).allowInsecureNoAuth) }}
 {{- fail "global.environment=prod forbids coreApi.allowInsecureNoAuth" }}

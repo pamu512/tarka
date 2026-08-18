@@ -82,6 +82,17 @@ def test_require_api_key_enforces_valid_header(monkeypatch):
 
     with TestClient(app) as client:
         bad = client.get("/protected")
-        good = client.get("/protected", headers={"x-api-key": "k1"})
+        missing_tenant = client.get("/protected", headers={"x-api-key": "k1"})
+        good = client.get(
+            "/protected",
+            headers={"x-api-key": "k1"},
+            params={"tenant_id": "t1"},
+        )
     assert bad.status_code == 401
+    from tenant_binding import tenant_binding_required
+
+    if tenant_binding_required():
+        assert missing_tenant.status_code == 400
+    else:
+        assert missing_tenant.status_code == 200
     assert good.status_code == 200
