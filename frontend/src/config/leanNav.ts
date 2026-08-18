@@ -20,6 +20,7 @@ export const LEAN_NAV = !INCLUDE_DEMO_SURFACE;
  */
 export const LEAN_NAV_PATHS = new Set<string>([
   "/cases",
+  "/decisions",
   "/disputes",
   "/graph",
   "/rules",
@@ -30,9 +31,6 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/ops/shadow",
   "/ops/counters",
   "/ops/sar-transport",
-  "/analytics/promo-abuse",
-  "/integrations/seller-integrity",
-  "/integrations/payout-delay",
   "/settings",
   "/help",
 ]);
@@ -47,5 +45,6 @@ export function isProductionSurfacePath(path: string): boolean {
   if (path === "/403-unauthorized") return true;
   if (path.startsWith("/cases/")) return true;
   if (path.startsWith("/disputes/")) return true;
+  if (path === "/decisions" || path.startsWith("/decisions/")) return true;
   return false;
 }
