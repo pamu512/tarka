@@ -9,7 +9,7 @@ export ALLOW_INSECURE_NO_AUTH=true   # local graph-service
 cd /path/to/tarka && PYTHONPATH=services python -m tarka_mcp
 ```
 
-Cursor MCP config:
+IDE MCP config example:
 
 ```json
 {
