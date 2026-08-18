@@ -9,7 +9,13 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from investigation_agent import agent_run_store, batch_store, feedback_store, knowledge_db, review_store
+from investigation_agent import (
+    agent_run_store,
+    batch_store,
+    feedback_store,
+    knowledge_db,
+    review_store,
+)
 from investigation_agent.store_backend import (
     StoreMisconfigured,
     ensure_store_configured,
@@ -244,4 +250,3 @@ def test_postgres_batch_blob_roundtrip(
         assert not disk.exists() or not list(disk.glob("*.json"))
     finally:
         _reset_all()
-

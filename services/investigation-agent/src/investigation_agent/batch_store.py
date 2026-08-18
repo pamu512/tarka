@@ -232,9 +232,7 @@ def _cleanup_postgres(now: float) -> None:
     conn = _get_pg_conn()
     cutoff = now - ttl_seconds()
     conn.execute("DELETE FROM batch_blobs WHERE created_at < ?", (cutoff,))
-    rows = conn.execute(
-        "SELECT job_id FROM batch_blobs ORDER BY created_at ASC"
-    ).fetchall()
+    rows = conn.execute("SELECT job_id FROM batch_blobs ORDER BY created_at ASC").fetchall()
     overflow = max(0, len(rows) - _MAX_STORE_BATCHES)
     if overflow:
         for job_id in (r[0] for r in rows[:overflow]):
