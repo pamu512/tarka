@@ -305,6 +305,8 @@ export interface Case {
   /** Optional taxonomy for routing / workload analytics (when case-api persists it). */
   case_type?: string | null;
   labels: string[];
+  /** Set when an analyst records a terminal verdict via cases.update. */
+  disposition_reason_code?: string | null;
   queue_score?: number;
   recommended_action?: string;
   comments?: Array<{ author: string; text: string; timestamp: string }>;

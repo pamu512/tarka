@@ -85,6 +85,12 @@ import { BridgeConfirmDialog } from "../components/CaseView/workbench/panels/Bri
 import { trackWorkbenchTask } from "../workbench/workbenchTelemetry";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
 import {
+  DISPOSITION_REASON_CODES,
+  isDispositionReasonCode,
+  isTerminalCaseStatus,
+  yLabelForReasonCode,
+} from "../config/dispositionReasonCodes";
+import {
   buildTriageFlashCards,
 } from "../utils/triageFlashCards";
 import { Network, type Options } from "vis-network";
@@ -206,6 +212,8 @@ function CaseDetailWorkbench() {
   const [actBusy, setActBusy] = useState<"load" | "sar" | "dispute" | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [tuneRuleOpen, setTuneRuleOpen] = useState(false);
+  const [reasonCode, setReasonCode] = useState("");
+  const [kgRailOpen, setKgRailOpen] = useState(false);
 
   const pageMeta = useMemo(
     () =>
@@ -217,6 +225,13 @@ function CaseDetailWorkbench() {
   useRegisterPageMeta(pageMeta);
 
   useEffect(() => {
+    const existing = caseData?.disposition_reason_code?.trim();
+    if (existing && isDispositionReasonCode(existing)) {
+      setReasonCode(existing);
+    }
+  }, [caseData?.id, caseData?.disposition_reason_code]);
+
+  useEffect(() => {
     if (!caseData) return;
     pinCase({
       caseId: caseData.id,
@@ -226,19 +241,22 @@ function CaseDetailWorkbench() {
   }, [caseData, pinCase]);
 
   const applyStatusChange = useCallback(
-    async (newStatus: string) => {
+    async (newStatus: string, reason?: string) => {
       if (!caseId || !caseData || statusUpdating) return;
+      const code = (reason ?? "").trim();
       setStatusUpdating(true);
       try {
-        await cases.update(caseId, caseData.tenant_id, { status: newStatus as Case["status"] });
+        await cases.update(caseId, caseData.tenant_id, {
+          status: newStatus as Case["status"],
+          ...(code ? { disposition_reason_code: code } : {}),
+        });
         // Bridge B2: close the calibration loop when resolving/closing with a trace_id
-        const terminal = ["resolved", "closed", "resolved_fraud", "resolved_legit"].includes(
-          newStatus.toLowerCase(),
-        );
+        const terminal = isTerminalCaseStatus(newStatus);
         const trace = caseData.trace_id?.trim();
         if (terminal && trace) {
-          const st = newStatus.toLowerCase();
-          const label = st.includes("fraud") ? "FRAUD" : "LEGITIMATE";
+          const label =
+            (code && yLabelForReasonCode(code)) ||
+            (newStatus.toLowerCase().includes("fraud") ? "FRAUD" : "LEGITIMATE");
           try {
             const { decisions: decisionsApi } = await import("../api/client");
             await decisionsApi.joinDispositionLabels(caseData.tenant_id, {
@@ -259,8 +277,18 @@ function CaseDetailWorkbench() {
         setStatusUpdating(false);
       }
     },
-    [caseId, caseData, statusUpdating, refreshCase, setError],
+    [caseId, caseData, statusUpdating, refreshCase, setError, toast],
   );
+
+  const applyDispositionFromBar = (newStatus: string) => {
+    if (!caseId || !caseData || statusUpdating || newStatus === caseData.status) return;
+    const terminal = isTerminalCaseStatus(newStatus);
+    if (terminal && !isDispositionReasonCode(reasonCode)) {
+      toast("Select a disposition reason before resolving or closing.", "info");
+      return;
+    }
+    void applyStatusChange(newStatus, reasonCode || undefined);
+  };
 
   const handleStatusChange = (newStatus: string) => {
     if (!caseId || !caseData || statusUpdating || newStatus === caseData.status) return;
@@ -626,42 +654,6 @@ function CaseDetailWorkbench() {
     Boolean(caseId && caseData?.tenant_id),
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (error && !caseData) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-3">
-          <p className="text-red-400">{error}</p>
-          <SupportIdHint
-            message={error}
-            className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
-            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
-          />
-          <button
-            onClick={() => navigate("/cases")}
-            className="px-4 py-2 text-sm text-brand-400 hover:text-brand-300"
-          >
-            Back to Cases
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!caseData) return null;
-
-  const slaDeadline = new Date(caseData.sla_deadline ?? caseData.created_at);
-  const slaPassed = slaDeadline < new Date();
-
-  const casesListHref = `/cases?tenant_id=${encodeURIComponent(caseData.tenant_id)}`;
-
   const financialMoney = useMemo(
     () => extractTransactionMoney(decisionExplain?.evaluate_payload ?? undefined),
     [decisionExplain?.evaluate_payload],
@@ -706,13 +698,103 @@ function CaseDetailWorkbench() {
     return null;
   }, [decisionExplain?.inference_context?.ml_summary, decisionExplain?.recommended_action]);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error && !caseData) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-3">
+          <p className="text-red-400">{error}</p>
+          <SupportIdHint
+            message={error}
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-red-300/85"
+            buttonClassName="px-1.5 py-0.5 rounded border border-red-400/35 hover:border-red-300/50 hover:text-red-200 transition-colors"
+          />
+          <button
+            onClick={() => navigate("/cases")}
+            className="px-4 py-2 text-sm text-brand-400 hover:text-brand-300"
+          >
+            Back to Cases
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!caseData) return null;
+
+  const slaDeadline = new Date(caseData.sla_deadline ?? caseData.created_at);
+  const slaPassed = slaDeadline < new Date();
+
+  const casesListHref = `/cases?tenant_id=${encodeURIComponent(caseData.tenant_id)}`;
+
   return (
     <>
+      <div
+        data-testid="disposition-bar"
+        className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-surface-700 bg-surface-900/95 px-4 py-2.5 backdrop-blur-sm"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Verdict</span>
+        <StatusBadge status={caseData.status} />
+        <label className="flex items-center gap-2 text-xs text-gray-400">
+          <span className="shrink-0">Reason</span>
+          <select
+            data-testid="disposition-reason"
+            aria-label="Disposition reason"
+            value={reasonCode}
+            onChange={(e) => setReasonCode(e.target.value)}
+            disabled={statusUpdating}
+            className="bg-surface-800 border border-surface-600 text-gray-200 text-sm rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500 min-w-[12rem]"
+          >
+            <option value="">Select reason…</option>
+            {DISPOSITION_REASON_CODES.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="flex flex-wrap items-center gap-2 ml-auto">
+          <button
+            type="button"
+            data-testid="disposition-resolve"
+            disabled={statusUpdating}
+            onClick={() => applyDispositionFromBar("resolved")}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-700/90 hover:bg-emerald-600 text-white disabled:opacity-50"
+          >
+            Resolve
+          </button>
+          <button
+            type="button"
+            data-testid="disposition-close"
+            disabled={statusUpdating}
+            onClick={() => applyDispositionFromBar("closed")}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-gray-100 disabled:opacity-50"
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            data-testid="disposition-investigate"
+            disabled={statusUpdating}
+            onClick={() => applyDispositionFromBar("investigating")}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 disabled:opacity-50"
+          >
+            Keep investigating
+          </button>
+        </div>
+      </div>
       <AnalystWorkbenchLayout
         bridgeConfirm={
           <BridgeConfirmDialog
-            onConfirm={() => {
-              if (pendingStatusChange) void applyStatusChange(pendingStatusChange);
+            onConfirm={(result) => {
+              if (pendingStatusChange) void applyStatusChange(pendingStatusChange, result.reasonCode);
             }}
             onCancel={() => undefined}
           />
@@ -775,6 +857,18 @@ function CaseDetailWorkbench() {
             className="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors border-emerald-500/35 bg-emerald-950/35 text-emerald-100 hover:bg-emerald-950/55 disabled:opacity-45 disabled:cursor-wait"
           >
             {pdfBusy ? "Preparing PDF…" : "Evidence export (PDF)"}
+          </button>
+          <button
+            type="button"
+            aria-pressed={kgRailOpen}
+            onClick={() => setKgRailOpen(!kgRailOpen)}
+            className={`shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors ${
+              kgRailOpen
+                ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-200"
+                : "border-surface-600 bg-surface-800 text-gray-300 hover:bg-surface-700"
+            }`}
+          >
+            {kgRailOpen ? "Knowledge graph: open" : "Knowledge graph"}
           </button>
           <button
             type="button"
@@ -1613,6 +1707,7 @@ function CaseDetailWorkbench() {
           />
         }
         knowledgeGraphRail={
+          kgRailOpen ? (
           <>
             <MultiPartyLinksDesktopRail
               caseId={caseData.id}
@@ -1625,6 +1720,7 @@ function CaseDetailWorkbench() {
               state={knowledgeGraphState}
             />
           </>
+          ) : null
         }
       />
       <TuneRuleModal
