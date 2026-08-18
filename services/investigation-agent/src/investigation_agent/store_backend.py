@@ -46,7 +46,7 @@ class StoreMisconfigured(RuntimeError):
     """INVESTIGATION_STORE=postgres without a usable URL, or unknown mode."""
 
 
-class _CursorProxy:
+class _ExecResult:
     def __init__(self, rows: list[Any] | None = None, *, lastrowid: int = 0, inner: Any = None):
         self._rows = list(rows or [])
         self.lastrowid = lastrowid
@@ -79,15 +79,15 @@ class StoreConnection:
         self.dialect = dialect
         self.lastrowid = 0
 
-    def execute(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> _CursorProxy:
+    def execute(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> _ExecResult:
         text = (sql or "").strip()
         if self.dialect == "sqlite":
             cur = self._raw.execute(text, params)
             self.lastrowid = int(getattr(cur, "lastrowid", 0) or 0)
-            return _CursorProxy(lastrowid=self.lastrowid, inner=cur)
+            return _ExecResult(lastrowid=self.lastrowid, inner=cur)
         return self._execute_postgres(text, tuple(params))
 
-    def _execute_postgres(self, sql: str, params: tuple[Any, ...]) -> _CursorProxy:
+    def _execute_postgres(self, sql: str, params: tuple[Any, ...]) -> _ExecResult:
         pragma = _PRAGMA_TABLE_INFO.match(sql)
         if pragma:
             table = pragma.group(1)
@@ -101,14 +101,14 @@ class StoreConnection:
                 (_SCHEMA, table),
             )
             rows = list(cur.fetchall())
-            return _CursorProxy(rows)
+            return _ExecResult(rows)
 
         upper = sql.upper()
         if upper.startswith("PRAGMA"):
-            return _CursorProxy()
+            return _ExecResult()
         if upper in {"BEGIN IMMEDIATE", "BEGIN"}:
             # psycopg starts a transaction on the first statement.
-            return _CursorProxy()
+            return _ExecResult()
 
         adapted = _adapt_insert_or_replace(sql)
         returning = False
@@ -129,7 +129,7 @@ class StoreConnection:
             if row:
                 lastrowid = int(row[0])
         self.lastrowid = lastrowid
-        return _CursorProxy(leftover, lastrowid=lastrowid, inner=cur)
+        return _ExecResult(leftover, lastrowid=lastrowid, inner=cur)
 
     def commit(self) -> None:
         self._raw.commit()
