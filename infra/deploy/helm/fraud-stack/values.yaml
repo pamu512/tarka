@@ -141,7 +141,10 @@ investigationAgent:
   digest: ""
   replicaCount: 1
   servicePort: 8006
-  # Local SQLite under INVESTIGATION_DATA_DIR (knowledge/feedback/review). Single replica only.
+  # local-sqlite: process-local WAL files under INVESTIGATION_DATA_DIR; replicaCount>1 fails render; Recreate + RWO PVC.
+  # postgres: all four stores in schema investigation_agent via DATABASE_URL (same inject as core-api);
+  #           replicaCount>1 allowed; RollingUpdate; no RWO sqlite PVC (emptyDir scratch only).
+  # Batch uploads stay pod-local either way — not a HA session store.
   dataPersistence:
     mode: local-sqlite
     existingClaim: ""

@@ -33,7 +33,7 @@ def test_runtime_readiness_errors_reports_rag_sql_probe_failure():
     with patch("investigation_agent.production_config.knowledge_store.rag_health_check") as probe:
         probe.return_value = (False, "sqlite unavailable")
         errs = runtime_readiness_errors()
-    assert errs == ["rag sqlite unavailable: sqlite unavailable"]
+    assert errs == ["rag store unavailable: sqlite unavailable"]
 
 
 def test_ready_degraded_when_rag_unavailable_but_okf_healthy():
