@@ -97,7 +97,7 @@ export function CaseWorkbenchProvider({
   const [capabilityStatus, setCapabilityStatus] = useState<CapabilityStatus>(initialCapabilityStatus);
   const [calibrationHint, setCalibrationHint] = useState<string | null>(null);
   const [advancedDevView, setAdvancedDevView] = useState(false);
-  const [copilotRailOpen, setCopilotRailOpenState] = useState(true);
+  const [copilotRailOpen, setCopilotRailOpenState] = useState(false);
   const [panelState, setPanelState] = useState<Record<WorkbenchPanelId, boolean>>(() => ({
     ...DEFAULT_WORKBENCH_PANELS,
   }));

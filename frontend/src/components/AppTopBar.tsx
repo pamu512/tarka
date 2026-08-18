@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import { usePageMeta } from "../context/PageMetaContext";
 import { requestOpenCommandPalette } from "./CommandPalette";
 import { ModuleIcon } from "./ModuleIcon";
 import { WorkspaceBar } from "./WorkspaceBar";
+import { clearSessionTokens } from "../api/authSession";
 
 function IconUser({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -29,6 +30,7 @@ const iconBtn =
 function AccountMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -74,10 +76,14 @@ function AccountMenu() {
           <button
             type="button"
             role="menuitem"
-            className="w-full px-3 py-2.5 text-left text-sm text-gray-500 cursor-not-allowed"
-            disabled
+            className="w-full px-3 py-2.5 text-left text-sm text-gray-300 hover:bg-surface-800"
+            onClick={() => {
+              clearSessionTokens();
+              setOpen(false);
+              navigate("/cases");
+            }}
           >
-            Sign out (soon)
+            Sign out
           </button>
         </div>
       ) : null}

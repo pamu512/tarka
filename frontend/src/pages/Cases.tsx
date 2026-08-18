@@ -11,6 +11,7 @@ import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
+import { LEAN_NAV } from "../config/leanNav";
 
 function insertCaseSortedByQueue(list: Case[], row: Case): Case[] {
   const next = [...list, row];
@@ -239,7 +240,7 @@ export default function Cases() {
 
   const heroListApprove = useCallback(() => {
     if (selectedIds.size !== 1) {
-      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -254,7 +255,7 @@ export default function Cases() {
 
   const heroListReject = useCallback(async () => {
     if (selectedIds.size !== 1) {
-      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -280,7 +281,7 @@ export default function Cases() {
 
   const heroListShadow = useCallback(() => {
     if (selectedIds.size !== 1) {
-      toast("Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -300,11 +301,20 @@ export default function Cases() {
     const onKey = (e: KeyboardEvent) => {
       if (isHeroHotkeyEventIgnored(e)) return;
       const k = e.key.toLowerCase();
-      if (k !== "a" && k !== "r" && k !== "s") return;
-      e.preventDefault();
-      if (k === "s") heroListShadow();
-      else if (k === "a") heroListApprove();
-      else void heroListReject();
+      if (k === "a") {
+        e.preventDefault();
+        heroListApprove();
+        return;
+      }
+      if (k === "r") {
+        e.preventDefault();
+        void heroListReject();
+        return;
+      }
+      if (k === "s" && !LEAN_NAV) {
+        e.preventDefault();
+        heroListShadow();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -373,14 +383,22 @@ export default function Cases() {
           </kbd>{" "}
           Close
         </span>
+        {!LEAN_NAV ? (
         <span>
           <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
             S
           </kbd>{" "}
           Shadow LLM
         </span>
+        ) : null}
       </p>
 
+      {caseList.length > 0 && (opsKpis || cohort || deskActivity) ? (
+      <details className="rounded-xl border border-surface-700 bg-surface-900/40">
+        <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-gray-300 hover:bg-surface-800/40">
+          Ops snapshot (KPI, cohort, desk activity)
+        </summary>
+        <div className="space-y-4 px-4 pb-4">
       {opsKpis && (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           <KpiCard label="Total Cases" value={String(opsKpis.total_cases)} />
@@ -514,6 +532,9 @@ export default function Cases() {
             </table>
           </div>
         </div>
+      ) : null}
+        </div>
+      </details>
       ) : null}
 
       {/* Filter bar — collapsible on small screens */}
@@ -745,6 +766,7 @@ export default function Cases() {
                       <input
                         type="checkbox"
                         checked={selectedIds.has(c.id)}
+                        aria-label={`Select case ${c.title || c.id}`}
                         onChange={(e) => {
                           e.stopPropagation();
                           toggleSelected(c.id);
@@ -828,21 +850,51 @@ export default function Cases() {
                     </td>
                   </tr>
                 ))}
-                {caseList.length === 0 && !loading && (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="py-12 text-center text-gray-500"
-                    >
-                      No cases found
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {!loading && !error && caseList.length === 0 ? (
+        (statusFilter || priorityFilter || search.trim()) ? (
+          <div
+            data-testid="cases-empty"
+            className="rounded-xl border border-surface-700 bg-surface-900 px-6 py-12 text-center space-y-3"
+          >
+            <p className="text-gray-300">No cases match</p>
+            <p className="text-sm text-gray-500">Clear filters to see the full tenant queue.</p>
+            <button
+              type="button"
+              onClick={() => {
+                clearSavedViewSelection();
+                setStatusFilter("");
+                setPriorityFilter("");
+                setSearch("");
+              }}
+              className="px-4 py-2 border border-surface-600 bg-surface-800 hover:bg-surface-700 text-gray-200 text-sm font-medium rounded-lg"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div
+            data-testid="cases-empty"
+            className="rounded-xl border border-surface-700 bg-surface-900 px-6 py-12 text-center space-y-3"
+          >
+            <p className="text-gray-300">
+              No cases in tenant <span className="font-mono text-gray-200">{tenantId}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium rounded-lg"
+            >
+              + New Case
+            </button>
+          </div>
+        )
+      ) : null}
 
       {/* Create Case Modal */}
       {showCreate && (
