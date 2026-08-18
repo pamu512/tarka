@@ -153,4 +153,3 @@ def test_postgres_mode_writes_and_reads_batch_blob(monkeypatch, tmp_path: Path):
         assert not disk.exists() or not list(disk.glob("*.json"))
     finally:
         batch_store.reset_connection_for_tests()
-
