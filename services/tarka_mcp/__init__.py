@@ -1,0 +1,1 @@
+"""Tarka MCP stdio server."""

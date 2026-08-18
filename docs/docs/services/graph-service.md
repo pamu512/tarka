@@ -1,6 +1,8 @@
 # Graph Service
 
-The Graph Service manages an entity graph backed by Neo4j. It handles entity resolution, relationship linking, tag storage on nodes, and provides graph analytics endpoints for community detection, fraud ring identification, risk propagation, and shared attribute analysis — all using pure Cypher queries (no GDS plugin required).
+The Graph Service manages an entity graph backed by Neo4j/JanusGraph/AGE. It also hosts the **decision context graph** — durable accountability records (evaluate → agent advise → human disposition) with causal chains.
+
+**Decision graph guide:** [Decision context graph](../guides/decision-context-graph.md)
 
 **Port:** 8001
 **Version:** 3.0.0

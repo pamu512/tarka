@@ -350,6 +350,83 @@ paths:
       responses:
         "200":
           description: OK
+  /v1/cases/{case_id}/decisions:
+    get:
+      operationId: listCaseDecisions
+      summary: Decision accountability graph for a case (evaluate → advise → disposition)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: Decisions scoped to case_id and optional trace merge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseDecisionsResponse"
+  /v1/cases/{case_id}/decisions/{external_id}/chain:
+    get:
+      operationId: getCaseDecisionChain
+      summary: Causal parent chain for one decision (proxies graph-service)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: external_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: max_depth
+          in: query
+          schema: { type: integer, default: 5, minimum: 1, maximum: 20 }
+      responses:
+        "200":
+          description: Chain walk (nodes + edges)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionGraphWalkResponse"
+  /v1/cases/{case_id}/decisions/{external_id}/impact:
+    get:
+      operationId: getCaseDecisionImpact
+      summary: Downstream blast radius for one decision (proxies graph-service)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: external_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: max_depth
+          in: query
+          schema: { type: integer, default: 5, minimum: 1, maximum: 20 }
+      responses:
+        "200":
+          description: Impact walk (nodes + edges)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionGraphWalkResponse"
   /v1/cases/{case_id}/evidence-bundle:
     get:
       operationId: getCaseEvidenceBundle
@@ -648,6 +725,54 @@ paths:
           description: Not found
 components:
   schemas:
+    DecisionRecord:
+      type: object
+      required: [external_id, kind, category, scenario, outcome]
+      properties:
+        external_id: { type: string }
+        tenant_id: { type: string }
+        kind:
+          type: string
+          enum: [evaluate, agent_advise, human_disposition, policy_gate]
+        category: { type: string }
+        scenario: { type: string }
+        outcome: { type: string }
+        reasoning: { type: string }
+        trace_id: { type: string }
+        case_id: { type: string }
+        created_at: { type: string, format: date-time }
+        invalidated_at: { type: string, format: date-time, nullable: true }
+        shadow: { type: boolean }
+        rule_ids:
+          type: array
+          items: { type: string }
+        agent_run_id: { type: string }
+    CaseDecisionsResponse:
+      type: object
+      properties:
+        case_id: { type: string, format: uuid }
+        decisions:
+          type: array
+          items: { $ref: "#/components/schemas/DecisionRecord" }
+        message:
+          type: string
+          description: Present when graph-service is unreachable or not configured
+    DecisionGraphWalkResponse:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/DecisionRecord" }
+        edges:
+          type: array
+          items:
+            type: object
+            properties:
+              from_external_id: { type: string }
+              to_external_id: { type: string }
+              relationship: { type: string }
+        message:
+          type: string
     CreateCaseRequest:
       type: object
       required: [tenant_id, title, entity_id, trace_id]

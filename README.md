@@ -54,6 +54,39 @@ Tarka **1.3.0-beta** moves the operator mental model from “another alert fired
 
 Shadow’s `cases` table remains the forensic anchor for sidecar work; product **case management** is the **investigation** layer on top of committed audit evidence—not a stream of disposable events.
 
+### Decision accountability graph
+
+Beyond AuditLog and traces, Tarka records **decisions as first-class objects** (evaluate → agent advise → human disposition) with causal chains you can query months later—without replaying LLM conversations.
+
+**How it works**
+
+1. **Evaluate** — After decision-api finishes allow/deny/review, a background writer posts an `evaluate` decision to graph-service (rule ids, outcome, defendable `reasoning`, `trace_id`, `audit_log_id`). Policy authority stays in Rust; the graph only records what happened.
+2. **Agent advise** — When investigation-agent persists an AgentRun (chat, shadow, trend), it records `agent_advise` and auto-links `INFLUENCED` from the latest evaluate on the same trace.
+3. **Human disposition** — When an analyst applies case status (maker-checker), case-api records `human_disposition` and links `CAUSED` from the latest agent advise on the case (or evaluate on trace if no agent step).
+
+Writers are **fail-soft**: if graph-service is down, evaluate/ingest/case flows still succeed. The graph never overrides allow/deny.
+
+```
+trace tx-abc
+  evaluate (review, velocity_spike) ──INFLUENCED──► evaluate (re-run)
+         └──INFLUENCED──► agent_advise (cluster narrative)
+                                    └──CAUSED──► human_disposition (escalated)
+```
+
+**Where to look**
+
+| Surface | Purpose |
+|---------|---------|
+| graph-service `/v1/decisions/*` | SQLite SoR — search, chain, impact, invalidate |
+| case-api `/v1/cases/{id}/decisions` | Desk proxy (merges case + trace scope) |
+| Case Timeline → **Decision accountability** | Chain / impact per row |
+| Evidence bundle `decision_context` | Signed export block (`tarka.decision_context/v1`) |
+| `scripts/compliance/export_decision_prov.py` | W3C PROV-O JSON-LD |
+
+**Enable:** `DECISION_GRAPH_ENABLED=1` + `GRAPH_SERVICE_URL` with the graph compose profile (`infra/deploy/docker-compose.graph-wire.yml`). Smoke: `python3 scripts/oss/decision_context_chain_smoke.py`.
+
+Full operator guide (API tables, MCP tools, optional mirror sidecar): [`docs/docs/guides/decision-context-graph.md`](docs/docs/guides/decision-context-graph.md).
+
 ---
 
 ## Production shape (Linux + Compose)
