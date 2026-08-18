@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: core-api
-          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.coreApi.image "tag" .Values.coreApi.tag) | quote }}
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.coreApi.image "tag" .Values.coreApi.tag "digest" .Values.coreApi.digest) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.coreApi.servicePort }}
