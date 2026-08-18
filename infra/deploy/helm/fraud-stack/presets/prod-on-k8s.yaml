@@ -1,0 +1,76 @@
+# Large-org / VPC Helm overlay. Clone of core-on-aws plus HA knobs.
+# In-cluster Postgres/Redis/ClickHouse stay off. Chart defaults (PDB/HPA off,
+# tag: latest) are not production; this preset flips the knobs that already exist.
+#
+#   python3 infra/scripts/deploy/generate_cloud_values.py \
+#     --preset prod-on-k8s \
+#     --image-registry <registry>/tarka \
+#     --db-url postgresql+asyncpg://user:pw@rds:5432/fraud \
+#     --redis-url rediss://elasticache:6379/0 \
+#     --output /tmp/prod-on-k8s.values.yaml
+#   helm upgrade --install tarka infra/deploy/helm/fraud-stack \
+#     -f /tmp/prod-on-k8s.values.yaml \
+#     --set global.appSecretsName=tarka-app-secrets
+#
+# Required Secret keys in global.appSecretsName: API_KEYS (and optional
+# EVIDENCE_SIGNING_SECRET, POSTGRES_PASSWORD). Empty API_KEYS + empty
+# OIDC_ISSUER + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
+# OIDC is not a first-class values key — set issuer via extraEnv.
+# investigation-agent stays off: local-sqlite is single-replica only.
+
+global:
+  environment: prod
+  imageRegistry: "__IMAGE_REGISTRY__"
+  externalServices:
+    postgres:
+      enabled: true
+      databaseUrl: "__DB_URL__"
+    redis:
+      enabled: true
+      redisUrl: "__REDIS_URL__"
+
+postgres:
+  enabled: false
+  auth:
+    password: ""
+redis:
+  enabled: false
+nats:
+  enabled: false
+clickhouse:
+  enabled: false
+
+coreApi:
+  enabled: true
+  tag: "1.3.0-beta"
+  replicaCount: 2
+  allowInsecureNoAuth: false
+  tenantBindingRequired: true
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  extraEnv:
+    OIDC_ISSUER: ""
+    OIDC_AUDIENCE: "tarka"
+    OIDC_JWKS_URL: ""
+    OIDC_ROLES_CLAIM: "roles"
+
+signalApi:
+  enabled: true
+  tag: "1.3.0-beta"
+
+investigationAgent:
+  enabled: false
+integrationIngress:
+  enabled: false
+dataPlane:
+  enabled: false
+graphqlGateway:
+  enabled: false
+frontend:
+  enabled: false

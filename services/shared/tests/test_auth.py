@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
-def _reset_auth_cache():
-    # auth.py reads API_KEYS per request; keep fixture for compatibility with old tests.
+def _reset_auth_cache(monkeypatch):
+    # CI matrix sets TENANT_BINDING_REQUIRED=true; these tests are API-key only.
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "false")
     yield
 
 

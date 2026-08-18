@@ -8,6 +8,19 @@ from fastapi import HTTPException, Request
 
 """Shared tenant binding helpers for API-key and JWT-protected services."""
 
+_PROBE_PATHS = {
+    "/v1/health",
+    "/v1/ready",
+    "/v1/health/deep",
+    "/health",
+    "/health/deep",
+    "/metrics",
+    "/decisions/v1/health",
+    "/decisions/v1/ready",
+    "/cases/v1/health",
+    "/cases/v1/ready",
+}
+
 
 def tenant_binding_required() -> bool:
     return os.environ.get("TENANT_BINDING_REQUIRED", "").strip().lower() in {
@@ -76,6 +89,9 @@ async def request_tenant_id(request: Request) -> str | None:
     path_tid = str(request.path_params.get("tenant_id") or "").strip()
     if path_tid:
         return path_tid
+    header_tid = (request.headers.get("x-tenant-id") or "").strip()
+    if header_tid:
+        return header_tid
 
     ctype = (request.headers.get("content-type") or "").lower()
     if "application/json" not in ctype:
@@ -100,13 +116,15 @@ async def enforce_tenant_access(
     allowed_tenants: set[str] | None,
     strict: bool | None = None,
 ) -> None:
+    if request.url.path in _PROBE_PATHS:
+        return
     if strict is None:
         strict = tenant_binding_required()
     if not strict:
         return
     tenant_id = await request_tenant_id(request)
     if not tenant_id:
-        return
+        raise HTTPException(status_code=400, detail="tenant_id is required")
     if allowed_tenants is None:
         raise HTTPException(
             status_code=403, detail="tenant binding is required but caller has no tenant scope"
