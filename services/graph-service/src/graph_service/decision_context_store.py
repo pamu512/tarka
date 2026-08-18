@@ -424,6 +424,91 @@ def search_decisions(
             conn.close()
 
 
+def _jaccard(left: list[Any] | None, right: list[Any] | None) -> float:
+    a = {str(x).strip() for x in (left or []) if str(x).strip()}
+    b = {str(x).strip() for x in (right or []) if str(x).strip()}
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def score_precedent(
+    probe: dict[str, Any], candidate: dict[str, Any]
+) -> tuple[float, dict[str, float]]:
+    """Deterministic overlap score. Embeddings stay off (DECISION_GRAPH_PRECEDENT_EMBEDDINGS unused)."""
+    entity = _jaccard(probe.get("entity_external_ids"), candidate.get("entity_external_ids"))
+    rules = _jaccard(probe.get("rule_ids"), candidate.get("rule_ids"))
+    category = (
+        1.0
+        if (probe.get("category") and probe.get("category") == candidate.get("category"))
+        else 0.0
+    )
+    outcome = (
+        1.0 if (probe.get("outcome") and probe.get("outcome") == candidate.get("outcome")) else 0.0
+    )
+    kind = 1.0 if (probe.get("kind") and probe.get("kind") == candidate.get("kind")) else 0.0
+    breakdown = {
+        "entity": round(entity * 4.0, 4),
+        "rules": round(rules * 3.0, 4),
+        "category": round(category * 2.0, 4),
+        "outcome": round(outcome * 2.0, 4),
+        "kind": round(kind * 1.0, 4),
+    }
+    return round(sum(breakdown.values()), 4), breakdown
+
+
+def rank_precedents(
+    *,
+    tenant_id: str,
+    from_external_id: str | None = None,
+    category: str | None = None,
+    outcome: str | None = None,
+    kind: str | None = None,
+    entity_external_ids: list[str] | None = None,
+    rule_ids: list[str] | None = None,
+    include_invalidated: bool = False,
+    limit: int = 10,
+    pool_limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Rank similar decisions by entity/category/outcome/rule overlap. No embeddings."""
+    probe: dict[str, Any] = {
+        "category": (category or "").strip() or None,
+        "outcome": (outcome or "").strip() or None,
+        "kind": (kind or "").strip() or None,
+        "entity_external_ids": [
+            str(x).strip() for x in (entity_external_ids or []) if str(x).strip()
+        ],
+        "rule_ids": [str(x).strip() for x in (rule_ids or []) if str(x).strip()],
+    }
+    exclude = (from_external_id or "").strip() or None
+    if exclude:
+        source = get_decision(tenant_id, exclude)
+        if source is None:
+            return []
+        probe = {
+            "category": probe["category"] or source.get("category"),
+            "outcome": probe["outcome"] or source.get("outcome"),
+            "kind": probe["kind"] or source.get("kind"),
+            "entity_external_ids": probe["entity_external_ids"]
+            or list(source.get("entity_external_ids") or []),
+            "rule_ids": probe["rule_ids"] or list(source.get("rule_ids") or []),
+        }
+    candidates = search_decisions(
+        tenant_id=tenant_id,
+        include_invalidated=include_invalidated,
+        exclude_external_id=exclude,
+        limit=max(1, min(int(pool_limit or 200), 500)),
+    )
+    ranked: list[dict[str, Any]] = []
+    for row in candidates:
+        score, breakdown = score_precedent(probe, row)
+        if score <= 0:
+            continue
+        ranked.append({**row, "score": score, "score_breakdown": breakdown})
+    ranked.sort(key=lambda r: (float(r["score"]), str(r.get("created_at") or "")), reverse=True)
+    return ranked[: max(1, min(int(limit or 10), 50))]
+
+
 def _walk(
     tenant_id: str,
     start_id: str,

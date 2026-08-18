@@ -218,13 +218,19 @@ def _maybe_record_human_disposition_decision(
     agent_run_id: str | None = None,
 ) -> None:
     try:
-        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_client import (
+            invalidate_decision_failsoft,
+            record_decision_failsoft,
+            resolve_disposition_to_supersede,
+        )
         from tarka_shared.decision_graph_payload import build_human_disposition_payload
     except ImportError:
         return
+    case_id = str(case.id)
+    prior_disp = resolve_disposition_to_supersede(case.tenant_id, case_id)
     payload = build_human_disposition_payload(
         tenant_id=case.tenant_id,
-        case_id=str(case.id),
+        case_id=case_id,
         entity_id=getattr(case, "entity_id", None),
         trace_id=trace_id or getattr(case, "trace_id", None),
         status=status,
@@ -233,7 +239,14 @@ def _maybe_record_human_disposition_decision(
         prior_decision_id=prior_decision_id,
         agent_run_id=agent_run_id,
     )
-    record_decision_failsoft(payload)
+    new_id = record_decision_failsoft(payload)
+    if prior_disp and new_id and prior_disp != new_id:
+        invalidate_decision_failsoft(
+            case.tenant_id,
+            prior_disp,
+            reason="superseded by later human disposition",
+            supersede_to=new_id,
+        )
 
 
 class BulkCaseUpdateRequest(BaseModel):

@@ -97,8 +97,9 @@ def build_evaluate_payload(
     audit_log_id = None
     if isinstance(decision_log_record, dict):
         audit_log_id = (
-            str(decision_log_record.get("audit_log_id") or decision_log_record.get("id") or "")
-            .strip()
+            str(
+                decision_log_record.get("audit_log_id") or decision_log_record.get("id") or ""
+            ).strip()
             or None
         )
     evidence_ids: list[str] = []
@@ -149,9 +150,9 @@ def build_agent_advise_payload(
                 evidence.append(s)
     outcome = "advise"
     if claims:
-        outcome = str(
-            (claims[0] or {}).get("claim") or (claims[0] or {}).get("text") or "advise"
-        )[:128]
+        outcome = str((claims[0] or {}).get("claim") or (claims[0] or {}).get("text") or "advise")[
+            :128
+        ]
     return {
         "tenant_id": (tenant_id or "").strip(),
         "kind": "agent_advise",
@@ -196,8 +197,7 @@ def build_human_disposition_payload(
         "category": "case_status",
         "scenario": f"case {case_id} → {status}",
         "outcome": str(status),
-        "reasoning": f"actor={actor_id}"
-        + (f"; reason={reason_code}" if reason_code else ""),
+        "reasoning": f"actor={actor_id}" + (f"; reason={reason_code}" if reason_code else ""),
         "case_id": case_id,
         "entity_external_ids": [entity_id] if entity_id else [],
         "trace_id": trace_id,

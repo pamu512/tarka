@@ -41,7 +41,9 @@ def _headers() -> dict[str, str]:
     return h
 
 
-def _request(method: str, path: str, *, params: dict[str, Any] | None = None, json_body: dict | None = None) -> Any:
+def _request(
+    method: str, path: str, *, params: dict[str, Any] | None = None, json_body: dict | None = None
+) -> Any:
     if not _enabled():
         return None
     base = _base_url()
@@ -136,6 +138,15 @@ def resolve_prior_evaluate_id(tenant_id: str, trace_id: str | None) -> str | Non
     return str(row.get("external_id") or "") if row else None
 
 
+def resolve_disposition_to_supersede(tenant_id: str, case_id: str) -> str:
+    """Latest human_disposition on the case (to invalidate + SUPERSEDES on correction)."""
+    cid = (case_id or "").strip()
+    if not cid:
+        return ""
+    row = find_latest_failsoft(tenant_id, kind="human_disposition", case_id=cid)
+    return str(row.get("external_id") or "") if row else ""
+
+
 def resolve_prior_agent_advise_id(tenant_id: str, case_id: str | None) -> str | None:
     cid = (case_id or "").strip()
     if not cid:
@@ -144,7 +155,9 @@ def resolve_prior_agent_advise_id(tenant_id: str, case_id: str | None) -> str | 
     return str(row.get("external_id") or "") if row else None
 
 
-def get_chain_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any] | None:
+def get_chain_failsoft(
+    tenant_id: str, external_id: str, max_depth: int = 5
+) -> dict[str, Any] | None:
     data = _request(
         "GET",
         f"/v1/decisions/{external_id}/chain",
@@ -153,7 +166,63 @@ def get_chain_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> 
     return data if isinstance(data, dict) else None
 
 
-def get_impact_failsoft(tenant_id: str, external_id: str, max_depth: int = 5) -> dict[str, Any] | None:
+def invalidate_decision_failsoft(
+    tenant_id: str,
+    external_id: str,
+    *,
+    reason: str = "",
+    supersede_to: str | None = None,
+) -> dict[str, Any] | None:
+    """POST /v1/decisions/{id}/invalidate. Fail-soft; never raises."""
+    did = (external_id or "").strip()
+    if not did:
+        return None
+    data = _request(
+        "POST",
+        f"/v1/decisions/{did}/invalidate",
+        json_body={
+            "tenant_id": tenant_id,
+            "reason": reason or "",
+            "supersede_to": (supersede_to or "").strip() or None,
+        },
+    )
+    return data if isinstance(data, dict) else None
+
+
+def find_precedents_failsoft(
+    tenant_id: str,
+    *,
+    from_external_id: str | None = None,
+    category: str | None = None,
+    outcome: str | None = None,
+    kind: str | None = None,
+    entity_external_id: str | None = None,
+    rule_ids: list[str] | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    data = _request(
+        "GET",
+        "/v1/decisions/precedents",
+        params={
+            "tenant_id": tenant_id,
+            "from_external_id": from_external_id,
+            "category": category,
+            "outcome": outcome,
+            "kind": kind,
+            "entity_external_id": entity_external_id,
+            "rule_ids": ",".join(rule_ids) if rule_ids else None,
+            "limit": limit,
+        },
+    )
+    if isinstance(data, dict):
+        items = data.get("decisions")
+        return list(items) if isinstance(items, list) else []
+    return []
+
+
+def get_impact_failsoft(
+    tenant_id: str, external_id: str, max_depth: int = 5
+) -> dict[str, Any] | None:
     data = _request(
         "GET",
         f"/v1/decisions/{external_id}/impact",

@@ -203,6 +203,36 @@ def search_decisions(
     return {"decisions": hits}
 
 
+@router.get("/v1/decisions/precedents")
+def get_precedents(
+    tenant_id: str,
+    from_external_id: str | None = None,
+    category: str | None = None,
+    outcome: str | None = None,
+    kind: str | None = None,
+    entity_external_id: str | None = None,
+    rule_ids: str | None = Query(default=None, description="Comma-separated rule ids"),
+    include_invalidated: bool = False,
+    limit: int = Query(default=10, ge=1, le=50),
+) -> dict[str, Any]:
+    """Rank similar past decisions (entity/category/outcome/rule overlap). No embeddings."""
+    _require_enabled()
+    entities = [entity_external_id] if (entity_external_id or "").strip() else []
+    rules = [p.strip() for p in (rule_ids or "").split(",") if p.strip()]
+    hits = store.rank_precedents(
+        tenant_id=tenant_id,
+        from_external_id=from_external_id,
+        category=category,
+        outcome=outcome,
+        kind=kind,
+        entity_external_ids=entities,
+        rule_ids=rules,
+        include_invalidated=include_invalidated,
+        limit=limit,
+    )
+    return {"decisions": hits, "ranking": "overlap_v1"}
+
+
 @router.get("/v1/decisions/{external_id}")
 def get_decision(
     external_id: str,
