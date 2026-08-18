@@ -1011,3 +1011,12 @@ jobs:
             --redis-url 'redis://redis.internal:6379/0' \
             --output /tmp/core-on-aws.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/core-on-aws.values.yaml >/tmp/tarka-core-aws.yaml
+      - name: Helm template (generated prod-on-k8s preset)
+        run: |
+          python3 infra/scripts/deploy/generate_cloud_values.py \
+            --preset prod-on-k8s \
+            --image-registry registry.example.com/tarka \
+            --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
+            --redis-url 'redis://redis.internal:6379/0' \
+            --output /tmp/prod-on-k8s.values.yaml
+          helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml

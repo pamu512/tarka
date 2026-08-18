@@ -26,8 +26,8 @@ Keep each pull request focused on a single concern (one bug, one feature, or one
 
 ### 2. Branch from the correct base
 
-- **Beta / release testing:** branch from the **release branch** or tag your beta build tracks (for example `1.3.0-beta`), unless maintainers direct you to `main`.
-- **General contributions:** branch from **`main`** unless an issue says otherwise.
+- **Beta / release testing:** branch from the **release branch** or tag your beta build tracks (for example `1.3.0-beta`), unless maintainers direct you to `master`.
+- **General contributions:** branch from **`master`** unless an issue says otherwise.
 
 ### 3. Local checks before you push
 

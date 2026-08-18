@@ -46,6 +46,7 @@ def _run_matrix(*, binding_required: bool) -> list[str]:
     with TestClient(app) as client:
         same = client.get("/probe?tenant_id=tenant_alpha", headers={"x-api-key": "smoke-key"})
         cross = client.get("/probe?tenant_id=tenant_beta", headers={"x-api-key": "smoke-key"})
+        missing = client.get("/probe", headers={"x-api-key": "smoke-key"})
         health = client.get("/v1/health")
 
     if same.status_code != 200:
@@ -55,6 +56,12 @@ def _run_matrix(*, binding_required: bool) -> list[str]:
     if not binding_required and cross.status_code != 200:
         errors.append(
             f"cross-tenant probe with binding off expected 200 got {cross.status_code}: {cross.text}",
+        )
+    if binding_required and missing.status_code != 400:
+        errors.append(f"missing-tenant probe expected 400 got {missing.status_code}: {missing.text}")
+    if not binding_required and missing.status_code != 200:
+        errors.append(
+            f"missing-tenant probe with binding off expected 200 got {missing.status_code}: {missing.text}",
         )
     if health.status_code != 404:
         # require_api_key only skips known health paths when mounted; unmounted path is fine.

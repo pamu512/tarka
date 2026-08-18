@@ -10,6 +10,13 @@
 
 ## Steps
 
+One command (same path as below):
+
+```bash
+bash scripts/oss/up_desk.sh
+```
+
+
 ### 1. Start Lite (≈5–10 min first build)
 
 ```bash

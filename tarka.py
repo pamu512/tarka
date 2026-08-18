@@ -17,7 +17,7 @@ Usage:
     python tarka.py install                     # Interactive module picker
     python tarka.py install --all               # Full stack
     python tarka.py install --modules core,graph,ml
-    python tarka.py install --lite              # Minimal: decision-api + redis + postgres
+    python tarka.py install --lite              # Desk: lite + fraud-desk (decision + cases + UI)
     python tarka.py start                       # Start installed modules
     python tarka.py stop                        # Stop all running services
     python tarka.py status                      # Show running services
@@ -27,11 +27,12 @@ Usage:
 """
 
 ROOT = Path(__file__).resolve().parent
-DEPLOY = ROOT / "deploy"
+DEPLOY = ROOT / "infra" / "deploy"
 STATE_FILE = ROOT / ".tarka" / "install.json"
 ENV_FILE = DEPLOY / ".env"
 COMPOSE_FILE = DEPLOY / "docker-compose.yml"
 COMPOSE_LITE = DEPLOY / "docker-compose.lite.yml"
+COMPOSE_DESK = DEPLOY / "docker-compose.fraud-desk.yml"
 SHADOW_ROOT = ROOT / "tools" / "shadow"
 SHADOW_ENV_TEMPLATE = ROOT / "tools" / "shadow.tarka.env.example"
 
@@ -302,6 +303,16 @@ def _resolve_dependencies(selected: list[str]) -> list[str]:
     return sorted(resolved)
 
 
+
+def _compose_file_args(modules: list[str] | None = None) -> list[str]:
+    """Day-1 desk uses lite + fraud-desk overlays; everything else uses the profile compose file."""
+    mods = set(modules or [])
+    # lite install is core+cases+frontend — same shape as the documented 15-minute desk
+    if mods == {"core", "cases", "frontend"} and COMPOSE_LITE.is_file() and COMPOSE_DESK.is_file():
+        return ["-f", str(COMPOSE_LITE), "-f", str(COMPOSE_DESK)]
+    return ["-f", str(COMPOSE_FILE)]
+
+
 def _get_profiles(modules: list[str]) -> list[str]:
     profiles = set()
     for m in modules:
@@ -395,7 +406,7 @@ def cmd_install(args):
     print(f"{C.DIM}  docker compose {' '.join(compose_args)} build{C.RESET}\n")
 
     result = subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["build"],
+        ["docker", "compose"] + _compose_file_args(resolved) + compose_args + ["build"],
         cwd=str(DEPLOY),
     )
     if result.returncode != 0:
@@ -572,7 +583,7 @@ def cmd_start(args):
         print(f"  {C.GREEN}✓{C.RESET} {_module_line(m, MODULES[m])}")
     print()
 
-    cmd = ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["up", "-d"]
+    cmd = ["docker", "compose"] + _compose_file_args(modules) + compose_args + ["up", "-d"]
     if args.build:
         cmd.append("--build")
 
@@ -595,7 +606,7 @@ def cmd_stop(args):
 
     print(f"{C.BOLD}Stopping Tarka...{C.RESET}")
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["down"],
+        ["docker", "compose"] + _compose_file_args(modules) + compose_args + ["down"],
         cwd=str(DEPLOY),
     )
     print(f"{C.GREEN}All services stopped.{C.RESET}")
@@ -617,7 +628,7 @@ def cmd_status(args):
     print(f"{C.DIM}Installed modules: {', '.join(modules)}{C.RESET}\n")
 
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["ps", "--format", "table"],
+        ["docker", "compose"] + _compose_file_args(modules) + compose_args + ["ps", "--format", "table"],
         cwd=str(DEPLOY),
     )
 
@@ -639,7 +650,7 @@ def cmd_logs(args):
         extra.append(args.service)
 
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)] + compose_args + ["logs"] + extra,
+        ["docker", "compose"] + _compose_file_args(modules) + compose_args + ["logs"] + extra,
         cwd=str(DEPLOY),
     )
 
@@ -864,7 +875,8 @@ def cmd_add(args):
 
     print(f"\n{C.BOLD}Building new services...{C.RESET}")
     subprocess.run(
-        ["docker", "compose", "-f", str(COMPOSE_FILE)]
+        ["docker", "compose"]
+        + _compose_file_args(resolved)
         + _get_all_profile_args(resolved)
         + ["build"],
         cwd=str(DEPLOY),
@@ -1069,7 +1081,7 @@ def main():
     p_install = subparsers.add_parser("install", help="Install Tarka modules")
     p_install.add_argument("--all", action="store_true", help="Install all modules")
     p_install.add_argument(
-        "--lite", action="store_true", help="Install lite mode (core + cases + frontend)"
+        "--lite", action="store_true", help="Install desk (lite + fraud-desk compose overlays)"
     )
     p_install.add_argument("--modules", "-m", type=str, help="Comma-separated module list")
     p_install.add_argument("--skip-sdks", action="store_true", help="Skip SDK installation prompt")
