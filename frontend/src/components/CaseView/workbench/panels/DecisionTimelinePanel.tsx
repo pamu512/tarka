@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { cases } from "../../../api/client";
+import { cases } from "../../../../api/client";
 
 export type DecisionRecord = {
   external_id: string;
