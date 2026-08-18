@@ -4,4 +4,8 @@
 - Simulation / backtest / promote gates live under decision-api ops (`backtest_promote_gate`, typology ops).
 - Humans promote via GitOps; trend drafts require HIL — no silent Wasm auto-promote.
 
-Guides: [`rules.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/rules.md) · [`backtest-before-promote.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/backtest-before-promote.md) · [`shadow-and-ab-testing.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/shadow-and-ab-testing.md).
+Guides:
+
+- [`rules.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/rules.md)
+- [`backtest-before-promote.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/backtest-before-promote.md)
+- [`shadow-and-ab-testing.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/shadow-and-ab-testing.md)
