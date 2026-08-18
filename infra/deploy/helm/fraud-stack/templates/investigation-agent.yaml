@@ -4,7 +4,7 @@
 {{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
 {{- end }}
 {{- if and (eq $persistMode "local-sqlite") (gt (int .Values.investigationAgent.replicaCount) 1) }}
-{{- fail "investigation-agent local-sqlite persistence requires a single replica; scale only after dataPersistence.mode=postgres (all four stores)" }}
+{{- fail "investigation-agent local-sqlite persistence requires a single replica; scale only after dataPersistence.mode=postgres (stores and batches)" }}
 {{- end }}
 {{- if not (or (eq $persistMode "local-sqlite") (eq $persistMode "postgres")) }}
 {{- fail "investigation-agent dataPersistence.mode must be local-sqlite or postgres" }}

@@ -32,8 +32,8 @@ Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional 
 
 Default is process-local SQLite under `INVESTIGATION_DATA_DIR` (four files: RAG, feedback, agent runs, turn reviews). That cannot HA: Helm `dataPersistence.mode=local-sqlite` fails render when `replicaCount > 1`.
 
-Set `INVESTIGATION_STORE=postgres` and `INVESTIGATION_DATABASE_URL` or `DATABASE_URL`. All four stores share schema `investigation_agent` on the same Postgres the stack already uses. Missing URL is fail-closed (startup / first use / `/v1/ready` 503). Helm `dataPersistence.mode=postgres` injects those env vars the same way core-api gets `DATABASE_URL`, allows `replicaCount > 1`, uses RollingUpdate, and does not require an RWO sqlite PVC.
+Set `INVESTIGATION_STORE=postgres` and `INVESTIGATION_DATABASE_URL` or `DATABASE_URL`. The four stores and batch/job blobs share schema `investigation_agent` on the same Postgres the stack already uses. Missing URL is fail-closed (startup / first use / `/v1/ready` 503). Helm `dataPersistence.mode=postgres` injects those env vars the same way core-api gets `DATABASE_URL`, allows `replicaCount > 1`, uses RollingUpdate, and does not require an RWO sqlite PVC.
 
-Batch uploads remain pod-local (`emptyDir` when postgres). Do not treat a replica as having shared batch state.
+Multi-replica requires postgres mode including batches.
 
 `prod-on-k8s` enables the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres.

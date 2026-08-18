@@ -254,7 +254,7 @@ def connect_store(*, sqlite_path: str, init_schema: Any) -> StoreConnection:
 
 
 def init_postgres_schema(conn: StoreConnection) -> None:
-    """Idempotent DDL for all four stores in schema investigation_agent."""
+    """Idempotent DDL for the four stores plus batch blobs in schema investigation_agent."""
     global _pg_schema_ready
     with _pg_schema_lock:
         sqls = (
@@ -363,6 +363,16 @@ def init_postgres_schema(conn: StoreConnection) -> None:
             CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_okf_concept
             ON knowledge_chunks (tenant_id, knowledge_kind, concept_id, chunk_index)
             """,
+            """
+            CREATE TABLE IF NOT EXISTS batch_blobs (
+                job_id TEXT PRIMARY KEY,
+                tenant_id TEXT NOT NULL,
+                analyst_id TEXT NOT NULL,
+                created_at DOUBLE PRECISION NOT NULL,
+                payload BYTEA NOT NULL
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_batch_blobs_created ON batch_blobs (created_at)",
         )
         for stmt in sqls:
             conn.execute(stmt)

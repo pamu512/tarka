@@ -142,9 +142,8 @@ investigationAgent:
   replicaCount: 1
   servicePort: 8006
   # local-sqlite: process-local WAL files under INVESTIGATION_DATA_DIR; replicaCount>1 fails render; Recreate + RWO PVC.
-  # postgres: all four stores in schema investigation_agent via DATABASE_URL (same inject as core-api);
-  #           replicaCount>1 allowed; RollingUpdate; no RWO sqlite PVC (emptyDir scratch only).
-  # Batch uploads stay pod-local either way — not a HA session store.
+  # postgres: stores and batch blobs in schema investigation_agent via DATABASE_URL (same inject as core-api);
+  #           replicaCount>1 allowed only because batches are not pod-local; RollingUpdate; emptyDir scratch only.
   dataPersistence:
     mode: local-sqlite
     existingClaim: ""
@@ -158,7 +157,7 @@ investigationAgent:
     readOnly: true
   # Regional AI governance: us | eu_uk | global (see docs/docs/guides/ai-governance-regional-builds.md)
   aiGovernanceProfile: global
-  # Optional in-memory batch TTL for copilot uploads (seconds); omit to use default
+  # Optional batch TTL for copilot uploads (seconds); omit to use default. Applies to disk and postgres blobs.
   batchTtlSeconds: null
   extraEnv: {}
 
