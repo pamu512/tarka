@@ -83,7 +83,7 @@ v1 ships: vertex props + `BASED_ON` + `CAUSED` / `INFLUENCED` / `SUPERSEDES`. Pr
 |--------|------|-----------------|--------------|
 | decision-api evaluate | after authoritative outcome (incl. shadow tag) | `evaluate` | `BASED_ON` primary entity (+ device/account if present); link prior evaluate for same `trace_id` / entity window as `INFLUENCED` when metadata provides `prior_decision_id` |
 | investigation-agent AgentRun persist | after chat / shadow / trend internal POST | `agent_advise` | `BASED_ON` entities from snapshot; `INFLUENCED` by evaluate decision for same `trace_id` / `case_id` when resolvable |
-| case-api disposition / status confirm | on human status / disposition | `human_disposition` | `CAUSED` or `INFLUENCED` by pending `agent_advise` proposal if one was confirmed; `SUPERSEDES` prior open disposition if any |
+| case-api disposition / status confirm | on human status / disposition | `human_disposition` | `CAUSED` or `INFLUENCED` by pending `agent_advise` proposal if one was confirmed; prior human_disposition on the case is soft-invalidated with `SUPERSEDES` to the new record |
 
 **Fail-soft:** graph upsert via existing graph-service HTTP client; 2s timeout; warn metric `decision_graph_write_fail`; never raise to client.
 
@@ -194,5 +194,5 @@ evaluate / AgentRun / disposition
 ## Open questions (resolve before Wave 1 code)
 
 1. Decision vertices in Janus vs AGE-only first? **Proposal:** all backends that support Custom labels — start Janus (default) + in-memory test double.
-2. Precedent: property search only in Wave 1–2, or ship embedding index? **Proposal:** filter/search first; embeddings later.
+2. Precedent: property search only in Wave 1–2, or ship embedding index? **Shipped:** overlap rank (`GET /v1/decisions/precedents`); embeddings stay off.
 3. Where does MCP process live? **Proposal:** `services/tarka-mcp/` thin stdio server calling HTTP APIs (keeps investigation-agent free of MCP protocol churn).

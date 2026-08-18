@@ -177,6 +177,17 @@ def test_http_decision_endpoints(db_path: Path) -> None:
         assert search.status_code == 200
         assert any(x["external_id"] == did for x in search.json()["decisions"])
 
+        prec = client.get(
+            "/v1/decisions/precedents",
+            params={
+                "tenant_id": "t1",
+                "from_external_id": did,
+                "limit": 5,
+            },
+        )
+        assert prec.status_code == 200
+        assert prec.json().get("ranking") == "overlap_v1"
+
         inv = client.post(
             f"/v1/decisions/{did}/invalidate",
             json={"tenant_id": "t1", "reason": "replay", "supersede_to": cid},
@@ -251,3 +262,95 @@ def test_find_latest_and_neighbors(db_path: Path) -> None:
     invalidate_decision("t1", a, "superseded", supersede_to=b)
     row = find_latest("t1", kind="evaluate", trace_id="tr-1", exclude_external_id="skip")
     assert row["external_id"] == b
+
+
+def test_rank_precedents_scores_entity_category_outcome_rules(db_path: Path) -> None:
+    from graph_service.decision_context_store import rank_precedents, record_decision
+
+    record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="unrelated",
+        outcome="allow",
+        reasoning="other account",
+        entity_external_ids=["acct-zzz"],
+        rule_ids=["other_rule"],
+    )
+    best = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="same ring",
+        outcome="review",
+        reasoning="velocity on shared device",
+        entity_external_ids=["acct-1", "dev-9"],
+        rule_ids=["velocity_spike", "device_reuse"],
+    )
+    mid = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="same entity other outcome",
+        outcome="allow",
+        reasoning="cleared",
+        entity_external_ids=["acct-1"],
+        rule_ids=["velocity_spike"],
+    )
+    ranked = rank_precedents(
+        tenant_id="t1",
+        category="transaction_evaluate",
+        outcome="review",
+        entity_external_ids=["acct-1", "dev-9"],
+        rule_ids=["velocity_spike", "device_reuse"],
+        kind="evaluate",
+        limit=5,
+    )
+    ids = [h["external_id"] for h in ranked]
+    assert ids[0] == best
+    assert mid in ids
+    assert ranked[0]["score"] > ranked[1]["score"]
+    assert ranked[0]["score_breakdown"]["entity"] > 0
+    assert ranked[0]["score_breakdown"]["rules"] > 0
+    assert (
+        "unrelated" not in {h["scenario"] for h in ranked}
+        or ranked[-1]["score"] < ranked[0]["score"]
+    )
+
+
+def test_rank_precedents_skips_invalidated_and_self(db_path: Path) -> None:
+    from graph_service.decision_context_store import (
+        invalidate_decision,
+        rank_precedents,
+        record_decision,
+    )
+
+    probe = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="probe",
+        outcome="deny",
+        reasoning="probe",
+        entity_external_ids=["acct-1"],
+        rule_ids=["sanctions"],
+    )
+    dead = record_decision(
+        tenant_id="t1",
+        kind="evaluate",
+        category="transaction_evaluate",
+        scenario="old false positive",
+        outcome="deny",
+        reasoning="stale",
+        entity_external_ids=["acct-1"],
+        rule_ids=["sanctions"],
+    )
+    invalidate_decision("t1", dead, "false positive")
+    ranked = rank_precedents(
+        tenant_id="t1",
+        from_external_id=probe,
+        limit=10,
+    )
+    ids = [h["external_id"] for h in ranked]
+    assert probe not in ids
+    assert dead not in ids
