@@ -65,6 +65,8 @@ class TestToolDispatch:
             "get_entity_tags",
             "get_entity_velocity",
             "get_decision_audit",
+            "get_decision_chain",
+            "get_decision_impact",
             "subgraph_with_velocity",
             "export_outcome_labeled_dataset",
             "ingest_labeled_rows",
