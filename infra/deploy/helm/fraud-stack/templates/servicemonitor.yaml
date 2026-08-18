@@ -1,0 +1,54 @@
+{{- /* Prometheus Operator ServiceMonitors for prod (same gate as NetworkPolicy).
+     Scrapes existing /metrics on the Service http port. Dev/default emits none. */ -}}
+{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- if .Values.coreApi.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "tarka.fullname" . }}-core-api
+  labels:
+    app: {{ include "tarka.fullname" . }}-core-api
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-core-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}
+{{- if .Values.signalApi.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "tarka.fullname" . }}-signal-api
+  labels:
+    app: {{ include "tarka.fullname" . }}-signal-api
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-signal-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}
+{{- if .Values.investigationAgent.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "tarka.fullname" . }}-investigation-agent
+  labels:
+    app: {{ include "tarka.fullname" . }}-investigation-agent
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-investigation-agent
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+{{- end }}
+{{- end }}

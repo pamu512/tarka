@@ -138,10 +138,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "tarka.fullname" . }}-core-api
+  labels:
+    app: {{ include "tarka.fullname" . }}-core-api
 spec:
   selector:
     app: {{ include "tarka.fullname" . }}-core-api
   ports:
-    - port: {{ .Values.coreApi.servicePort }}
+    - name: http
+      port: {{ .Values.coreApi.servicePort }}
       targetPort: {{ .Values.coreApi.servicePort }}
 {{- end }}
