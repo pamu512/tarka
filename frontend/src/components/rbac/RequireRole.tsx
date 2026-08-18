@@ -53,13 +53,7 @@ export function RequireRole({ allow, matchMode = "any", children }: RequireRoleP
       rolesFromJwt,
       reason: "no_access_token",
     } satisfies Record<string, unknown>);
-    const state: ForbiddenUnauthorizedState = {
-      attemptedPath,
-      requiredRoles: required,
-      rolesFromJwt,
-      reason: "no_access_token",
-    };
-    return <Navigate to={FORBIDDEN_PATH} replace state={state} />;
+    return <Navigate to={`/login?next=${encodeURIComponent(attemptedPath)}`} replace />;
   }
 
   const claims = decodeJwtPayload(token);

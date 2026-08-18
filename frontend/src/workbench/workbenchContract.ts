@@ -28,11 +28,11 @@ export const DEFAULT_WORKBENCH_PANELS: Record<WorkbenchPanelId, boolean> = {
   header: true,
   graph: true,
   audit: true,
-  copilot_rail: true,
+  copilot_rail: false,
   pins: true,
-  path_reasoning: true,
-  hil_overrides: true,
-  benchmark_drift: true,
+  path_reasoning: false,
+  hil_overrides: false,
+  benchmark_drift: false,
   counters: true,
   bridge_confirm: true,
 };
@@ -58,6 +58,6 @@ export function normalizeWorkbenchComposition(raw: unknown): WorkbenchCompositio
     if (typeof v === "boolean") panels[id] = v;
   }
   const tab = typeof o.activeTab === "string" && isCaseWorkbenchTab(o.activeTab) ? o.activeTab : "timeline";
-  const copilotRailOpen = typeof o.copilotRailOpen === "boolean" ? o.copilotRailOpen : true;
+  const copilotRailOpen = typeof o.copilotRailOpen === "boolean" ? o.copilotRailOpen : false;
   return { version: WORKBENCH_COMPOSITION_VERSION, panels, activeTab: tab, copilotRailOpen };
 }

@@ -18,6 +18,13 @@ function readTenant(): string {
   try {
     const s = localStorage.getItem(TENANT_KEY)?.trim();
     if (s) return s;
+    // One-time migrate the old Graph-only key so the desk has a single tenant.
+    const legacy = localStorage.getItem("tarka.tenant_id")?.trim();
+    if (legacy) {
+      localStorage.setItem(TENANT_KEY, legacy);
+      localStorage.removeItem("tarka.tenant_id");
+      return legacy;
+    }
   } catch {
     /* ignore */
   }

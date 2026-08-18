@@ -410,18 +410,20 @@ export function CommandPalette() {
           },
         });
       }
-      contextual.push({
-        id: "ctx:copilot-this-case",
-        label: "Investigation Copilot (full page)",
-        hint: `${routeCase.caseId.slice(0, 14)}${routeCase.caseId.length > 14 ? "…" : ""} · ${tenantOnCasePage}`,
-        module: "investigation",
-        keywords: "copilot chat saarthi this case current full page",
-        run: () => {
-          navigate(copilotUrl(routeCase.caseId, tenantOnCasePage));
-          close();
-        },
-      });
-    } else if (openCases[0]) {
+      if (!LEAN_NAV) {
+        contextual.push({
+          id: "ctx:copilot-this-case",
+          label: "Investigation Copilot (full page)",
+          hint: `${routeCase.caseId.slice(0, 14)}${routeCase.caseId.length > 14 ? "…" : ""} · ${tenantOnCasePage}`,
+          module: "investigation",
+          keywords: "copilot chat saarthi this case current full page",
+          run: () => {
+            navigate(copilotUrl(routeCase.caseId, tenantOnCasePage));
+            close();
+          },
+        });
+      }
+    } else if (openCases[0] && !LEAN_NAV) {
       const t = openCases[0];
       contextual.push({
         id: "ctx:copilot-latest-tab",

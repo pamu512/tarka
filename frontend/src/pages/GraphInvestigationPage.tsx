@@ -32,6 +32,7 @@ import {
 } from "../domain/linkAnalysisGraph";
 import { pruneSubgraphAsync } from "../domain/linkAnalysisPruneWorkerRunner";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 
 const NODE_COLORS: Record<string, string> = {
   Person: "#3b82f6",
@@ -52,15 +53,6 @@ const EMPTY_FILTER: WorkspaceFilter = {
   growthOnly: false,
 };
 
-function defaultTenantId(): string {
-  try {
-    const t = localStorage.getItem("tarka.tenant_id");
-    if (t && t.trim()) return t.trim();
-  } catch {
-    /* ignore */
-  }
-  return "demo";
-}
 
 function paintStoredRisk(nodes: GraphNode[]): LinkAnalysisGraphNode[] {
   const stored = new Map(nodes.map((n) => [n.id, storedDisplayRisk(n)]));
@@ -88,13 +80,14 @@ const chipClass = (on: boolean) =>
 
 export default function GraphInvestigationPage() {
   const { graphPlaneDisabled } = useFailoverPlanes();
+  const { tenantId: workspaceTenantId, setTenantId: setWorkspaceTenantId } = useTenantEnvironment();
   const [params, setParams] = useSearchParams();
   const parsed = useMemo(
-    () => parseGraphWorkspaceParams(params, defaultTenantId()),
-    [params],
+    () => parseGraphWorkspaceParams(params, workspaceTenantId),
+    [params, workspaceTenantId],
   );
   const entityId = parsed.entityId.trim();
-  const tenantId = parsed.tenantId.trim() || defaultTenantId();
+  const tenantId = parsed.tenantId.trim() || workspaceTenantId || "demo";
   const depth = parsed.depth;
 
   const [searchQ, setSearchQ] = useState("");
@@ -486,8 +479,11 @@ export default function GraphInvestigationPage() {
             disabled={disabled}
             onChange={(e) => setTenantDraft(e.target.value)}
             onBlur={() => {
-              const t = tenantDraft.trim() || defaultTenantId();
-              if (t !== tenantId) writeUrl({ entityId, tenantId: t, depth });
+              const t = tenantDraft.trim() || workspaceTenantId || "demo";
+              if (t !== tenantId) {
+                setWorkspaceTenantId(t);
+                writeUrl({ entityId, tenantId: t, depth });
+              }
             }}
             className={`${inputClass} w-36`}
           />
