@@ -44,6 +44,8 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/integrations/seller-integrity")).toBe(false);
     expect(isProductionSurfacePath("/integrations/payout-delay")).toBe(false);
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
+    expect(isProductionSurfacePath("/login")).toBe(true);
+    expect(isProductionSurfacePath("/auth/callback")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/decisions")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(false);

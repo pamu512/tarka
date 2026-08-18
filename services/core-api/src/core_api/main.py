@@ -28,6 +28,7 @@ from sqlalchemy import String, cast, or_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from .demo_burst import register_demo_burst_route  # noqa: E402
+from .oidc_auth import router as auth_router  # noqa: E402
 from .infrastructure.otel import (  # noqa: E402
     init_opentelemetry,
     shutdown_opentelemetry,
@@ -164,6 +165,7 @@ def create_app() -> FastAPI:
 
         return {"entities": entities, "cases": cases_out, "rules": rules}
 
+    app.include_router(auth_router, prefix="/auth")
     app.mount("/decisions", dec.app)
     app.mount("/cases", case.app)
     return app

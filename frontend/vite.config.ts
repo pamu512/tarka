@@ -63,6 +63,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/decisions/, "/decisions"),
       },
+      "/api/auth": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/auth/, "/auth"),
+      },
       "/api/cases": {
         target: "http://localhost:8000",
         changeOrigin: true,
