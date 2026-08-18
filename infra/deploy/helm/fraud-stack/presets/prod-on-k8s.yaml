@@ -31,6 +31,8 @@ global:
 
 postgres:
   enabled: false
+  auth:
+    password: ""
 redis:
   enabled: false
 nats:

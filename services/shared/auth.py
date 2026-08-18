@@ -45,8 +45,7 @@ async def require_api_key(request: Request) -> None:
             "on",
         }
         if allow:
-            # Local desk: ALLOW_INSECURE_NO_AUTH already means no credentials.
-            # Do not also demand tenant_id (first-decision smoke / 15-minute path).
+            await enforce_tenant_access(request, allowed_tenants={"*"})
             return
         raise HTTPException(
             status_code=503,

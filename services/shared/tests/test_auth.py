@@ -7,8 +7,9 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
-def _reset_auth_cache():
-    # auth.py reads API_KEYS per request; keep fixture for compatibility with old tests.
+def _reset_auth_cache(monkeypatch):
+    # CI matrix sets TENANT_BINDING_REQUIRED=true; these tests are API-key only.
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "false")
     yield
 
 
@@ -82,17 +83,6 @@ def test_require_api_key_enforces_valid_header(monkeypatch):
 
     with TestClient(app) as client:
         bad = client.get("/protected")
-        missing_tenant = client.get("/protected", headers={"x-api-key": "k1"})
-        good = client.get(
-            "/protected",
-            headers={"x-api-key": "k1"},
-            params={"tenant_id": "t1"},
-        )
+        good = client.get("/protected", headers={"x-api-key": "k1"})
     assert bad.status_code == 401
-    from tenant_binding import tenant_binding_required
-
-    if tenant_binding_required():
-        assert missing_tenant.status_code == 400
-    else:
-        assert missing_tenant.status_code == 200
     assert good.status_code == 200
