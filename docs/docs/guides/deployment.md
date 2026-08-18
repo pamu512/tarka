@@ -34,7 +34,7 @@ The `infra/deploy/docker-compose.yml` file uses Compose profiles so you can pick
 **Core only** — minimum viable fraud scoring:
 
 ```bash
-cd deploy
+cd infra/deploy
 docker compose --profile core up -d
 ```
 
@@ -146,10 +146,10 @@ coreApi:
   tag: latest
   replicaCount: 2
   podDisruptionBudget:
-    enabled: true
+    enabled: false   # true in presets/prod-on-k8s.yaml
     minAvailable: 1
   autoscaling:
-    enabled: true
+    enabled: false   # true in presets/prod-on-k8s.yaml
     minReplicas: 2
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
@@ -213,6 +213,30 @@ global:
       url: nats://nats.mycompany.internal:4222
 ```
 
+
+### Large-org / prod-on-k8s
+
+Default `values.yaml` is a **dev** chart: in-cluster Postgres/Redis/ClickHouse (single-replica `emptyDir`, password `fraud`), PDB/HPA **off**, image tag `latest`. Do not `helm install` that as production.
+
+Use the `prod-on-k8s` overlay (managed PG/Redis required, in-cluster stores off, PDB + HPA on evaluate, `allowInsecureNoAuth: false`, `tenantBindingRequired: true`). Investigation-agent stays **off** — it is local SQLite, single replica only.
+
+```bash
+python3 infra/scripts/deploy/generate_cloud_values.py \
+  --preset prod-on-k8s \
+  --image-registry <your-registry>/tarka \
+  --db-url postgresql+asyncpg://user:pw@rds:5432/fraud \
+  --redis-url rediss://elasticache:6379/0 \
+  --output /tmp/prod-on-k8s.values.yaml
+
+# Create a Secret named tarka-app-secrets with key API_KEYS (and OIDC extras if used).
+helm upgrade --install tarka infra/deploy/helm/fraud-stack \
+  -n fraud --create-namespace \
+  -f /tmp/prod-on-k8s.values.yaml \
+  --set global.appSecretsName=tarka-app-secrets
+```
+
+OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
+
 ### Custom Values for Production
 
 ```bash
@@ -240,7 +264,7 @@ In **Docker Compose** and **Helm** defaults, the Decision and Case FastAPI apps 
 | `DATABASE_URL`            | `postgresql+asyncpg://fraud:fraud@localhost:5432/fraud` | Postgres connection                                               |
 | `REDIS_URL`               | `redis://localhost:6379/0`                              | Redis connection                                                  |
 | `RULES_PATH`              | `./rules`                                               | Path to JSON rule packs directory                                 |
-| `API_KEYS`                | *(empty)*                                               | Comma-separated API keys (empty = no auth)                        |
+| `API_KEYS`                | *(empty)*                                               | Comma-separated API keys. Empty + empty `OIDC_ISSUER` + no `ALLOW_INSECURE_NO_AUTH` is **503**, not open. |
 | `DENY_THRESHOLD`          | `80`                                                    | Score threshold for deny decisions                                |
 | `REVIEW_THRESHOLD`        | `50`                                                    | Score threshold for review decisions                              |
 | `SCORE_BLEND_STRATEGY`    | `average`                                               | Score blend: `average`, `max`, `rules_only`                       |
