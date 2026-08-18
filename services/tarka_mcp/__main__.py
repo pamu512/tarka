@@ -65,14 +65,17 @@ TOOLS = [
     },
     {
         "name": "find_precedent_decisions",
-        "description": "Search similar past decisions (property/text filter)",
+        "description": "Rank similar past decisions by entity/category/outcome/rule overlap",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "tenant_id": {"type": "string"},
-                "q": {"type": "string"},
-                "entity_external_id": {"type": "string"},
+                "from_external_id": {"type": "string"},
+                "category": {"type": "string"},
                 "outcome": {"type": "string"},
+                "kind": {"type": "string"},
+                "entity_external_id": {"type": "string"},
+                "rule_ids": {"type": "string", "description": "Comma-separated rule ids"},
                 "limit": {"type": "integer"},
             },
             "required": ["tenant_id"],
@@ -159,12 +162,15 @@ def call_tool(name: str, arguments: dict[str, Any]) -> Any:
     if name == "find_precedent_decisions":
         return _http_json(
             "GET",
-            "/v1/decisions/search",
+            "/v1/decisions/precedents",
             params={
                 "tenant_id": arguments["tenant_id"],
-                "q": arguments.get("q"),
-                "entity_external_id": arguments.get("entity_external_id"),
+                "from_external_id": arguments.get("from_external_id"),
+                "category": arguments.get("category"),
                 "outcome": arguments.get("outcome"),
+                "kind": arguments.get("kind"),
+                "entity_external_id": arguments.get("entity_external_id"),
+                "rule_ids": arguments.get("rule_ids"),
                 "limit": arguments.get("limit") or 10,
             },
         )

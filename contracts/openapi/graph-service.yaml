@@ -337,6 +337,40 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/DecisionRecord"
+  /v1/decisions/precedents:
+    get:
+      operationId: rankPrecedentDecisions
+      summary: Rank similar decisions by entity/category/outcome/rule overlap
+      parameters:
+        - { name: tenant_id, in: query, required: true, schema: { type: string } }
+        - { name: from_external_id, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: outcome, in: query, schema: { type: string } }
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: entity_external_id, in: query, schema: { type: string } }
+        - { name: rule_ids, in: query, schema: { type: string }, description: Comma-separated rule ids }
+        - { name: include_invalidated, in: query, schema: { type: boolean, default: false } }
+        - { name: limit, in: query, schema: { type: integer, default: 10 } }
+      responses:
+        "200":
+          description: Ranked precedents with score and score_breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ranking: { type: string }
+                  decisions:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/DecisionRecord"
+                        - type: object
+                          properties:
+                            score: { type: number }
+                            score_breakdown:
+                              type: object
+                              additionalProperties: { type: number }
   /v1/decisions/latest:
     get:
       operationId: getLatestDecision
