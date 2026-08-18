@@ -1,0 +1,38 @@
+{{- /* Fail closed when global.environment=prod. Dev/default chart stays unchanged. */ -}}
+{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- if .Values.postgres.enabled }}
+{{- fail "global.environment=prod forbids in-cluster postgres (emptyDir + password fraud). Enable global.externalServices.postgres and disable postgres.enabled." }}
+{{- end }}
+{{- if .Values.redis.enabled }}
+{{- fail "global.environment=prod forbids in-cluster redis. Enable global.externalServices.redis and disable redis.enabled." }}
+{{- end }}
+{{- $extPg := (((((.Values.global).externalServices).postgres) | default dict)) }}
+{{- if not $extPg.enabled }}
+{{- fail "global.environment=prod requires global.externalServices.postgres.enabled" }}
+{{- end }}
+{{- $dbUrl := default "" $extPg.databaseUrl }}
+{{- if or (eq $dbUrl "") (contains "__" $dbUrl) }}
+{{- fail "global.environment=prod requires a resolved global.externalServices.postgres.databaseUrl (run generate_cloud_values.py)" }}
+{{- end }}
+{{- $extRedis := (((((.Values.global).externalServices).redis) | default dict)) }}
+{{- if not $extRedis.enabled }}
+{{- fail "global.environment=prod requires global.externalServices.redis.enabled" }}
+{{- end }}
+{{- $redisUrl := default "" $extRedis.redisUrl }}
+{{- if or (eq $redisUrl "") (contains "__" $redisUrl) }}
+{{- fail "global.environment=prod requires a resolved global.externalServices.redis.redisUrl" }}
+{{- end }}
+{{- $pw := default "" ((.Values.postgres.auth).password) }}
+{{- if eq $pw "fraud" }}
+{{- fail "global.environment=prod forbids postgres.auth.password=fraud" }}
+{{- end }}
+{{- if ((.Values.coreApi).allowInsecureNoAuth) }}
+{{- fail "global.environment=prod forbids coreApi.allowInsecureNoAuth" }}
+{{- end }}
+{{- if eq (default "latest" .Values.coreApi.tag) "latest" }}
+{{- fail "global.environment=prod forbids coreApi.tag=latest — pin a version (prod-on-k8s uses 1.3.0-beta)" }}
+{{- end }}
+{{- if and .Values.signalApi.enabled (eq (default "latest" .Values.signalApi.tag) "latest") }}
+{{- fail "global.environment=prod forbids signalApi.tag=latest" }}
+{{- end }}
+{{- end }}
