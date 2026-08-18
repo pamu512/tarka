@@ -91,7 +91,7 @@ def test_postgres_mode_without_url_fail_closed(monkeypatch, tmp_path: Path):
         batch_store.reset_connection_for_tests()
 
 
-class _FakeCursor:
+class _FakeResult:
     def __init__(self, rows: list | None = None):
         self._rows = list(rows or [])
 
@@ -112,15 +112,15 @@ class _FakePostgres:
         compact = " ".join(sql.split())
         if compact.startswith("INSERT INTO batch_blobs"):
             self.blobs[params[0]] = params
-            return _FakeCursor()
+            return _FakeResult()
         if compact.startswith("SELECT payload FROM batch_blobs"):
             rec = self.blobs.get(params[0])
-            return _FakeCursor([(rec[4],)] if rec else [])
+            return _FakeResult([(rec[4],)] if rec else [])
         if compact.startswith("DELETE FROM batch_blobs"):
-            return _FakeCursor()
+            return _FakeResult()
         if compact.startswith("SELECT job_id FROM batch_blobs"):
-            return _FakeCursor([(job_id,) for job_id in self.blobs])
-        return _FakeCursor()
+            return _FakeResult([(job_id,) for job_id in self.blobs])
+        return _FakeResult()
 
     def commit(self) -> None:
         return None
