@@ -22,9 +22,7 @@ def _env(monkeypatch):
 def test_mirror_and_stub_chain():
     from semantica_bridge import mirror_decision, stub_chain
 
-    a = mirror_decision(
-        category="evaluate", scenario="s1", reasoning="r", outcome="review"
-    )
+    a = mirror_decision(category="evaluate", scenario="s1", reasoning="r", outcome="review")
     b = mirror_decision(
         category="advise",
         scenario="s2",
