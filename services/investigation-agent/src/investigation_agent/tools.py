@@ -432,6 +432,60 @@ async def tool_get_decision_audit(
     return _limit_result({"audit": r.json()})
 
 
+async def tool_get_decision_chain(
+    http: httpx.AsyncClient,
+    external_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    max_depth: int = 5,
+) -> dict[str, Any]:
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    eid = (external_id or "").strip()
+    if not eid:
+        return {"error": "external_id_required"}
+    base = (settings.graph_service_url or "").strip().rstrip("/")
+    if not base:
+        return {"error": "graph_service_disabled"}
+    r = await http.get(
+        f"{base}/v1/decisions/{eid}/chain",
+        params={"tenant_id": tenant_id, "max_depth": max(1, min(int(max_depth or 5), 20))},
+        headers=_auth_headers(),
+        timeout=5.0,
+    )
+    if r.status_code == 404:
+        return {"error": "decision_not_found"}
+    r.raise_for_status()
+    return _limit_result(r.json())
+
+
+async def tool_get_decision_impact(
+    http: httpx.AsyncClient,
+    external_id: str,
+    tenant_id: str,
+    analyst_id: str,
+    max_depth: int = 5,
+) -> dict[str, Any]:
+    if not _analyst_allowed(analyst_id):
+        return {"error": "forbidden"}
+    eid = (external_id or "").strip()
+    if not eid:
+        return {"error": "external_id_required"}
+    base = (settings.graph_service_url or "").strip().rstrip("/")
+    if not base:
+        return {"error": "graph_service_disabled"}
+    r = await http.get(
+        f"{base}/v1/decisions/{eid}/impact",
+        params={"tenant_id": tenant_id, "max_depth": max(1, min(int(max_depth or 5), 20))},
+        headers=_auth_headers(),
+        timeout=5.0,
+    )
+    if r.status_code == 404:
+        return {"error": "decision_not_found"}
+    r.raise_for_status()
+    return _limit_result(r.json())
+
+
 async def tool_subgraph_with_velocity(
     http: httpx.AsyncClient,
     entity_id: str,
@@ -1816,6 +1870,39 @@ TOOL_DEFINITIONS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_decision_chain",
+            "description": "Trace causal parent decisions for a decision context graph node (accountability)",
+            "parameters": {
+                "type": "object",
+                "required": ["external_id"],
+                "properties": {
+                    "external_id": {
+                        "type": "string",
+                        "description": "Decision external_id (dec_…)",
+                    },
+                    "max_depth": {"type": "integer", "default": 5},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_decision_impact",
+            "description": "Blast-radius: downstream decisions influenced by this decision",
+            "parameters": {
+                "type": "object",
+                "required": ["external_id"],
+                "properties": {
+                    "external_id": {"type": "string"},
+                    "max_depth": {"type": "integer", "default": 5},
+                },
+            },
+        },
+    },
 ]
 
 TOOL_DISPATCH = {
@@ -1830,6 +1917,8 @@ TOOL_DISPATCH = {
     "get_entity_tags": tool_get_entity_tags,
     "get_entity_velocity": tool_get_entity_velocity,
     "get_decision_audit": tool_get_decision_audit,
+    "get_decision_chain": tool_get_decision_chain,
+    "get_decision_impact": tool_get_decision_impact,
     "subgraph_with_velocity": tool_subgraph_with_velocity,
     "export_outcome_labeled_dataset": tool_export_outcome_labeled_dataset,
     "ingest_labeled_rows": tool_ingest_labeled_rows,

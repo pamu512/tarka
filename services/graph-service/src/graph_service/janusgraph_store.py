@@ -26,7 +26,9 @@ from .janusgraph_gremlin import (
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")
 
-ALLOWED_LABELS = frozenset({"Person", "Account", "Device", "Payment", "Document", "Custom"})
+ALLOWED_LABELS = frozenset(
+    {"Person", "Account", "Device", "Payment", "Document", "Decision", "Custom"}
+)
 ALLOWED_RELS = frozenset(
     {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
 )
