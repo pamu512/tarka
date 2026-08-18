@@ -335,7 +335,8 @@ use serde_json::Map;
 
 pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
     match node {
-        AstNode::CustomSignal { .. } => true,
+        AstNode::CustomSignal { output_key, .. } => !output_key.is_empty()
+            && features.contains_key(output_key),
         AstNode::Condition {
             op,
             field,

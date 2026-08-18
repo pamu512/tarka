@@ -230,3 +230,19 @@ def test_params_too_large_rejected_by_pydantic() -> None:
     }
     with pytest.raises(ValidationError):
         EvaluateAstRequest.model_validate({"features": {}, "ast": raw})
+
+
+def test_custom_signal_unresolved_does_not_match() -> None:
+    from decision_api.ast_evaluator import evaluate_json_ast
+    from decision_api.ast_models import JsonAstCustomSignal
+
+    node = JsonAstCustomSignal(plugin_id="flag", params={}, output_key="derived")
+    assert evaluate_json_ast(node, {}) is False
+
+
+def test_custom_signal_identity_after_inject() -> None:
+    from decision_api.ast_evaluator import evaluate_json_ast
+    from decision_api.ast_models import JsonAstCustomSignal
+
+    node = JsonAstCustomSignal(plugin_id="flag", params={}, output_key="derived")
+    assert evaluate_json_ast(node, {"derived": 0}) is True

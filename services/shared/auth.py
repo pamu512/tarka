@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from fastapi import HTTPException, Request
-from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map
+from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required
 
 """Shared X-API-Key authentication dependency for all services."""
 
@@ -56,3 +56,6 @@ async def require_api_key(request: Request) -> None:
         raise HTTPException(status_code=401, detail="invalid or missing API key")
     if tenant_map:
         await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()))
+    elif tenant_binding_required():
+        # Require tenant_id on the request even when no per-key map is configured.
+        await enforce_tenant_access(request, allowed_tenants={"*"})
