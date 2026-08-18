@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from investigation_agent import agent_run_store, feedback_store, knowledge_db, review_store
+from investigation_agent import agent_run_store, batch_store, feedback_store, knowledge_db, review_store
 from investigation_agent.store_backend import (
     StoreMisconfigured,
     ensure_store_configured,
@@ -24,6 +24,7 @@ def _reset_all() -> None:
     feedback_store.reset_connection_for_tests()
     review_store.reset_connection_for_tests()
     knowledge_db.reset_connection_for_tests()
+    batch_store.reset_connection_for_tests()
 
 
 @pytest.fixture()
@@ -144,8 +145,11 @@ def postgres_url() -> str:
         from testcontainers.postgres import PostgresContainer
     except ImportError:
         pytest.skip("no INVESTIGATION_TEST_DATABASE_URL/DATABASE_URL and no testcontainers")
-    container = PostgresContainer("postgres:16-alpine")
-    container.start()
+    try:
+        container = PostgresContainer("postgres:16-alpine")
+        container.start()
+    except Exception as exc:
+        pytest.skip(f"postgres container unavailable: {exc}")
     try:
         yield normalize_postgres_url(container.get_connection_url())
     finally:
@@ -216,3 +220,28 @@ def test_postgres_run_and_feedback_roundtrip(
         assert ok, detail
     finally:
         _reset_all()
+
+
+def test_postgres_batch_blob_roundtrip(
+    postgres_url: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("INVESTIGATION_STORE", "postgres")
+    monkeypatch.setenv("INVESTIGATION_DATABASE_URL", postgres_url)
+    monkeypatch.setenv("INVESTIGATION_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("BATCH_STORE_PATH", str(tmp_path / "should-not-write"))
+    _reset_all()
+    try:
+        assert batch_store.storage_mode() == "postgres"
+        bid = batch_store.store_batch(
+            "ten-pg", "analyst-pg", "jobs.csv", ["x"], [{"x": "blob"}], "csv"
+        )
+        rec = batch_store.get_batch(bid, "ten-pg", "analyst-pg")
+        assert rec is not None
+        assert rec["row_count"] == 1
+        assert rec["rows"][0]["x"] == "blob"
+        assert batch_store.get_batch(bid, "ten-pg", "other") is None
+        disk = tmp_path / "should-not-write"
+        assert not disk.exists() or not list(disk.glob("*.json"))
+    finally:
+        _reset_all()
+

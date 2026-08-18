@@ -55,6 +55,7 @@ def test_helm_sqlite_replica_count_2_fails() -> None:
     assert result.returncode != 0
     combined = result.stdout + result.stderr
     assert "local-sqlite" in combined
+    assert "batch" in combined.lower()
 
 
 def test_helm_postgres_replica_count_2_templates() -> None:
@@ -84,6 +85,7 @@ def test_helm_postgres_replica_count_2_templates() -> None:
     assert "RollingUpdate" in joined
     assert "replicas: 2" in joined
     assert "DATABASE_URL" in joined
+    assert "INVESTIGATION_DATABASE_URL" in joined
     assert "kind: PersistentVolumeClaim" not in joined
     deploy = next(d for d in docs if "kind: Deployment" in d)
     assert "type: Recreate" not in deploy
