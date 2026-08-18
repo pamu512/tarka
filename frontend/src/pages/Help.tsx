@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { TarkaLogo } from "../components/TarkaLogo";
+import { LEAN_NAV, LEAN_NAV_PATHS } from "../config/leanNav";
 
 function Section({
   id,
@@ -28,6 +29,8 @@ function Sub({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const DESK_PATHS = [...LEAN_NAV_PATHS].sort();
+
 export default function Help() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-10 animate-fade-in pb-20">
@@ -36,7 +39,7 @@ export default function Help() {
         <div>
           <PageTitle module="help">Help &amp; guide</PageTitle>
           <p className="text-sm text-gray-500 -mt-2 max-w-2xl">
-            How the console is organized, what to do first, and where power features live. Use{" "}
+            How the production desk is organized and what to do first. Use{" "}
             <strong className="text-gray-400">Settings → Appearance</strong> for light, dark, or system theme.
           </p>
         </div>
@@ -47,14 +50,12 @@ export default function Help() {
         <ul className="flex flex-wrap gap-x-4 gap-y-1">
           {[
             ["#overview", "Overview"],
-            ["#readiness", "Trust / ops readiness"],
-            ["#operations", "Operations"],
-            ["#investigation", "Investigation"],
-            ["#policy", "Policy & testing"],
-            ["#governance", "Governance"],
+            ["#desk", "Desk paths"],
+            ["#cases", "Cases"],
+            ["#decisions", "Decisions"],
+            ["#graph-rules", "Graph and rules"],
+            ["#ops", "Ops"],
             ["#account", "Settings"],
-            ["#basics-advanced", "Basics vs advanced"],
-            ["#appearance", "Theme & logo"],
           ].map(([href, label]) => (
             <li key={href}>
               <a href={href} className="text-brand-400 hover:text-brand-300">
@@ -67,185 +68,108 @@ export default function Help() {
 
       <Section id="overview" title="Overview">
         <p>
-          Tarka is a fraud operations console: decisions, cases, graph, rules, and governance tools in one shell. The
-          left sidebar groups areas by how teams work—queue triage, deep investigation, policy experiments, and
-          platform admin. The <strong className="text-gray-400">top bar</strong> on the right starts with{" "}
-          <strong className="text-gray-400">Search / jump</strong> (opens the command palette—also{" "}
+          Tarka is a fraud operations desk: case queue, decision audit, graph, rules, and a small ops strip in one
+          shell. The left nav lists the production surface
+          {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
+          <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
+          <strong className="text-gray-400">display label</strong>), then{" "}
+          <strong className="text-gray-400">Search / jump</strong> (
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">⌘K</kbd> /{" "}
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">Ctrl+K</kbd>
-          ) to hop between modules or open cases; then Help, Settings, and Account for appearance.
+          ), Help, Settings, and Sign out.
         </p>
         <p>
-          <strong className="text-gray-400">Open cases:</strong> when you open cases from the queue, they appear as tabs
-          under the top bar so you can switch between several investigations without losing context. Tabs persist for this
-          browser session. Close a tab with ×, or use <strong className="text-gray-400">Clear all</strong> to empty the
-          strip and return to the queue if you were viewing a case. Case detail sub-views (Timeline / Audit / Graph) use
-          the URL <code className="text-gray-500">?tab=</code> so links are shareable.
+          <strong className="text-gray-400">Open cases:</strong> opening a case from the queue adds a tab under the top
+          bar. Tabs persist for this browser session. Case detail uses{" "}
+          <code className="text-gray-500">?tab=</code> (timeline / audit / graph) so links are shareable. Disposition
+          (reason code + Resolve / Close / keep investigating) lives in the sticky bar at the top of{" "}
+          <code className="text-gray-500">/cases/:id</code>.
         </p>
         <p>
           In the command palette, type <code className="text-gray-500">tenant_id/case_id</code> to open a case in a
-          specific tenant; a bare case id uses the tenant from your most recently focused tab (default{" "}
-          <code className="text-gray-500">demo</code>). Use <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">↑</kbd>{" "}
+          specific tenant; a bare case id uses the workspace tenant from the top bar (default{" "}
+          <code className="text-gray-500">demo</code>). Use{" "}
+          <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">↑</kbd>{" "}
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">↓</kbd> and{" "}
           <kbd className="px-1 rounded bg-surface-800 border border-surface-600 text-gray-400">Enter</kbd> to run a
-          highlighted result. On a case page, <strong className="text-gray-400">Investigation Copilot (this case)</strong>{" "}
-          jumps straight into the copilot with that case context.
-        </p>
-        <p>
-          This UI is a <strong className="text-gray-400">prototype</strong>: many actions call real or mock APIs. When
-          backends are offline, the app falls back to synthetic data so you can still click through flows.
+          highlighted result.
         </p>
       </Section>
 
-      <Section id="readiness" title="Readiness &amp; trust / operations strip">
+      <Section id="desk" title="Production desk paths">
         <p>
-          Below the top bar, the <strong className="text-gray-400">trust / operations readiness strip</strong> shows{" "}
-          <strong className="text-gray-400">detection vs compliance</strong> evaluation mode, a{" "}
-          <strong className="text-gray-400">Community vs Pro</strong>-shaped stack hint, tenant{" "}
-          <strong className="text-gray-400">reliability profile</strong> (strict / balanced / permissive), live{" "}
-          <strong className="text-gray-400">Redis / NATS</strong> signals from the decision API, and the{" "}
-          <strong className="text-gray-400">last rules / typology materialization</strong> time (config reload). Expand
-          the row for the full dependency matrix and remediation links. Amber alerts appear when compliance prerequisites
-          fail (for example empty typologies or predicate registry pin mismatch in compliance mode). Rose alerts highlight
-          runtime issues such as Redis disconnected.
+          These routes are the production lean surface. Case and dispute deep links (
+          <code className="text-gray-500">/cases/:id</code>, <code className="text-gray-500">/disputes/:id</code>) stay
+          reachable even when they are not listed in the sidebar.
         </p>
-        <p>
-          <strong className="text-gray-400">Operators / admins:</strong> set{" "}
-          <code className="text-gray-500">TARKA_EVALUATION_MODE</code>, optional{" "}
-          <code className="text-gray-500">TARKA_DEPLOYMENT_TIER</code>, and optional{" "}
-          <code className="text-gray-500">TARKA_TENANT_RELIABILITY_PROFILE</code> to match your deployment profile; use the
-          config reload timestamp to confirm rules and typologies have been picked up after changes. Follow the deployment
-          profiles guide linked from the banner when the strip shows degraded state.
-        </p>
-        <p>
-          <strong className="text-gray-400">Analysts:</strong> use the mode and alerts as guardrails—if you see compliance
-          or runtime warnings, treat scores and policy-heavy views as potentially incomplete until operators clear the
-          underlying issue; confirm whether your tenant expects graph, ML, or streaming features before relying on
-          compliance-heavy workflows.
-        </p>
+        <ul className="list-disc pl-5 space-y-1 font-mono text-xs text-gray-400">
+          {DESK_PATHS.map((path) => (
+            <li key={path}>{path}</li>
+          ))}
+        </ul>
       </Section>
 
-      <Section id="operations" title="Operations">
-        <Sub title="Dashboard">
+      <Section id="cases" title="Cases">
+        <Sub title="Queue (/cases)">
           <p>
-            High-level pulse: volumes, risk mix, and shortcuts into cases. Use it for stand-ups and sanity checks before
-            diving into queues.
+            Table-first investigation queue from the case service. Filters and the table are the default fold. KPI /
+            cohort / desk-activity sit in a closed ops snapshot. Empty tenant: create a case. Filters with no rows:
+            clear filters. Approve / Close stay on the existing{" "}
+            <code className="text-gray-500">cases.update</code> / bulk update APIs — there is no separate assignment
+            API.
           </p>
         </Sub>
-        <Sub title="Cases">
+        <Sub title="Case detail (/cases/:id)">
           <p>
-            Investigation queue from the case service: open a case to see entity, trace, timeline, and links to graph /
-            copilot. Opening a case adds it to the <strong className="text-gray-400">session tab strip</strong> for
-            multi-case triage. <strong className="text-gray-400">Basics:</strong> sort and open.{" "}
-            <strong className="text-gray-400">Advanced:</strong> labels, comments, SLA hints when wired.
+            Record a verdict from the sticky bar: current status, a reason code, then Resolve, Close, or keep
+            investigating. The update goes to <code className="text-gray-500">cases.update</code>. If the case has a{" "}
+            <code className="text-gray-500">trace_id</code>, the desk also joins the reason to calibration{" "}
+            <code className="text-gray-500">y_label</code>. Missing trace: the case still updates; calibration join is
+            skipped.
           </p>
         </Sub>
         <Sub title="Disputes">
           <p>
-            Chargebacks and dispute outcomes alongside case context. Good for linking fraud decisions to financial
-            resolution.
+            Chargebacks and dispute outcomes alongside case context. Open a row at{" "}
+            <code className="text-gray-500">/disputes/:id</code>.
           </p>
         </Sub>
       </Section>
 
-      <Section id="investigation" title="Investigation">
-        <Sub title="Graph Explorer">
-          <p>
-            Entity neighborhood and relationships. <strong className="text-gray-400">Advanced:</strong> use depth and
-            filters to hunt rings and shared devices—often high sensitivity, so access may be restricted by policy.
-          </p>
-        </Sub>
-        <Sub title="Investigation Copilot">
-          <p>
-            AI assistant with tool access to cases, graph, and audits. <strong className="text-gray-400">Basics:</strong>{" "}
-            ask for a summary or next steps. <strong className="text-gray-400">Advanced:</strong> preset skills, optional
-            platform audit context (with privacy toggles), and <code className="text-gray-500">/skill</code> commands.
-          </p>
-        </Sub>
-        <Sub title="OSINT">
-          <p>Open-source enrichment (email, IP, phone, domain). Use for manual verification alongside cases.</p>
-        </Sub>
-        <Sub title="Analytics">
-          <p>Charts and operational metrics. Baseline for volume and mix; pair with rules/simulation for experiments.</p>
-        </Sub>
+      <Section id="decisions" title="Decisions">
+        <p>
+          Recent decision-api audit rows for this tenant. Fail-closed: an empty or unavailable audit is an empty queue,
+          not a mock dashboard. Open a trace from <code className="text-gray-500">/decisions</code> or{" "}
+          <code className="text-gray-500">/decisions/:traceId</code>.
+        </p>
       </Section>
 
-      <Section id="policy" title="Policy & testing">
+      <Section id="graph-rules" title="Graph &amp; rules">
+        <Sub title="Graph (/graph)">
+          <p>
+            Entity neighborhood for the workspace tenant. Tenant is the same workspace id as the top bar (
+            <code className="text-gray-500">tarka-workspace-tenant</code>), not a second localStorage key.
+          </p>
+        </Sub>
         <Sub title="Rules">
           <p>
-            Rule packs and thresholds (OPA-oriented workflows in production).{" "}
-            <strong className="text-gray-400">Advanced:</strong> editing core rules may require approvals and peer review.
+            Rule packs and thresholds. Rule performance lives at{" "}
+            <code className="text-gray-500">/analytics/rule-performance</code>.
           </p>
-        </Sub>
-        <Sub title="Entity lists">
-          <p>Block, allow, and watch lists at entity level—feeds the decision path.</p>
-        </Sub>
-        <Sub title="Shadow mode">
-          <p>Run candidate policies alongside production without affecting live decisions—smoke-test before promote.</p>
-        </Sub>
-        <Sub title="Simulation">
-          <p>Scenario runs and A/B style comparisons on synthetic or sampled traffic—good for what-if analysis.</p>
         </Sub>
       </Section>
 
-      <Section id="governance" title="Governance">
-        <Sub title="Compliance">
-          <p>Regions, DSAR-style flows, evidence exports—support for audit and privacy programs.</p>
-        </Sub>
-        <Sub title="Integrations">
-          <p>
-            Enable providers, run connectivity checks, and vault-style config.{" "}
-            <strong className="text-gray-400">Request new integration</strong> submits a ticket for{" "}
-            <strong className="text-gray-400">admin approval</strong> before a prefilled GitHub issue is opened for
-            engineering.
-          </p>
-        </Sub>
-        <Sub title="Admin Panel">
-          <p>
-            <strong className="text-gray-400">Basics:</strong> overview counts, active sessions, audit log.{" "}
-            <strong className="text-gray-400">Advanced:</strong> module access by user,{" "}
-            <strong className="text-gray-400">Groups &amp; policies</strong> (role templates: admin, engineering, data
-            science, risk analyst, view only, governance), dual approval for risky RBAC changes, and{" "}
-            <strong className="text-gray-400">Integration requests</strong> queue.
-          </p>
-        </Sub>
+      <Section id="ops" title="Ops">
+        <p>
+          Calibration, QA, dispute deadlines, shadow promote-gate, counters, and SAR transport sit on the lean ops
+          strip. They read live decision/case APIs and fail closed when those APIs are down.
+        </p>
       </Section>
 
       <Section id="account" title="Settings">
-        <Sub title="Settings">
-          <p>
-            Workspace and account placeholders. <strong className="text-gray-400">Appearance</strong> lets you choose
-            light, dark, or system default theme. In-app notification inbox was removed (no notifications API).
-          </p>
-        </Sub>
-      </Section>
-
-      <Section id="basics-advanced" title="Basics vs advanced">
-        <ul className="list-disc pl-5 space-y-2">
-          <li>
-            <strong className="text-gray-400">Basics</strong> — navigate modules, open cases, read dashboards, run OSINT
-            lookups, toggle integrations, and chat with Copilot using default context.
-          </li>
-          <li>
-            <strong className="text-gray-400">Advanced</strong> — shadow/simulation, rule and list edits, graph depth,
-            Copilot audit-context checkboxes, RBAC policy templates, maker–checker approvals, integration request
-            approval, and compliance evidence flows.
-          </li>
-        </ul>
-      </Section>
-
-      <Section id="appearance" title="Theme &amp; logo">
         <p>
-          The <strong className="text-gray-400">Tarka</strong> mark is a vector stylized “T” from{" "}
-          <code className="text-gray-500">/tarka-icon.svg</code> (favicon); the full lockup lives at{" "}
-          <code className="text-gray-500">/tarka-logo-full.svg</code>. Both invert with{" "}
-          <strong className="text-gray-400">prefers-color-scheme</strong> when used as static files; in the app, the
-          sidebar wordmark uses <strong className="text-gray-400">currentColor</strong> so the logo follows your
-          Appearance theme.{" "}
-          <strong className="text-gray-400">Dark</strong> mode matches the original console look;{" "}
-          <strong className="text-gray-400">light</strong> mode inverts surfaces and text grays for readability;{" "}
-          <strong className="text-gray-400">system</strong> follows your OS light/dark preference and updates when it
-          changes.
+          Workspace appearance (light, dark, or system). Sign out from the account menu clears the browser session
+          tokens and returns you to the case queue. Full OIDC SSO is not on this desk yet.
         </p>
       </Section>
     </div>

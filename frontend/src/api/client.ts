@@ -9,6 +9,7 @@ import {
   type SaarthiFeatureImportanceRequestBody,
   type SaarthiFeatureImportanceResponse,
 } from "../lib/saarthi/featureImportance";
+import { getAccessToken } from "./authSession";
 import { reportDataOutcome } from "./dataSourceState";
 import { deskStrictEnabled, isUpstreamUnavailableBody, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
@@ -305,6 +306,8 @@ export interface Case {
   /** Optional taxonomy for routing / workload analytics (when case-api persists it). */
   case_type?: string | null;
   labels: string[];
+  /** Set when an analyst records a terminal verdict via cases.update. */
+  disposition_reason_code?: string | null;
   queue_score?: number;
   recommended_action?: string;
   comments?: Array<{ author: string; text: string; timestamp: string }>;
@@ -1319,10 +1322,18 @@ function normalizeNetworkFetchError(error: unknown): unknown {
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const allowMockFallback = allowMocksForRequest(url);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+  const accessToken = getAccessToken();
+  if (accessToken && !headers.Authorization && !headers.authorization) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
   try {
     const res = await fetch(url, {
       ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) },
+      headers,
     });
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";

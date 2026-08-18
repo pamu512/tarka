@@ -1,9 +1,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useSearchParams } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setSessionTokens, clearSessionTokens } from "@/api/authSession";
 import { RequireRole } from "@/components/rbac/RequireRole";
+
+function LoginProbe() {
+  const [params] = useSearchParams();
+  return <div>login-page next={params.get("next")}</div>;
+}
 
 function encodeTestJwt(payload: Record<string, unknown>): string {
   const enc = (obj: object): string =>
@@ -102,7 +107,7 @@ describe("RequireRole", () => {
     expect(screen.getByText("builder")).toBeInTheDocument();
   });
 
-  it("denies access when there is no access token and logs no_access_token", () => {
+  it("sends a visitor with no token to /login?next=/rules/visual and logs no_access_token", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     render(
       <MemoryRouter initialEntries={["/rules/visual"]}>
@@ -115,16 +120,20 @@ describe("RequireRole", () => {
               </RequireRole>
             }
           />
+          <Route path="/login" element={<LoginProbe />} />
           <Route path="/403-unauthorized" element={<div>forbidden</div>} />
         </Routes>
       </MemoryRouter>,
     );
-    expect(screen.getByText("forbidden")).toBeInTheDocument();
+    expect(screen.queryByText("builder")).not.toBeInTheDocument();
+    expect(screen.queryByText("forbidden")).not.toBeInTheDocument();
+    expect(screen.getByText("login-page next=/rules/visual")).toBeInTheDocument();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       "[RBAC]",
       "route access denied",
       expect.objectContaining({
+        attemptedPath: "/rules/visual",
         reason: "no_access_token",
         rolesFromJwt: [],
       }),

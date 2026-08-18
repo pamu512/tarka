@@ -1,0 +1,244 @@
+import { useCallback, useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
+import {
+  decisions,
+  toUserFacingError,
+  type AuditEntry,
+  type AuditRecentItem,
+  type AuditRuleResult,
+} from "../api/client";
+import { DegradedModeBanner } from "../components/DegradedModeBanner";
+import { PageTitle } from "../components/PageTitle";
+import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+
+function formatAmount(amount: number | null, currency: string | null): string {
+  if (amount == null && !currency) return "—";
+  const amt = amount == null ? "—" : String(amount);
+  return currency ? `${amt} ${currency}` : amt;
+}
+
+function formatWhen(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isFinite(d.getTime()) ? d.toISOString().replace("T", " ").slice(0, 19) + "Z" : iso;
+}
+
+function RuleResultPill({ result }: { result: AuditRuleResult }) {
+  const cls =
+    result === "DENY"
+      ? "bg-rose-500/15 text-rose-200 border-rose-500/35"
+      : result === "ALLOW"
+        ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/35"
+        : result === "SHADOW_REVIEW"
+          ? "bg-violet-500/15 text-violet-200 border-violet-500/35"
+          : "bg-amber-500/15 text-amber-200 border-amber-500/35";
+  return (
+    <span className={`inline-flex rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {result}
+    </span>
+  );
+}
+
+export default function Decisions() {
+  const { tenantId } = useTenantEnvironment();
+  const { traceId } = useParams<{ traceId?: string }>();
+  const [items, setItems] = useState<AuditRecentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AuditEntry | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await decisions.recentAudit(tenantId);
+      setItems(res.items ?? []);
+    } catch (e) {
+      setError(toUserFacingError(e, { subject: "Decisions queue", action: "load recent audit" }));
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!traceId) {
+      setDetail(null);
+      setDetailError(null);
+      setDetailLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetail(null);
+    (async () => {
+      try {
+        const row = await decisions.getAudit(traceId, tenantId, { detail_level: "analyst" });
+        if (!cancelled) setDetail(row);
+      } catch (e) {
+        if (!cancelled) {
+          setDetail(null);
+          setDetailError(toUserFacingError(e, { subject: "Decision detail", action: "load audit" }));
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [traceId, tenantId]);
+
+  return (
+    <div className="p-6 space-y-5 animate-fade-in" data-testid="decisions-queue">
+      <div className="space-y-1">
+        <PageTitle module="dashboard">Decisions</PageTitle>
+        <p className="text-sm text-gray-500">
+          Investigator queue of recent evaluations from{" "}
+          <span className="font-mono text-xs text-gray-400">GET /api/decisions/v1/audit/recent</span>
+          . Empty when the API returns no rows — this desk does not invent fixtures.
+        </p>
+      </div>
+
+      <DegradedModeBanner
+        error={error}
+        title={error ? "Decisions queue unavailable" : undefined}
+        hint={error ? "Retry the audit/recent fetch. Tarka does not show placeholder decisions." : undefined}
+        onRetry={error ? () => void refresh() : undefined}
+      />
+
+      {traceId ? (
+        <section
+          data-testid="decisions-detail"
+          className="rounded-xl border border-surface-700 bg-surface-900/50 p-4 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium text-gray-200">Audit detail</h2>
+            <Link to="/decisions" className="text-xs text-brand-300 hover:underline">
+              Back to queue
+            </Link>
+          </div>
+          {detailLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              <DegradedModeBanner
+                error={detailError}
+                title={detailError ? "Audit detail unavailable" : undefined}
+                hint={detailError ? "Fail-closed: no invented analyst snapshot." : undefined}
+              />
+              {detail ? (
+                <dl className="grid gap-2 sm:grid-cols-2 text-sm">
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Trace</dt>
+                    <dd className="font-mono text-xs text-gray-300">{detail.trace_id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Decision</dt>
+                    <dd className="text-gray-200">{detail.decision}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Score</dt>
+                    <dd className="font-mono text-xs text-gray-300">{detail.score}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Entity</dt>
+                    <dd className="font-mono text-xs text-gray-300">{detail.entity_id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Created</dt>
+                    <dd className="font-mono text-xs text-gray-400">{formatWhen(detail.created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-gray-500">Rule hits</dt>
+                    <dd className="font-mono text-xs text-gray-300">
+                      {detail.rule_hits?.length ? detail.rule_hits.join(", ") : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              ) : !detailError ? (
+                <p className="text-sm text-gray-500" data-testid="decisions-detail-empty">
+                  No audit row for this trace.
+                </p>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
+
+      <div className="bg-surface-900 border border-surface-700 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-surface-700 text-sm text-gray-300 flex items-center justify-between gap-3">
+          <span>Recent decisions</span>
+          <button
+            type="button"
+            disabled={loading || !tenantId.trim()}
+            onClick={() => void refresh()}
+            className="px-2 py-1 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-300 disabled:opacity-50"
+          >
+            Refresh
+          </button>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : items.length === 0 ? (
+          <p className="p-6 text-sm text-gray-500" data-testid="decisions-empty">
+            No recent decisions for this tenant. The queue stays empty until audit/recent returns live rows.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-400 bg-surface-800/50 border-b border-surface-700">
+                  <th className="text-left py-3 px-4 font-medium">Short ID</th>
+                  <th className="text-left py-3 px-4 font-medium">Rule result</th>
+                  <th className="text-left py-3 px-4 font-medium">Amount</th>
+                  <th className="text-left py-3 px-4 font-medium">Created</th>
+                  <th className="text-left py-3 px-4 font-medium">Trace</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((row) => (
+                  <tr
+                    key={row.trace_id}
+                    data-testid={`decisions-row-${row.trace_id}`}
+                    className="border-b border-surface-800 hover:bg-surface-800/50 transition-colors"
+                  >
+                    <td className="py-3 px-4">
+                      <Link
+                        to={`/decisions/${encodeURIComponent(row.trace_id)}`}
+                        className="font-mono text-xs text-brand-300 hover:underline"
+                      >
+                        {row.short_id}
+                      </Link>
+                    </td>
+                    <td className="py-3 px-4">
+                      <RuleResultPill result={row.rule_result} />
+                    </td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-300">
+                      {formatAmount(row.amount, row.currency)}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-400">{formatWhen(row.created_at)}</td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-500 truncate max-w-[16rem]" title={row.trace_id}>
+                      {row.trace_id}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
