@@ -38,4 +38,12 @@
 {{- if and .Values.signalApi.enabled (eq (default "latest" .Values.signalApi.tag) "latest") }}
 {{- fail "global.environment=prod forbids signalApi.tag=latest" }}
 {{- end }}
+{{- if .Values.investigationAgent.enabled }}
+{{- if eq (default "latest" .Values.investigationAgent.tag) "latest" }}
+{{- fail "global.environment=prod forbids investigationAgent.tag=latest — pin a version (prod-on-k8s uses 1.3.0-beta)" }}
+{{- end }}
+{{- if ne ((.Values.investigationAgent.dataPersistence).mode | default "local-sqlite") "postgres" }}
+{{- fail "global.environment=prod investigation-agent requires dataPersistence.mode=postgres (local-sqlite cannot HA)" }}
+{{- end }}
+{{- end }}
 {{- end }}

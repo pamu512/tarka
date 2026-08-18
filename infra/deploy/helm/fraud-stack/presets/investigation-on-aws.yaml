@@ -27,6 +27,8 @@ integrationIngress:
   enabled: true
 investigationAgent:
   enabled: true
+  dataPersistence:
+    mode: postgres
 graphqlGateway:
   enabled: true
 frontend:

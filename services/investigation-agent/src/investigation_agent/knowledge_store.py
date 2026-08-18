@@ -31,7 +31,7 @@ from investigation_agent.okf_retrieval import (
     retrieve_knowledge_async as _retrieve_knowledge_async,
 )
 
-"""Facade: investigation memo RAG (SQLite + optional OpenAI embeddings)."""
+"""Facade: investigation memo RAG (sqlite or postgres + optional OpenAI embeddings)."""
 
 __all__ = [
     "KnowledgeResult",

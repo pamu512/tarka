@@ -1,12 +1,22 @@
 {{- if .Values.investigationAgent.enabled }}
+{{- $persistMode := .Values.investigationAgent.dataPersistence.mode | default "local-sqlite" }}
 {{- if and .Values.investigationAgent.okfTenantOverlays.enabled (not .Values.investigationAgent.okfTenantOverlays.existingClaim) }}
 {{- fail "investigation-agent OKF tenant overlays require investigationAgent.okfTenantOverlays.existingClaim" }}
 {{- end }}
-{{- if and (eq .Values.investigationAgent.dataPersistence.mode "local-sqlite") (gt (int .Values.investigationAgent.replicaCount) 1) }}
-{{- fail "investigation-agent local-sqlite persistence requires a single replica; scale only after moving SQLite state to shared storage" }}
+{{- if and (eq $persistMode "local-sqlite") (gt (int .Values.investigationAgent.replicaCount) 1) }}
+{{- fail "investigation-agent local-sqlite persistence requires a single replica; scale only after dataPersistence.mode=postgres (all four stores)" }}
 {{- end }}
-{{- if ne .Values.investigationAgent.dataPersistence.mode "local-sqlite" }}
-{{- fail "investigation-agent chart supports dataPersistence.mode=local-sqlite only" }}
+{{- if not (or (eq $persistMode "local-sqlite") (eq $persistMode "postgres")) }}
+{{- fail "investigation-agent dataPersistence.mode must be local-sqlite or postgres" }}
+{{- end }}
+{{- if eq $persistMode "postgres" }}
+{{- $extPg := (((((.Values.global).externalServices).postgres) | default dict)) }}
+{{- if and $extPg.enabled (or (eq (default "" $extPg.databaseUrl) "") (contains "__" (default "" $extPg.databaseUrl))) }}
+{{- fail "investigation-agent dataPersistence.mode=postgres with external postgres requires global.externalServices.postgres.databaseUrl" }}
+{{- end }}
+{{- if and (not $extPg.enabled) (not .Values.postgres.enabled) }}
+{{- fail "investigation-agent dataPersistence.mode=postgres requires postgres.enabled or global.externalServices.postgres.enabled" }}
+{{- end }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
@@ -14,7 +24,7 @@ metadata:
   name: {{ include "tarka.fullname" . }}-investigation-agent
 spec:
   strategy:
-    type: Recreate
+    type: {{ if eq $persistMode "postgres" }}RollingUpdate{{ else }}Recreate{{ end }}
   replicas: {{ .Values.investigationAgent.replicaCount }}
   selector:
     matchLabels:
@@ -49,6 +59,25 @@ spec:
               value: {{ .Values.investigationAgent.okfTenantOverlays.mountPath | quote }}
             - name: INVESTIGATION_DATA_DIR
               value: {{ .Values.investigationAgent.dataPersistence.mountPath | quote }}
+            {{- if eq $persistMode "postgres" }}
+            - name: INVESTIGATION_STORE
+              value: "postgres"
+            - name: DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            - name: INVESTIGATION_DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            {{- else }}
+            - name: INVESTIGATION_STORE
+              value: "sqlite"
+            {{- end }}
             {{- if .Values.investigationAgent.batchTtlSeconds }}
             - name: BATCH_TTL_SECONDS
               value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
@@ -83,15 +112,19 @@ spec:
             failureThreshold: 4
       volumes:
         - name: investigation-agent-data
+          {{- if eq $persistMode "postgres" }}
+          emptyDir: {}
+          {{- else }}
           persistentVolumeClaim:
             claimName: {{ .Values.investigationAgent.dataPersistence.existingClaim | default (printf "%s-investigation-agent-data" (include "tarka.fullname" .)) | quote }}
+          {{- end }}
       {{- if .Values.investigationAgent.okfTenantOverlays.enabled }}
         - name: okf-tenant-overlays
           persistentVolumeClaim:
             claimName: {{ .Values.investigationAgent.okfTenantOverlays.existingClaim | quote }}
       {{- end }}
 ---
-{{- if not .Values.investigationAgent.dataPersistence.existingClaim }}
+{{- if and (eq $persistMode "local-sqlite") (not .Values.investigationAgent.dataPersistence.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

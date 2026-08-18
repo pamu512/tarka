@@ -493,6 +493,20 @@ jobs:
   test-investigation-agent:
     needs: audit-stubs
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fraud
+          POSTGRES_PASSWORD: fraud
+          POSTGRES_DB: fraud
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fraud -d fraud"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -524,6 +538,7 @@ jobs:
         working-directory: services/investigation-agent
         env:
           PYTHONPATH: src:../shared:../../packages/shared-core:../collaboration-chat-bridge/src
+          INVESTIGATION_TEST_DATABASE_URL: postgresql://fraud:fraud@127.0.0.1:5432/fraud
       - name: Copilot eval golden gate (Q2-E02)
         run: pytest -v tests/test_copilot_eval_golden.py
         working-directory: services/investigation-agent
@@ -1020,3 +1035,19 @@ jobs:
             --redis-url 'redis://redis.internal:6379/0' \
             --output /tmp/prod-on-k8s.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml
+      - name: Helm honesty — sqlite replicaCount 2 fails
+        run: |
+          set +e
+          helm template tarka infra/deploy/helm/fraud-stack             --set investigationAgent.enabled=true             --set investigationAgent.replicaCount=2             --set investigationAgent.dataPersistence.mode=local-sqlite             >/tmp/tarka-sqlite-ha.yaml 2>/tmp/tarka-sqlite-ha.err
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "expected helm template to fail for local-sqlite replicaCount=2"
+            exit 1
+          fi
+          grep -q local-sqlite /tmp/tarka-sqlite-ha.err
+      - name: Helm honesty — postgres replicaCount 2 templates
+        run: |
+          helm template tarka infra/deploy/helm/fraud-stack             --set investigationAgent.enabled=true             --set investigationAgent.replicaCount=2             --set investigationAgent.dataPersistence.mode=postgres             --set global.externalServices.postgres.enabled=true             --set global.externalServices.postgres.databaseUrl='postgresql://fraud:pw@db.internal:5432/fraud'             --set postgres.enabled=false             >/tmp/tarka-pg-ha.yaml
+          grep -q 'INVESTIGATION_STORE' /tmp/tarka-pg-ha.yaml
+          grep -q 'RollingUpdate' /tmp/tarka-pg-ha.yaml

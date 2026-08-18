@@ -251,6 +251,16 @@ class Settings(BaseSettings):
     okf_max_link_depth: int = Field(default=2, ge=0, le=5)
     okf_max_concepts: int = Field(default=24, ge=1, le=100)
 
+    # --- Durable store (sqlite desk default; postgres for HA) ---
+    investigation_store: str = Field(
+        default="sqlite",
+        description="INVESTIGATION_STORE: sqlite (default files under INVESTIGATION_DATA_DIR) or postgres.",
+    )
+    investigation_database_url: str = Field(
+        default="",
+        description="INVESTIGATION_DATABASE_URL; DATABASE_URL is also accepted when this is empty.",
+    )
+
 
 settings = Settings()
 

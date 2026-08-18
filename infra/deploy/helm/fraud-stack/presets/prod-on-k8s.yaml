@@ -16,7 +16,7 @@
 # EVIDENCE_SIGNING_SECRET, POSTGRES_PASSWORD). Empty API_KEYS + empty
 # OIDC_ISSUER + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
 # OIDC is not a first-class values key — set issuer via extraEnv.
-# investigation-agent stays off: local-sqlite is single-replica only.
+# investigation-agent uses the already-required external Postgres (no new values keys).
 
 global:
   environment: prod
@@ -65,7 +65,11 @@ signalApi:
   tag: "1.3.0-beta"
 
 investigationAgent:
-  enabled: false
+  enabled: true
+  tag: "1.3.0-beta"
+  replicaCount: 2
+  dataPersistence:
+    mode: postgres
 integrationIngress:
   enabled: false
 dataPlane:
