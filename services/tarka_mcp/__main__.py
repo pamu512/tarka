@@ -1,6 +1,6 @@
 """Thin MCP stdio server for Tarka decision context graph tools.
 
-ponytail: minimal JSON-RPC over stdin/stdout — enough for Cursor/agent wiring.
+ponytail: minimal JSON-RPC over stdin/stdout — enough for IDE/agent wiring.
 Ceiling: no OAuth, no resource subscriptions; upgrade path is full MCP SDK.
 """
 
