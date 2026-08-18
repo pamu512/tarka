@@ -72,3 +72,16 @@ Requires a defined pack in **`vertical_packs`** for that key. Promotion uses the
 ## 5. Scenarios
 
 `GET /v1/simulation/scenarios` lists built-ins (`baseline`, `high_fraud`, `bot_attack`, `account_takeover`, `money_mule`).
+
+## 6. Observe-only pack canary (not Flagger)
+
+Issue #150 progressive rule delivery is **observe-only** on `POST /v1/decisions/evaluate` in this slice — not Flagger, not Argo, and **not** a live verdict flip. Decision-api / the Rust JSON AST remains the sole allow/deny engine.
+
+Set via env (Helm `coreApi.extraEnv` is fine; there is no new Helm key):
+
+- `PACK_CANARY_PERCENT` — default `0` (off). A deterministic tenant+entity bucket selects that fraction of traffic.
+- `PACK_CANARY_PACK_ID` — pack `id` / `name` / filename under `RULES_PATH`, **or** `PACK_CANARY_PATH` — a candidate JSON pack file.
+
+When percent is `0`, evaluate does no candidate work. When percent is `>0` and the candidate pack is missing, evaluate **fail-closes** (`503 pack_canary_candidate_missing`) instead of silently scoring live-only while claiming canary. Header `x-tarka-pack-canary: 1` forces the candidate on a single request (desk/QA).
+
+The candidate pack is evaluated through the same JSON/Rust engine and recorded on the audit snapshot (`payload_snapshot.pack_canary`) plus the existing shadow observation log. **Allow/deny returned to the caller still comes only from the live pack.** Percent-based promote of the candidate verdict is a later slice.
