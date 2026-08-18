@@ -43,6 +43,7 @@ export function leanHomePath(): string {
 export function isProductionSurfacePath(path: string): boolean {
   if (LEAN_NAV_PATHS.has(path)) return true;
   if (path === "/403-unauthorized") return true;
+  if (path === "/login" || path === "/auth/callback") return true;
   if (path.startsWith("/cases/")) return true;
   if (path.startsWith("/disputes/")) return true;
   if (path === "/decisions" || path.startsWith("/decisions/")) return true;

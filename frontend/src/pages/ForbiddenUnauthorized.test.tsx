@@ -16,5 +16,7 @@ describe("ForbiddenUnauthorized", () => {
     expect(link).toHaveAttribute("href", leanHomePath());
     expect(link).not.toHaveAttribute("href", "/dashboard");
     expect(leanHomePath()).toBe("/cases");
+    const signIn = screen.getByRole("link", { name: /sign in/i });
+    expect(signIn).toHaveAttribute("href", "/login");
   });
 });

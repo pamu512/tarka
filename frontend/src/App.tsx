@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Routes, Route, NavLink, Navigate, useSearchParams } from 'react-router';
+import { Routes, Route, NavLink, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { MicroDevOnboardingGate } from "./components/MicroDevOnboardingGate";
 import { RequireRole } from "./components/rbac/RequireRole";
+import { AUTH_SESSION_EXPIRED_EVENT } from "./api/authSession";
 import { getDataSourceSnapshot, subscribeDataSource } from "./api/dataSourceState";
 import { AnalystCaseTabBar } from "./components/AnalystCaseTabBar";
 import { AppTopBar } from "./components/AppTopBar";
@@ -56,6 +57,8 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const VisualRuleBuilder = lazy(() => import("./pages/VisualRuleBuilder"));
 const ExecutiveDashboards = lazy(() => import("./pages/ExecutiveDashboards"));
 const ForbiddenUnauthorized = lazy(() => import("./pages/ForbiddenUnauthorized"));
+const Login = lazy(() => import("./pages/Login"));
+const OidcCallback = lazy(() => import("./pages/OidcCallback"));
 const TransactionsLiveGrid = lazy(() => import("./pages/TransactionsLiveGrid"));
 const PitMlParquetExport = lazy(() => import("./pages/PitMlParquetExport"));
 const SystemHealthHud = lazy(() => import("./pages/SystemHealthHud"));
@@ -226,9 +229,23 @@ function formatFreshness(ts: number): string {
 }
 
 export default function App() {
+  const navigate = useNavigate();
   const [dataSource, setDataSource] = useState(() => getDataSourceSnapshot());
 
   useEffect(() => subscribeDataSource(() => setDataSource(getDataSourceSnapshot())), []);
+
+  useEffect(() => {
+    const onExpired = () => {
+      const { pathname, search } = window.location;
+      if (pathname === "/login" || pathname === "/auth/callback") {
+        return;
+      }
+      const next = encodeURIComponent(`${pathname}${search}`);
+      navigate(`/login?next=${next}`, { replace: true });
+    };
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onExpired);
+  }, [navigate]);
 
   const queueSignalDegraded = dataSource.outcome !== "live";
   const queueDegradedTitle = useMemo(
@@ -310,6 +327,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to={leanHomePath()} replace />} />
             <Route path="/403-unauthorized" element={<ForbiddenUnauthorized />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<OidcCallback />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/cases" element={<Cases />} />
             <Route path="/decisions" element={<Decisions />} />

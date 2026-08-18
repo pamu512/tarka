@@ -446,6 +446,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Set `API_KEYS` on all services with strong, unique keys
 - Rotate API keys on a regular schedule
 - Use separate API keys for each client application
+- Desk SSO is a core-api BFF: set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_JWKS_URL` on core-api via Helm `coreApi.extraEnv` only (no `values.oidcIssuer` key). Put `OIDC_CLIENT_SECRET` on the existing `global.appSecretsName` secret under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. When `OIDC_ISSUER` is empty the desk stays in local mode (`GET /auth/config` returns `oidc_enabled: false`; `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` still work).
 
 ### Network
 

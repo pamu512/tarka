@@ -80,7 +80,7 @@ function AccountMenu() {
             onClick={() => {
               clearSessionTokens();
               setOpen(false);
-              navigate("/cases");
+              navigate("/login");
             }}
           >
             Sign out
