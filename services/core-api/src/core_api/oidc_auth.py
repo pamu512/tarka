@@ -75,10 +75,7 @@ def oidc_scopes() -> str:
 
 
 def _misconfigured_detail() -> str:
-    return (
-        "OIDC_ISSUER is set but OIDC_CLIENT_ID is empty; "
-        "desk SSO cannot start (fail closed)"
-    )
+    return "OIDC_ISSUER is set but OIDC_CLIENT_ID is empty; desk SSO cannot start (fail closed)"
 
 
 def _raise_if_issuer_without_client_id() -> None:
@@ -103,11 +100,13 @@ def desk_origin(request: Request) -> str:
     explicit = _env("OIDC_REDIRECT_ORIGIN") or _env("DESK_ORIGIN")
     if explicit:
         return explicit.rstrip("/")
-    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "http").split(",")[0].strip()
+    proto = (
+        (request.headers.get("x-forwarded-proto") or request.url.scheme or "http")
+        .split(",")[0]
+        .strip()
+    )
     host = (
-        request.headers.get("x-forwarded-host")
-        or request.headers.get("host")
-        or request.url.netloc
+        request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
     )
     host = str(host).split(",")[0].strip()
     return f"{proto}://{host}"
@@ -151,8 +150,14 @@ async def fetch_discovery() -> dict[str, Any]:
     except Exception as exc:
         log.warning("OIDC discovery failed for %s: %s", issuer, exc)
         raise HTTPException(status_code=502, detail="OIDC discovery failed") from exc
-    if not isinstance(data, dict) or not data.get("authorization_endpoint") or not data.get("token_endpoint"):
-        raise HTTPException(status_code=502, detail="OIDC discovery missing authorization or token endpoint")
+    if (
+        not isinstance(data, dict)
+        or not data.get("authorization_endpoint")
+        or not data.get("token_endpoint")
+    ):
+        raise HTTPException(
+            status_code=502, detail="OIDC discovery missing authorization or token endpoint"
+        )
     data["_issuer"] = issuer
     _discovery = data
     _discovery_at = _now()
@@ -188,7 +193,9 @@ async def auth_config() -> dict[str, Any]:
 
 
 @router.get("/login")
-async def login(request: Request, next_path: str = Query("/cases", alias="next")) -> RedirectResponse:
+async def login(
+    request: Request, next_path: str = Query("/cases", alias="next")
+) -> RedirectResponse:
     _require_oidc_ready()
     _purge_expired()
     disco = await fetch_discovery()
@@ -303,4 +310,3 @@ async def refresh(body: RefreshBody) -> dict[str, Any]:
         "token_type": tokens.get("token_type") or "Bearer",
         "expires_in": tokens.get("expires_in"),
     }
-
