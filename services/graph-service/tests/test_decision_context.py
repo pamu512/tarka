@@ -186,7 +186,11 @@ def test_http_decision_endpoints(db_path: Path) -> None:
 
 
 def test_accountability_snapshot(db_path: Path) -> None:
-    from graph_service.decision_context_store import accountability_snapshot, add_edge, record_decision
+    from graph_service.decision_context_store import (
+        accountability_snapshot,
+        add_edge,
+        record_decision,
+    )
 
     a = record_decision(
         tenant_id="t1",

@@ -97,7 +97,9 @@ def _headers() -> dict[str, str]:
     return h
 
 
-def _http_json(method: str, path: str, *, params: dict | None = None, body: dict | None = None) -> Any:
+def _http_json(
+    method: str, path: str, *, params: dict | None = None, body: dict | None = None
+) -> Any:
     import urllib.error
     import urllib.parse
     import urllib.request
@@ -176,9 +178,7 @@ def _reply(msg_id: Any, result: Any) -> None:
 
 def _reply_error(msg_id: Any, code: int, message: str) -> None:
     sys.stdout.write(
-        json.dumps(
-            {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
-        )
+        json.dumps({"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}})
         + "\n"
     )
     sys.stdout.flush()

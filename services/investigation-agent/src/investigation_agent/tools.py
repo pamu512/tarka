@@ -1879,7 +1879,10 @@ TOOL_DEFINITIONS = [
                 "type": "object",
                 "required": ["external_id"],
                 "properties": {
-                    "external_id": {"type": "string", "description": "Decision external_id (dec_…)"},
+                    "external_id": {
+                        "type": "string",
+                        "description": "Decision external_id (dec_…)",
+                    },
                     "max_depth": {"type": "integer", "default": 5},
                 },
             },

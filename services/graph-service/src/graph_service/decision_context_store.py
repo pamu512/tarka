@@ -248,9 +248,7 @@ def get_decision(tenant_id: str, external_id: str) -> dict[str, Any] | None:
             conn.close()
 
 
-def set_semantica_decision_id(
-    tenant_id: str, external_id: str, semantica_decision_id: str
-) -> None:
+def set_semantica_decision_id(tenant_id: str, external_id: str, semantica_decision_id: str) -> None:
     with _LOCK:
         conn = _connect()
         try:
@@ -414,10 +412,7 @@ def search_decisions(
         needle = f"%{q.strip().lower()}%"
         clauses.append("(lower(scenario) LIKE ? OR lower(reasoning) LIKE ?)")
         params.extend([needle, needle])
-    sql = (
-        f"SELECT * FROM decisions WHERE {' AND '.join(clauses)} "
-        "ORDER BY created_at DESC LIMIT ?"
-    )
+    sql = f"SELECT * FROM decisions WHERE {' AND '.join(clauses)} ORDER BY created_at DESC LIMIT ?"
     params.append(lim)
     with _LOCK:
         conn = _connect()
@@ -581,9 +576,7 @@ def accountability_snapshot(
 ) -> dict[str, Any]:
     """Local SoR snapshot for bundles and compliance export."""
     seen: dict[str, dict[str, Any]] = {}
-    for row in search_decisions(
-        tenant_id=tenant_id, case_id=case_id, limit=limit
-    ):
+    for row in search_decisions(tenant_id=tenant_id, case_id=case_id, limit=limit):
         seen[row["external_id"]] = row
     if trace_id:
         for row in search_decisions(tenant_id=tenant_id, trace_id=trace_id, limit=limit):

@@ -34,7 +34,9 @@ def _run_mirror(tenant_id: str, decision: dict[str, Any]) -> None:
     try:
         asyncio.run(_mirror_async(tenant_id, decision))
     except Exception:
-        log.warning("decision_janus_mirror_failed id=%s", decision.get("external_id"), exc_info=True)
+        log.warning(
+            "decision_janus_mirror_failed id=%s", decision.get("external_id"), exc_info=True
+        )
 
 
 async def _mirror_async(tenant_id: str, decision: dict[str, Any]) -> None:

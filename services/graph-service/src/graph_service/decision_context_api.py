@@ -64,7 +64,9 @@ def _require_enabled() -> None:
         raise HTTPException(status_code=503, detail="decision_graph_disabled")
 
 
-def _maybe_mirror_semantica(body: RecordDecisionRequest, did: str, row: dict[str, Any]) -> dict[str, Any]:
+def _maybe_mirror_semantica(
+    body: RecordDecisionRequest, did: str, row: dict[str, Any]
+) -> dict[str, Any]:
     if (os.environ.get("SEMANTICA_BRIDGE_ENABLED") or "").strip().lower() not in {
         "1",
         "true",
@@ -97,9 +99,7 @@ def _maybe_mirror_semantica(body: RecordDecisionRequest, did: str, row: dict[str
             relationship=(body.edges[0].relationship if body.edges else "INFLUENCED"),
         )
         if mirrored.ok and mirrored.semantica_decision_id:
-            store.set_semantica_decision_id(
-                body.tenant_id, did, mirrored.semantica_decision_id
-            )
+            store.set_semantica_decision_id(body.tenant_id, did, mirrored.semantica_decision_id)
             return store.get_decision(body.tenant_id, did) or row
     except Exception:
         pass
