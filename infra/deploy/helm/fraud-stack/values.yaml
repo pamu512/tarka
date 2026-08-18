@@ -80,6 +80,7 @@ coreApi:
   enabled: true
   image: tarka-core-api
   tag: latest
+  digest: ""
   replicaCount: 2
   servicePort: 8000
   allowInsecureNoAuth: false
@@ -106,6 +107,7 @@ signalApi:
   enabled: false
   image: tarka-signal-api
   tag: latest
+  digest: ""
   replicaCount: 1
   servicePort: 8004
   tritonModelInput: X
@@ -136,6 +138,7 @@ investigationAgent:
   enabled: false
   image: tarka-investigation-agent
   tag: latest
+  digest: ""
   replicaCount: 1
   servicePort: 8006
   # Local SQLite under INVESTIGATION_DATA_DIR (knowledge/feedback/review). Single replica only.
