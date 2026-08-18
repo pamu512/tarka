@@ -11,12 +11,12 @@ export function WorkspaceBar() {
       <select
         value={environment}
         onChange={(e) => setEnvironment(e.target.value as "sandbox" | "production")}
-        className="bg-surface-800 border border-surface-600 rounded-md px-1.5 py-0.5 text-gray-300 max-w-[110px]"
-        aria-label="Workspace environment"
-        title="Display label for sandbox vs production stacks"
+        className="bg-surface-800 border border-surface-600 rounded-md px-1.5 py-0.5 text-gray-300 max-w-[150px]"
+        aria-label="Workspace environment (display only)"
+        title="Display only — does not switch live stacks"
       >
-        <option value="sandbox">Sandbox</option>
-        <option value="production">Production</option>
+        <option value="sandbox">Sandbox (display only)</option>
+        <option value="production">Production (display only)</option>
       </select>
       <label className="flex items-center gap-1 min-w-0 text-gray-500">
         <span className="hidden lg:inline shrink-0">Tenant</span>
