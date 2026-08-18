@@ -22,11 +22,9 @@ clickhouse:
 
 coreApi:
   enabled: true
-  tag: "1.3.0-beta"
   replicaCount: 2
 signalApi:
   enabled: true
-  tag: "1.3.0-beta"
 
 investigationAgent:
   enabled: false

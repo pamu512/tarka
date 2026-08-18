@@ -1,5 +1,8 @@
-{{- /* Fail closed when global.environment=prod. Dev/default chart stays unchanged. */ -}}
-{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- /* Fail-closed for prod-on-k8s (environment=prod AND coreApi PDB+HPA on).
+     core-on-aws also sets environment=prod but leaves PDB/HPA off and
+     postgres.auth.password=fraud from chart defaults — do not fail that overlay. */ -}}
+{{- $prodOnK8s := and (eq (default "dev" .Values.global.environment) "prod") ((.Values.coreApi).podDisruptionBudget).enabled ((.Values.coreApi).autoscaling).enabled }}
+{{- if $prodOnK8s }}
 {{- if .Values.postgres.enabled }}
 {{- fail "global.environment=prod forbids in-cluster postgres (emptyDir + password fraud). Enable global.externalServices.postgres and disable postgres.enabled." }}
 {{- end }}
@@ -22,11 +25,9 @@
 {{- if or (eq $redisUrl "") (contains "__" $redisUrl) }}
 {{- fail "global.environment=prod requires a resolved global.externalServices.redis.redisUrl" }}
 {{- end }}
-{{- if .Values.postgres.enabled }}
 {{- $pw := default "" ((.Values.postgres.auth).password) }}
-{{- if or (eq $pw "") (eq $pw "fraud") }}
-{{- fail "global.environment=prod forbids in-cluster postgres.auth.password of fraud/empty" }}
-{{- end }}
+{{- if eq $pw "fraud" }}
+{{- fail "global.environment=prod forbids leftover postgres.auth.password=fraud (chart default); set postgres.auth.password to empty when using external Postgres" }}
 {{- end }}
 {{- if ((.Values.coreApi).allowInsecureNoAuth) }}
 {{- fail "global.environment=prod forbids coreApi.allowInsecureNoAuth" }}
