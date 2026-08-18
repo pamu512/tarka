@@ -149,7 +149,7 @@ Desk-only (no graph): decision graph writers no-op safely (`DECISION_GRAPH_ENABL
 
 ---
 
-## MCP (agents / Cursor)
+## MCP (agents / IDE)
 
 Stdio server wrapping graph HTTP:
 
