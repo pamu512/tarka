@@ -139,3 +139,74 @@ describe("CaseDetail disposition bar", () => {
     expect(client.decisions.joinDispositionLabels).not.toHaveBeenCalled();
   });
 });
+
+
+describe("CaseDetail pack why strip", () => {
+  beforeEach(() => {
+    vi.mocked(client.cases.get).mockReset();
+    vi.mocked(client.decisions.getAudit).mockReset();
+    vi.mocked(client.decisions.getAudit).mockRejectedValue(new Error("skip"));
+    vi.mocked(client.decisions.reliabilityBins).mockRejectedValue(new Error("skip"));
+    vi.mocked(client.graph.entityRisk).mockRejectedValue(new Error("skip"));
+  });
+
+  it("always paints the pack-why strip and says missing when the pack reason is absent", async () => {
+    vi.mocked(client.cases.get).mockResolvedValue(makeCase());
+    render(wrap(<CaseDetail />));
+    const strip = await screen.findByTestId("pack-why-strip");
+    expect(strip).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("missing");
+    expect(screen.queryByTestId("pack-why-advise")).not.toBeInTheDocument();
+  });
+
+  it("shows the pack that fired and one why from the evaluate/audit snapshot", async () => {
+    vi.mocked(client.cases.get).mockResolvedValue(makeCase());
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-1",
+      entity_id: "ent-1",
+      tenant_id: "demo",
+      event_type: "payment",
+      decision: "review",
+      score: 74,
+      tags: [],
+      rule_hits: ["velocity_guard"],
+      rule_pack_file: "fintech.json",
+      recommended_action: "manual_review",
+      inference_context: {
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
+        integrity_confidence: 0,
+        tamper_risk: 0,
+        network_trust: 0,
+        replay_risk: 0,
+        geo_consistency_risk: 0,
+        top_signals: [],
+        confidence_tier: "medium",
+        driver_reasons: ["rule:velocity_guard"],
+        driver_explain: [{ reason: "rule:velocity_guard", category: "rules", label: "Velocity burst on this card" }],
+        colocation_risk: 0,
+        copresence_risk: 0,
+        impossible_travel_risk: 0,
+        velocity_events_5m: 0,
+        velocity_events_1h: 0,
+        velocity_events_24h: 0,
+        calibration_profile_version: 1,
+        location_confidence: 0,
+        confidence_sources: { calibration: "heuristic", counter: "heuristic", location: "heuristic" },
+        graph_risk_score: 0,
+        graph_risk_reasons: [],
+        external_signal_score: 0,
+        external_signal_providers: [],
+      },
+      created_at: new Date().toISOString(),
+    });
+    render(wrap(<CaseDetail />));
+    await screen.findByTestId("pack-why-strip");
+    await waitFor(() => {
+      expect(screen.getByTestId("pack-why-pack")).toHaveTextContent("fintech");
+      expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("Velocity burst on this card");
+    });
+    expect(screen.queryByTestId("pack-why-advise")).not.toBeInTheDocument();
+  });
+});
