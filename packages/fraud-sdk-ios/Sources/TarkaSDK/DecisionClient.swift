@@ -85,22 +85,32 @@ public final class DecisionClient {
             return ""
         }()
 
+        var signals: [String: Any] = [
+            "is_emulator": isSimulator,
+            "is_vpn": isVpn,
+            "is_spoofed_location": false,
+            "is_bot": false,
+            "is_repackaged": isRepackaged,
+            "automation_detected": (collected["is_debugger_attached"] as? Bool) ?? false,
+            "vpn_interface_detected": isVpn,
+            "mock_location_detected": false,
+            "screen_res": screenRes,
+            "language": language,
+            "platform_version": platformVersion,
+        ]
+        // Jailbreak / biometrics are collected but were previously dropped before evaluate.
+        // Smallest wire add: map onto existing device_context.signals (do not invent attestation verify).
+        if let jailbroken = collected["is_jailbroken"] as? Bool {
+            signals["is_jailbroken"] = jailbroken
+        }
+        if let biometrics = collected["has_biometrics"] as? Bool {
+            signals["has_biometrics"] = biometrics
+        }
+
         var deviceContext: [String: Any] = [
             "device_id": deviceId,
             "platform": "ios",
-            "signals": [
-                "is_emulator": isSimulator,
-                "is_vpn": isVpn,
-                "is_spoofed_location": false,
-                "is_bot": false,
-                "is_repackaged": isRepackaged,
-                "automation_detected": (collected["is_debugger_attached"] as? Bool) ?? false,
-                "vpn_interface_detected": isVpn,
-                "mock_location_detected": false,
-                "screen_res": screenRes,
-                "language": language,
-                "platform_version": platformVersion,
-            ],
+            "signals": signals,
         ]
 
         if enableAppAttest {
