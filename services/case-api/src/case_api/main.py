@@ -23,7 +23,11 @@ from tarka_core.internal_monitor import InternalMonitor
 
 from .agent_hooks import fire_case_brief
 from .builtin_playbooks import PLAYBOOKS
-from .config import settings
+from .config import (
+    _DEV_EVIDENCE_SIGNING_SECRET,
+    production_evidence_secret_errors,
+    settings,
+)
 from .db import (
     Base,
     active_database_backend,
@@ -105,9 +109,6 @@ _trail = AuditTrail(AuditRecord)
 _ws_clients: dict[WebSocket, str] = {}
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
-_DEV_EVIDENCE_SIGNING_SECRET = "tarka-evidence-dev-secret"
-
-
 def _request_support_id(request: Request) -> str:
     rid = (
         request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or ""
@@ -317,13 +318,11 @@ async def _broadcast(event: dict):
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    if settings.case_api_production_mode and (settings.evidence_signing_secret or "").strip() in {
-        "",
-        _DEV_EVIDENCE_SIGNING_SECRET,
-    }:
-        raise RuntimeError(
-            "case-api: EVIDENCE_SIGNING_SECRET must be explicitly set when CASE_API_PRODUCTION_MODE=true",
-        )
+    evidence_errs = production_evidence_secret_errors(
+        secret=settings.evidence_signing_secret,
+    )
+    if evidence_errs:
+        raise RuntimeError("case-api: " + "; ".join(evidence_errs))
     await init_db()
     application.state.http = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0))
     application.state.webhook = WebhookSender(max_retries=5, http=application.state.http)
