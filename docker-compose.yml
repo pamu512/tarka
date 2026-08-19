@@ -1,14 +1,14 @@
-# Default local stack = Tarka Lite (core-api → decision-api evaluate).
+# One compose front door (same as README / docs/INDEX.md):
 #
-# Usage (repo root):
-#   docker compose up --build
-#   ./scripts/bootstrap_beta.sh --launch
+#   docker compose \
+#     -f infra/deploy/docker-compose.lite.yml \
+#     -f infra/deploy/docker-compose.fraud-desk.yml \
+#     up --build
 #
-# Deprecated speed-layer (core_v2 + Redis streams ML / batch copilot):
-#   docker compose -f docker-compose.streams-ai.yml up --build
-#
-# Orchestrator ingest rail (decision-api + shadow_agent + optional Python rules):
-#   docker compose -f infra/deploy/docker-compose.v2-ingest.yml up --build
+# `docker compose up` from the repo root includes those two files.
+# Optional laptop Ollama overlay: -f docker-compose.local.yml
+# Lab / legacy files live under infra/deploy/archive/.
 
 include:
   - path: infra/deploy/docker-compose.lite.yml
+  - path: infra/deploy/docker-compose.fraud-desk.yml

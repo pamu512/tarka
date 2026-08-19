@@ -6,8 +6,9 @@
 
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 COMPOSE_CMD ?= docker compose
-COMPOSE_FILE ?= docker-compose.streams-ai.yml
-COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE)
+COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
+COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
+COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
 MODEL_PATH := $(ROOT)/services/ml_sidecar/models/baseline_fraud_v1.onnx
 
