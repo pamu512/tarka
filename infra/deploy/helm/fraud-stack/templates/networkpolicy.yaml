@@ -1,0 +1,313 @@
+{{- /* Default-deny in-cluster traffic when global.environment=prod.
+     Dev/default (environment=dev) emits nothing. No values.networkPolicy key —
+     same environment gate style as validate-prod.yaml (prod-on-k8s also sets
+     environment=prod). */ -}}
+{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- $fullname := include "tarka.fullname" . }}
+{{- $oidc := false }}
+{{- range $k, $_ := ((.Values.coreApi).extraEnv | default dict) }}
+{{- if hasPrefix "OIDC_" $k }}
+{{- $oidc = true }}
+{{- end }}
+{{- end }}
+{{- $frontendUpstreams := or .Values.coreApi.enabled .Values.signalApi.enabled .Values.investigationAgent.enabled .Values.integrationIngress.enabled .Values.graphService.enabled .Values.dataPlane.enabled .Values.graphqlGateway.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-dns
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+{{- /* Chart pods share an `app` label. Same-namespace ingress covers
+     kubelet-adjacent probes (hostNetwork unused) and hops the templates
+     already wire. Not all-ports all-namespaces. */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-same-namespace
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: Exists
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: Exists
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: Exists
+---
+{{- if .Values.frontend.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-ingress-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.port }}
+---
+{{- end }}
+{{- if .Values.coreApi.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-ingress-core-api
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-core-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.coreApi.servicePort }}
+---
+{{- end }}
+{{- if .Values.signalApi.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-ingress-signal-api
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-signal-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.signalApi.servicePort }}
+---
+{{- end }}
+{{- if .Values.investigationAgent.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-ingress-investigation-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-investigation-agent
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.investigationAgent.servicePort }}
+---
+{{- end }}
+{{- if and .Values.frontend.enabled $frontendUpstreams }}
+{{- /* nginx.conf proxy_pass edges (only services the chart enables). */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-frontend-apis
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-frontend
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.coreApi.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-core-api
+      ports:
+        - protocol: TCP
+          port: {{ .Values.coreApi.servicePort }}
+    {{- end }}
+    {{- if .Values.signalApi.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-signal-api
+      ports:
+        - protocol: TCP
+          port: {{ .Values.signalApi.servicePort }}
+    {{- end }}
+    {{- if .Values.investigationAgent.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-investigation-agent
+      ports:
+        - protocol: TCP
+          port: {{ .Values.investigationAgent.servicePort }}
+    {{- end }}
+    {{- if .Values.integrationIngress.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-integration-ingress
+      ports:
+        - protocol: TCP
+          port: {{ .Values.integrationIngress.servicePort }}
+    {{- end }}
+    {{- if .Values.graphService.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-graph-service
+      ports:
+        - protocol: TCP
+          port: {{ .Values.graphService.servicePort }}
+    {{- end }}
+    {{- if .Values.dataPlane.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-data-plane
+      ports:
+        - protocol: TCP
+          port: {{ .Values.dataPlane.port }}
+    {{- end }}
+    {{- if .Values.graphqlGateway.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-graphql-gateway
+      ports:
+        - protocol: TCP
+          port: {{ .Values.graphqlGateway.port }}
+    {{- end }}
+---
+{{- end }}
+{{- if and .Values.coreApi.enabled (or .Values.postgres.enabled .Values.redis.enabled .Values.nats.enabled) }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-core-api-datastores
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-core-api
+  policyTypes:
+    - Egress
+  egress:
+    {{- if .Values.postgres.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- end }}
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    {{- end }}
+    {{- if .Values.nats.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ $fullname }}-nats
+      ports:
+        - protocol: TCP
+          port: 4222
+    {{- end }}
+---
+{{- end }}
+{{- if or (((( .Values.global).externalServices).postgres).enabled) (((( .Values.global).externalServices).redis).enabled) }}
+{{- /* Managed PG/Redis: ports only. Chart will not invent egressCIDRs.
+     Operators may add a tighter ipBlock for the VPC. */}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-egress-external-data
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: Exists
+  policyTypes:
+    - Egress
+  egress:
+    {{- if (((( .Values.global).externalServices).postgres).enabled) }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- end }}
+    {{- if (((( .Values.global).externalServices).redis).enabled) }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 6379
+    {{- end }}
+---
+{{- end }}
+{{- if and .Values.coreApi.enabled $oidc }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-allow-egress-https
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $fullname }}-core-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+{{- end }}
+{{- end }}
