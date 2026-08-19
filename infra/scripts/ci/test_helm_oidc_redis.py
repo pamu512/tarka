@@ -39,6 +39,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "global.externalServices.redis.enabled=false",
                 "--set",
                 "coreApi.extraEnv.TARKA_DEPLOYMENT_PROFILE=production",
+                "--set",
+                "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set-string",
                 "coreApi.extraEnv.OIDC_ISSUER=https://idp.example.com",
             ]
@@ -96,6 +98,38 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
             )
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("https://idp.example.com", r.stdout)
+
+    def test_environment_prod_without_idempotency_fails_render(self) -> None:
+        r = _helm(
+            [
+                "-f",
+                str(_CHART / "values.yaml"),
+                "--set",
+                "global.environment=prod",
+            ]
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
+
+    def test_core_on_aws_renders_evaluate_idempotency_true(self) -> None:
+        r = _helm(["-f", str(_CORE_AWS)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stdout)
+        self.assertIn("true", r.stdout)
+
+    def test_prod_profile_idempotency_false_fails_render(self) -> None:
+        r = _helm(
+            [
+                "-f",
+                str(_CHART / "values.yaml"),
+                "--set",
+                "coreApi.extraEnv.TARKA_DEPLOYMENT_PROFILE=production",
+                "--set",
+                "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=false",
+            ]
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
 
 
 if __name__ == "__main__":

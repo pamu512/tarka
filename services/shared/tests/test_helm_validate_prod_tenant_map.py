@@ -35,3 +35,19 @@ def test_validate_prod_fails_issuer_without_redis():
     oidc_at = text.index("OIDC_ISSUER is set in production but REDIS_URL")
     gate_at = text.index("$prodOnK8s :=")
     assert oidc_at < gate_at
+
+
+def test_validate_prod_fails_missing_evaluate_idempotency():
+    text = (HELM / "validate-prod.yaml").read_text(encoding="utf-8")
+    assert "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY" in text
+    assert "same fail-closed rule as production_profile" in text
+    idem_at = text.index("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY must be true in production")
+    gate_at = text.index("$prodOnK8s :=")
+    assert idem_at < gate_at
+
+
+def test_core_on_aws_sets_evaluate_idempotency_extra_env():
+    preset = ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "presets" / "core-on-aws.yaml"
+    text = preset.read_text(encoding="utf-8")
+    assert "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY" in text
+    assert "TARKA_DEPLOYMENT_PROFILE: production" in text

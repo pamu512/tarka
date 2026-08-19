@@ -29,6 +29,18 @@
 {{- fail "OIDC_ISSUER is set in production but REDIS_URL is missing or still a placeholder — Redis is required for desk SSO (no in-process OIDC state fallback)" }}
 {{- end }}
 {{- end }}
+{{- /* Python production_profile already requires TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY
+     when TARKA_DEPLOYMENT_PROFILE=production. Helm must fail the same way at render
+     for environment=prod overlays that skip the prod-on-k8s PDB+HPA gate (core-on-aws). */ -}}
+{{- if $prodProfile }}
+{{- $idem := "" }}
+{{- if hasKey $extraEnv "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY" }}
+{{- $idem = lower (trim (toString (index $extraEnv "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY"))) }}
+{{- end }}
+{{- if not (or (eq $idem "true") (eq $idem "1") (eq $idem "yes") (eq $idem "on")) }}
+{{- fail "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY must be true in production (same fail-closed rule as production_profile)" }}
+{{- end }}
+{{- end }}
 {{- /* Fail-closed for prod-on-k8s (environment=prod AND coreApi PDB+HPA on).
      core-on-aws also sets environment=prod but leaves PDB/HPA off and
      postgres.auth.password=fraud from chart defaults — do not fail that overlay. */ -}}
