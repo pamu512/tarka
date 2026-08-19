@@ -30,6 +30,7 @@ import { TimeTravelSlider } from "../components/CaseView/TimeTravelSlider";
 import { TuneRuleModal } from "../components/CaseView/TuneRuleModal";
 import { TriageHeader, type TriageFlashCard } from "../components/CaseView/TriageHeader";
 import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
+import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
 import {
   ExternalSignalHoverBody,
   GeoHoverBody,
@@ -95,6 +96,7 @@ import {
   buildTriageFlashCards,
 } from "../utils/triageFlashCards";
 import { resolvePackWhy } from "../utils/packWhy";
+import { resolveDeviceIntegrity } from "../utils/deviceIntegrity";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -716,6 +718,20 @@ function CaseDetailWorkbench() {
     ],
   );
 
+  const deviceIntegrity = useMemo(
+    () =>
+      resolveDeviceIntegrity({
+        tags: decisionExplain?.tags,
+        top_signals: decisionExplain?.inference_context?.top_signals,
+        evaluate_payload: decisionExplain?.evaluate_payload ?? null,
+      }),
+    [
+      decisionExplain?.tags,
+      decisionExplain?.inference_context?.top_signals,
+      decisionExplain?.evaluate_payload,
+    ],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -809,6 +825,7 @@ function CaseDetailWorkbench() {
         </div>
       </div>
       <PackWhyStrip {...packWhy} />
+      <DeviceIntegrityStrip {...deviceIntegrity} />
       <AnalystWorkbenchLayout
         bridgeConfirm={
           <BridgeConfirmDialog
