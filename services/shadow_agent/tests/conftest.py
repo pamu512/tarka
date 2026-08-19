@@ -12,8 +12,19 @@ for _p in (
     _SERVICES / "ingestor" / "src",
     _SERVICES / "ingestor",
     _SERVICES.parent / "packages" / "shared-core",
+    _SERVICES / "shared",
     _SERVICES,
 ):
     _s = str(_p.resolve())
     if _s not in sys.path:
         sys.path.insert(0, _s)
+
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _shadow_tenant_binding_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Compose/dev tests stay single-tenant unless a test opts into binding."""
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "false")
+    monkeypatch.delenv("API_KEY_TENANT_MAP", raising=False)
