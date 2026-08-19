@@ -21,3 +21,15 @@
 {{- printf "%s:%s" $name $tag -}}
 {{- end -}}
 {{- end }}
+
+{{- define "tarka.apiKeyTenantMapOptional" -}}
+{{- if eq (default "dev" .Values.global.environment) "prod" -}}
+false
+{{- else -}}
+true
+{{- end -}}
+{{- end }}
+
+{{- define "tarka.helmEnvironment" -}}
+{{- default "dev" .Values.global.environment -}}
+{{- end }}

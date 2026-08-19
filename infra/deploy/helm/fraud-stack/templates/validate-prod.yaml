@@ -58,4 +58,10 @@
 {{- if and .Values.investigationAgent.enabled (ne ((.Values.investigationAgent.dataPersistence).mode | default "local-sqlite") "postgres") }}
 {{- fail "global.environment=prod investigation-agent requires dataPersistence.mode=postgres (local-sqlite cannot HA)" }}
 {{- end }}
+{{- if eq (include "tarka.apiKeyTenantMapOptional" .) "true" }}
+{{- fail "global.environment=prod forbids optional API_KEY_TENANT_MAP secretKeyRef" }}
+{{- end }}
+{{- if ((.Values.coreApi).apiKeyTenantMapOptional) }}
+{{- fail "global.environment=prod forbids optional API_KEY_TENANT_MAP (coreApi.apiKeyTenantMapOptional)" }}
+{{- end }}
 {{- end }}

@@ -6,6 +6,7 @@ from decision_api.production_profile import (
     assert_production_env,
     check_production_env,
     deployment_profile_is_production,
+    forbids_wildcard_tenant_scope,
 )
 
 
@@ -69,3 +70,33 @@ def test_production_profile_does_not_require_oidc_issuer():
             }
         )
     )
+
+
+def test_wildcard_tenant_scope_rejected_in_production_profile():
+    errs = check_production_env(
+        {
+            "API_KEYS": "secret",
+            "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+            "API_KEY_TENANT_MAP": '{"k1": "*"}',
+        }
+    )
+    assert any("*" in e for e in errs)
+
+
+def test_valid_tenant_map_passes_production_profile():
+    assert (
+        check_production_env(
+            {
+                "API_KEYS": "secret",
+                "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+                "API_KEY_TENANT_MAP": '{"k1": "tenant_alpha"}',
+            }
+        )
+        == []
+    )
+
+
+def test_forbids_wildcard_for_profile_or_helm_prod():
+    assert forbids_wildcard_tenant_scope({"TARKA_DEPLOYMENT_PROFILE": "production"})
+    assert forbids_wildcard_tenant_scope({"TARKA_HELM_ENVIRONMENT": "prod"})
+    assert not forbids_wildcard_tenant_scope({"TARKA_DEPLOYMENT_PROFILE": "dev"})

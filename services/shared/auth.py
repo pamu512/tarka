@@ -3,7 +3,12 @@ from __future__ import annotations
 import os
 
 from fastapi import HTTPException, Request
-from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map, tenant_binding_required
+from tenant_binding import (
+    TenantMapConfigError,
+    enforce_tenant_access,
+    parse_api_key_tenant_map,
+    tenant_binding_required,
+)
 
 """Shared X-API-Key authentication dependency for all services."""
 
@@ -46,10 +51,18 @@ async def require_api_key(request: Request) -> None:
     }:
         return
     keys = _get_valid_keys()
-    tenant_map = parse_api_key_tenant_map()
+    try:
+        tenant_map = parse_api_key_tenant_map()
+    except TenantMapConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     if not keys:
         allow = _allow_insecure_no_auth()
         if allow:
+            if tenant_binding_required() and not tenant_map:
+                raise HTTPException(
+                    status_code=503,
+                    detail="API_KEY_TENANT_MAP is required when TENANT_BINDING_REQUIRED is set",
+                )
             await enforce_tenant_access(request, allowed_tenants={"*"})
             return
         raise HTTPException(
@@ -62,5 +75,7 @@ async def require_api_key(request: Request) -> None:
     if tenant_map:
         await enforce_tenant_access(request, allowed_tenants=tenant_map.get(header, set()))
     elif tenant_binding_required():
-        # Require tenant_id on the request even when no per-key map is configured.
-        await enforce_tenant_access(request, allowed_tenants={"*"})
+        raise HTTPException(
+            status_code=503,
+            detail="API_KEY_TENANT_MAP is required when TENANT_BINDING_REQUIRED is set",
+        )
