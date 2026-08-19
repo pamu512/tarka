@@ -8,8 +8,9 @@
 # Optional async ingest (data-plane :8007 + orchestrator :8790 + outbox-processor):
 #   docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up --build
 # Optional graph evaluate read (sets GRAPH_SERVICE_URL):
-#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.graph-wire.yml --profile graph up --build
-# See README (demo vertical) and infra/scripts/ci/demo_vertical_smoke.py
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/archive/docker-compose.graph-wire.yml --profile graph up --build
+# Day-1 desk: also merge infra/deploy/docker-compose.fraud-desk.yml (see README / docs/INDEX.md).
+# Demo vertical overlay (archived): infra/deploy/archive/docker-compose.demo-vertical.yml
 
 name: tarka-lite
 

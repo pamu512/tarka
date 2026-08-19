@@ -2,7 +2,7 @@
 # can POST evaluate, create a case (analyst role), and POST /v1/events with one x-api-key.
 # Also rebuilds frontend with the full brochure demo surface (Command Center, etc.).
 #
-#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.demo-vertical.yml --profile ingest up -d --build
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/archive/docker-compose.demo-vertical.yml --profile ingest up -d --build
 #   export DEMO_API_KEY=tarka-demo-vertical
 #   python3 infra/scripts/ci/demo_vertical_smoke.py
 #
@@ -21,7 +21,7 @@ services:
       ALLOW_INSECURE_NO_AUTH: "true"
   frontend:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: frontend/Dockerfile
       args:
         VITE_LEAN_NAV: "false"

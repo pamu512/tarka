@@ -1,7 +1,7 @@
 # Wire evaluate → graph-service. Merge with lite when --profile graph is on.
 #
 #   docker compose -f infra/deploy/docker-compose.lite.yml \
-#     -f infra/deploy/docker-compose.graph-wire.yml --profile graph up -d
+#     -f infra/deploy/archive/docker-compose.graph-wire.yml --profile graph up -d
 #
 # Decision context graph (accountability layer):
 #   DECISION_GRAPH_ENABLED=1 on graph-service + writers on core-api / investigation-agent

@@ -1,9 +1,9 @@
 # Tarka v2 ingest path: decision-api (Rust packs) + shadow + orchestrator.
 # Build context is repo root (../.. relative to this file). Run from repo root:
-#   docker compose -f infra/deploy/docker-compose.v2-ingest.yml up -d --build
+#   docker compose -f infra/deploy/archive/docker-compose.v2-ingest.yml up -d --build
 #
 # Rollback / dual-run: also start the Python AST sidecar:
-#   docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile legacy-python-rules up -d --build
+#   docker compose -f infra/deploy/archive/docker-compose.v2-ingest.yml --profile legacy-python-rules up -d --build
 #   then set RULE_EVAL_BACKEND=python or RULE_EVAL_DUAL_RUN=true on orchestrator.
 
 name: tarka-v2-ingest
@@ -11,7 +11,7 @@ name: tarka-v2-ingest
 services:
   decision-api:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: services/decision-api/Dockerfile
     ports:
       - "8000:8000"
@@ -48,7 +48,7 @@ services:
   rule_engine:
     profiles: ["legacy-python-rules"]
     build:
-      context: ../..
+      context: ../../..
       dockerfile: services/rule_engine/Dockerfile
     environment:
       RULE_ENGINE_COMPAT_MODE: decision_api
@@ -74,7 +74,7 @@ services:
 
   shadow_agent:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: services/shadow_agent/Dockerfile
     ports:
       - "8801:8801"
@@ -103,7 +103,7 @@ services:
 
   orchestrator:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: services/orchestrator/Dockerfile
     ports:
       - "8790:8790"
@@ -146,7 +146,7 @@ services:
 
   outbox-processor:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: services/orchestrator/Dockerfile
     entrypoint: ["/usr/local/bin/python3"]
     command: ["-m", "workers.outbox_processor"]
@@ -164,7 +164,7 @@ services:
         condition: service_healthy
 
   # Optional always-on trend tick (no new daemon binary — curl loop).
-  # Enable: docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick up -d
+  # Enable: docker compose -f infra/deploy/archive/docker-compose.v2-ingest.yml --profile trend-tick up -d
   trend-tick:
     profiles: ["trend-tick"]
     image: curlimages/curl:8.12.1
