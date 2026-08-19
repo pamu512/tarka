@@ -259,7 +259,14 @@ def test_request_body_too_large_413():
 
 def test_helm_prod_presets_set_copilot_production_mode():
     """Preset leftover: Helm prod enabled the agent without COPILOT_PRODUCTION_MODE."""
-    presets = Path(__file__).resolve().parents[3] / "infra" / "deploy" / "helm" / "fraud-stack" / "presets"
+    presets = (
+        Path(__file__).resolve().parents[3]
+        / "infra"
+        / "deploy"
+        / "helm"
+        / "fraud-stack"
+        / "presets"
+    )
     for name in ("prod-on-k8s.yaml", "investigation-on-aws.yaml", "full-on-k8s.yaml"):
         text = (presets / name).read_text(encoding="utf-8")
-        assert "COPILOT_PRODUCTION_MODE: \"true\"" in text, name
+        assert 'COPILOT_PRODUCTION_MODE: "true"' in text, name
