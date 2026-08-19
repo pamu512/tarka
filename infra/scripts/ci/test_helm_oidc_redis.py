@@ -41,6 +41,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "coreApi.extraEnv.TARKA_DEPLOYMENT_PROFILE=production",
                 "--set",
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+                "--set",
+                "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set-string",
                 "coreApi.extraEnv.OIDC_ISSUER=https://idp.example.com",
             ]
@@ -174,6 +176,26 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
+
+    def test_environment_prod_without_ingest_idempotency_fails_render(self) -> None:
+        r = _helm(
+            [
+                "-f",
+                str(_CHART / "values.yaml"),
+                "--set",
+                "global.environment=prod",
+                "--set",
+                "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+            ]
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("INGEST_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
+
+    def test_full_on_k8s_renders_ingest_idempotency_true(self) -> None:
+        r = _helm(["-f", str(_CHART / "presets" / "full-on-k8s.yaml")])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("INGEST_REQUIRE_IDEMPOTENCY_KEY", r.stdout)
+
 
 
 if __name__ == "__main__":

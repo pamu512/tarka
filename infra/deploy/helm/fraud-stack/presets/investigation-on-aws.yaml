@@ -43,6 +43,10 @@ graphqlGateway:
 frontend:
   enabled: true
 
+dataPlane:
+  extraEnv:
+    INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
+
 signalApi:
   enabled: true
 graphService:
