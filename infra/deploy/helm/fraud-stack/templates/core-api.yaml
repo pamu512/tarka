@@ -68,13 +68,17 @@ spec:
               value: {{ ternary "true" "false" .Values.coreApi.allowInsecureNoAuth | quote }}
             - name: TENANT_BINDING_REQUIRED
               value: {{ ternary "true" "false" .Values.coreApi.tenantBindingRequired | quote }}
+            - name: TARKA_HELM_ENVIRONMENT
+              value: {{ include "tarka.helmEnvironment" . | quote }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEY_TENANT_MAP
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: API_KEY_TENANT_MAP
+                  {{- if eq (include "tarka.apiKeyTenantMapOptional" .) "true" }}
                   optional: true
+                  {{- end }}
             {{- else }}
             - name: API_KEY_TENANT_MAP
               value: {{ .Values.coreApi.apiKeyTenantMap | default "" | quote }}
