@@ -48,7 +48,7 @@ Primary workloads hoisted from the former `tarka_v2_core/` wrapper:
 | [`compliance/`](compliance/) | Control narratives (not certifications) |
 | Wiki mirror | [`../wiki/`](../wiki/) — publish with [`scripts/docs/sync-github-wiki.sh`](../scripts/docs/sync-github-wiki.sh); hub wins on conflict |
 
-Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md), [`../STUB_REGISTER.md`](../STUB_REGISTER.md).
+Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md), [`STUB_REGISTER.md`](STUB_REGISTER.md).
 
 ## Migration
 

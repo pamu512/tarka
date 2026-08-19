@@ -73,4 +73,4 @@ Gateway map: `frontend/nginx.conf`.
 
 ## Honesty
 
-See root [`STUB_REGISTER.md`](../../STUB_REGISTER.md) and [productionization runbook](guides/repo-productionization-runbook.md).
+See [`docs/STUB_REGISTER.md`](../STUB_REGISTER.md) and [productionization runbook](guides/repo-productionization-runbook.md).

@@ -1,31 +1,22 @@
-# Support Policy
+# Support
 
-This document defines production support expectations for Tarka deployments.
+Tarka is **Apache-2.0** open source. Support is **community-only**.
 
-## Support Tiers
+There is **no SLA**, **no paid channel**, **no on-call**, and **no incident bridge**. Response time is whatever a volunteer maintainer can give.
 
-- Community: best-effort via GitHub issues/discussions.
-- Production: private support channel, response targets, and incident bridge.
+## How to get help
 
-## Severity and Targets
+Best-effort via [GitHub issues](https://github.com/pamu512/tarka/issues). That is not a production support contract.
 
-| Severity | Description | Initial Response | Mitigation Target |
-| --- | --- | --- | --- |
-| Sev-1 | Full outage or hard decisioning failure | 30 minutes | 4 hours |
-| Sev-2 | Major degradation with workaround | 2 hours | 1 business day |
-| Sev-3 | Partial impact, non-critical path | 1 business day | 3 business days |
-| Sev-4 | Questions, docs, or minor defects | 2 business days | Planned release |
+## How to file an issue
 
-## Escalation
+Include:
 
-1. Open incident with affected service, region, tenant, and timestamps.
-2. Include trace IDs and sample request IDs.
-3. For Sev-1/2, activate incident bridge and page on-call.
-4. Publish updates at least every 30 minutes for Sev-1.
+- **service** (for example `core-api` / decision-api, case-api, investigation-agent)
+- **tenant** (or `demo` / local)
+- **trace_id** from the evaluate or case response
+- What you expected versus what happened
+- Compose files or Helm preset (`fraud-desk`, `prod-on-k8s`, …)
+- Branch or commit SHA (development is on `master`)
 
-## Required Operational Controls
-
-- Health checks for all services.
-- Alerting on API errors, queue lag, and latency SLO breaches.
-- Backups and restore drills for stateful stores.
-- Security patching cadence and dependency scans.
+Do not file undisclosed security vulnerabilities as public issues — see [SECURITY.md](SECURITY.md).
