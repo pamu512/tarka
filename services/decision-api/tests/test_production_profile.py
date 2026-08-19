@@ -1,5 +1,7 @@
 """Production fail-closed profile checks."""
 
+from pathlib import Path
+
 import pytest
 
 from decision_api.production_profile import (
@@ -153,3 +155,21 @@ def test_should_enforce_production_profile_includes_helm_prod():
         }
     )
     assert any("IDEMPOTENCY" in e for e in errs)
+
+
+def test_compose_production_hardening_sets_deployment_profile():
+    """Overlay leftover: knobs without TARKA_DEPLOYMENT_PROFILE skipped Python fail-closes."""
+    overlay = (
+        Path(__file__).resolve().parents[3]
+        / "infra"
+        / "deploy"
+        / "docker-compose.production-hardening.yml"
+    ).read_text(encoding="utf-8")
+    assert overlay.count("TARKA_DEPLOYMENT_PROFILE: production") >= 4
+    for needle in (
+        "core-api:\n    environment:\n      TARKA_DEPLOYMENT_PROFILE: production",
+        "integration-ingress:\n    environment:\n      TARKA_DEPLOYMENT_PROFILE: production",
+        "graph-service:\n    environment:\n      TARKA_DEPLOYMENT_PROFILE: production",
+        "data-plane:\n    environment:\n      TARKA_DEPLOYMENT_PROFILE: production",
+    ):
+        assert needle in overlay
