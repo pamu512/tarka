@@ -1,7 +1,52 @@
+from __future__ import annotations
+
 import os
+from typing import Mapping
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _truthy(raw: str | None) -> bool:
+    return (raw or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def production_lock_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Fail-closed case-api lock: explicit flag, Python production profile, or Helm prod.
+
+    Compose production-hardening and Helm prod already set TARKA_DEPLOYMENT_PROFILE
+    on core-api (case-api is the same process). CASE_API_PRODUCTION_MODE was the
+    existing Python lock those overlays skipped — sqlite fallback and the
+    default evidence HMAC still ran.
+    """
+    src = env if env is not None else os.environ
+    if _truthy(src.get("CASE_API_PRODUCTION_MODE")):
+        return True
+    if (src.get("TARKA_DEPLOYMENT_PROFILE") or "").strip().lower() == "production":
+        return True
+    helm = (src.get("TARKA_HELM_ENVIRONMENT") or src.get("TARKA_ENVIRONMENT") or "").strip().lower()
+    return helm == "prod"
+
+
+_DEV_EVIDENCE_SIGNING_SECRET = "tarka-evidence-dev-secret"
+
+
+def production_evidence_secret_errors(
+    env: Mapping[str, str] | None = None,
+    *,
+    secret: str | None = None,
+) -> list[str]:
+    """Refuse empty or default evidence HMAC when the production lock is on."""
+    if not production_lock_enabled(env):
+        return []
+    src = env if env is not None else os.environ
+    raw = (secret if secret is not None else src.get("EVIDENCE_SIGNING_SECRET") or "").strip()
+    if raw in ("", _DEV_EVIDENCE_SIGNING_SECRET):
+        return [
+            "EVIDENCE_SIGNING_SECRET must be explicitly set in production "
+            "(CASE_API_PRODUCTION_MODE, TARKA_DEPLOYMENT_PROFILE=production, or Helm environment=prod)"
+        ]
+    return []
 
 
 class Settings(BaseSettings):

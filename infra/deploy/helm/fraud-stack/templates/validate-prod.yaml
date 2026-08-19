@@ -41,6 +41,19 @@
 {{- fail "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY must be true in production (same fail-closed rule as production_profile)" }}
 {{- end }}
 {{- end }}
+{{- /* Python case-api already fail-closes sqlite fallback and the default evidence HMAC
+     when CASE_API_PRODUCTION_MODE is true. Compose production-hardening and Helm prod
+     set TARKA_DEPLOYMENT_PROFILE on core-api (same process as case-api) but skipped this
+     lock — postgres bootstrap failure still dropped cases onto case-api-dev.db. */ -}}
+{{- if $prodProfile }}
+{{- $caseProd := "" }}
+{{- if hasKey $extraEnv "CASE_API_PRODUCTION_MODE" }}
+{{- $caseProd = lower (trim (toString (index $extraEnv "CASE_API_PRODUCTION_MODE"))) }}
+{{- end }}
+{{- if not (or (eq $caseProd "true") (eq $caseProd "1") (eq $caseProd "yes") (eq $caseProd "on")) }}
+{{- fail "CASE_API_PRODUCTION_MODE must be true in production (same fail-closed rule as case-api: no sqlite fallback, EVIDENCE_SIGNING_SECRET required)" }}
+{{- end }}
+{{- end }}
 {{- /* Compose production-hardening already sets COPILOT_PRODUCTION_MODE so
      investigation-agent production_config fail-closes (API_KEYS, no ALLOWED_ANALYSTS=*,
      LLM key). Helm prod presets that enable the agent skipped that lock — /v1/chat
