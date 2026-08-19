@@ -35,8 +35,34 @@ from .infrastructure.otel import (  # noqa: E402
 )
 
 
+def _enforce_production_auth_profile() -> None:
+    """Run fail-closed auth checks when TARKA_DEPLOYMENT_PROFILE=production.
+
+    Empty API_KEYS + ALLOW_INSECURE_NO_AUTH=false is 503 at request time
+    (shared ``require_api_key``). Soft-open auth is refused here so a
+    mis-set profile cannot boot. OIDC_ISSUER is not required.
+    """
+    from decision_api.production_profile import (
+        deployment_profile_is_production,
+    )
+
+    if not deployment_profile_is_production(os.environ):
+        return
+    insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if insecure:
+        raise RuntimeError(
+            "ALLOW_INSECURE_NO_AUTH is forbidden when TARKA_DEPLOYMENT_PROFILE=production"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _enforce_production_auth_profile()
     try:
         async with dec.lifespan(dec.app), case.lifespan(case.app):
             yield

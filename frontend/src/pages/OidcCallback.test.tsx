@@ -17,12 +17,11 @@ describe("OidcCallback", () => {
     vi.restoreAllMocks();
   });
 
-  it("redeems the ticket, stores tokens, and navigates to next", async () => {
+  it("redeems the ticket with cookies and does not park tokens", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          access_token: "access-from-idp",
-          refresh_token: "refresh-from-idp",
+          authenticated: true,
           next: "/rules/visual",
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -40,12 +39,13 @@ describe("OidcCallback", () => {
     );
 
     expect(await screen.findByText("visual-builder")).toBeInTheDocument();
-    expect(getAccessToken()).toBe("access-from-idp");
-    expect(getRefreshToken()).toBe("refresh-from-idp");
+    expect(getAccessToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/session",
       expect.objectContaining({
         method: "POST",
+        credentials: "include",
         body: JSON.stringify({ ticket: "one-time" }),
       }),
     );
