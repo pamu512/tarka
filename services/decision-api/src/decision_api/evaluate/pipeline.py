@@ -141,6 +141,11 @@ async def run_evaluate_decision(
                 },
             )
 
+    from decision_api.pack_canary import ensure_pack_canary_ready
+
+    ensure_pack_canary_ready(request)
+    pack_canary_obs = None
+
     http = _http(request)
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
@@ -799,6 +804,17 @@ async def run_evaluate_decision(
             signal_tags=signal_tags,
         )
 
+        from decision_api.pack_canary import maybe_observe_candidate_pack
+
+        pack_canary_obs = maybe_observe_candidate_pack(
+            request,
+            features=features,
+            redis_tag_list=redis_tag_list,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            signal_tags=signal_tags,
+        )
+
         opa_task = run_evaluation_step(
             "opa",
             lambda: _evaluate_opa_wrapped(http, snapshot, degrade_tags, tenant_flags),
@@ -1207,6 +1223,18 @@ async def run_evaluate_decision(
         snap_extra["signal_availability_notes"] = signal_notes
         if policy_set_id:
             snap_extra["policy_set_id"] = policy_set_id
+        if pack_canary_obs:
+            snap_extra["pack_canary"] = pack_canary_obs
+            from decision_api.shadow import record_observation
+
+            record_observation(
+                str(trace_id),
+                {"decision": decision, "score": final_score},
+                {
+                    "shadow_decision": pack_canary_obs.get("candidate_decision"),
+                    "shadow_score": pack_canary_obs.get("candidate_score"),
+                },
+            )
         if shadow_request:
             snap_extra["shadow"] = True
         if partner_evidence:
