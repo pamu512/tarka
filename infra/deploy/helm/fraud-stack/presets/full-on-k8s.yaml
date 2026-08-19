@@ -4,6 +4,9 @@ global:
 
 coreApi:
   enabled: true
+  extraEnv:
+    TARKA_DEPLOYMENT_PROFILE: production
+    TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
 signalApi:
   enabled: true
 integrationIngress:

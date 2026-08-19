@@ -25,6 +25,16 @@ def helm_environment_is_prod(env: Mapping[str, str]) -> bool:
 
 def forbids_wildcard_tenant_scope(env: Mapping[str, str]) -> bool:
     """Ban ``*`` API-key tenant scope in production profile or Helm prod."""
+    return should_enforce_production_profile(env)
+
+
+def should_enforce_production_profile(env: Mapping[str, str]) -> bool:
+    """Same prod lock as tenant wildcard: profile=production or Helm environment=prod.
+
+    Helm core-on-aws injects ``TARKA_HELM_ENVIRONMENT=prod`` without
+    ``TARKA_DEPLOYMENT_PROFILE``. Evaluate idempotency and the rest of
+    ``check_production_env`` must still run.
+    """
     return deployment_profile_is_production(env) or helm_environment_is_prod(env)
 
 
