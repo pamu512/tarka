@@ -37,12 +37,16 @@ spec:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: API_KEYS
                   optional: true
+            - name: TARKA_HELM_ENVIRONMENT
+              value: {{ include "tarka.helmEnvironment" . | quote }}
             - name: API_KEY_TENANT_MAP
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: API_KEY_TENANT_MAP
+                  {{- if eq (include "tarka.apiKeyTenantMapOptional" .) "true" }}
                   optional: true
+                  {{- end }}
             {{- end }}
 ---
 apiVersion: v1

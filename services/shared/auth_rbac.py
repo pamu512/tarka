@@ -9,6 +9,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from tenant_binding import (
+    TenantMapConfigError,
     enforce_tenant_access,
     parse_api_key_tenant_map,
     tenant_binding_required,
@@ -155,7 +156,10 @@ async def _authenticate(request: Request) -> AuthUser:
         if api_keys_raw
         else frozenset()
     )
-    key_tenant_map = parse_api_key_tenant_map()
+    try:
+        key_tenant_map = parse_api_key_tenant_map()
+    except TenantMapConfigError as exc:
+        raise HTTPException(503, str(exc)) from exc
 
     allow_insecure = _allow_insecure_no_auth()
 
@@ -165,7 +169,15 @@ async def _authenticate(request: Request) -> AuthUser:
             if role not in ROLE_HIERARCHY:
                 role = "admin"
             roles = sorted({"service", role})
-            tenant_ids = key_tenant_map.get(api_key, set()) if key_tenant_map else {"*"}
+            if key_tenant_map:
+                tenant_ids = key_tenant_map.get(api_key, set())
+            elif tenant_binding_required():
+                raise HTTPException(
+                    503,
+                    "API_KEY_TENANT_MAP is required when TENANT_BINDING_REQUIRED is set",
+                )
+            else:
+                tenant_ids = {"*"}
             return AuthUser(
                 user_id="service", roles=roles, auth_type="api_key", tenant_ids=tenant_ids
             )
@@ -185,6 +197,8 @@ async def _authenticate(request: Request) -> AuthUser:
         if isinstance(roles, str):
             roles = [roles]
         tenant_ids = tenants_from_claims(claims)
+        if tenant_binding_required() and not tenant_ids:
+            raise HTTPException(403, "tenant binding is required but caller has no tenant scope")
         return AuthUser(
             user_id=user_id, roles=roles, auth_type="jwt", claims=claims, tenant_ids=tenant_ids
         )

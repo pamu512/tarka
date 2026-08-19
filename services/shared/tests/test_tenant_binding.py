@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from tenant_binding import enforce_tenant_access, tenant_binding_required
+from tenant_binding import (
+    TenantMapConfigError,
+    enforce_tenant_access,
+    parse_api_key_tenant_map,
+    tenant_binding_required,
+)
 
 
 def _client(monkeypatch, *, required: bool) -> TestClient:
@@ -65,3 +72,23 @@ def test_flag_parser(monkeypatch):
     assert tenant_binding_required() is True
     monkeypatch.setenv("TENANT_BINDING_REQUIRED", "0")
     assert tenant_binding_required() is False
+
+
+def test_parse_bad_json_raises(monkeypatch):
+    monkeypatch.setenv("API_KEY_TENANT_MAP", "{nope")
+    with pytest.raises(TenantMapConfigError, match="JSON"):
+        parse_api_key_tenant_map()
+
+
+def test_parse_wildcard_rejected_when_helm_prod(monkeypatch):
+    monkeypatch.setenv("TARKA_HELM_ENVIRONMENT", "prod")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k1": "*"}')
+    with pytest.raises(TenantMapConfigError, match="\\*"):
+        parse_api_key_tenant_map()
+
+
+def test_parse_valid_map(monkeypatch):
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
+    monkeypatch.delenv("TARKA_HELM_ENVIRONMENT", raising=False)
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k1": ["tenant_alpha"]}')
+    assert parse_api_key_tenant_map() == {"k1": {"tenant_alpha"}}
