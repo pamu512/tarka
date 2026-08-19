@@ -137,4 +137,3 @@ def test_issuer_with_redis_passes():
         )
         == []
     )
-
