@@ -100,3 +100,40 @@ def test_forbids_wildcard_for_profile_or_helm_prod():
     assert forbids_wildcard_tenant_scope({"TARKA_DEPLOYMENT_PROFILE": "production"})
     assert forbids_wildcard_tenant_scope({"TARKA_HELM_ENVIRONMENT": "prod"})
     assert not forbids_wildcard_tenant_scope({"TARKA_DEPLOYMENT_PROFILE": "dev"})
+
+
+def test_issuer_without_redis_fails():
+    errs = check_production_env(
+        {
+            "API_KEYS": "secret",
+            "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+            "OIDC_ISSUER": "https://idp.example.com",
+        }
+    )
+    assert any("REDIS_URL" in e and "OIDC_ISSUER" in e for e in errs)
+
+
+def test_issuer_with_redis_placeholder_fails():
+    errs = check_production_env(
+        {
+            "API_KEYS": "secret",
+            "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+            "OIDC_ISSUER": "https://idp.example.com",
+            "REDIS_URL": "__REDIS_URL__",
+        }
+    )
+    assert any("REDIS_URL" in e for e in errs)
+
+
+def test_issuer_with_redis_passes():
+    assert (
+        check_production_env(
+            {
+                "API_KEYS": "secret",
+                "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+                "OIDC_ISSUER": "https://idp.example.com",
+                "REDIS_URL": "rediss://elasticache:6379/0",
+            }
+        )
+        == []
+    )
