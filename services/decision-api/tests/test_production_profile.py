@@ -173,3 +173,14 @@ def test_compose_production_hardening_sets_deployment_profile():
         "data-plane:\n    environment:\n      TARKA_DEPLOYMENT_PROFILE: production",
     ):
         assert needle in overlay
+
+
+def test_compose_production_hardening_sets_case_api_production_mode():
+    """Overlay leftover: profile on core-api skipped case-api sqlite/evidence fail-close."""
+    overlay = (
+        Path(__file__).resolve().parents[3]
+        / "infra"
+        / "deploy"
+        / "docker-compose.production-hardening.yml"
+    ).read_text(encoding="utf-8")
+    assert 'CASE_API_PRODUCTION_MODE: "true"' in overlay

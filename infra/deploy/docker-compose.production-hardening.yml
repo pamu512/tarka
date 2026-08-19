@@ -6,7 +6,9 @@
 # COPILOT_PRODUCTION_MODE=true fails fast at startup if misconfigured (see GET /v1/health production block).
 # TARKA_DEPLOYMENT_PROFILE=production is the same Python lock as Helm prod (API_KEYS required at
 # boot, no ALLOW_INSECURE_NO_AUTH, evaluate Idempotency-Key, wildcard tenant map refused, OIDC
-# issuer requires Redis). Setting the individual knobs without the profile left those fail-closes off.
+# issuer requires Redis). CASE_API_PRODUCTION_MODE is the case-api lock on the same process
+# (no sqlite fallback, EVIDENCE_SIGNING_SECRET required). Setting the individual knobs without
+# the profile left those fail-closes off.
 
 services:
   investigation-agent:
@@ -26,6 +28,7 @@ services:
   core-api:
     environment:
       TARKA_DEPLOYMENT_PROFILE: production
+      CASE_API_PRODUCTION_MODE: "true"
       ALLOW_INSECURE_NO_AUTH: "false"
       TENANT_BINDING_REQUIRED: "true"
       TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"

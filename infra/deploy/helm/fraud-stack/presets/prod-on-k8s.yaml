@@ -12,8 +12,9 @@
 #     -f /tmp/prod-on-k8s.values.yaml \
 #     --set global.appSecretsName=tarka-app-secrets
 #
-# Required Secret keys in global.appSecretsName: API_KEYS (and optional
-# EVIDENCE_SIGNING_SECRET, POSTGRES_PASSWORD). Empty API_KEYS + empty
+# Required Secret keys in global.appSecretsName: API_KEYS and
+# EVIDENCE_SIGNING_SECRET (CASE_API_PRODUCTION_MODE refuses the default HMAC
+# and sqlite fallback). POSTGRES_PASSWORD optional. Empty API_KEYS + empty
 # OIDC_ISSUER + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
 # TARKA_DEPLOYMENT_PROFILE=production runs those fail-closed checks.
 # OIDC is not a first-class values key — set issuer via extraEnv.
@@ -67,6 +68,7 @@ coreApi:
   extraEnv:
     TARKA_DEPLOYMENT_PROFILE: production
     TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
+    CASE_API_PRODUCTION_MODE: "true"
     OIDC_ISSUER: ""
     OIDC_AUDIENCE: "tarka"
     OIDC_JWKS_URL: ""
