@@ -32,6 +32,14 @@ class Settings(BaseSettings):
         le=120.0,
     )
     candidate_rules_path: str = os.environ.get("CANDIDATE_RULES_PATH", "").strip()
+    #: Observe-only pack canary on evaluate (slice 1). 0 = off. Live allow/deny stays live pack.
+    pack_canary_percent: float = Field(
+        default=float(os.environ.get("PACK_CANARY_PERCENT", "0") or "0"),
+        ge=0.0,
+        le=100.0,
+    )
+    pack_canary_pack_id: str = os.environ.get("PACK_CANARY_PACK_ID", "").strip()
+    pack_canary_path: str = os.environ.get("PACK_CANARY_PATH", "").strip()
     clickhouse_shadow_evaluations_table: str = Field(
         default=os.environ.get(
             "CLICKHOUSE_SHADOW_EVALUATIONS_TABLE", "shadow_rule_evaluations"
