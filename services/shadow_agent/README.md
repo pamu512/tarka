@@ -14,6 +14,8 @@ LLM backends via ``SHADOW_LLM_BACKEND`` (default **ollama**):
 
 Override model with ``SHADOW_LLM_MODEL``. Evaluate (`POST /v1/analyze`) uses this client. Shadow still **advises only**.
 
+Unknown ``SHADOW_LLM_BACKEND`` values (for example ``azure``) **fail closed** — they do not fall through to laptop Ollama. For in-tenant Azure/Vertex/Bedrock-compatible OpenAI APIs use ``self-hosted`` / ``vllm`` plus ``SHADOW_LLM_BASE_URL``. ``TARKA_DEPLOYMENT_PROFILE=production`` refuses public ``api.openai.com`` / ``api.anthropic.com``.
+
 Brand map (vs library `services/shadow` and desktop `tools/shadow`): [`../SHADOW.md`](../SHADOW.md).
 
 Container build: see `Dockerfile` (context = repo root).

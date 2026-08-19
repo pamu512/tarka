@@ -5,6 +5,10 @@ from __future__ import annotations
 import logging
 import os
 
+from llm_client import (
+    refuse_public_saas_llm_url_in_production,
+    unknown_shadow_llm_backend_error,
+)
 from providers.base import BaseLLMProvider
 from providers.ollama_provider import OllamaProvider
 from providers.openai_provider import OpenAIProvider
@@ -61,45 +65,53 @@ def get_llm_provider() -> BaseLLMProvider:
         return OllamaProvider()
 
     if raw not in _OPENAI_ALIASES:
-        logger.warning(
-            "unknown SHADOW_LLM_BACKEND=%r; defaulting to ollama",
-            os.environ.get("SHADOW_LLM_BACKEND", ""),
-        )
-        return OllamaProvider()
+        raise unknown_shadow_llm_backend_error(os.environ.get("SHADOW_LLM_BACKEND", raw))
 
     model = _first_env("SHADOW_LLM_MODEL", "OPENAI_MODEL")
     key = _first_env("SHADOW_LLM_API_KEY")
     base = _first_env("SHADOW_LLM_BASE_URL", "OPENAI_BASE_URL")
     if raw in ("claude", "anthropic"):
+        resolved = base or "https://api.anthropic.com/v1"
+        refuse_public_saas_llm_url_in_production(resolved)
         return OpenAIProvider(
             model=model or "claude-sonnet-4-5",
             api_key=key or _first_env("ANTHROPIC_API_KEY"),
-            base_url=base or "https://api.anthropic.com/v1",
+            base_url=resolved,
         )
     if raw == "gemini":
+        resolved = base or "https://generativelanguage.googleapis.com/v1beta/openai"
+        refuse_public_saas_llm_url_in_production(resolved)
         return OpenAIProvider(
             model=model or "gemini-2.0-flash",
             api_key=key or _first_env("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-            base_url=base or "https://generativelanguage.googleapis.com/v1beta/openai",
+            base_url=resolved,
         )
     if raw in ("qwen", "dashscope"):
+        resolved = base or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        refuse_public_saas_llm_url_in_production(resolved)
         return OpenAIProvider(
             model=model or "qwen-plus",
             api_key=key or _first_env("DASHSCOPE_API_KEY", "QWEN_API_KEY"),
-            base_url=base or "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            base_url=resolved,
         )
     if raw in ("self_hosted", "vllm", "openai_compat", "openai_compatible"):
         if not base:
             raise ValueError(
-                "SHADOW_LLM_BACKEND=self-hosted|vllm requires SHADOW_LLM_BASE_URL",
+                "SHADOW_LLM_BACKEND=self-hosted|vllm requires SHADOW_LLM_BASE_URL "
+                "(OpenAI-compatible origin, e.g. http://vllm:8000/v1). "
+                "For in-tenant Azure/Vertex/Bedrock-compatible endpoints set "
+                "SHADOW_LLM_BASE_URL; do not fall through to Ollama.",
             )
+        refuse_public_saas_llm_url_in_production(base)
         return OpenAIProvider(
             model=model or "llama3.2",
             api_key=key or _first_env("OPENAI_API_KEY") or "not-needed",
             base_url=base,
         )
+    resolved = base or "https://api.openai.com/v1"
+    refuse_public_saas_llm_url_in_production(resolved)
     return OpenAIProvider(
         model=model or "gpt-4o-mini",
         api_key=key or _first_env("OPENAI_API_KEY"),
-        base_url=base or None,
+        base_url=resolved,
     )
