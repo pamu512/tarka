@@ -964,10 +964,7 @@ def build_app(
             decision.risk_score,
             decision.is_fraud,
         )
-        code_ex = audit_log.code_executed or ""
-        notes_ex = audit_log.agent_notes or ""
-        _prompt_cap = 12_000
-        _response_cap = 8_000
+        # Do not echo raw prompt/completion excerpts on the wire (PII). Persist stays on AuditLog.
         payload: dict[str, Any] = {
             **decision.model_dump(mode="json"),
             "_debug": {
@@ -975,8 +972,6 @@ def build_app(
                 "audit_log_id": getattr(audit_log, "id", None),
                 "audit_log_snapshot": {
                     "transaction_id_correlation": audit_log.case_id,
-                    "raw_llm_prompt_excerpt": code_ex[:_prompt_cap],
-                    "raw_llm_response_excerpt": notes_ex[:_response_cap],
                     "is_fraud": decision.is_fraud,
                 },
             },
