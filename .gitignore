@@ -10,9 +10,8 @@ build/
 .venv-internal-comms/
 venv/
 
-# Local-only Development CA + keys for Envoy mTLS (see infrastructure/envoy/scripts/gen-dev-mtls-certs.sh).
-infrastructure/envoy/certs/dev/
-infrastructure/certs/dev/
+# Local-only Development CA + keys for Envoy mTLS (see infra/deploy/observability/envoy/scripts/gen-dev-mtls-certs.sh).
+infra/deploy/observability/envoy/certs/dev/
 .env
 *.onnx
 *.pkl

@@ -2,7 +2,7 @@
 #
 # Access logs: structured JSON to stdout (human ops) and to
 # ``/tmp/tarka-envoy-access.ndjson`` for Promtail → local Loki (see ``flake.nix`` +
-# ``infrastructure/loki/promtail-local.yaml``). Ensure the path is writable (Docker:
+# ``infra/deploy/observability/loki/promtail-local.yaml``). Ensure the path is writable (Docker:
 # bind-mount a host file at this path before ``docker compose up``).
 # In Docker Compose or Kubernetes, point the fastapi cluster address at the service
 # hostname (e.g. core-api) instead of 127.0.0.1.
