@@ -388,7 +388,7 @@ export default function Cases() {
           <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
             S
           </kbd>{" "}
-          Shadow LLM
+          Advise
         </span>
         ) : null}
       </p>

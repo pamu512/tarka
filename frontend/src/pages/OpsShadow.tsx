@@ -254,7 +254,7 @@ export default function OpsShadow() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-gray-100">Shadow vs primary</h1>
+      <h1 className="text-2xl font-bold text-gray-100">Observe vs primary</h1>
       <p className="text-sm text-gray-400">
         Outcome-loop surfaces: L3 live ledger + label/McNemar/drift desk promote. Sim never starts L3.
       </p>
@@ -291,7 +291,7 @@ export default function OpsShadow() {
             Week 1 start (UTC): <span className="text-gray-100">{l3?.week1_start_utc || "not set"}</span>
           </div>
           <div>
-            Shadow evaluate:{" "}
+            Observe evaluate:{" "}
             <span className="text-gray-100">{l3?.shadow_evaluate_enabled ? "yes" : "no"}</span>
           </div>
           <div>
