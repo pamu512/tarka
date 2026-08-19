@@ -52,4 +52,10 @@
 {{- if and .Values.investigationAgent.enabled (eq $agentDigest "latest") }}
 {{- fail "global.environment=prod forbids investigationAgent.digest=latest" }}
 {{- end }}
+{{- if and .Values.investigationAgent.enabled (not $agentDigest) (eq (default "latest" .Values.investigationAgent.tag) "latest") }}
+{{- fail "global.environment=prod forbids investigationAgent.tag=latest — pin a version (prod-on-k8s uses 1.3.0-beta)" }}
+{{- end }}
+{{- if and .Values.investigationAgent.enabled (ne ((.Values.investigationAgent.dataPersistence).mode | default "local-sqlite") "postgres") }}
+{{- fail "global.environment=prod investigation-agent requires dataPersistence.mode=postgres (local-sqlite cannot HA)" }}
+{{- end }}
 {{- end }}

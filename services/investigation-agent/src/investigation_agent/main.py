@@ -95,6 +95,7 @@ from investigation_agent.production_config import (
     raise_if_production_invalid,
     runtime_readiness_errors,
 )
+from investigation_agent.store_backend import StoreMisconfigured, store_config_errors, store_mode
 from investigation_agent.rate_limit import MinuteRateLimiter
 from investigation_agent.reports.case_summary_pdf import render_case_summary_pdf
 from investigation_agent.tool_validation import validate_tool_arguments
@@ -200,6 +201,11 @@ async def _index_and_activate_okf_candidate(
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     raise_if_production_invalid(settings)
+    store_errs = store_config_errors()
+    if store_errs:
+        raise RuntimeError(
+            "investigation-agent: store misconfigured — " + "; ".join(store_errs),
+        )
     if not settings.copilot_production_mode and not _get_api_keys():
         log.warning(
             "investigation-agent: API_KEYS unset — /v1/chat is network-reachable without service auth "
@@ -1532,6 +1538,12 @@ async def ready():
     Readiness probe: at least one enabled knowledge path must be healthy.
     Use with GET /v1/health for liveness vs readiness in orchestrators.
     """
+    store_errs = store_config_errors()
+    if store_errs:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "errors": ["store_misconfigured"]},
+        )
     rag_errs = runtime_readiness_errors()
     okf_enabled = bool(settings.okf_enabled)
     okf_errs = _okf_readiness_errors(app) if okf_enabled else []
@@ -1600,6 +1612,7 @@ def _health_details_payload() -> dict[str, Any]:
             "copilot_workflows": [w["id"] for w in list_workflows()],
             "agent_run_persistence": True,
             "context_snapshot_v1": True,
+            "store_mode": store_mode(),
         },
         "okf": {
             "enabled": settings.okf_enabled,
@@ -2284,7 +2297,7 @@ async def batch_ingest(
     analyst_id: str = Form(...),
     file: UploadFile = File(...),
 ):
-    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, disk-backed TTL)."""
+    """Upload CSV, JSON, NDJSON, or XLSX for copilot tabular tools (tenant + analyst scoped, disk or postgres TTL)."""
     _validate_scope_id("tenant_id", tenant_id)
     _validate_scope_id("analyst_id", analyst_id)
     if not is_analyst_allowed(analyst_id):
@@ -2294,15 +2307,18 @@ async def batch_ingest(
         columns, rows, fmt = batch_store.parse_tabular_file(file.filename or "upload.csv", raw)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    batch_id = batch_store.store_batch(
-        tenant_id,
-        analyst_id,
-        file.filename or "upload",
-        columns,
-        rows,
-        fmt,
-    )
-    rec = batch_store.get_batch(batch_id, tenant_id, analyst_id)
+    try:
+        batch_id = batch_store.store_batch(
+            tenant_id,
+            analyst_id,
+            file.filename or "upload",
+            columns,
+            rows,
+            fmt,
+        )
+        rec = batch_store.get_batch(batch_id, tenant_id, analyst_id)
+    except StoreMisconfigured as exc:
+        raise HTTPException(status_code=503, detail="store_misconfigured") from exc
     assert rec is not None
     prof = batch_store.batch_profile(rec)
     created_at = float(rec.get("created_at") or time.time())
@@ -2322,7 +2338,7 @@ async def batch_ingest(
             "ttl_hours": batch_store.ttl_seconds() // 3600,
         },
         "storage_mode": batch_store.storage_mode(),
-        "durability": "disk_ttl",
+        "durability": batch_store.durability(),
         "durable_until": durable_until,
     }
 

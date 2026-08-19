@@ -1,17 +1,18 @@
-"""Durable AgentRun persistence (tenant-scoped SQLite under INVESTIGATION_DATA_DIR)."""
+"""Durable AgentRun persistence (sqlite file or shared Postgres schema)."""
 
 from __future__ import annotations
 
 import json
 import os
-import sqlite3
 import threading
 import time
 import uuid
 from typing import Any
 
+from investigation_agent.store_backend import StoreConnection, connect_store, init_postgres_schema
+
 _lock = threading.Lock()
-_conn: sqlite3.Connection | None = None
+_conn: StoreConnection | None = None
 
 _ALLOWED_SOURCES = frozenset({"chat", "shadow", "trend"})
 
@@ -32,19 +33,18 @@ def db_path() -> str:
     return os.path.join(_data_dir(), name)
 
 
-def _get_conn() -> sqlite3.Connection:
+def _get_conn() -> StoreConnection:
     global _conn
     with _lock:
         if _conn is None:
-            path = db_path()
-            _conn = sqlite3.connect(path, check_same_thread=False)
-            _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA synchronous=NORMAL")
-            _init_schema(_conn)
+            _conn = connect_store(sqlite_path=db_path(), init_schema=_init_schema)
         return _conn
 
 
-def _init_schema(c: sqlite3.Connection) -> None:
+def _init_schema(c: StoreConnection) -> None:
+    if c.dialect == "postgres":
+        init_postgres_schema(c)
+        return
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS agent_runs (

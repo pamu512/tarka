@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 import threading
 import time
 from typing import Any, Literal
 
-"""SQLite persistence for human sign-off on copilot turns (assurance workflow)."""
+from investigation_agent.store_backend import StoreConnection, connect_store, init_postgres_schema
+
+"""Human sign-off on copilot turns (sqlite file or shared Postgres schema)."""
 _lock = threading.Lock()
-_conn: sqlite3.Connection | None = None
+_conn: StoreConnection | None = None
 
 
 def _data_dir() -> str:
@@ -27,19 +28,18 @@ def db_path() -> str:
     return os.path.join(_data_dir(), name)
 
 
-def _get_conn() -> sqlite3.Connection:
+def _get_conn() -> StoreConnection:
     global _conn
     with _lock:
         if _conn is None:
-            path = db_path()
-            _conn = sqlite3.connect(path, check_same_thread=False)
-            _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA synchronous=NORMAL")
-            _init_schema(_conn)
+            _conn = connect_store(sqlite_path=db_path(), init_schema=_init_schema)
         return _conn
 
 
-def _init_schema(c: sqlite3.Connection) -> None:
+def _init_schema(c: StoreConnection) -> None:
+    if c.dialect == "postgres":
+        init_postgres_schema(c)
+        return
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS copilot_turn_reviews (
