@@ -10,7 +10,9 @@ from sqlalchemy import Float, cast, func, select
 from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
-from tarka_shared.audit_trail import AuditLog
+from tarka_shared.audit_trail import AuditLog, Case
+
+from shadow_tenant import require_tenant_for_read
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +64,8 @@ async def get_recent_entity_transactions(
     session: AsyncSession,
     entity_id: str,
     limit: int = 5,
+    *,
+    tenant_id: str | None = None,
 ) -> list[RecentEntityTransaction]:
     """
     Return recent transaction-shaped audit rows for ``entity_id`` (matched on ``audit_logs.case_id``).
@@ -69,10 +73,15 @@ async def get_recent_entity_transactions(
     Only rows whose ``action_taken`` JSON contains an ``amount`` field are included (skips
     non-transaction audits such as ingestion reject markers).
 
+    When ``tenant_id`` is set, rows are restricted to ``cases.tenant_id``. When
+    ``TENANT_BINDING_REQUIRED`` is on, ``tenant_id`` is required (fail closed).
+
     The query projects **only** ``timestamp``, ``amount``, and ``is_fraud`` from storage.
     """
     if limit < 1:
         raise ValueError("limit must be >= 1")
+
+    scoped_tenant = require_tenant_for_read(tenant_id)
 
     bind = session.get_bind()
     if bind is None:
@@ -80,19 +89,23 @@ async def get_recent_entity_transactions(
 
     amount_expr, fraud_expr = _amount_and_fraud_exprs(bind)
 
-    stmt = (
-        select(
-            AuditLog.timestamp,
-            amount_expr,
-            fraud_expr,
+    stmt = select(
+        AuditLog.timestamp,
+        amount_expr,
+        fraud_expr,
+    )
+    if scoped_tenant is not None:
+        stmt = stmt.join(Case, Case.id == AuditLog.case_id).where(
+            AuditLog.case_id == entity_id,
+            Case.tenant_id == scoped_tenant,
+            amount_expr.is_not(None),
         )
-        .where(
+    else:
+        stmt = stmt.where(
             AuditLog.case_id == entity_id,
             amount_expr.is_not(None),
         )
-        .order_by(AuditLog.timestamp.desc())
-        .limit(limit)
-    )
+    stmt = stmt.order_by(AuditLog.timestamp.desc()).limit(limit)
 
     result = await session.execute(stmt)
     out: list[RecentEntityTransaction] = []

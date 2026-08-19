@@ -290,7 +290,7 @@ def test_analyze_without_x_shadow_token_returns_401() -> None:
 def test_post_check_review_integrity_returns_payload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def _fake_check(listing_id: str, _drv: object) -> dict[str, Any]:
+    async def _fake_check(listing_id: str, _drv: object, **_kw: object) -> dict[str, Any]:
         return {
             "listing_id": listing_id,
             "reviewer_count": 2,

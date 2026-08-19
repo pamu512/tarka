@@ -229,13 +229,24 @@ def find_linked_entities_from_topology(
     return "\n".join(lines)
 
 
-async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: Any) -> str:
+async def find_linked_entities(
+    entity_id: str,
+    tx: TransactionSchema,
+    driver: Any,
+    *,
+    tenant_id: str | None = None,
+) -> str:
     """
     Execute an undirected **≤N-hop** neighborhood expansion (``GRAPH_MAX_HOPS``) from the
     transaction's graph anchors (``User`` / ``IP`` / ``Device``) and return a compact text summary.
 
     ``entity_id`` is the canonical transaction UUID string used for logging / audit correlation.
+    When ``tenant_id`` is set, Neo4j nodes are restricted to that tenant. When
+    ``TENANT_BINDING_REQUIRED`` is on, ``tenant_id`` is required (fail closed).
     """
+    from shadow_tenant import require_tenant_for_read
+
+    scoped_tenant = require_tenant_for_read(tenant_id)
     hints = graph_anchor_hints(tx)
     if hints.user_id is None and hints.ip is None and hints.device_id is None:
         return (
@@ -244,15 +255,17 @@ async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: An
         )
 
     nh = _neighbor_max_hops_from_env()
+    tenant_root = " AND n.tenant_id = $tenant_id" if scoped_tenant is not None else ""
+    tenant_hop = " AND h2.tenant_id = $tenant_id" if scoped_tenant is not None else ""
     q = f"""
     MATCH (n)
-    WHERE (n:`{LABEL_USER}` AND $uid IS NOT NULL AND n.user_id = $uid)
+    WHERE ((n:`{LABEL_USER}` AND $uid IS NOT NULL AND n.user_id = $uid)
        OR (n:`{LABEL_IP}` AND $addr IS NOT NULL AND n.address = $addr)
-       OR (n:`{LABEL_DEVICE}` AND $did IS NOT NULL AND n.device_id = $did)
+       OR (n:`{LABEL_DEVICE}` AND $did IS NOT NULL AND n.device_id = $did)){tenant_root}
     WITH collect(DISTINCT n) AS roots
     UNWIND roots AS root
     MATCH (root)-[*1..{nh}]-(h2)
-    WHERE h2 <> root
+    WHERE h2 <> root{tenant_hop}
     RETURN DISTINCT head(labels(h2)) AS lbl,
            coalesce(
              h2.user_id,
@@ -272,6 +285,7 @@ async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: An
             uid=hints.user_id,
             addr=hints.ip,
             did=hints.device_id,
+            tenant_id=scoped_tenant,
         )
         rows: list[dict[str, Any]] = []
         async for rec in result:
@@ -283,13 +297,18 @@ async def find_linked_entities(entity_id: str, tx: TransactionSchema, driver: An
             )
         return rows
 
+    tenant_ip = (
+        " WHERE ip.tenant_id = $tenant_id AND u.tenant_id = $tenant_id"
+        if scoped_tenant is not None
+        else ""
+    )
     q_shared_ip = f"""
-    MATCH (ip:{LABEL_IP} {{address: $addr}})<-[:{REL_ORDERED_FROM_IP}]-(u:{LABEL_USER})
+    MATCH (ip:{LABEL_IP} {{address: $addr}})<-[:{REL_ORDERED_FROM_IP}]-(u:{LABEL_USER}){tenant_ip}
     RETURN collect(DISTINCT u.user_id) AS users
     """
 
     async def work_shared_ip(txn: Any) -> list[str]:
-        result = await txn.run(q_shared_ip, addr=hints.ip)
+        result = await txn.run(q_shared_ip, addr=hints.ip, tenant_id=scoped_tenant)
         rec = await result.single()
         if rec is None:
             return []
