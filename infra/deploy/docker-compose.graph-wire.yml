@@ -1,0 +1,5 @@
+# Compatibility wrapper — lab overlay lives in archive/.
+# Prefer the advertised desk pair (lite + fraud-desk).
+
+include:
+  - path: archive/docker-compose.graph-wire.yml
