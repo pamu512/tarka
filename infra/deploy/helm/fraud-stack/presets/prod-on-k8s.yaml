@@ -18,6 +18,7 @@
 # TARKA_DEPLOYMENT_PROFILE=production runs those fail-closed checks.
 # OIDC is not a first-class values key — set issuer via extraEnv.
 # Production profile does not require OIDC_ISSUER (API keys are the machine path).
+# If OIDC_ISSUER is set, Redis must be resolved (same fail-closed rule as core-api).
 # investigation-agent uses the already-required external Postgres (no new values keys).
 
 global:

@@ -66,7 +66,9 @@ def check_production_env(env: Mapping[str, str]) -> list[str]:
     Soft-open auth, missing API keys, or evaluate without idempotency requirements fail.
 
     ``OIDC_ISSUER`` is intentionally not required: API keys remain the machine
-    authentication path. Desk SSO is optional.
+    authentication path. Desk SSO is optional. When the issuer *is* set,
+    ``REDIS_URL`` must be a resolved URL (no empty value or ``__`` placeholder)
+    — same fail-closed rule as core-api OIDC (no in-process state fallback).
     Wildcard API-key tenant scope (``*``) is refused.
     """
     errors: list[str] = []
@@ -83,6 +85,14 @@ def check_production_env(env: Mapping[str, str]) -> list[str]:
             "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY must be true in production"
         )
     errors.extend(check_api_key_tenant_map(env))
+    issuer = (env.get("OIDC_ISSUER") or "").strip()
+    if issuer:
+        redis_url = (env.get("REDIS_URL") or "").strip()
+        if (not redis_url) or ("__" in redis_url):
+            errors.append(
+                "REDIS_URL is required when OIDC_ISSUER is set in production "
+                "(no in-process OIDC state fallback)"
+            )
     return errors
 
 
