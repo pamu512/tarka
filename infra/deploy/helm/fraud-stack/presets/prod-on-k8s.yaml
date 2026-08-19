@@ -20,6 +20,9 @@
 # Production profile does not require OIDC_ISSUER (API keys are the machine path).
 # If OIDC_ISSUER is set, Redis must be resolved (same fail-closed rule as core-api).
 # investigation-agent uses the already-required external Postgres (no new values keys).
+# COPILOT_PRODUCTION_MODE is the same Python lock as compose production-hardening
+# (API_KEYS required, no ALLOWED_ANALYSTS=*, LLM key required). ExtraEnv without that
+# flag left /v1/chat reachable without service auth.
 
 global:
   environment: prod
@@ -83,6 +86,12 @@ investigationAgent:
   replicaCount: 2
   dataPersistence:
     mode: postgres
+  extraEnv:
+    COPILOT_PRODUCTION_MODE: "true"
+    COPILOT_REQUIRE_INVESTIGATION_API_KEY: "true"
+    COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"
+    COPILOT_INJECTION_POLICY: reject
+    COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
 integrationIngress:
   enabled: false
 dataPlane:

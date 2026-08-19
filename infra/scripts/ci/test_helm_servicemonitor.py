@@ -61,6 +61,8 @@ class TestHelmServiceMonitor(unittest.TestCase):
             "signalApi.enabled=true",
             "--set",
             "investigationAgent.enabled=true",
+            "--set",
+            "investigationAgent.extraEnv.COPILOT_PRODUCTION_MODE=true",
         )
         names = _kind_names(rendered, "ServiceMonitor")
         self.assertEqual(
@@ -124,7 +126,7 @@ class TestHelmServiceMonitor(unittest.TestCase):
         names = _kind_names(rendered, "ServiceMonitor")
         self.assertIn("tarka-tarka-core-api", names)
         self.assertIn("tarka-tarka-signal-api", names)
-        self.assertNotIn("tarka-tarka-investigation-agent", names)
+        self.assertIn("tarka-tarka-investigation-agent", names)
 
 
 if __name__ == "__main__":

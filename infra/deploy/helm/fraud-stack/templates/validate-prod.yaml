@@ -41,6 +41,20 @@
 {{- fail "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY must be true in production (same fail-closed rule as production_profile)" }}
 {{- end }}
 {{- end }}
+{{- /* Compose production-hardening already sets COPILOT_PRODUCTION_MODE so
+     investigation-agent production_config fail-closes (API_KEYS, no ALLOWED_ANALYSTS=*,
+     LLM key). Helm prod presets that enable the agent skipped that lock — /v1/chat
+     stayed reachable without service auth. */ -}}
+{{- if and $prodProfile .Values.investigationAgent.enabled }}
+{{- $agentEnv := ((.Values.investigationAgent).extraEnv | default dict) }}
+{{- $copilot := "" }}
+{{- if hasKey $agentEnv "COPILOT_PRODUCTION_MODE" }}
+{{- $copilot = lower (trim (toString (index $agentEnv "COPILOT_PRODUCTION_MODE"))) }}
+{{- end }}
+{{- if not (or (eq $copilot "true") (eq $copilot "1") (eq $copilot "yes") (eq $copilot "on")) }}
+{{- fail "COPILOT_PRODUCTION_MODE must be true in production when investigation-agent is enabled (same fail-closed rule as production_config)" }}
+{{- end }}
+{{- end }}
 {{- /* Fail-closed for prod-on-k8s (environment=prod AND coreApi PDB+HPA on).
      core-on-aws also sets environment=prod but leaves PDB/HPA off and
      postgres.auth.password=fraud from chart defaults — do not fail that overlay. */ -}}
