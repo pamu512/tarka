@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearSessionTokens, setSessionTokens } from "./authSession";
 import { decisions } from "./client";
 
-describe("client.ts request() bearer", () => {
+describe("client.ts request() cookie session", () => {
   beforeEach(() => {
     clearSessionTokens();
     vi.restoreAllMocks();
@@ -15,7 +15,7 @@ describe("client.ts request() bearer", () => {
     vi.restoreAllMocks();
   });
 
-  it("sends Authorization: Bearer when a session token is stored", async () => {
+  it("sends credentials: include and does not attach Authorization from memory", async () => {
     setSessionTokens("desk-access-token", null);
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ policies: [] }), {
@@ -28,10 +28,12 @@ describe("client.ts request() bearer", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     const headers = init.headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Bearer desk-access-token");
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers.authorization).toBeUndefined();
+    expect(init.credentials).toBe("include");
   });
 
-  it("omits Authorization when no session token is stored", async () => {
+  it("still includes cookies when no in-memory token is set", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ policies: [] }), {
         status: 200,
@@ -44,6 +46,6 @@ describe("client.ts request() bearer", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBeUndefined();
     expect(headers.authorization).toBeUndefined();
+    expect(init.credentials).toBe("include");
   });
 });
-

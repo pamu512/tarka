@@ -15,7 +15,9 @@
 # Required Secret keys in global.appSecretsName: API_KEYS (and optional
 # EVIDENCE_SIGNING_SECRET, POSTGRES_PASSWORD). Empty API_KEYS + empty
 # OIDC_ISSUER + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
+# TARKA_DEPLOYMENT_PROFILE=production runs those fail-closed checks.
 # OIDC is not a first-class values key — set issuer via extraEnv.
+# Production profile does not require OIDC_ISSUER (API keys are the machine path).
 # investigation-agent uses the already-required external Postgres (no new values keys).
 
 global:
@@ -59,6 +61,8 @@ coreApi:
     maxReplicas: 8
     targetCPUUtilizationPercentage: 70
   extraEnv:
+    TARKA_DEPLOYMENT_PROFILE: production
+    TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
     OIDC_ISSUER: ""
     OIDC_AUDIENCE: "tarka"
     OIDC_JWKS_URL: ""

@@ -9,7 +9,6 @@ import {
   type SaarthiFeatureImportanceRequestBody,
   type SaarthiFeatureImportanceResponse,
 } from "../lib/saarthi/featureImportance";
-import { getAccessToken } from "./authSession";
 import { reportDataOutcome } from "./dataSourceState";
 import { deskStrictEnabled, isUpstreamUnavailableBody, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
@@ -95,6 +94,7 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
   try {
     const res = await fetch(url, {
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
     });
     const text = await res.text();
     if (res.status === 404) {
@@ -1326,14 +1326,11 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
   };
-  const accessToken = getAccessToken();
-  if (accessToken && !headers.Authorization && !headers.authorization) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
   try {
     const res = await fetch(url, {
       ...init,
       headers,
+      credentials: init?.credentials ?? "include",
     });
     const text = await res.text();
     const ct = res.headers.get("content-type") ?? "";
@@ -2023,7 +2020,7 @@ export const decisions = {
   async reliabilityExportCsv(tenantId: string, limit: number = 10_000): Promise<string> {
     const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
     const url = `/api/decisions/v1/calibration/reliability-export.csv?${q}`;
-    const res = await fetch(url, { headers: { Accept: "text/csv" } });
+    const res = await fetch(url, { headers: { Accept: "text/csv" }, credentials: "include" });
     const text = await res.text();
     if (!res.ok) {
       if (USE_API_MOCKS) {
@@ -2080,6 +2077,7 @@ export async function executeFeatureStoreDdl(sql: string): Promise<{ ok: boolean
       ...decisionServiceApiKeyHeaders(),
     },
     body: JSON.stringify({ sql }),
+    credentials: "include",
   });
   const text = await res.text();
   if (!res.ok) {
@@ -2423,7 +2421,7 @@ export const cases = {
     const q = new URLSearchParams({ tenant_id: tenantId });
     const url = `/api/cases/v1/cases/${caseId}/evidence-bundle.zip?${q}`;
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (res.ok) {
         const ct = res.headers.get("content-type") ?? "";
         if (ct.includes("zip") || ct.includes("octet-stream")) {
@@ -3182,6 +3180,7 @@ export async function streamShadowLLMChat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal: opts.signal,
+    credentials: "include",
   });
   if (!res.ok) {
     const text = await res.text();
@@ -3765,6 +3764,7 @@ export const investigation = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: opts?.signal,
+      credentials: "include",
     });
     if (!res.ok) {
       const text = await res.text();
@@ -3823,7 +3823,7 @@ export const investigation = {
     fd.append("file", file);
     const url = "/api/investigation/v1/batch/ingest";
     try {
-      const res = await fetch(url, { method: "POST", body: fd });
+      const res = await fetch(url, { method: "POST", body: fd, credentials: "include" });
       const text = await res.text();
       if (res.ok) {
         return JSON.parse(text) as InvestigationBatchIngestResponse;
@@ -4930,7 +4930,7 @@ function buildResidencyAuditQuery(filters: ResidencyAuditListParams, opts: { inc
 export async function downloadComplianceResidencyAuditCsv(filters: ResidencyAuditListParams): Promise<void> {
   const q = buildResidencyAuditQuery(filters, { includePagination: false });
   const url = `/api/ingress/v1/compliance/residency/audit/export.csv?${q}`;
-  const res = await fetch(url, { headers: { ...decisionServiceApiKeyHeaders() } });
+  const res = await fetch(url, { headers: { ...decisionServiceApiKeyHeaders() }, credentials: "include" });
   if (!res.ok && USE_API_MOCKS) {
     const { getMockResponse } = await import("./mockData");
     const mock = getMockResponse(url, { method: "GET" });
