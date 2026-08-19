@@ -117,3 +117,74 @@ def test_production_profile_empty_keys_503_without_oidc(monkeypatch):
     with TestClient(app) as client:
         resp = client.get("/protected")
     assert resp.status_code == 503
+
+
+def _protected_app():
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    return app
+
+
+def test_empty_map_binding_required_is_503(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "k1")
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "true")
+    monkeypatch.delenv("API_KEY_TENANT_MAP", raising=False)
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    with TestClient(_protected_app()) as client:
+        resp = client.get(
+            "/protected",
+            headers={"x-api-key": "k1", "x-tenant-id": "tenant_alpha"},
+        )
+    assert resp.status_code == 503
+    assert "API_KEY_TENANT_MAP" in resp.json()["detail"]
+
+
+def test_bad_json_tenant_map_is_503(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "k1")
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "true")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", "{not-json")
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    with TestClient(_protected_app()) as client:
+        resp = client.get(
+            "/protected",
+            headers={"x-api-key": "k1", "x-tenant-id": "tenant_alpha"},
+        )
+    assert resp.status_code == 503
+    assert "JSON" in resp.json()["detail"]
+
+
+def test_valid_map_allows_listed_tenant(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "k1")
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "true")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k1": "tenant_alpha"}')
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    with TestClient(_protected_app()) as client:
+        good = client.get(
+            "/protected",
+            headers={"x-api-key": "k1", "x-tenant-id": "tenant_alpha"},
+        )
+        denied = client.get(
+            "/protected",
+            headers={"x-api-key": "k1", "x-tenant-id": "tenant_beta"},
+        )
+    assert good.status_code == 200
+    assert denied.status_code == 403
+
+
+def test_wildcard_map_rejected_in_production_profile(monkeypatch):
+    monkeypatch.setenv("API_KEYS", "k1")
+    monkeypatch.setenv("TENANT_BINDING_REQUIRED", "true")
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.setenv("API_KEY_TENANT_MAP", '{"k1": "*"}')
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    with TestClient(_protected_app()) as client:
+        resp = client.get(
+            "/protected",
+            headers={"x-api-key": "k1", "x-tenant-id": "tenant_alpha"},
+        )
+    assert resp.status_code == 503
+    assert "*" in resp.json()["detail"]

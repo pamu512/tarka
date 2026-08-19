@@ -31,16 +31,35 @@ def tenant_binding_required() -> bool:
     }
 
 
+class TenantMapConfigError(ValueError):
+    """API_KEY_TENANT_MAP is missing, unparseable, or unsafe. Never swallow to {}."""
+
+
+def helm_environment_is_prod() -> bool:
+    raw = (
+        (os.environ.get("TARKA_HELM_ENVIRONMENT") or os.environ.get("TARKA_ENVIRONMENT") or "")
+        .strip()
+        .lower()
+    )
+    return raw == "prod"
+
+
+def production_tenant_lock() -> bool:
+    """True when TARKA_DEPLOYMENT_PROFILE=production or Helm environment=prod."""
+    profile = os.environ.get("TARKA_DEPLOYMENT_PROFILE", "").strip().lower()
+    return profile == "production" or helm_environment_is_prod()
+
+
 def parse_api_key_tenant_map() -> dict[str, set[str]]:
     raw = os.environ.get("API_KEY_TENANT_MAP", "").strip()
     if not raw:
         return {}
     try:
         payload = json.loads(raw)
-    except Exception:
-        return {}
+    except Exception as exc:
+        raise TenantMapConfigError("API_KEY_TENANT_MAP is not valid JSON (fail closed)") from exc
     if not isinstance(payload, dict):
-        return {}
+        raise TenantMapConfigError("API_KEY_TENANT_MAP must be a JSON object")
     out: dict[str, set[str]] = {}
     for key, value in payload.items():
         k = str(key).strip()
@@ -55,6 +74,12 @@ def parse_api_key_tenant_map() -> dict[str, set[str]]:
             out[k] = vals
             continue
         out[k] = set()
+    if production_tenant_lock():
+        for tenants in out.values():
+            if "*" in tenants:
+                raise TenantMapConfigError(
+                    "API_KEY_TENANT_MAP must not grant '*' tenant scope in production"
+                )
     return out
 
 
