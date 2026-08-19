@@ -61,7 +61,7 @@ export const ACCESS_GROUPS: { id: AccessGroupId; label: string; modules: ModuleC
     modules: [
       { id: "rules", label: "Rules", route: "/rules", core: true, highRisk: true },
       { id: "entity-lists", label: "Entity Lists", route: "/entity-lists", core: true, highRisk: true },
-      { id: "shadow", label: "Shadow Mode", route: "/shadow", highRisk: true },
+      { id: "shadow", label: "Observe", route: "/shadow", highRisk: true },
       { id: "simulation", label: "Simulation", route: "/simulation", highRisk: true },
     ],
   },

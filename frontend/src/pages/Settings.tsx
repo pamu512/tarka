@@ -109,7 +109,7 @@ export default function Settings() {
           <h2 className="text-sm font-semibold text-gray-300">Ops &amp; governance</h2>
           <p className="text-xs text-gray-500">
             Inference contract <code className="text-gray-600">v{gov.inference_schema_version}</code> · active rule packs{" "}
-            <span className="text-gray-400">{gov.rule_packs?.active_pack_count ?? "—"}</span> · shadow{" "}
+            <span className="text-gray-400">{gov.rule_packs?.active_pack_count ?? "—"}</span> · observe{" "}
             <span className="text-gray-400">{gov.rule_packs?.shadow_pack_count ?? "—"}</span> · experiment log lines{" "}
             <span className="text-gray-400">{gov.experiment_registry_lines ?? 0}</span>
           </p>

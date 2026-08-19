@@ -2,7 +2,7 @@
 
 **Prove every signal.** Open-source, modular fraud decisioning you run yourself.
 
-Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **cases/SAR**, and **local-first Shadow** forensics. `decision-api` owns allow/deny; Shadow, investigation, and trend **advise** only.
+Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **cases/SAR**, and **local-first Advise** forensics. `decision-api` owns allow/deny; Advise, investigation, and trend **advise** only. **Observe** is evaluate with `metadata.shadow` — not the LLM.
 
 ---
 
@@ -29,7 +29,7 @@ Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **c
 | Actor | Can set production allow/deny? |
 |-------|--------------------------------|
 | decision-api evaluate | **Yes** |
-| Shadow / trend / investigation | No — escalate, draft, cite |
+| Advise / trend / investigation | No — escalate, draft, cite |
 | Analyst GitOps promote | Yes (human) |
 
 See [feature data flows](guides/feature-data-flows.md) for diagrams.
