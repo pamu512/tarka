@@ -639,7 +639,11 @@ async def _invoke_shadow_agent(
     actions: list[str],
     trigger: str,
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """Call Shadow ``POST /v1/analyze``; return ``(body, fallback_reason)``."""
+    """Call Shadow ``POST /v1/analyze``; return ``(body, fallback_reason)``.
+
+    HTTP 5xx, connect errors, and timeouts are fail-soft: ``(None, reason)``.
+    They must not raise into ingest. A 5xx body is never successful advise.
+    """
     analyze_url = f"{shadow_base.rstrip('/')}/v1/analyze"
     headers: dict[str, str] = {}
     if shadow_key:
@@ -682,6 +686,19 @@ async def _invoke_shadow_agent(
             exc,
         )
         return None, "SIDECAR_UNREACHABLE"
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        if status_code is not None and status_code >= 500:
+            logger.warning(
+                "orchestrator_shadow_analyze_http_5xx url=%s transaction_id=%s "
+                "status_code=%s exc=%s",
+                analyze_url,
+                tid,
+                status_code,
+                exc,
+            )
+            return None, "shadow_analyze_http_5xx"
+        raise
 
 
 def _rule_eval_backend(request: Request) -> str:
