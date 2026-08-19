@@ -117,6 +117,50 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stdout)
         self.assertIn("true", r.stdout)
 
+    def test_environment_prod_agent_without_copilot_mode_fails_render(self) -> None:
+        r = _helm(
+            [
+                "-f",
+                str(_CHART / "values.yaml"),
+                "--set",
+                "global.environment=prod",
+                "--set",
+                "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+                "--set",
+                "investigationAgent.enabled=true",
+            ]
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("COPILOT_PRODUCTION_MODE", r.stderr)
+
+    def test_prod_on_k8s_renders_copilot_production_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "prod-on-k8s.values.yaml"
+            subprocess.run(
+                [
+                    "python3",
+                    str(_GEN),
+                    "--preset",
+                    "prod-on-k8s",
+                    "--image-registry",
+                    "registry.example.com/tarka",
+                    "--db-url",
+                    "postgresql+asyncpg://fraud:pw@db.internal:5432/fraud",
+                    "--redis-url",
+                    "rediss://elasticache:6379/0",
+                    "--output",
+                    str(out),
+                ],
+                cwd=str(_REPO),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            r = _helm(["-f", str(out), "--set", "global.appSecretsName=tarka-app-secrets"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("COPILOT_PRODUCTION_MODE", r.stdout)
+        self.assertIn("name: API_KEYS", r.stdout)
+
     def test_prod_profile_idempotency_false_fails_render(self) -> None:
         r = _helm(
             [

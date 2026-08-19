@@ -32,6 +32,12 @@ investigationAgent:
   enabled: true
   dataPersistence:
     mode: postgres
+  extraEnv:
+    COPILOT_PRODUCTION_MODE: "true"
+    COPILOT_REQUIRE_INVESTIGATION_API_KEY: "true"
+    COPILOT_TRUSTED_SCOPE_HEADERS_REQUIRED: "true"
+    COPILOT_INJECTION_POLICY: reject
+    COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
 graphqlGateway:
   enabled: true
 frontend:

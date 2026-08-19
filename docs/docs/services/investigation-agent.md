@@ -36,4 +36,4 @@ Set `INVESTIGATION_STORE=postgres` and `INVESTIGATION_DATABASE_URL` or `DATABASE
 
 Multi-replica requires postgres mode including batches.
 
-`prod-on-k8s` enables the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres.
+`prod-on-k8s` enables the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres. Helm prod also sets `COPILOT_PRODUCTION_MODE` (same Python lock as the compose hardening overlay) so `/v1/chat` is not network-open.
