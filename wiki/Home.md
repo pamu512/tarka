@@ -32,7 +32,7 @@ Short operator mirror of the repo docs hub. **Canonical source:** [`docs/INDEX.m
 | Quickstart | [`docs/docs/quickstart.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/quickstart.md) |
 | Feature flows | [`docs/docs/guides/feature-data-flows.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/feature-data-flows.md) |
 | Decision graph | [`docs/docs/guides/decision-context-graph.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/decision-context-graph.md) |
-| Honesty | [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/STUB_REGISTER.md) |
+| Honesty | [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/docs/STUB_REGISTER.md) |
 | Vision | [`VISION.md`](https://github.com/pamu512/tarka/blob/master/VISION.md) |
 
 **Repo:** [pamu512/tarka](https://github.com/pamu512/tarka)

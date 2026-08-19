@@ -20,7 +20,7 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | GraphQL gateway | 8010 | `graphql-gateway` | _(no REST OpenAPI in repo — GraphQL schema is code-first; see [API Reference — GraphQL Gateway](../api-reference.md#graphql-gateway))_ | `gateway` profile; defaults target **`http://core-api:8000/decisions`** and **`/cases`**. |
 | Frontend (nginx) | 3000 → container 80 | `frontend` | _(UI)_ | `ui` / `full` profile |
 
-Standalone Python packages under `services/decision-api`, `services/case-api`, `services/feature-service`, etc. remain the **source modules** for the macroservices; CI and local `tarka.py dev <legacy-name>` may still target them individually.
+Standalone Python packages under `services/decision-api`, `services/case-api`, `services/feature-service`, etc. remain the **source modules** for the macroservices; CI and local `python tools/tarka.py dev <legacy-name>` may still target them individually.
 
 ## Internal URLs (Docker network)
 

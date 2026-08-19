@@ -11,7 +11,7 @@
 | Incidents | [`docs/docs/guides/incident-response.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/incident-response.md) |
 | Calibration | [`docs/docs/guides/calibration-ops-runbook.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/calibration-ops-runbook.md) |
 | AI / trend prod | [`docs/docs/guides/repo-productionization-runbook.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/guides/repo-productionization-runbook.md) |
-| Honesty | [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/STUB_REGISTER.md) |
+| Honesty | [`STUB_REGISTER.md`](https://github.com/pamu512/tarka/blob/master/docs/STUB_REGISTER.md) |
 | Common failures | [`docs/docs/operations/runbook-common-failures.md`](https://github.com/pamu512/tarka/blob/master/docs/docs/operations/runbook-common-failures.md) |
 
-CLI: `python tarka.py install --lite` / `start` / `status`. Trend: `make trend-tick` or `scripts/trend_tick_loop.sh`.
+CLI: compose under `infra/deploy/` (lite + fraud-desk) or `python3 cli.py`. Trend: `make trend-tick` or `scripts/trend_tick_loop.sh`.

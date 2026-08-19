@@ -11,7 +11,7 @@ Eliminate Potemkin surfaces: **ship durable execution**, **delete** the route, o
 - Vendors → HTTP adapters via `vendors/bootstrap.py`
 - Visual rules → native Rust `tarka_rule_engine` (no Rego transpile)
 - CI: `scripts/audit_stubs.py`, `scripts/audit_prod_desk_mocks.py`
-- Desk-strict + invent-success fail-closed (see root [`STUB_REGISTER.md`](../STUB_REGISTER.md))
+- Desk-strict + invent-success fail-closed (see [`STUB_REGISTER.md`](STUB_REGISTER.md))
 
 ## Policy
 
@@ -22,7 +22,7 @@ Eliminate Potemkin surfaces: **ship durable execution**, **delete** the route, o
 
 ## Related
 
-- [`STUB_REGISTER.md`](../STUB_REGISTER.md) — living ledger  
+- [`STUB_REGISTER.md`](STUB_REGISTER.md) — living ledger  
 - [`docs/docs/honesty.md`](docs/honesty.md) — MkDocs pointer  
 - [`compliance/CLAIM_LOCK.md`](compliance/CLAIM_LOCK.md) — marketing claim hygiene  
 - [`docs/docs/guides/repo-productionization-runbook.md`](docs/guides/repo-productionization-runbook.md)

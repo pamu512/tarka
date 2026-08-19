@@ -14,19 +14,19 @@ from typing import Any
 """Tarka — unified installer and management CLI.
 
 Usage:
-    python tarka.py install                     # Interactive module picker
-    python tarka.py install --all               # Full stack
-    python tarka.py install --modules core,graph,ml
-    python tarka.py install --lite              # Desk: lite + fraud-desk (decision + cases + UI)
-    python tarka.py start                       # Start installed modules
-    python tarka.py stop                        # Stop all running services
-    python tarka.py status                      # Show running services
-    python tarka.py dev <module>                # Run a single module locally (no Docker)
-    python tarka.py env                         # Generate .env from template
-    python tarka.py forensics [--web]           # Local Shadow forensic suite (submodule + optional Tauri)
+    python tools/tarka.py install                     # Interactive module picker
+    python tools/tarka.py install --all               # Full stack
+    python tools/tarka.py install --modules core,graph,ml
+    python tools/tarka.py install --lite              # Desk: lite + fraud-desk (decision + cases + UI)
+    python tools/tarka.py start                       # Start installed modules
+    python tools/tarka.py stop                        # Stop all running services
+    python tools/tarka.py status                      # Show running services
+    python tools/tarka.py dev <module>                # Run a single module locally (no Docker)
+    python tools/tarka.py env                         # Generate .env from template
+    python tools/tarka.py forensics [--web]           # Local Shadow forensic suite (submodule + optional Tauri)
 """
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "infra" / "deploy"
 STATE_FILE = ROOT / ".tarka" / "install.json"
 ENV_FILE = DEPLOY / ".env"
@@ -424,10 +424,10 @@ def cmd_install(args):
             subprocess.run(cmd.split(), cwd=str(ROOT))
 
     print(f"\n{C.GREEN}{C.BOLD}Installation complete!{C.RESET}")
-    print(f"\n  Start services:  {C.CYAN}python tarka.py start{C.RESET}")
-    print(f"  Check status:    {C.CYAN}python tarka.py status{C.RESET}")
-    print(f"  View logs:       {C.CYAN}python tarka.py logs{C.RESET}")
-    print(f"  Stop services:   {C.CYAN}python tarka.py stop{C.RESET}")
+    print(f"\n  Start services:  {C.CYAN}python tools/tarka.py start{C.RESET}")
+    print(f"  Check status:    {C.CYAN}python tools/tarka.py status{C.RESET}")
+    print(f"  View logs:       {C.CYAN}python tools/tarka.py logs{C.RESET}")
+    print(f"  Stop services:   {C.CYAN}python tools/tarka.py stop{C.RESET}")
 
     if "frontend" in resolved:
         print(f"\n  {C.GREEN}Dashboard will be at: http://localhost:3000{C.RESET}")
@@ -569,7 +569,7 @@ def _generate_env(modules: list[str]):
 def cmd_start(args):
     state = _load_state()
     if not state.get("modules"):
-        print(f"{C.YELLOW}No modules installed. Run: python tarka.py install{C.RESET}")
+        print(f"{C.YELLOW}No modules installed. Run: python tools/tarka.py install{C.RESET}")
         sys.exit(1)
 
     modules = state["modules"]
@@ -590,7 +590,7 @@ def cmd_start(args):
     subprocess.run(cmd, cwd=str(DEPLOY))
 
     print(f"\n{C.GREEN}Services starting...{C.RESET}")
-    print(f"  Run {C.CYAN}python tarka.py status{C.RESET} to check health")
+    print(f"  Run {C.CYAN}python tools/tarka.py status{C.RESET} to check health")
     if "frontend" in modules:
         print(f"  Dashboard: {C.CYAN}http://localhost:3000{C.RESET}")
     print(f"  Decision API: {C.CYAN}http://localhost:8000/docs{C.RESET}")
@@ -615,7 +615,7 @@ def cmd_stop(args):
 def cmd_status(args):
     state = _load_state()
     if not state.get("modules"):
-        print(f"{C.YELLOW}No modules installed. Run: python tarka.py install{C.RESET}")
+        print(f"{C.YELLOW}No modules installed. Run: python tools/tarka.py install{C.RESET}")
         return
 
     modules = state["modules"]
@@ -883,7 +883,7 @@ def cmd_add(args):
     )
 
     print(
-        f"\n{C.GREEN}Module(s) added. Run {C.CYAN}python tarka.py start{C.GREEN} to start.{C.RESET}"
+        f"\n{C.GREEN}Module(s) added. Run {C.CYAN}python tools/tarka.py start{C.GREEN} to start.{C.RESET}"
     )
 
 
@@ -912,7 +912,7 @@ def cmd_remove(args):
 
     _save_state(resolved, state.get("sdks", []))
     print(
-        f"\n{C.GREEN}Module(s) removed. Restart with {C.CYAN}python tarka.py start{C.GREEN}.{C.RESET}"
+        f"\n{C.GREEN}Module(s) removed. Restart with {C.CYAN}python tools/tarka.py start{C.GREEN}.{C.RESET}"
     )
 
 
@@ -1042,7 +1042,7 @@ def cmd_forensics(args):
 
     if args.init_only:
         print(
-            f"{C.GREEN}Shadow add-on ready. Run: {C.CYAN}python tarka.py forensics{C.GREEN} to launch.{C.RESET}"
+            f"{C.GREEN}Shadow add-on ready. Run: {C.CYAN}python tools/tarka.py forensics{C.GREEN} to launch.{C.RESET}"
         )
         return
 
@@ -1166,11 +1166,11 @@ def main():
     if not args.command:
         parser.print_help()
         print(f"\n{C.DIM}Quick start:{C.RESET}")
-        print(f"  {C.CYAN}python tarka.py install --all{C.RESET}    Full stack")
-        print(f"  {C.CYAN}python tarka.py install --lite{C.RESET}   Minimal setup")
-        print(f"  {C.CYAN}python tarka.py install{C.RESET}          Interactive picker")
+        print(f"  {C.CYAN}python tools/tarka.py install --all{C.RESET}    Full stack")
+        print(f"  {C.CYAN}python tools/tarka.py install --lite{C.RESET}   Minimal setup")
+        print(f"  {C.CYAN}python tools/tarka.py install{C.RESET}          Interactive picker")
         print(
-            f"  {C.CYAN}python tarka.py forensics{C.RESET}       Shadow local forensic suite (add-on)"
+            f"  {C.CYAN}python tools/tarka.py forensics{C.RESET}       Shadow local forensic suite (add-on)"
         )
         sys.exit(0)
 
