@@ -51,3 +51,22 @@ def test_core_on_aws_sets_evaluate_idempotency_extra_env():
     text = preset.read_text(encoding="utf-8")
     assert "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY" in text
     assert "TARKA_DEPLOYMENT_PROFILE: production" in text
+
+
+def test_validate_prod_fails_missing_copilot_production_mode():
+    """Helm leftover: agent on in prod without COPILOT_PRODUCTION_MODE skipped Python fail-closes."""
+    text = (HELM / "validate-prod.yaml").read_text(encoding="utf-8")
+    assert (
+        "COPILOT_PRODUCTION_MODE must be true in production when investigation-agent is enabled"
+        in text
+    )
+    copilot_at = text.index("COPILOT_PRODUCTION_MODE must be true in production")
+    gate_at = text.index("$prodOnK8s :=")
+    assert copilot_at < gate_at
+
+
+def test_prod_presets_set_copilot_production_mode_when_agent_enabled():
+    presets = ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "presets"
+    for name in ("prod-on-k8s.yaml", "investigation-on-aws.yaml", "full-on-k8s.yaml"):
+        text = (presets / name).read_text(encoding="utf-8")
+        assert 'COPILOT_PRODUCTION_MODE: "true"' in text, name
