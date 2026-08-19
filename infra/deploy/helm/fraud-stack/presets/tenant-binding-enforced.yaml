@@ -12,6 +12,9 @@ coreApi:
   enabled: true
   allowInsecureNoAuth: false
   tenantBindingRequired: true
+  extraEnv:
+    TARKA_DEPLOYMENT_PROFILE: production
+    TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
 
 integrationIngress:
   enabled: true

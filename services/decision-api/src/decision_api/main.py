@@ -925,10 +925,10 @@ async def lifespan(application: FastAPI):
     log.info("decision-api canonical package (services/decision-api)")
     from decision_api.production_profile import (
         assert_production_env,
-        deployment_profile_is_production,
+        should_enforce_production_profile,
     )
 
-    if deployment_profile_is_production(os.environ):
+    if should_enforce_production_profile(os.environ):
         assert_production_env(os.environ)
 
     from tarka_core.cache import LocalDictCache, RedisCache

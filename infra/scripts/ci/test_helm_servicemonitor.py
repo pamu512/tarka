@@ -56,6 +56,8 @@ class TestHelmServiceMonitor(unittest.TestCase):
             "--set",
             "global.environment=prod",
             "--set",
+            "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+            "--set",
             "signalApi.enabled=true",
             "--set",
             "investigationAgent.enabled=true",
@@ -81,6 +83,8 @@ class TestHelmServiceMonitor(unittest.TestCase):
         rendered = _helm(
             "--set",
             "global.environment=prod",
+            "--set",
+            "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
             "--set",
             "coreApi.enabled=false",
             "--set",

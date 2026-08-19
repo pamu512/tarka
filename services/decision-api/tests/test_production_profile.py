@@ -7,6 +7,7 @@ from decision_api.production_profile import (
     check_production_env,
     deployment_profile_is_production,
     forbids_wildcard_tenant_scope,
+    should_enforce_production_profile,
 )
 
 
@@ -137,3 +138,18 @@ def test_issuer_with_redis_passes():
         )
         == []
     )
+
+
+def test_should_enforce_production_profile_includes_helm_prod():
+    """core-on-aws leftover: Helm env=prod must run the same checks as profile=production."""
+    assert should_enforce_production_profile({"TARKA_HELM_ENVIRONMENT": "prod"})
+    assert should_enforce_production_profile({"TARKA_DEPLOYMENT_PROFILE": "production"})
+    assert not should_enforce_production_profile({"TARKA_HELM_ENVIRONMENT": "dev"})
+    errs = check_production_env(
+        {
+            "API_KEYS": "secret",
+            "ALLOW_INSECURE_NO_AUTH": "false",
+            "TARKA_HELM_ENVIRONMENT": "prod",
+        }
+    )
+    assert any("IDEMPOTENCY" in e for e in errs)
