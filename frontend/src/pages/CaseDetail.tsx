@@ -29,6 +29,7 @@ import { clusterSubgraphByDeviceHash, DEVICE_CLUSTER_GRAPH_LABEL } from "../util
 import { TimeTravelSlider } from "../components/CaseView/TimeTravelSlider";
 import { TuneRuleModal } from "../components/CaseView/TuneRuleModal";
 import { TriageHeader, type TriageFlashCard } from "../components/CaseView/TriageHeader";
+import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
 import {
   ExternalSignalHoverBody,
   GeoHoverBody,
@@ -93,6 +94,7 @@ import {
 import {
   buildTriageFlashCards,
 } from "../utils/triageFlashCards";
+import { resolvePackWhy } from "../utils/packWhy";
 import { Network, type Options } from "vis-network";
 import { DataSet } from "vis-data";
 
@@ -698,6 +700,22 @@ function CaseDetailWorkbench() {
     return null;
   }, [decisionExplain?.inference_context?.ml_summary, decisionExplain?.recommended_action]);
 
+  const packWhy = useMemo(
+    () =>
+      resolvePackWhy({
+        rule_pack_file: decisionExplain?.rule_pack_file,
+        reasons: decisionExplain?.reasons,
+        driver_explain: decisionExplain?.inference_context?.driver_explain,
+        evaluate_payload: decisionExplain?.evaluate_payload ?? null,
+      }),
+    [
+      decisionExplain?.rule_pack_file,
+      decisionExplain?.reasons,
+      decisionExplain?.inference_context?.driver_explain,
+      decisionExplain?.evaluate_payload,
+    ],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -790,6 +808,7 @@ function CaseDetailWorkbench() {
           </button>
         </div>
       </div>
+      <PackWhyStrip {...packWhy} />
       <AnalystWorkbenchLayout
         bridgeConfirm={
           <BridgeConfirmDialog
