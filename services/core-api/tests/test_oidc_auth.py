@@ -66,6 +66,7 @@ def _reset(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("OIDC_REDIRECT_ORIGIN", raising=False)
     monkeypatch.delenv("DESK_ORIGIN", raising=False)
     monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     yield
     oidc_auth.reset_oidc_state_for_tests()
 
@@ -267,3 +268,106 @@ def test_redis_backed_state_and_tickets_shared_across_stores(monkeypatch: pytest
         assert "access_token" not in session.json()
         assert f"{oidc_auth.TICKET_KEY_PREFIX}{ticket}" not in fake.data
         assert session.cookies.get(oidc_auth.ACCESS_COOKIE) == "access-from-idp"
+
+
+def test_refresh_json_body_rejected_cookie_path_still_works(monkeypatch: pytest.MonkeyPatch):
+    _oidc_ready(monkeypatch)
+
+    with _client() as client:
+        login = client.get("/auth/login?next=/cases", headers=DESK_HEADERS, follow_redirects=False)
+        state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+        callback = client.get(
+            f"/auth/callback?code=valid-code&state={state}",
+            headers=DESK_HEADERS,
+            follow_redirects=False,
+        )
+        ticket = parse_qs(urlparse(callback.headers["location"]).query)["ticket"][0]
+        session = client.post("/auth/session", json={"ticket": ticket}, headers=DESK_HEADERS)
+        assert session.status_code == 200
+        assert session.cookies.get(oidc_auth.REFRESH_COOKIE) == "refresh-from-idp"
+
+        stolen = client.post(
+            "/auth/refresh",
+            json={"refresh_token": "refresh-from-idp"},
+            headers=DESK_HEADERS,
+        )
+        assert stolen.status_code in (400, 422)
+        assert "access_token" not in (
+            stolen.json()
+            if stolen.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
+
+        cookie_only = client.post("/auth/refresh", json={}, headers=DESK_HEADERS)
+        assert cookie_only.status_code == 200
+        assert "access_token" not in cookie_only.json()
+        assert "refresh_token" not in cookie_only.json()
+        assert cookie_only.cookies.get(oidc_auth.ACCESS_COOKIE) == "access-refreshed"
+        assert cookie_only.cookies.get(oidc_auth.REFRESH_COOKIE) == "refresh-rotated"
+
+
+def test_refresh_json_body_without_cookie_does_not_use_body_token(monkeypatch: pytest.MonkeyPatch):
+    seen = _oidc_ready(monkeypatch)
+    with _client() as client:
+        resp = client.post(
+            "/auth/refresh",
+            json={"refresh_token": "refresh-from-idp"},
+            headers=DESK_HEADERS,
+        )
+    assert resp.status_code in (400, 422)
+    assert not any(item.get("grant_type") == "refresh_token" for item in seen["token"])
+
+
+def test_production_issuer_without_redis_refuses_start_and_login(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.setenv("OIDC_ISSUER", ISSUER)
+    monkeypatch.setenv("OIDC_CLIENT_ID", "desk-client")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="REDIS_URL"):
+        oidc_auth.enforce_oidc_redis_for_production()
+
+    with _client() as client:
+        login = client.get("/auth/login?next=/cases", headers=DESK_HEADERS, follow_redirects=False)
+        callback = client.get(
+            "/auth/callback?code=valid-code&state=nope",
+            headers=DESK_HEADERS,
+            follow_redirects=False,
+        )
+    assert login.status_code == 503
+    assert "REDIS_URL" in login.json()["detail"]
+    assert callback.status_code == 503
+    assert "REDIS_URL" in callback.json()["detail"]
+    assert oidc_auth._login_states == {}
+
+
+def test_production_without_issuer_does_not_require_redis(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.delenv("OIDC_ISSUER", raising=False)
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    oidc_auth.enforce_oidc_redis_for_production()
+    with _client() as client:
+        resp = client.get("/auth/config")
+    assert resp.status_code == 200
+    assert resp.json() == {"oidc_enabled": False}
+
+
+def test_production_issuer_redis_set_failure_is_503(monkeypatch: pytest.MonkeyPatch):
+    _oidc_ready(monkeypatch)
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.setenv("REDIS_URL", "redis://oidc-test:6379/0")
+
+    class BoomRedis:
+        async def set(self, key: str, value: str, ex: int | None = None) -> None:
+            raise ConnectionError("redis down")
+
+        async def getdel(self, key: str) -> str | None:
+            raise ConnectionError("redis down")
+
+    oidc_auth._bind_redis(BoomRedis())
+    oidc_auth.enforce_oidc_redis_for_production()
+    with _client() as client:
+        login = client.get("/auth/login?next=/cases", headers=DESK_HEADERS, follow_redirects=False)
+    assert login.status_code == 503
+    assert "OIDC state store unavailable" in login.json()["detail"]
+    assert oidc_auth._login_states == {}
