@@ -74,6 +74,10 @@ spec:
               value: {{ ternary "true" "false" .Values.dataPlane.tenantBindingRequired | quote }}
             - name: API_KEY_TENANT_MAP
               value: {{ .Values.dataPlane.apiKeyTenantMap | default "" | quote }}
+            {{- range $k, $v := (.Values.dataPlane.extraEnv | default dict) }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEYS
               valueFrom:

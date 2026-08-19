@@ -23,6 +23,8 @@ investigationAgent:
     COPILOT_INCLUDE_PLATFORM_AUDIT_IN_PROMPT: "false"
 dataPlane:
   enabled: true
+  extraEnv:
+    INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
 graphqlGateway:
   enabled: true
 frontend:

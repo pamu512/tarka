@@ -55,6 +55,20 @@
 {{- fail "COPILOT_PRODUCTION_MODE must be true in production when investigation-agent is enabled (same fail-closed rule as production_config)" }}
 {{- end }}
 {{- end }}
+{{- /* Compose production-hardening already sets INGEST_REQUIRE_IDEMPOTENCY_KEY so
+     event-ingest fail-closes POST /v1/events without Idempotency-Key. Helm prod
+     overlays that enable data-plane (full-on-k8s, investigation-on-aws default,
+     tenant-binding-enforced) skipped that lock. */ -}}
+{{- if and $prodProfile ((.Values.dataPlane).enabled) }}
+{{- $ingestIdem := "" }}
+{{- $dpExtra := ((.Values.dataPlane).extraEnv | default dict) }}
+{{- if hasKey $dpExtra "INGEST_REQUIRE_IDEMPOTENCY_KEY" }}
+{{- $ingestIdem = lower (trim (toString (index $dpExtra "INGEST_REQUIRE_IDEMPOTENCY_KEY"))) }}
+{{- end }}
+{{- if not (or (eq $ingestIdem "true") (eq $ingestIdem "1") (eq $ingestIdem "yes") (eq $ingestIdem "on")) }}
+{{- fail "INGEST_REQUIRE_IDEMPOTENCY_KEY must be true in production when data-plane is enabled (same fail-closed rule as event-ingest / compose production-hardening)" }}
+{{- end }}
+{{- end }}
 {{- /* Fail-closed for prod-on-k8s (environment=prod AND coreApi PDB+HPA on).
      core-on-aws also sets environment=prod but leaves PDB/HPA off and
      postgres.auth.password=fraud from chart defaults — do not fail that overlay. */ -}}

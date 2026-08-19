@@ -70,3 +70,19 @@ def test_prod_presets_set_copilot_production_mode_when_agent_enabled():
     for name in ("prod-on-k8s.yaml", "investigation-on-aws.yaml", "full-on-k8s.yaml"):
         text = (presets / name).read_text(encoding="utf-8")
         assert 'COPILOT_PRODUCTION_MODE: "true"' in text, name
+
+
+def test_validate_prod_fails_missing_ingest_idempotency():
+    text = (HELM / "validate-prod.yaml").read_text(encoding="utf-8")
+    assert "INGEST_REQUIRE_IDEMPOTENCY_KEY" in text
+    assert "when data-plane is enabled" in text
+    ingest_at = text.index("INGEST_REQUIRE_IDEMPOTENCY_KEY must be true in production")
+    gate_at = text.index("$prodOnK8s :=")
+    assert ingest_at < gate_at
+
+
+def test_prod_presets_with_data_plane_set_ingest_idempotency():
+    presets = ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "presets"
+    for name in ("full-on-k8s.yaml", "investigation-on-aws.yaml", "tenant-binding-enforced.yaml"):
+        body = (presets / name).read_text(encoding="utf-8")
+        assert 'INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"' in body, name
