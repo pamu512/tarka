@@ -63,6 +63,83 @@ def test_schedule_decision_outcomes_enqueues_core_tasks():
     assert any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
 
 
+def test_allow_does_not_create_case():
+    """ALLOW evaluations must never open a case."""
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="t2",
+            tenant_id="ten",
+            entity_id="e2",
+            event_type="payment",
+            decision="allow",
+            score=10.0,
+            tags=[],
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda name, **_k: None,
+        case_create_on_deny_review=True,
+        case_api_url="http://case.test",
+    )
+    assert not any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
+
+
+def test_case_create_uses_internal_token_header():
+    """When case_internal_token is set, the enqueued case create task passes X-Internal-Token."""
+    import asyncio
+    from types import SimpleNamespace
+
+    bg = _Bg()
+    captured_headers: list[dict] = []
+
+    async def _noop(*_a, **_k):
+        return None
+
+    class _FakeHttp:
+        async def post(self, url, *, json=None, headers=None, timeout=None):
+            captured_headers.append(dict(headers or {}))
+            return SimpleNamespace(status_code=201)
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="t3",
+            tenant_id="ten",
+            entity_id="e3",
+            event_type="payment",
+            decision="deny",
+            score=95.0,
+            tags=["high_risk"],
+        ),
+        http=_FakeHttp(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda name, **_k: None,
+        case_create_on_deny_review=True,
+        case_api_url="http://case.test",
+        case_internal_token="s2s-secret-token",
+    )
+    case_tasks = [t for t in bg.tasks if "maybe_create_case" in getattr(t[0], "__name__", "")]
+    assert len(case_tasks) == 1
+    fn, args, kwargs = case_tasks[0]
+    asyncio.run(fn(*args, **kwargs))
+    assert len(captured_headers) == 1
+    assert captured_headers[0].get("X-Internal-Token") == "s2s-secret-token"
+
+
 def test_degraded_metrics_dedupes_reason():
     seen: list[str] = []
     emitted = record_degraded_decision_metrics(
