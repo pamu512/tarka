@@ -14,6 +14,7 @@ if str(_SRC) not in sys.path:
 
 
 def test_get_llm_provider_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-factory")
     from providers.factory import get_llm_provider
