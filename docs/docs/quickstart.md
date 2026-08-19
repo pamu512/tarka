@@ -40,10 +40,10 @@ Evaluate:
 ## Operator CLI (optional)
 
 ```bash
-python tarka.py install --lite    # or --all / --modules …
-python tarka.py start
-python tarka.py status
+python3 cli.py --help
 ```
+
+Day-1 remains the compose files above (`infra/deploy/`).
 
 ## Ingest + Shadow (optional)
 

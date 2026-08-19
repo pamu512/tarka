@@ -4,16 +4,19 @@ Tarka is a fraud-detection platform; we take security reports seriously.
 
 ## Supported versions
 
-Security fixes are applied on the default branch (`master`) and shipped in tagged releases. Use tagged releases for production.
+Security fixes are applied on **`master` only**. There is **no GA tag**. Do not run a draft tag in production.
 
 ## Reporting a vulnerability
 
 **Please do not** open a public GitHub issue for undisclosed security vulnerabilities.
 
-1. Prefer **[GitHub private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)** (Security → Report a vulnerability) if enabled on the repository.
-2. Otherwise contact the **repository maintainers** via the email or security policy shown on the GitHub org or repo homepage.
-3. Include: description and impact, steps to reproduce (PoC if possible), affected components (e.g. decision-api, integration-ingress).
-4. Allow up to **5 business days** for an initial response; we will coordinate disclosure and credit (if you wish) after a fix is available.
+Private vulnerability reporting is **not enabled** on this repository (the public Security tab does not offer a working Report a vulnerability flow, and we cannot turn it on from here). Do not rely on a Report a vulnerability button.
+
+Contact the **repository maintainers** via the email or contact method shown on the GitHub org or repo profile, if any is published.
+
+Include: description and impact, steps to reproduce (PoC if possible), affected components (e.g. decision-api, integration-ingress).
+
+Allow up to **5 business days** for an initial response; we will coordinate disclosure and credit (if you wish) after a fix is available.
 
 ## Automated scanning
 
@@ -32,6 +35,8 @@ The **investigation-agent** forwards chat, system instructions, optional platfor
 **In scope:** RCE, authentication bypass, cross-tenant data access, insecure default credentials in shipped configs, dependency CVEs affecting default deployments.
 
 **Out of scope:** Social engineering, denial-of-service without reproducible minimal load, issues requiring a compromised operator account, third-party Neo4j/cloud misconfiguration (see [LICENSE-DEPENDENCIES.md](LICENSE-DEPENDENCIES.md)).
+
+This policy is not a SOC 2 (or other) attestation.
 
 ## Code of conduct
 
