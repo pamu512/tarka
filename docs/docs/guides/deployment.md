@@ -238,6 +238,7 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
 OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 
 When `global.environment=prod`, the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs — the chart will not invent `values.networkPolicy`), and HTTPS 443 from core-api when `coreApi.extraEnv` includes `OIDC_*`. Dev/default values emit no NetworkPolicy. Ingress from another namespace is operator-owned.
+Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. Set optional `coreApi.digest` / `signalApi.digest` / `investigationAgent.digest` to a `sha256:<64-hex>` pin to render `image: repo@sha256:…` (tag is ignored when digest is set). Leave digest empty on the preset so `helm template` of CI placeholders still works; operators should pin digests before a real prod apply.
 
 ### Custom Values for Production
 

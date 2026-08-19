@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: signal-api
-          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.signalApi.image "tag" .Values.signalApi.tag) | quote }}
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.signalApi.image "tag" .Values.signalApi.tag "digest" .Values.signalApi.digest) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.signalApi.servicePort }}

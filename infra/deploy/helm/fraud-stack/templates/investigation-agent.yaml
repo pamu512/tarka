@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: investigation-agent
-          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.investigationAgent.image "tag" .Values.investigationAgent.tag) | quote }}
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.investigationAgent.image "tag" .Values.investigationAgent.tag "digest" .Values.investigationAgent.digest) | quote }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - containerPort: {{ .Values.investigationAgent.servicePort }}
