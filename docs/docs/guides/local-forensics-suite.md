@@ -13,7 +13,7 @@
 ## One-command launch (from Tarka repo root)
 
 ```bash
-python tarka.py forensics
+python tools/tarka.py forensics
 ```
 
 This will:
@@ -21,7 +21,7 @@ This will:
 1. Run `git submodule update --init tools/shadow` (clone Shadow if needed).
 2. Copy [`tools/shadow.tarka.env.example`](../../../tools/shadow.tarka.env.example) → `tools/shadow/.env` when `.env` is missing (points Shadow at **Tarka’s default** `fraud` database on `localhost:5432`).
 3. Create `tools/shadow/.venv`, `pip install -e .`, and `npm install`.
-4. Start **Tauri + Vite + API** when `cargo` is on your `PATH`; otherwise fall back to **browser + API** mode (same as `python tarka.py forensics --web`).
+4. Start **Tauri + Vite + API** when `cargo` is on your `PATH`; otherwise fall back to **browser + API** mode (same as `python tools/tarka.py forensics --web`).
 
 ### Flags
 
@@ -40,7 +40,7 @@ This will:
 
 Shadow’s backend supports an **ingestion provider** that can call a Tarka ETL-style HTTP endpoint (`SHADOW_TARKA_ETL_BASE_URL`, `SHADOW_INGESTION_PROVIDER`). Configure these in `tools/shadow/.env` only when you expose a compatible ingest API; defaults keep ingestion **local** (Polars/DuckDB).
 
-## Manual alternative (no `tarka.py`)
+## Manual alternative (no `tools/tarka.py`)
 
 ```bash
 git submodule update --init tools/shadow

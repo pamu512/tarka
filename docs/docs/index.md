@@ -15,7 +15,7 @@ Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **c
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, honesty knobs, desk-strict |
-| [STUB_REGISTER](../../STUB_REGISTER.md) | Honesty ledger (no Potemkin APIs) |
+| [STUB_REGISTER](../STUB_REGISTER.md) | Honesty ledger (no Potemkin APIs) |
 | [Triad INDEX](../INDEX.md) | Operator hub |
 
 ## Compose paths

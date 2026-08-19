@@ -26,8 +26,9 @@ Keep each pull request focused on a single concern (one bug, one feature, or one
 
 ### 2. Branch from the correct base
 
-- **Beta / release testing:** branch from the **release branch** or tag your beta build tracks (for example `1.3.0-beta`), unless maintainers direct you to `master`.
+- **Default branch is `master`**, not `main`.
 - **General contributions:** branch from **`master`** unless an issue says otherwise.
+- Development is on `master`. There is no GA tag; do not treat a draft tag as the contribution base unless a maintainer says otherwise.
 
 ### 3. Local checks before you push
 
