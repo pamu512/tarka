@@ -13,7 +13,8 @@ Canonical operator docs. Prefer these over wiki mirrors or old status dumps.
 |-------|------------|
 | **Evaluate** | [Feature data flows](docs/guides/feature-data-flows.md) · [architecture](docs/architecture.md) · [decision-api](../services/decision-api/README.md) · [STUB_REGISTER](STUB_REGISTER.md) |
 | **Graph** | [service-ports](docs/guides/service-ports.md) · Janus demo `infra/deploy/janusgraph-cassandra-demo/` · `GRAPH_BACKEND` · [Decision context graph](docs/guides/decision-context-graph.md) |
-| **Shadow** | [services/SHADOW.md](../services/SHADOW.md) · ingest `shadow_agent` · desktop `tools/shadow` |
+| **Observe** | observe-only evaluate (`metadata.shadow`) · pack **Canary** · [shadow mode / A/B](docs/guides/shadow-and-ab-testing.md) |
+| **Advise** | [services/SHADOW.md](../services/SHADOW.md) · Shadow agent · ingest `shadow_agent` · desktop `tools/shadow` (specialist tool, not a third product) |
 | **Cases / SAR** | case-api + [feature data flows §3](docs/guides/feature-data-flows.md#3-cases-brief-sar) |
 | **Deploy / SRE** | [SRE Compose profiles](docs/operations/sre-compose-profiles.md) · [quickstart](docs/quickstart.md) · [productionization](docs/guides/repo-productionization-runbook.md) |
 | **MkDocs site** | `docs/docs/` + `docs/mkdocs.yml` (`mkdocs serve` from `docs/`) |

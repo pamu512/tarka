@@ -147,7 +147,7 @@ export function DecisionTimelinePanel({
                   >
                     {d.outcome}
                   </span>
-                  {d.shadow && <span className="text-gray-500">shadow</span>}
+                  {d.shadow && <span className="text-gray-500">Observe</span>}
                   {d.invalidated_at && (
                     <span className="text-red-500/80">invalidated</span>
                   )}

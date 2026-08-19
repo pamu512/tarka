@@ -16,7 +16,7 @@ export const LEAN_NAV = !INCLUDE_DEMO_SURFACE;
 
 /**
  * Paths kept when LEAN_NAV is on — desk core only (critical regrade flag #8).
- * Simulation / shadow / investigation* / brochure ops stay behind VITE_LEAN_NAV=false.
+ * Simulation / Observe / Advise / investigation* / brochure ops stay behind VITE_LEAN_NAV=false.
  */
 export const LEAN_NAV_PATHS = new Set<string>([
   "/cases",
@@ -28,7 +28,6 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/ops/calibration",
   "/ops/qa",
   "/ops/dispute-deadlines",
-  "/ops/shadow",
   "/ops/counters",
   "/ops/sar-transport",
   "/settings",

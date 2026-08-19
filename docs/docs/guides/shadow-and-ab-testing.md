@@ -1,12 +1,12 @@
-# Shadow mode, simulation, and A/B rule testing
+# Observe (shadow mode), simulation, and A/B rule testing
 
-Tarka separates **live decisions** from **shadow / offline evaluation**:
+Tarka separates **live decisions** from **observe-only evaluate** and offline simulation. In this guide, **shadow mode** means **Observe** — evaluate with no live side effects — not the LLM sidecar (Advise).
 
-- **Live:** `POST /v1/decisions/evaluate` — production side effects when not marked shadow.
-- **Production shadow (named contract):** same evaluate path with `metadata.shadow: true` — full scoring + audit, **non-mutating** side effects.
+- **Live:** `POST /v1/decisions/evaluate` — production side effects when not marked observe.
+- **Observe (named contract):** same evaluate path with `metadata.shadow: true` — full scoring + audit, **non-mutating** side effects.
 - **Offline / synthetic:** `/v1/simulation/*` — labeled scenarios and A/B without production traffic.
 
-## 1. Production shadow contract (`metadata.shadow: true`)
+## 1. Observe contract (`metadata.shadow: true`)
 
 ```bash
 curl -s -X POST http://localhost:8000/v1/decisions/evaluate \

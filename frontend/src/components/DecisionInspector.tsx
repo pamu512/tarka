@@ -206,7 +206,7 @@ export function DecisionInspector({ tenantId, traceId, subtitle, open, onClose }
               </section>
 
               <section className="flex min-h-0 flex-col gap-3">
-                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Shadow AI · Thought trace</h3>
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Advise · Thought trace</h3>
                 {deterministic ? (
                   <div
                     className="rounded-lg border border-amber-600/40 bg-amber-950/25 px-3 py-4 text-sm text-amber-100/95"
