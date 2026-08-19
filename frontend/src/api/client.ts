@@ -242,6 +242,10 @@ export interface AuditEntry {
   score: number;
   tags: string[];
   rule_hits: string[];
+  /** Contributing JSON pack file(s) from the evaluate snapshot (`payload_snapshot.rule_pack_file`). */
+  rule_pack_file?: string | null;
+  /** Evaluate `reasons` when the audit projection includes them. */
+  reasons?: string[];
   /** May be partial; UI should pass through `normalizeInferenceContext`. */
   inference_context?: unknown;
   /** Ordered explainability rows persisted with audit snapshots (v1.2+). */
