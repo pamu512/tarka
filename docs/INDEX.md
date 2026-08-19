@@ -32,4 +32,4 @@ Same command as the README. Lab / legacy files (`v2-ingest`, graph-wire, streams
 
 ## Wiki
 
-[`wiki/`](../wiki/) mirrors [GitHub wiki](https://github.com/pamu512/tarka/wiki) (separate repo; may lag until maintainers run [`scripts/docs/sync-github-wiki.sh`](../scripts/docs/sync-github-wiki.sh)). If wiki and this hub disagree, **trust this hub and the code**.
+[`docs/wiki/`](wiki/) mirrors [GitHub wiki](https://github.com/pamu512/tarka/wiki) (separate repo; may lag until maintainers run [`scripts/docs/sync-github-wiki.sh`](../scripts/docs/sync-github-wiki.sh)). If wiki and this hub disagree, **trust this hub and the code**.

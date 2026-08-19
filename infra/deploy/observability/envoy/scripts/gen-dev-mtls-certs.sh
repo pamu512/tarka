@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Generate a self-signed "Tarka Development CA" and an Envoy leaf usable as both server and client
-# cert (EKU serverAuth + clientAuth). Output: infrastructure/envoy/certs/dev/
+# cert (EKU serverAuth + clientAuth). Output: infra/deploy/observability/envoy/certs/dev/
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

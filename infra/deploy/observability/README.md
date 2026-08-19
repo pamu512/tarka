@@ -26,6 +26,14 @@ Ensure the **`agent`** profile is enabled so `investigation-agent` is running an
 
 **Deeper copilot KPIs** (`persona`, `tool_repeat_count`, `distinct_tool_names`) live in structured **logs** (`event` = `investigation_tool_quality`), not Prometheus — pipe container logs to Loki/ELK if you need those in Grafana.
 
+
+## Local Envoy sidecar and Loki
+
+Lab twin Envoy and Loki configs now live here (one infra tree):
+
+- **Envoy sidecar** — `envoy/` (`docker compose -f infra/deploy/observability/envoy/docker-compose.yaml`)
+- **Loki / Promtail (process-compose / flake)** — `loki/loki-local.yaml` and `loki/promtail-local.yaml`
+
 ## NATS / ClickHouse
 
 NATS does not expose Prometheus metrics in the default JetStream image; use NATS monitoring ports and external exporters if you need time-series. ClickHouse has its own metrics endpoints — add a separate scrape job if you run analytics in production.

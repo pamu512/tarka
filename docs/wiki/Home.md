@@ -37,4 +37,4 @@ Short operator mirror of the repo docs hub. **Canonical source:** [`docs/INDEX.m
 
 **Repo:** [pamu512/tarka](https://github.com/pamu512/tarka)
 
-Maintainers: refresh this wiki from `wiki/` in the repo — `scripts/docs/sync-github-wiki.sh`.
+Maintainers: refresh this wiki from `docs/wiki/` in the repo — `scripts/docs/sync-github-wiki.sh`.

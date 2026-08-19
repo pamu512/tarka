@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Sync repo wiki/ mirror → github.com/pamu512/tarka/wiki (separate git repo).
+# Sync repo docs/wiki/ mirror → github.com/pamu512/tarka/wiki (separate git repo).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-WIKI_SRC="${ROOT}/wiki"
+WIKI_SRC="${ROOT}/docs/wiki"
 TMP="${TMPDIR:-/tmp}/tarka.wiki-sync-$$"
 REPO="${WIKI_REPO:-https://github.com/pamu512/tarka.wiki.git}"
 
