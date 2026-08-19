@@ -1,18 +1,35 @@
 # Archived Compose files
 
-Pre–`core-api` consolidation artifacts. **Do not use for new work.**
+Not the day-1 path. **Do not use for new work.** Advertised command:
 
-| File | Superseded by |
+```bash
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.fraud-desk.yml \
+  up --build
+```
+
+| File | Why archived |
 |------|----------------|
-| `docker-compose.lite.smoke.yml` | `infra/deploy/docker-compose.lite.yml` (+ root `docker-compose.yml` include) |
+| `docker-compose.lite.smoke.yml` | Superseded by `infra/deploy/docker-compose.lite.yml` |
 | `docker-compose.single.yml` | same Lite path |
-| `docker-compose.host-ports.override.yml` | broken vs current services; use Lite / main deploy ports |
+| `docker-compose.host-ports.override.yml` | broken vs current services |
+| `docker-compose.streams-ai.yml` | quarantined `core_v2` speed-layer |
+| `docker-compose.v2-ingest.yml` | ingest + Shadow lab rail |
+| `docker-compose.demo-vertical.yml` | brochure / demo overlay |
+| `docker-compose.graph-wire.yml` | lite `--profile graph` overlay |
+| `docker-compose.sandbox.yml` | unused image-based sandbox |
 
-## Canonical compose entrypoints
+## Canonical compose (stay under `infra/deploy/`)
 
-1. **Default local:** repo-root `docker-compose.yml` → Lite (`core-api` / decision-api)
-2. **Modular / profiles:** `infra/deploy/docker-compose.yml` (`core`, `full`, `graph`, …)
-3. **V2 ingest rail:** `infra/deploy/docker-compose.v2-ingest.yml`
-4. **Legacy streams (`core_v2`):** `docker-compose.streams-ai.yml` (quarantined)
+1. **Desk / day-1:** `docker-compose.lite.yml` + `docker-compose.fraud-desk.yml`
+2. **Local modular / profiles:** `docker-compose.yml` (`core`, `full`, `graph`, …)
+3. **Production hardening overlay:** `docker-compose.production-hardening.yml`
 
-Overlays that stay live (not archived): `docker-compose.local.yml`, `demo-vertical`, `micro`, `sandbox`, `production-hardening`, observability addon, local-ai addons, ai-governance overrides, janusgraph demo.
+Repo-root `docker-compose.yml` includes the desk pair so `docker compose up` is the front door.
+
+Left in place (required CI / scripts still invoke the old path):
+
+- `infra/deploy/docker-compose.graph-env.yml` — `full_stack_smoke.py`
+- `infra/deploy/docker-compose.micro.yml` + `docker-compose.micro.e2e.yml` — ops-qa-desk / start-micro
+- repo-root `docker-compose.local.yml` — optional Ollama overlay (not a second tree)

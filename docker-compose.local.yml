@@ -2,6 +2,9 @@
 #
 # Compose does not merge this file automatically; use with the default Lite stack:
 #   docker compose -f docker-compose.yml -f docker-compose.local.yml up
+#   # or the advertised pair:
+#   # docker compose -f infra/deploy/docker-compose.lite.yml \
+#   #   -f infra/deploy/docker-compose.fraud-desk.yml -f docker-compose.local.yml up
 #
 # Or export the same variables into your shell / IDE when running Ollama natively.
 #

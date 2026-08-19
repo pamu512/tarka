@@ -21,9 +21,14 @@ Canonical operator docs. Prefer these over wiki mirrors or old status dumps.
 
 ## Compose (one story)
 
-1. Desk: `docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up --build`
-2. Ingest rail: `infra/deploy/docker-compose.v2-ingest.yml`
-3. Trend: `--profile trend-tick` or `make trend-tick`
+```bash
+docker compose \
+  -f infra/deploy/docker-compose.lite.yml \
+  -f infra/deploy/docker-compose.fraud-desk.yml \
+  up --build
+```
+
+Same command as the README. Lab / legacy files (`v2-ingest`, graph-wire, streams-ai, …) live under `infra/deploy/archive/`.
 
 ## Wiki
 
