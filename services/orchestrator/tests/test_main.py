@@ -131,6 +131,41 @@ class _ConnectErrorOnAnalyzeClient(_RoutingDummyAsyncClient):
         raise AssertionError(f"unexpected post url: {url!r}")
 
 
+class _Http500OnAnalyzeResponse:
+    """Shadow ``/v1/analyze`` HTTP 500 with a tempting high-risk body (must not advise)."""
+
+    def __init__(self, payload: dict[str, object]) -> None:
+        self._payload = payload
+        self.status_code = 500
+        self.text = json.dumps(payload)
+
+    def raise_for_status(self) -> None:
+        req = httpx.Request("POST", "http://shadow.test/v1/analyze")
+        resp = httpx.Response(500, request=req, text=self.text)
+        raise httpx.HTTPStatusError("Internal Server Error", request=req, response=resp)
+
+    def json(self) -> dict[str, object]:
+        return self._payload
+
+
+class _Http500OnAnalyzeClient(_RoutingDummyAsyncClient):
+    """Simulates Shadow sidecar returning HTTP 500 on ``/v1/analyze``."""
+
+    async def post(
+        self,
+        url: str,
+        json: dict[str, object] | None = None,
+        **kwargs: object,
+    ) -> _DummyUpstreamResponse | _Http500OnAnalyzeResponse:
+        headers = kwargs.get("headers")
+        self.post_calls.append((url, json or {}, headers))
+        if "/v1/evaluate" in url:
+            return _DummyUpstreamResponse(self._evaluate_json)
+        if "/v1/analyze" in url:
+            return _Http500OnAnalyzeResponse(self._analyze_json)
+        raise AssertionError(f"unexpected post url: {url!r}")
+
+
 def test_ingest_shadow_review_triggers_shadow_downstream_and_logs(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
@@ -302,6 +337,155 @@ def test_ingest_shadow_connect_error_returns_flag_sidescar_unreachable(
     assert data.get("orchestrator_fallback_reason") == "SIDECAR_UNREACHABLE"
     assert "orchestrator_shadow_deadline_seconds" not in data
     assert len(dummy.post_calls) == 2
+
+
+_TEMPTING_SHADOW_ADVISE: dict[str, object] = {
+    "transaction_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "risk_score": 99.0,
+    "is_fraud": True,
+    "reasoning": ["would_escalate_if_treated_as_advise"],
+    "confidence_metrics": {},
+}
+
+
+def test_ingest_shadow_http_500_keeps_flag_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gate: Shadow HTTP 500 → ingest 200; FLAG/SHADOW_REVIEW unchanged (not advise)."""
+    rule_engine_body: dict[str, object] = {
+        "actions": ["FLAG", "SHADOW_REVIEW"],
+        "transaction_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        "evaluation_trace": [],
+        "blocking_rule_id": None,
+    }
+    dummy = _Http500OnAnalyzeClient(rule_engine_body, _TEMPTING_SHADOW_ADVISE)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+
+    app = create_app(
+        rule_engine_url="http://rules.test",
+        shadow_agent_url="http://shadow.test",
+        shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
+    )
+    body = {
+        "entity_id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        "amount": 500.0,
+        "timestamp": "2026-05-09T12:00:00+00:00",
+        "metadata": {"channel": "wire"},
+    }
+    with TestClient(app) as client:
+        response = client.post("/v1/ingest", json=body)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["risk_decision"]["actions"] == ["FLAG", "SHADOW_REVIEW"]
+    assert "shadow_agent" not in data
+    assert data.get("orchestrator_fallback_decision") == "FLAG"
+    assert data.get("orchestrator_fallback_reason") == "shadow_analyze_http_5xx"
+    assert len(dummy.post_calls) == 2
+
+
+def test_ingest_shadow_http_500_keeps_allow_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gate: Shadow HTTP 500 → ingest 200; ALLOW unchanged (5xx body is not advise)."""
+    rule_engine_body: dict[str, object] = {
+        "actions": ["ALLOW", "SHADOW_REVIEW"],
+        "transaction_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "evaluation_trace": [],
+        "blocking_rule_id": None,
+    }
+    dummy = _Http500OnAnalyzeClient(rule_engine_body, _TEMPTING_SHADOW_ADVISE)
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: dummy)
+
+    app = create_app(
+        rule_engine_url="http://rules.test",
+        shadow_agent_url="http://shadow.test",
+        shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
+    )
+    body = {
+        "entity_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "amount": 12.0,
+        "timestamp": "2026-05-09T12:00:00+00:00",
+        "metadata": {},
+    }
+    with TestClient(app) as client:
+        response = client.post("/v1/ingest", json=body)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["risk_decision"]["actions"] == ["ALLOW", "SHADOW_REVIEW"]
+    assert "FLAG" not in data["risk_decision"]["actions"]
+    assert "shadow_agent" not in data
+    assert data.get("orchestrator_fallback_reason") == "shadow_analyze_http_5xx"
+    assert len(dummy.post_calls) == 2
+
+
+def test_ingest_shadow_connect_error_keeps_flag_and_allow_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gate: Shadow connect error → ingest 200; FLAG stays FLAG, ALLOW stays ALLOW."""
+    flag_rule: dict[str, object] = {
+        "actions": ["FLAG", "SHADOW_REVIEW"],
+        "transaction_id": "11111111-1111-1111-1111-111111111111",
+        "evaluation_trace": [],
+        "blocking_rule_id": None,
+    }
+    flag_dummy = _ConnectErrorOnAnalyzeClient(flag_rule, {})
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: flag_dummy)
+    flag_app = create_app(
+        rule_engine_url="http://rules.test",
+        shadow_agent_url="http://shadow.test",
+        shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
+    )
+    with TestClient(flag_app) as client:
+        flag_resp = client.post(
+            "/v1/ingest",
+            json={
+                "entity_id": "11111111-1111-1111-1111-111111111111",
+                "amount": 500.0,
+                "timestamp": "2026-05-09T12:00:00+00:00",
+                "metadata": {"channel": "wire"},
+            },
+        )
+    assert flag_resp.status_code == 200
+    flag_data = flag_resp.json()
+    assert flag_data["risk_decision"]["actions"] == ["FLAG", "SHADOW_REVIEW"]
+    assert "shadow_agent" not in flag_data
+    assert flag_data.get("orchestrator_fallback_reason") == "SIDECAR_UNREACHABLE"
+
+    allow_rule: dict[str, object] = {
+        "actions": ["ALLOW", "SHADOW_REVIEW"],
+        "transaction_id": "22222222-2222-2222-2222-222222222222",
+        "evaluation_trace": [],
+        "blocking_rule_id": None,
+    }
+    allow_dummy = _ConnectErrorOnAnalyzeClient(allow_rule, {})
+    monkeypatch.setattr("transaction_ingest.httpx.AsyncClient", lambda *a, **k: allow_dummy)
+    allow_app = create_app(
+        rule_engine_url="http://rules.test",
+        shadow_agent_url="http://shadow.test",
+        shadow_api_key="unit-test-token",
+        audit_database_url="sqlite+aiosqlite:///:memory:",
+    )
+    with TestClient(allow_app) as client:
+        allow_resp = client.post(
+            "/v1/ingest",
+            json={
+                "entity_id": "22222222-2222-2222-2222-222222222222",
+                "amount": 10.0,
+                "timestamp": "2026-05-09T12:00:00+00:00",
+                "metadata": {},
+            },
+        )
+    assert allow_resp.status_code == 200
+    allow_data = allow_resp.json()
+    assert allow_data["risk_decision"]["actions"] == ["ALLOW", "SHADOW_REVIEW"]
+    assert "FLAG" not in allow_data["risk_decision"]["actions"]
+    assert "shadow_agent" not in allow_data
+    assert allow_data.get("orchestrator_fallback_reason") == "SIDECAR_UNREACHABLE"
 
 
 def test_health_full_returns_aggregate_matrix(
