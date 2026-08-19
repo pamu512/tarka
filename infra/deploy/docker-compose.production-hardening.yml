@@ -4,6 +4,9 @@
 #
 # Before production: set API_KEYS and OPENAI_API_KEY via secrets manager — do not commit real keys.
 # COPILOT_PRODUCTION_MODE=true fails fast at startup if misconfigured (see GET /v1/health production block).
+# TARKA_DEPLOYMENT_PROFILE=production is the same Python lock as Helm prod (API_KEYS required at
+# boot, no ALLOW_INSECURE_NO_AUTH, evaluate Idempotency-Key, wildcard tenant map refused, OIDC
+# issuer requires Redis). Setting the individual knobs without the profile left those fail-closes off.
 
 services:
   investigation-agent:
@@ -22,6 +25,7 @@ services:
 
   core-api:
     environment:
+      TARKA_DEPLOYMENT_PROFILE: production
       ALLOW_INSECURE_NO_AUTH: "false"
       TENANT_BINDING_REQUIRED: "true"
       TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
@@ -44,14 +48,17 @@ services:
 
   integration-ingress:
     environment:
+      TARKA_DEPLOYMENT_PROFILE: production
       TENANT_BINDING_REQUIRED: "true"
 
   graph-service:
     environment:
+      TARKA_DEPLOYMENT_PROFILE: production
       TENANT_BINDING_REQUIRED: "true"
 
   data-plane:
     environment:
+      TARKA_DEPLOYMENT_PROFILE: production
       TENANT_BINDING_REQUIRED: "true"
       INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
 
