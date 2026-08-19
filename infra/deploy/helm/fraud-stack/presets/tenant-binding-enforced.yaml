@@ -26,3 +26,5 @@ graphService:
 dataPlane:
   enabled: true
   tenantBindingRequired: true
+  extraEnv:
+    INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
