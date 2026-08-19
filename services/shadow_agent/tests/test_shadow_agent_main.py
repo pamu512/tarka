@@ -114,15 +114,21 @@ def test_post_v1_analyze_returns_200_and_shadow_decision() -> None:
         response = client.post("/v1/analyze", json=body, headers=_auth_headers())
         fac = client.app.state.async_session_factory
 
-        async def _audit_rows() -> int:
+        async def _audit_state() -> tuple[int, AuditLog | None]:
             async with fac() as session:
-                return int(
+                n = int(
                     (
                         await session.execute(select(func.count()).select_from(AuditLog))
                     ).scalar_one(),
                 )
+                row = (
+                    (await session.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(1)))
+                    .scalars()
+                    .first()
+                )
+                return n, row
 
-        row_count = asyncio.run(_audit_rows())
+        row_count, persisted = asyncio.run(_audit_state())
     assert response.status_code == 200
     data = response.json()
     assert "_debug" in data
@@ -130,10 +136,18 @@ def test_post_v1_analyze_returns_200_and_shadow_decision() -> None:
     assert "AuditLog" in data["_debug"]["audit_log"]
     assert data["_debug"].get("audit_log_id") is not None
     assert row_count >= 1
+    assert persisted is not None
+    assert persisted.code_executed
+    assert "entity_id (canonical transaction id for this case)" in persisted.code_executed
+    assert persisted.agent_notes
 
     snap = data["_debug"]["audit_log_snapshot"]
     assert snap["transaction_id_correlation"] == str(tx_id)
-    assert str(tx_id) in snap["raw_llm_prompt_excerpt"]
+    assert "raw_llm_prompt_excerpt" not in snap
+    assert "raw_llm_response_excerpt" not in snap
+    assert "raw_llm_prompt_excerpt" not in response.text
+    assert "raw_llm_response_excerpt" not in response.text
+    assert "entity_id (canonical transaction id for this case)" not in response.text
     assert snap["is_fraud"] is False
     parsed = ShadowDecision.model_validate({k: v for k, v in data.items() if k != "_debug"})
     assert parsed.transaction_id == tx_id
