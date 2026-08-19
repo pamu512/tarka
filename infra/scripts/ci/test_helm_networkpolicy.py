@@ -51,6 +51,8 @@ class TestHelmNetworkPolicy(unittest.TestCase):
             "global.environment=prod",
             "--set",
             "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+            "--set",
+            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
         )
         names = _policy_names(rendered)
         self.assertIn("tarka-tarka-default-deny", names)

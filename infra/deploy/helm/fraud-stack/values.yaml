@@ -233,6 +233,7 @@ dataPlane:
   schemaRegistryMode: enforce
   tenantBindingRequired: true
   apiKeyTenantMap: ""
+  extraEnv: {}
   autoscaling:
     enabled: false
     minReplicas: 1
