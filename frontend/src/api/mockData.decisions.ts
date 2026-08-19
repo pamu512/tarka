@@ -388,6 +388,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         score: 99,
         tags: ["synthetic", "rules_only_path"],
         rule_hits: ["hard_velocity_cap"],
+        rule_pack_file: "fintech.json",
         recommended_action: null,
         fallback_reason: "rules_only",
         step_trace: [
@@ -453,6 +454,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       score: 74,
       tags: ["synthetic"],
       rule_hits: ["velocity_guard"],
+      rule_pack_file: "fintech.json",
       recommended_action: "manual_review",
       fallback_reason: malformedDemo ? "partial_snapshot" : null,
       step_trace: malformedDemo

@@ -42,6 +42,7 @@ export type DecisionExplain = {
   reasons: string[];
   tags: string[];
   rule_hits: string[];
+  rule_pack_file?: string | null;
   recommended_action?: string | null;
   inference_context: InferenceContext | null;
   evaluate_payload?: Record<string, unknown> | null;
@@ -174,9 +175,10 @@ export function CaseWorkbenchProvider({
         setDecisionExplain({
           score: audit.score,
           decision: audit.decision,
-          reasons: [],
+          reasons: audit.reasons || [],
           tags: audit.tags || [],
           rule_hits: audit.rule_hits || [],
+          rule_pack_file: audit.rule_pack_file ?? null,
           recommended_action: audit.recommended_action ?? null,
           inference_context: normalizeInferenceContext(audit.inference_context),
           evaluate_payload: audit.evaluate_payload ?? null,
