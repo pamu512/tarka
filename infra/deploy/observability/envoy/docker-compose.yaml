@@ -6,18 +6,18 @@
 # - Envoy writes NDJSON access logs to /tmp/tarka-envoy-access.ndjson for Promtail/Loki.
 #   Bind-mount the same path on the host (touch the file first) so host Promtail can tail it.
 #
-# From repo root (compose project dir defaults to this file's directory: infrastructure/envoy):
-#   bash infrastructure/envoy/scripts/gen-dev-mtls-certs.sh
+# From repo root (compose project dir defaults to this file's directory: infra/deploy/observability/envoy):
+#   bash infra/deploy/observability/envoy/scripts/gen-dev-mtls-certs.sh
 #   export TARKA_ENVOY_SIDECAR_DATA_DIR="$PWD/.tarka-envoy-sidecar/data"
 #   mkdir -p "$TARKA_ENVOY_SIDECAR_DATA_DIR"
-#   docker compose -f infrastructure/envoy/docker-compose.yaml up --build
+#   docker compose -f infra/deploy/observability/envoy/docker-compose.yaml up --build
 
 name: tarka-envoy-sidecar
 
 services:
   api:
     build:
-      context: ../..
+      context: ../../../..
       dockerfile: services/core-api/Dockerfile
     # Published on the primary container: Envoy (same netns) listens on 10000.
     ports:

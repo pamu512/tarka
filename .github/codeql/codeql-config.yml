@@ -29,7 +29,7 @@ paths-ignore:
   - "**/dist/**"
   - "**/build/**"
   - "**/.cache/**"
-  - infrastructure/certs/dev/**
+  - infra/deploy/observability/envoy/certs/dev/**
   - docs/site/**
   # Git submodule (separate repo); enable recursive checkout in codeql.yml to scan.
   - tools/shadow/**
