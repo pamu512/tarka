@@ -1,50 +1,34 @@
 /**
- * Browser session token storage for bearer refresh flows.
- * Prefer httpOnly cookies at the edge in production; this module supports SPA-local tokens when required.
+ * Desk session helpers. Access/refresh tokens live in httpOnly cookies
+ * set by POST /api/auth/session. This module never writes tokens to
+ * sessionStorage (or localStorage).
+ *
+ * An in-memory slot remains for unit tests / client-side RBAC probes.
+ * Production SSO does not populate it — the browser cannot read httpOnly
+ * cookies, and the SPA must send ``credentials: "include"`` instead.
  */
 
-const ACCESS_KEY = "tarka.session.access_token";
-const REFRESH_KEY = "tarka.session.refresh_token";
-
-function readKey(key: string): string | null {
-  try {
-    const v = sessionStorage.getItem(key);
-    return v && v.trim() ? v.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeKey(key: string, value: string | null): void {
-  try {
-    if (value === null || value === "") {
-      sessionStorage.removeItem(key);
-    } else {
-      sessionStorage.setItem(key, value);
-    }
-  } catch {
-    /* storage may be unavailable — fail closed for callers that depend on persistence */
-  }
-}
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
 
 export function getAccessToken(): string | null {
-  return readKey(ACCESS_KEY);
+  return memoryAccessToken;
 }
 
 export function getRefreshToken(): string | null {
-  return readKey(REFRESH_KEY);
+  return memoryRefreshToken;
 }
 
 export function setSessionTokens(accessToken: string, refreshToken: string | null): void {
-  writeKey(ACCESS_KEY, accessToken);
+  memoryAccessToken = accessToken && accessToken.trim() ? accessToken.trim() : null;
   if (refreshToken !== null) {
-    writeKey(REFRESH_KEY, refreshToken);
+    memoryRefreshToken = refreshToken.trim() ? refreshToken.trim() : null;
   }
 }
 
 export function clearSessionTokens(): void {
-  writeKey(ACCESS_KEY, null);
-  writeKey(REFRESH_KEY, null);
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
 }
 
 export const AUTH_SESSION_EXPIRED_EVENT = "tarka:auth-session-expired" as const;

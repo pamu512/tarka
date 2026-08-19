@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 
-import { setSessionTokens } from "@/api/authSession";
 import { leanHomePath } from "@/config/leanNav";
 
 function safeNext(raw: string | null | undefined): string {
@@ -43,6 +42,7 @@ export default function OidcCallback(): ReactElement {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ ticket }),
+          credentials: "include",
         });
         const text = await res.text();
         if (cancelled) return;
@@ -51,15 +51,9 @@ export default function OidcCallback(): ReactElement {
           return;
         }
         const parsed = JSON.parse(text) as {
-          access_token?: string;
-          refresh_token?: string | null;
+          authenticated?: boolean;
           next?: string;
         };
-        if (!parsed.access_token) {
-          setError("Session exchange returned no access token.");
-          return;
-        }
-        setSessionTokens(parsed.access_token, parsed.refresh_token ?? null);
         navigate(safeNext(parsed.next ?? params.get("next")), { replace: true });
       } catch {
         if (!cancelled) setError("Could not complete sign-in.");

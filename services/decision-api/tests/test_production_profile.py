@@ -47,3 +47,25 @@ def test_assert_raises():
 def test_deployment_profile_flag():
     assert deployment_profile_is_production({"TARKA_DEPLOYMENT_PROFILE": "production"})
     assert not deployment_profile_is_production({"TARKA_DEPLOYMENT_PROFILE": "dev"})
+
+
+def test_production_profile_does_not_require_oidc_issuer():
+    """API keys remain the machine path; empty OIDC_ISSUER is production-safe."""
+    errs = check_production_env(
+        {
+            "API_KEYS": "secret",
+            "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+            "ALLOW_INSECURE_NO_AUTH": "false",
+        }
+    )
+    assert errs == []
+    assert not any(
+        "OIDC" in e
+        for e in check_production_env(
+            {
+                "API_KEYS": "secret",
+                "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+                "OIDC_ISSUER": "",
+            }
+        )
+    )

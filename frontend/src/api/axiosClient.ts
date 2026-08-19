@@ -39,11 +39,11 @@ function resolveRefreshUrl(): string {
 
 function authMode(): "bearer" | "cookie" {
   const m = import.meta.env.VITE_AUTH_MODE?.trim().toLowerCase();
-  return m === "cookie" ? "cookie" : "bearer";
+  return m === "bearer" ? "bearer" : "cookie";
 }
 
 function withCredentialsDefault(): boolean {
-  return authMode() === "cookie" || import.meta.env.VITE_AUTH_WITH_CREDENTIALS === "true";
+  return true;
 }
 
 function parseRefreshBody(data: unknown): { access: string; refresh: string | null } | null {
