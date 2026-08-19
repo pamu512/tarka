@@ -22,9 +22,12 @@ docker compose \
 Can-run
 Compose fraud-desk is day-1.
 Helm prod-on-k8s is core-api HA
-(replicaCount 2, tenant binding on,
-frontend and investigation-agent OFF,
-OIDC optional).
+(replicaCount 2, tenant binding on).
+investigation-agent ON (postgres, 2 replicas).
+frontend / desk OFF.
+Shadow OFF (no model in the chart;
+operator BYO URL later, no Tarka-branded model).
+OIDC optional.
 ```
 
 **Docs:** [`docs/INDEX.md`](docs/INDEX.md) · [`SECURITY.md`](SECURITY.md) · [`SUPPORT.md`](SUPPORT.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
