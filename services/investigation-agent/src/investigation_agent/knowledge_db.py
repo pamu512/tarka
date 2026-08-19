@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import sqlite3
 import threading
 import time
 import uuid
@@ -12,9 +11,10 @@ from typing import Any
 
 from investigation_agent import embeddings as emb_mod
 from investigation_agent.okf_models import OkfConcept, ParsedBundle
+from investigation_agent.store_backend import StoreConnection, connect_store, init_postgres_schema
 
 """
-SQLite-backed investigation memos with optional embedding vectors (RAG).
+Investigation memos + OKF RAG (sqlite file or shared Postgres schema).
 Hybrid retrieval: cosine similarity + keyword overlap when embeddings exist.
 """
 _OKF_ANALYST_ID = "__okf__"
@@ -32,7 +32,7 @@ _MAX_CHUNKS_SCAN = 2500
 _KEYWORD_MAX_TOKENS = 24
 
 _lock = threading.Lock()
-_conn: sqlite3.Connection | None = None
+_conn: StoreConnection | None = None
 
 
 @dataclass(frozen=True)
@@ -79,19 +79,18 @@ def db_path() -> str:
     return os.path.join(_data_dir(), name)
 
 
-def _get_conn() -> sqlite3.Connection:
+def _get_conn() -> StoreConnection:
     global _conn
     with _lock:
         if _conn is None:
-            path = db_path()
-            _conn = sqlite3.connect(path, check_same_thread=False)
-            _conn.execute("PRAGMA journal_mode=WAL")
-            _conn.execute("PRAGMA synchronous=NORMAL")
-            _init_schema(_conn)
+            _conn = connect_store(sqlite_path=db_path(), init_schema=_init_schema)
         return _conn
 
 
-def _init_schema(c: sqlite3.Connection) -> None:
+def _init_schema(c: StoreConnection) -> None:
+    if c.dialect == "postgres":
+        init_postgres_schema(c)
+        return
     c.execute(
         """
         CREATE TABLE IF NOT EXISTS knowledge_chunks (
@@ -118,7 +117,7 @@ def _init_schema(c: sqlite3.Connection) -> None:
     c.commit()
 
 
-def _migrate_schema(c: sqlite3.Connection) -> None:
+def _migrate_schema(c: StoreConnection) -> None:
     cols = {row[1] for row in c.execute("PRAGMA table_info(knowledge_chunks)")}
     additions = [
         ("knowledge_kind", "TEXT NOT NULL DEFAULT 'memo'"),
@@ -149,7 +148,7 @@ def reset_connection_for_tests() -> None:
 
 
 def health_check() -> tuple[bool, str]:
-    """Open the RAG SQLite database and execute a minimal query."""
+    """Open the RAG store and execute a minimal query."""
     try:
         conn = _get_conn()
         conn.execute("SELECT 1").fetchone()
@@ -195,7 +194,7 @@ def _keyword_score(text: str, query: str) -> float:
     return float(sum(1 for tok in q_tokens if tok in low))
 
 
-def _trim_docs(c: sqlite3.Connection, tenant_id: str, analyst_id: str) -> None:
+def _trim_docs(c: StoreConnection, tenant_id: str, analyst_id: str) -> None:
     rows = c.execute(
         """
         SELECT doc_id, MIN(created_at) AS t
@@ -219,7 +218,7 @@ def _trim_docs(c: sqlite3.Connection, tenant_id: str, analyst_id: str) -> None:
         )
 
 
-def _prune_expired(c: sqlite3.Connection, tenant_id: str, analyst_id: str, cutoff: float) -> None:
+def _prune_expired(c: StoreConnection, tenant_id: str, analyst_id: str, cutoff: float) -> None:
     c.execute(
         """
         DELETE FROM knowledge_chunks
@@ -415,7 +414,7 @@ def _search_hybrid(
               WHERE tenant_id = ? AND analyst_id = ? AND knowledge_kind = ? AND created_at >= ?
               ORDER BY created_at DESC
               LIMIT ?
-            )
+            ) AS memo_scan
             UNION ALL
             SELECT doc_id, chunk_index, title, text, embedding_json,
                    knowledge_kind, concept_id, bundle_scope, content_hash, source_uri, authority
@@ -639,7 +638,7 @@ def index_okf_concepts_sync(
 
 
 def _purge_orphan_okf_rows(
-    c: sqlite3.Connection,
+    c: StoreConnection,
     tenant_id: str,
     analyst_id: str,
     bundle_scope: str,
@@ -794,7 +793,7 @@ def _okf_index_row(
     )
 
 
-def _insert_okf_index_row(c: sqlite3.Connection, row: _OkfIndexRow) -> None:
+def _insert_okf_index_row(c: StoreConnection, row: _OkfIndexRow) -> None:
     c.execute(
         """
         INSERT INTO knowledge_chunks

@@ -218,7 +218,7 @@ global:
 
 Default `values.yaml` is a **dev** chart: in-cluster Postgres/Redis/ClickHouse (single-replica `emptyDir`, password `fraud`), PDB/HPA **off**, image tag `latest`. Do not `helm install` that as production.
 
-Use the `prod-on-k8s` overlay (managed PG/Redis required, in-cluster stores off, PDB + HPA on evaluate, `allowInsecureNoAuth: false`, `tenantBindingRequired: true`). Investigation-agent stays **off** — it is local SQLite, single replica only.
+Use the `prod-on-k8s` overlay (managed PG/Redis required, in-cluster stores off, PDB + HPA on evaluate, `allowInsecureNoAuth: false`, `tenantBindingRequired: true`). Investigation-agent is **on** with `dataPersistence.mode=postgres` and `replicaCount: 2` (same external `databaseUrl` as core-api). `local-sqlite` still forbids `replicaCount > 1`.
 
 ```bash
 python3 infra/scripts/deploy/generate_cloud_values.py \

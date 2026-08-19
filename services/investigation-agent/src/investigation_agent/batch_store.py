@@ -14,7 +14,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-"""Disk-backed tabular batch jobs (CSV / JSON / Excel) for copilot analysis tools."""
+from investigation_agent.store_backend import (
+    StoreConnection,
+    connect_postgres,
+    ensure_store_configured,
+    init_postgres_schema,
+    store_mode,
+)
+
+"""Tabular batch jobs (CSV / JSON / Excel): disk TTL on the desk, Postgres blobs when INVESTIGATION_STORE=postgres."""
 _MAX_FILE_BYTES = 15 * 1024 * 1024
 _MAX_ROWS = 8_000
 _MAX_COLS = 128
@@ -53,8 +61,34 @@ _lock = threading.Lock()
 
 
 def storage_mode() -> str:
-    """Authoritative state is always on local disk (configured path or host temp dir)."""
-    return "disk"
+    """disk when INVESTIGATION_STORE is sqlite; postgres when mode is postgres."""
+    return "postgres" if store_mode() == "postgres" else "disk"
+
+
+def durability() -> str:
+    return "postgres_ttl" if storage_mode() == "postgres" else "disk_ttl"
+
+
+_pg_conn: StoreConnection | None = None
+
+
+def reset_connection_for_tests() -> None:
+    global _pg_conn
+    with _lock:
+        if _pg_conn is not None:
+            with contextlib.suppress(Exception):
+                _pg_conn.close()
+            _pg_conn = None
+
+
+def _get_pg_conn() -> StoreConnection:
+    global _pg_conn
+    if _pg_conn is None:
+        ensure_store_configured()
+        conn = connect_postgres()
+        init_postgres_schema(conn)
+        _pg_conn = conn
+    return _pg_conn
 
 
 def _batch_disk_root() -> Path:
@@ -77,13 +111,8 @@ def _disk_record_path(batch_id: str) -> Path:
     return target
 
 
-def _write_disk_record(rec: dict[str, Any]) -> None:
-    bid = validate_batch_id(str(rec.get("batch_id", "")))
-    root = _batch_disk_root()
-    target = _disk_record_path(bid)
-    if not target.resolve().is_relative_to(root.resolve()):
-        raise ValueError("batch path outside store root")
-    payload = {
+def _canonical_record(rec: dict[str, Any]) -> dict[str, Any]:
+    return {
         "batch_id": rec.get("batch_id"),
         "created_at": float(rec.get("created_at", time.time())),
         "tenant_id": rec.get("tenant_id"),
@@ -94,21 +123,9 @@ def _write_disk_record(rec: dict[str, Any]) -> None:
         "rows": rec.get("rows") or [],
         "row_count": int(rec.get("row_count") or 0),
     }
-    target.write_text(
-        json.dumps(payload, separators=(",", ":")), encoding="utf-8"
-    )  # codeql[py/path-injection]
 
 
-def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
-    p = _disk_record_path(batch_id)
-    if not p.exists():
-        return None
-    try:
-        raw = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(raw, dict):
-        return None
+def _normalize_record(raw: dict[str, Any], batch_id: str) -> dict[str, Any] | None:
     rows = raw.get("rows")
     cols = raw.get("columns")
     if not isinstance(rows, list) or not isinstance(cols, list):
@@ -124,6 +141,103 @@ def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
         "rows": rows[:_MAX_ROWS],
         "row_count": int(raw.get("row_count") or len(rows)),
     }
+
+
+def _payload_bytes(rec: dict[str, Any]) -> bytes:
+    return json.dumps(_canonical_record(rec), separators=(",", ":")).encode("utf-8")
+
+
+def _record_from_payload_bytes(raw: object, batch_id: str) -> dict[str, Any] | None:
+    if isinstance(raw, memoryview):
+        raw = raw.tobytes()
+    if isinstance(raw, bytearray):
+        raw = bytes(raw)
+    if isinstance(raw, bytes):
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            return None
+    elif isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return None
+    elif isinstance(raw, dict):
+        data = raw
+    else:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return _normalize_record(data, batch_id)
+
+
+def _write_disk_record(rec: dict[str, Any]) -> None:
+    bid = validate_batch_id(str(rec.get("batch_id", "")))
+    root = _batch_disk_root()
+    target = _disk_record_path(bid)
+    if not target.resolve().is_relative_to(root.resolve()):
+        raise ValueError("batch path outside store root")
+    payload = _canonical_record(rec)
+    target.write_text(
+        json.dumps(payload, separators=(",", ":")), encoding="utf-8"
+    )  # codeql[py/path-injection]
+
+
+def _read_disk_record(batch_id: str) -> dict[str, Any] | None:
+    p = _disk_record_path(batch_id)
+    if not p.exists():
+        return None
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    return _normalize_record(raw, batch_id)
+
+
+def _write_postgres_record(rec: dict[str, Any]) -> None:
+    payload = _canonical_record(rec)
+    job_id = validate_batch_id(str(payload.get("batch_id") or ""))
+    conn = _get_pg_conn()
+    conn.execute(
+        """
+        INSERT INTO batch_blobs (job_id, tenant_id, analyst_id, created_at, payload)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            job_id,
+            str(payload.get("tenant_id") or ""),
+            str(payload.get("analyst_id") or ""),
+            float(payload.get("created_at") or 0.0),
+            _payload_bytes(payload),
+        ),
+    )
+    conn.commit()
+
+
+def _read_postgres_record(batch_id: str) -> dict[str, Any] | None:
+    job_id = validate_batch_id(batch_id)
+    conn = _get_pg_conn()
+    row = conn.execute(
+        "SELECT payload FROM batch_blobs WHERE job_id = ?",
+        (job_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return _record_from_payload_bytes(row[0], job_id)
+
+
+def _cleanup_postgres(now: float) -> None:
+    conn = _get_pg_conn()
+    cutoff = now - ttl_seconds()
+    conn.execute("DELETE FROM batch_blobs WHERE created_at < ?", (cutoff,))
+    rows = conn.execute("SELECT job_id FROM batch_blobs ORDER BY created_at ASC").fetchall()
+    overflow = max(0, len(rows) - _MAX_STORE_BATCHES)
+    if overflow:
+        for job_id in (r[0] for r in rows[:overflow]):
+            conn.execute("DELETE FROM batch_blobs WHERE job_id = ?", (job_id,))
+    conn.commit()
 
 
 def _cleanup_disk(now: float) -> None:
@@ -331,22 +445,29 @@ def store_batch(
     rows: list[dict[str, Any]],
     format_name: str,
 ) -> str:
+    mode = store_mode()
+    if mode == "postgres":
+        ensure_store_configured()
     batch_id = str(uuid.uuid4())
     now = time.time()
+    rec = {
+        "batch_id": batch_id,
+        "created_at": now,
+        "tenant_id": tenant_id,
+        "analyst_id": analyst_id,
+        "filename": filename[:512],
+        "format": format_name,
+        "columns": columns,
+        "rows": rows,
+        "row_count": len(rows),
+    }
     with _lock:
-        _cleanup_unlocked(now)
-        rec = {
-            "batch_id": batch_id,
-            "created_at": now,
-            "tenant_id": tenant_id,
-            "analyst_id": analyst_id,
-            "filename": filename[:512],
-            "format": format_name,
-            "columns": columns,
-            "rows": rows,
-            "row_count": len(rows),
-        }
-        _write_disk_record(rec)
+        if mode == "postgres":
+            _cleanup_postgres(now)
+            _write_postgres_record(rec)
+        else:
+            _cleanup_unlocked(now)
+            _write_disk_record(rec)
     return batch_id
 
 
@@ -355,10 +476,17 @@ def get_batch(batch_id: str, tenant_id: str, analyst_id: str) -> dict[str, Any] 
         validate_batch_id(batch_id)
     except ValueError:
         return None
+    mode = store_mode()
+    if mode == "postgres":
+        ensure_store_configured()
     now = time.time()
     with _lock:
-        _cleanup_unlocked(now)
-        rec = _read_disk_record(batch_id)
+        if mode == "postgres":
+            _cleanup_postgres(now)
+            rec = _read_postgres_record(batch_id)
+        else:
+            _cleanup_unlocked(now)
+            rec = _read_disk_record(batch_id)
         if not rec:
             return None
         if rec.get("tenant_id") != tenant_id or rec.get("analyst_id") != analyst_id:
