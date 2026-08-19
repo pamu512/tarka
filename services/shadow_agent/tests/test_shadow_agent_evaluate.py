@@ -251,6 +251,7 @@ def test_evaluate_find_linked_entities_log_precedes_llm_complete(
         entity_id: str,
         _tx: TransactionSchema,
         _driver: object,
+        **_kw: object,
     ) -> str:
         return f"find_linked_entities({entity_id}): Shared IP history (ORDERED_FROM_IP) probe OK."
 
@@ -319,7 +320,9 @@ def test_evaluate_check_review_integrity_surfaces_hardware_overlap_in_prompt(
 ) -> None:
     """Gate: listing_id triggers review-integrity tool; organic-review question sees hardware overlap in GRAPH CONTEXT."""
 
-    async def _fake_check_review_integrity(listing_id: str, _driver: object) -> dict[str, object]:
+    async def _fake_check_review_integrity(
+        listing_id: str, _driver: object, **_kw: object
+    ) -> dict[str, object]:
         return {
             "listing_id": listing_id,
             "reviewer_count": 5,

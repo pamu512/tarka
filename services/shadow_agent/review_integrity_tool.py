@@ -162,25 +162,49 @@ def _duckdb_same_10min_window(user_ids: list[str]) -> dict[str, Any]:
     return out
 
 
-async def check_review_integrity(listing_id: str, driver: Any) -> dict[str, Any]:
+async def check_review_integrity(
+    listing_id: str,
+    driver: Any,
+    *,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
     """
     Return structured review-integrity metrics for ``listing_id`` (Neo4j + optional DuckDB).
+
+    When ``TENANT_BINDING_REQUIRED`` is on, ``tenant_id`` is required and Neo4j matches
+    are restricted to that tenant (fail closed).
     """
+    from shadow_tenant import require_tenant_for_read
+
+    scoped_tenant = require_tenant_for_read(tenant_id)
     lid = listing_id.strip()
     if not lid:
         return {"error": "empty_listing_id"}
 
+    tenant_lst = (
+        " AND lst.tenant_id = $tenant_id AND u.tenant_id = $tenant_id" if scoped_tenant else ""
+    )
+    tenant_dev = (
+        " AND rx.tenant_id = $tenant_id AND d.tenant_id = $tenant_id" if scoped_tenant else ""
+    )
+    tenant_ipn = (
+        " AND rx.tenant_id = $tenant_id AND ip.tenant_id = $tenant_id" if scoped_tenant else ""
+    )
+
     q_reviewers = f"""
     MATCH (lst:`{LABEL_LISTING}` {{listing_id: $lid}})<-[:`{REL_REVIEWED}`]-(u:`{LABEL_USER}`)
+    WHERE true{tenant_lst}
     RETURN collect(DISTINCT u.user_id) AS reviewer_ids
     """
 
     q_devices = f"""
     MATCH (lst:`{LABEL_LISTING}` {{listing_id: $lid}})<-[:`{REL_REVIEWED}`]-(u:`{LABEL_USER}`)
+    WHERE true{tenant_lst}
     WITH collect(DISTINCT u.user_id) AS reviewer_ids
     WHERE size(reviewer_ids) >= 1
     UNWIND reviewer_ids AS rid
     MATCH (rx:`{LABEL_USER}` {{user_id: rid}})-[:`{REL_USED_DEVICE}`]->(d:`{LABEL_DEVICE}`)
+    WHERE true{tenant_dev}
     WITH d, collect(DISTINCT rid) AS users_on_device
     WHERE size(users_on_device) >= 2
     RETURN d.device_id AS device_id, users_on_device
@@ -188,17 +212,19 @@ async def check_review_integrity(listing_id: str, driver: Any) -> dict[str, Any]
 
     q_ips = f"""
     MATCH (lst:`{LABEL_LISTING}` {{listing_id: $lid}})<-[:`{REL_REVIEWED}`]-(u:`{LABEL_USER}`)
+    WHERE true{tenant_lst}
     WITH collect(DISTINCT u.user_id) AS reviewer_ids
     WHERE size(reviewer_ids) >= 1
     UNWIND reviewer_ids AS rid
     MATCH (rx:`{LABEL_USER}` {{user_id: rid}})-[:`{REL_ORDERED_FROM_IP}`]->(ip:`{LABEL_IP}`)
+    WHERE true{tenant_ipn}
     WITH ip, collect(DISTINCT rid) AS users_on_ip
     WHERE size(users_on_ip) >= 2
     RETURN ip.address AS ip_address, users_on_ip
     """
 
     async def work_reviewers(txn: Any) -> list[str]:
-        result = await txn.run(q_reviewers, lid=lid)
+        result = await txn.run(q_reviewers, lid=lid, tenant_id=scoped_tenant)
         rec = await result.single()
         if rec is None:
             return []
@@ -207,7 +233,7 @@ async def check_review_integrity(listing_id: str, driver: Any) -> dict[str, Any]
 
     async def work_devices(txn: Any) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
-        result = await txn.run(q_devices, lid=lid)
+        result = await txn.run(q_devices, lid=lid, tenant_id=scoped_tenant)
         async for rec in result:
             out.append(
                 {
@@ -219,7 +245,7 @@ async def check_review_integrity(listing_id: str, driver: Any) -> dict[str, Any]
 
     async def work_ips(txn: Any) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
-        result = await txn.run(q_ips, lid=lid)
+        result = await txn.run(q_ips, lid=lid, tenant_id=scoped_tenant)
         async for rec in result:
             out.append(
                 {

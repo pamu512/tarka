@@ -17,6 +17,7 @@ COPY packages/deploy-settings /packages/deploy-settings
 COPY services/shadow_agent/pyproject.toml services/shadow_agent/README.md ./services/shadow_agent/
 COPY services/shadow_agent ./services/shadow_agent
 COPY services/ingestor ./services/ingestor
+COPY services/shared ./services/shared
 COPY packages/shared-core/tarka_shared ./packages/shared-core/tarka_shared
 
 RUN python -m pip install --upgrade pip setuptools wheel \
@@ -27,7 +28,7 @@ FROM python:3.12-slim-bookworm AS runtime
 
 WORKDIR /app/services/shadow_agent
 
-ENV PYTHONPATH=/app/services/shadow_agent:/app/services:/app/packages/shared-core \
+ENV PYTHONPATH=/app/services/shadow_agent:/app/services/shared:/app/services:/app/packages/shared-core \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -42,6 +43,7 @@ COPY --from=builder /install/lib/python3.12/site-packages \
 
 COPY services/shadow_agent /app/services/shadow_agent
 COPY services/ingestor /app/services/ingestor
+COPY services/shared /app/services/shared
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 
 USER tarka
