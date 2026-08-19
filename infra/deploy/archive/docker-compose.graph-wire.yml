@@ -1,0 +1,38 @@
+# Wire evaluate → graph-service. Merge with lite when --profile graph is on.
+#
+#   docker compose -f infra/deploy/docker-compose.lite.yml \
+#     -f infra/deploy/archive/docker-compose.graph-wire.yml --profile graph up -d
+#
+# Decision context graph (accountability layer):
+#   DECISION_GRAPH_ENABLED=1 on graph-service + writers on core-api / investigation-agent
+
+name: tarka-lite
+
+services:
+  core-api:
+    environment:
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
+      DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}
+  investigation-agent:
+    environment:
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
+      DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}
+  graph-service:
+    environment:
+      DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}
+      GRAPH_DATA_DIR: /var/tarka-graph
+      SEMANTICA_BRIDGE_ENABLED: ${SEMANTICA_BRIDGE_ENABLED:-0}
+      DECISION_GRAPH_JANUS_MIRROR: ${DECISION_GRAPH_JANUS_MIRROR:-0}
+    volumes:
+      - graph_decision_data:/var/tarka-graph
+  orchestrator:
+    environment:
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-janusgraph}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-ws://janusgraph:8182/gremlin}
+  outbox-processor:
+    environment:
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-janusgraph}
+      GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-ws://janusgraph:8182/gremlin}
+
+volumes:
+  graph_decision_data:

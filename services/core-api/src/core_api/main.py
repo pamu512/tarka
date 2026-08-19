@@ -28,7 +28,10 @@ from sqlalchemy import String, cast, or_, select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from .demo_burst import register_demo_burst_route  # noqa: E402
-from .oidc_auth import router as auth_router  # noqa: E402
+from .oidc_auth import (  # noqa: E402
+    enforce_oidc_redis_for_production,
+    router as auth_router,
+)
 from .infrastructure.otel import (  # noqa: E402
     init_opentelemetry,
     shutdown_opentelemetry,
@@ -40,7 +43,8 @@ def _enforce_production_auth_profile() -> None:
 
     Empty API_KEYS + ALLOW_INSECURE_NO_AUTH=false is 503 at request time
     (shared ``require_api_key``). Soft-open auth is refused here so a
-    mis-set profile cannot boot. OIDC_ISSUER is not required.
+    mis-set profile cannot boot. OIDC_ISSUER is not required. When the
+    issuer *is* set, REDIS_URL must be set (no in-process OIDC fallback).
     """
     from decision_api.production_profile import (
         deployment_profile_is_production,
@@ -58,6 +62,7 @@ def _enforce_production_auth_profile() -> None:
         raise RuntimeError(
             "ALLOW_INSECURE_NO_AUTH is forbidden when TARKA_DEPLOYMENT_PROFILE=production"
         )
+    enforce_oidc_redis_for_production()
 
 
 @asynccontextmanager
