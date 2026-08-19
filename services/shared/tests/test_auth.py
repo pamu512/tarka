@@ -86,3 +86,34 @@ def test_require_api_key_enforces_valid_header(monkeypatch):
         good = client.get("/protected", headers={"x-api-key": "k1"})
     assert bad.status_code == 401
     assert good.status_code == 200
+
+
+def test_production_profile_refuses_insecure_even_when_flag_set(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        resp = client.get("/protected")
+    assert resp.status_code == 503
+
+
+def test_production_profile_empty_keys_503_without_oidc(monkeypatch):
+    monkeypatch.delenv("API_KEYS", raising=False)
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
+    monkeypatch.delenv("OIDC_ISSUER", raising=False)
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.get("/protected")
+    async def protected():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        resp = client.get("/protected")
+    assert resp.status_code == 503

@@ -13,6 +13,9 @@ def check_production_env(env: Mapping[str, str]) -> list[str]:
     """Return human-readable errors when *env* is not safe for production.
 
     Soft-open auth, missing API keys, or evaluate without idempotency requirements fail.
+
+    ``OIDC_ISSUER`` is intentionally not required: API keys remain the machine
+    authentication path. Desk SSO is optional.
     """
     errors: list[str] = []
     if _truthy(env.get("ALLOW_INSECURE_NO_AUTH")):

@@ -45,7 +45,14 @@ _jwks_cache: dict[str, Any] = {}
 _jwks_fetched_at: float = 0
 
 
+def _deployment_profile_is_production() -> bool:
+    """Production profile fail-closes anonymous auth. OIDC_ISSUER is optional."""
+    return os.environ.get("TARKA_DEPLOYMENT_PROFILE", "").strip().lower() == "production"
+
+
 def _allow_insecure_no_auth() -> bool:
+    if _deployment_profile_is_production():
+        return False
     return os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
         "1",
         "true",
@@ -150,12 +157,7 @@ async def _authenticate(request: Request) -> AuthUser:
     )
     key_tenant_map = parse_api_key_tenant_map()
 
-    allow_insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    allow_insecure = _allow_insecure_no_auth()
 
     if api_key:
         if valid_keys and api_key in valid_keys:
@@ -171,8 +173,12 @@ async def _authenticate(request: Request) -> AuthUser:
             raise HTTPException(401, "invalid API key")
 
     auth_header = request.headers.get("authorization", "")
+    token = ""
     if auth_header.lower().startswith("bearer "):
-        token = auth_header[7:]
+        token = auth_header[7:].strip()
+    if not token:
+        token = (request.cookies.get("tarka_access") or "").strip()
+    if token:
         claims = await _verify_jwt(token)
         user_id = claims.get("sub", claims.get("email", "unknown"))
         roles = claims.get(OIDC_ROLES_CLAIM, ["viewer"])
