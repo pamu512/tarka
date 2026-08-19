@@ -534,10 +534,40 @@ def _first_env(*keys: str) -> str:
     return ""
 
 
+# Factory aliases only — there is no azure/vertex/bedrock backend.
+_PUBLIC_SAAS_MARKERS = ("api.openai.com", "api.anthropic.com")
+
+
+def unknown_shadow_llm_backend_error(raw: str) -> ValueError:
+    """Refuse unknown ``SHADOW_LLM_BACKEND`` values (no Ollama fall-through)."""
+    return ValueError(
+        f"unknown SHADOW_LLM_BACKEND={raw!r}: refusing to fall through to Ollama. "
+        "For in-tenant Azure/Vertex/Bedrock-compatible endpoints set "
+        "SHADOW_LLM_BACKEND=self-hosted|vllm and SHADOW_LLM_BASE_URL to the "
+        "OpenAI-compatible origin. Known backends: ollama, self-hosted, vllm, "
+        "openai_compat, openai_compatible, openai, claude, anthropic, gemini, "
+        "qwen, dashscope."
+    )
+
+
+def refuse_public_saas_llm_url_in_production(base_url: str) -> None:
+    """Block public OpenAI/Anthropic hosts when ``TARKA_DEPLOYMENT_PROFILE=production``."""
+    profile = (os.environ.get("TARKA_DEPLOYMENT_PROFILE") or "").strip().lower()
+    if profile != "production":
+        return
+    host = (base_url or "").strip().lower()
+    if any(marker in host for marker in _PUBLIC_SAAS_MARKERS):
+        raise ValueError(
+            "TARKA_DEPLOYMENT_PROFILE=production refuses public api.openai.com / "
+            "api.anthropic.com. Use SHADOW_LLM_BACKEND=self-hosted|vllm and "
+            "SHADOW_LLM_BASE_URL for an in-tenant OpenAI-compatible origin."
+        )
+
+
 def build_shadow_llm_client(
     *, ai_gateway: AIGateway | None = None
 ) -> OllamaLLMClient | OpenAICompatLLMClient:
-    """``SHADOW_LLM_BACKEND`` → evaluate client. Default ollama (self-hosted)."""
+    """``SHADOW_LLM_BACKEND`` → evaluate client. Default ollama when unset or ``ollama``."""
     raw = (os.environ.get("SHADOW_LLM_BACKEND") or "").strip().lower().replace("-", "_")
     model_override = _first_env("SHADOW_LLM_MODEL", "OPENAI_MODEL")
     key_override = _first_env("SHADOW_LLM_API_KEY")
@@ -590,8 +620,11 @@ def build_shadow_llm_client(
         if not base:
             raise ValueError(
                 "SHADOW_LLM_BACKEND=self-hosted|vllm requires SHADOW_LLM_BASE_URL "
-                "(OpenAI-compatible origin, e.g. http://vllm:8000/v1)",
+                "(OpenAI-compatible origin, e.g. http://vllm:8000/v1). "
+                "For in-tenant Azure/Vertex/Bedrock-compatible endpoints set "
+                "SHADOW_LLM_BASE_URL; do not fall through to Ollama.",
             )
+        refuse_public_saas_llm_url_in_production(base)
         return OpenAICompatLLMClient(
             base_url=base,
             model=model_override or "llama3.2",
@@ -599,16 +632,17 @@ def build_shadow_llm_client(
             ai_gateway=ai_gateway,
         )
     if raw not in presets:
-        logger.warning("unknown SHADOW_LLM_BACKEND=%r; defaulting to ollama", raw)
-        return OllamaLLMClient(ai_gateway=ai_gateway)
+        raise unknown_shadow_llm_backend_error(raw)
     default_base, key_names, default_model, extra = presets[raw]
     key = key_override or _first_env(*key_names)
     if not key:
         raise ValueError(
             f"SHADOW_LLM_BACKEND={raw} requires {key_names[0]} (or SHADOW_LLM_API_KEY)",
         )
+    resolved_base = base_override or default_base
+    refuse_public_saas_llm_url_in_production(resolved_base)
     return OpenAICompatLLMClient(
-        base_url=base_override or default_base,
+        base_url=resolved_base,
         model=model_override or default_model,
         api_key=key,
         extra_headers=extra,
@@ -621,4 +655,6 @@ __all__ = [
     "OpenAICompatLLMClient",
     "ShadowLLMError",
     "build_shadow_llm_client",
+    "refuse_public_saas_llm_url_in_production",
+    "unknown_shadow_llm_backend_error",
 ]

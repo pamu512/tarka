@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from llm_client import OpenAICompatLLMClient, build_shadow_llm_client
+from llm_client import OllamaLLMClient, OpenAICompatLLMClient, build_shadow_llm_client
 from providers.factory import get_llm_provider
 from providers.ollama_provider import OllamaProvider
 from providers.openai_provider import OpenAIProvider
@@ -33,6 +33,7 @@ def test_build_claude_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_build_claude_preset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "claude")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     client = build_shadow_llm_client()
@@ -43,6 +44,7 @@ def test_build_claude_preset(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_build_gemini_and_qwen(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "gemini")
     monkeypatch.setenv("GEMINI_API_KEY", "g-test")
     g = build_shadow_llm_client()
@@ -103,6 +105,7 @@ def test_compat_chat_maps_openai_envelope() -> None:
 
 
 def test_analyze_factory_claude(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "claude")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     p = get_llm_provider()
@@ -113,3 +116,59 @@ def test_analyze_factory_claude(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_analyze_factory_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "ollama")
     assert isinstance(get_llm_provider(), OllamaProvider)
+
+
+def test_unknown_backend_does_not_build_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BACKEND=azure must not silently hit laptop Ollama."""
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "azure")
+    monkeypatch.delenv("SHADOW_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    with pytest.raises(ValueError, match=r"self-hosted\|vllm") as excinfo:
+        build_shadow_llm_client()
+    assert "Ollama" in str(excinfo.value)
+    assert "Azure" in str(excinfo.value) or "azure" in str(excinfo.value).lower()
+
+
+def test_unknown_backend_analyze_factory_does_not_build_ollama(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "vertex")
+    with pytest.raises(ValueError, match=r"self-hosted\|vllm"):
+        get_llm_provider()
+
+
+def test_openai_compat_empty_url_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "openai_compat")
+    monkeypatch.delenv("SHADOW_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    with pytest.raises(ValueError, match="SHADOW_LLM_BASE_URL"):
+        build_shadow_llm_client()
+
+
+def test_explicit_ollama_still_works(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "ollama")
+    client = build_shadow_llm_client()
+    assert isinstance(client, OllamaLLMClient)
+    asyncio.run(client.aclose())
+
+
+def test_production_refuses_public_openai(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("SHADOW_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    with pytest.raises(ValueError, match="api.openai.com"):
+        build_shadow_llm_client()
+
+
+def test_production_refuses_public_anthropic_analyze(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    monkeypatch.setenv("SHADOW_LLM_BACKEND", "claude")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.delenv("SHADOW_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    with pytest.raises(ValueError, match="api.anthropic.com"):
+        get_llm_provider()
