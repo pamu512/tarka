@@ -74,12 +74,7 @@ async function refreshSessionWithPlainClient(plain: AxiosInstance): Promise<void
   const mode = authMode();
   const url = resolveRefreshUrl();
   if (mode === "bearer") {
-    const rt = getRefreshToken();
-    if (!rt) {
-      dispatchSessionExpired("missing_tokens");
-      throw new AxiosError("Missing refresh token", "ERR_BAD_REQUEST", undefined, undefined, undefined);
-    }
-    const res = await plain.post<unknown>(url, { refresh_token: rt });
+    const res = await plain.post<unknown>(url, {});
     if (res.status !== 200 && res.status !== 201) {
       dispatchSessionExpired("refresh_failed");
       throw new AxiosError(
