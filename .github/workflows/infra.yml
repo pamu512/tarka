@@ -71,7 +71,7 @@ jobs:
       # Install-only (omit `command`) — replaces deprecated pulumi/setup-pulumi; see pulumi/actions README.
       - name: Install Pulumi CLI
         if: steps.pulumi_gate.outputs.run == 'true'
-        uses: pulumi/actions@v7
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7
         with:
           pulumi-version: "^3"
 
