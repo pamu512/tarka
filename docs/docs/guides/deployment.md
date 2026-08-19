@@ -235,7 +235,7 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   --set global.appSecretsName=tarka-app-secrets
 ```
 
-OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
+OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). When `OIDC_ISSUER` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 
 When `global.environment=prod`, the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs — the chart will not invent `values.networkPolicy`), and HTTPS 443 from core-api when `coreApi.extraEnv` includes `OIDC_*`. Dev/default values emit no NetworkPolicy. Ingress from another namespace is operator-owned.
 Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. Set optional `coreApi.digest` / `signalApi.digest` / `investigationAgent.digest` to a `sha256:<64-hex>` pin to render `image: repo@sha256:…` (tag is ignored when digest is set). Leave digest empty on the preset so `helm template` of CI placeholders still works; operators should pin digests before a real prod apply.
@@ -450,7 +450,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Set `API_KEYS` on all services with strong, unique keys
 - Rotate API keys on a regular schedule
 - Use separate API keys for each client application
-- Desk SSO is a core-api BFF: set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_JWKS_URL` on core-api via Helm `coreApi.extraEnv` only (no `values.oidcIssuer` key). Put `OIDC_CLIENT_SECRET` on the existing `global.appSecretsName` secret under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. When `OIDC_ISSUER` is empty the desk stays in local mode (`GET /auth/config` returns `oidc_enabled: false`; `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` still work).
+- Desk SSO is a core-api BFF: set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_JWKS_URL` on core-api via Helm `coreApi.extraEnv` only (no `values.oidcIssuer` key). Put `OIDC_CLIENT_SECRET` on the existing `global.appSecretsName` secret under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. When `OIDC_ISSUER` is empty the desk stays in local mode (`GET /auth/config` returns `oidc_enabled: false`; `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` still work). Production + a non-empty issuer requires a resolved `REDIS_URL` (Helm fail at render; process refuse at start) — no in-process OIDC state fallback.
 
 ### Network
 
