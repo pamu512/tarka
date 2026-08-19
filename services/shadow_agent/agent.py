@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from ingestor.schemas import TransactionSchema
@@ -56,6 +58,46 @@ _OLLAMA_TIMEOUT_TYPES = (
     httpx.WriteTimeout,
     httpx.PoolTimeout,
 )
+
+
+def safe_model_endpoint(raw: str) -> str:
+    """Persist scheme+host+port+path (or host). Drop userinfo, query, fragment."""
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    parts = urlsplit(text)
+    if not parts.scheme:
+        return text.split("?", 1)[0].split("#", 1)[0]
+    host = parts.hostname or ""
+    if not host:
+        return urlunsplit((parts.scheme, "", parts.path, "", ""))
+    host_part = f"[{host}]" if ":" in host and not host.startswith("[") else host
+    netloc = f"{host_part}:{parts.port}" if parts.port else host_part
+    path = parts.path if parts.path and parts.path != "/" else ""
+    return urlunsplit((parts.scheme, netloc, path, "", ""))
+
+
+def shadow_llm_audit_fields(llm_client: object | None = None) -> dict[str, str]:
+    """``SHADOW_LLM_BACKEND`` + model URL/host for the advise AuditLog row (no secrets)."""
+    backend = (os.environ.get("SHADOW_LLM_BACKEND") or "").strip() or "ollama"
+    url = ""
+    if llm_client is not None:
+        for attr in ("_base_url", "base_url"):
+            val = getattr(llm_client, attr, None)
+            if isinstance(val, str) and val.strip():
+                url = val.strip()
+                break
+    if not url:
+        url = (
+            (os.environ.get("SHADOW_LLM_BASE_URL") or "").strip()
+            or (os.environ.get("OPENAI_BASE_URL") or "").strip()
+            or (os.environ.get("OLLAMA_HOST") or "").strip()
+            or OllamaLLMClient.DEFAULT_BASE_URL
+        )
+    return {
+        "llm_backend": backend,
+        "model_url": safe_model_endpoint(url),
+    }
 
 
 async def _ensure_case_for_shadow_audit(
@@ -381,6 +423,9 @@ class ShadowAgent:
             if _meta.get("ip_address") is not None
             else _meta.get("ipAddress")
         )
+        persist_tenant = scoped_tenant or DEFAULT_TENANT_ID
+        llm_fields = shadow_llm_audit_fields(self._llm_client)
+        # Advise/LLM row: tenant + backend + URL. Never snapshot.shadow (Observe evaluate).
         audit_log = AuditLog(
             case_id=str(decision.transaction_id),
             action_taken=json.dumps(
@@ -392,6 +437,9 @@ class ShadowAgent:
                     "ip_address": _ip,
                     "investigation_case_number": _inv,
                     "case_outcome": _outcome,
+                    "tenant_id": persist_tenant,
+                    "llm_backend": llm_fields["llm_backend"],
+                    "model_url": llm_fields["model_url"],
                 },
                 separators=(",", ":"),
                 ensure_ascii=False,

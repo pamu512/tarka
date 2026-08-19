@@ -53,3 +53,22 @@ def test_build_human_disposition_payload_edges():
     assert payload["kind"] == "human_disposition"
     assert payload["edges"][0]["from_external_id"] == "dec-parent"
     assert payload["edges"][0]["relationship"] == "CAUSED"
+
+
+def test_agent_advise_payload_has_tenant_and_not_observe_shadow():
+    """Advise rows carry tenant_id; snapshot.shadow is Observe evaluate only."""
+    mod = _load_payload()
+    payload = mod.build_agent_advise_payload(
+        tenant_id="tenant_alpha",
+        run_id="run-1",
+        case_id="case-1",
+        entity_ids=["acct-1"],
+        trace_ids=["tr-1"],
+        claims=[{"claim": "escalate"}],
+        context_snapshot={},
+        source="investigation",
+    )
+    assert payload["kind"] == "agent_advise"
+    assert payload["tenant_id"] == "tenant_alpha"
+    assert payload.get("shadow") is not True
+    assert "shadow" not in payload
