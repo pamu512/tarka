@@ -73,7 +73,7 @@ def test_evidence_secret_not_required_outside_production():
 
 
 def test_db_refuses_sqlite_fallback_under_production_lock():
-    src = (
-        Path(__file__).resolve().parents[1] / "src" / "case_api" / "db.py"
-    ).read_text(encoding="utf-8")
+    src = (Path(__file__).resolve().parents[1] / "src" / "case_api" / "db.py").read_text(
+        encoding="utf-8"
+    )
     assert "if production_lock_enabled() or not _can_use_local_fallback(exc):" in src

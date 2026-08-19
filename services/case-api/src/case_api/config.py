@@ -24,11 +24,7 @@ def production_lock_enabled(env: Mapping[str, str] | None = None) -> bool:
         return True
     if (src.get("TARKA_DEPLOYMENT_PROFILE") or "").strip().lower() == "production":
         return True
-    helm = (
-        (src.get("TARKA_HELM_ENVIRONMENT") or src.get("TARKA_ENVIRONMENT") or "")
-        .strip()
-        .lower()
-    )
+    helm = (src.get("TARKA_HELM_ENVIRONMENT") or src.get("TARKA_ENVIRONMENT") or "").strip().lower()
     return helm == "prod"
 
 
