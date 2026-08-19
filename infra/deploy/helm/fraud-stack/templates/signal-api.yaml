@@ -94,10 +94,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "tarka.fullname" . }}-signal-api
+  labels:
+    app: {{ include "tarka.fullname" . }}-signal-api
 spec:
   selector:
     app: {{ include "tarka.fullname" . }}-signal-api
   ports:
-    - port: {{ .Values.signalApi.servicePort }}
+    - name: http
+      port: {{ .Values.signalApi.servicePort }}
       targetPort: {{ .Values.signalApi.servicePort }}
 {{- end }}
