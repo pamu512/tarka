@@ -143,6 +143,10 @@ def test_post_v1_analyze_returns_200_and_shadow_decision() -> None:
 
     snap = data["_debug"]["audit_log_snapshot"]
     assert snap["transaction_id_correlation"] == str(tx_id)
+    assert snap.get("tenant_id")
+    assert snap.get("llm_backend")
+    assert snap.get("model_url")
+    assert "shadow" not in snap
     assert "raw_llm_prompt_excerpt" not in snap
     assert "raw_llm_response_excerpt" not in snap
     assert "raw_llm_prompt_excerpt" not in response.text

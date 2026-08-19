@@ -994,6 +994,13 @@ def build_app(
             decision.is_fraud,
         )
         # Do not echo raw prompt/completion excerpts on the wire (PII). Persist stays on AuditLog.
+        action_snap: dict[str, Any] = {}
+        try:
+            parsed_action = json.loads(audit_log.action_taken)
+            if isinstance(parsed_action, dict):
+                action_snap = parsed_action
+        except (TypeError, json.JSONDecodeError):
+            action_snap = {}
         payload: dict[str, Any] = {
             **decision.model_dump(mode="json"),
             "_debug": {
@@ -1002,6 +1009,9 @@ def build_app(
                 "audit_log_snapshot": {
                     "transaction_id_correlation": audit_log.case_id,
                     "is_fraud": decision.is_fraud,
+                    "tenant_id": action_snap.get("tenant_id"),
+                    "llm_backend": action_snap.get("llm_backend"),
+                    "model_url": action_snap.get("model_url"),
                 },
             },
         }
