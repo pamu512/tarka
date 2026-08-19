@@ -161,7 +161,7 @@ export default function Help() {
 
       <Section id="ops" title="Ops">
         <p>
-          Calibration, QA, dispute deadlines, shadow promote-gate, counters, and SAR transport sit on the lean ops
+          Calibration, QA, dispute deadlines, counters, and SAR transport sit on the lean ops
           strip. They read live decision/case APIs and fail closed when those APIs are down.
         </p>
       </Section>

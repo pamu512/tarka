@@ -134,11 +134,11 @@ export default function ShadowLlmForensics() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface-950 text-gray-200">
       <div className="shrink-0 border-b border-surface-700 px-6 py-4">
-        <PageTitle module="investigation">Shadow LLM streaming forensics</PageTitle>
+        <PageTitle module="investigation">Advise</PageTitle>
         <p className="mt-2 text-sm text-gray-500 max-w-3xl">
-          Split view: local notes and stream health on the left; Shadow sidecar chat on the right. Streams over SSE
+          Split view: local notes and stream health on the left; Advise sidecar chat on the right. Streams over SSE
           from <code className="text-gray-400">{SHADOW_LLM_STREAM_URL}</code> (Vite → <code className="text-gray-400">127.0.0.1:8742</code>). Start the
-          Shadow API and Ollama (or compatible host) before sending.
+          Advise sidecar and Ollama (or compatible host) before sending.
         </p>
       </div>
 
@@ -161,7 +161,7 @@ export default function ShadowLlmForensics() {
                 className="mt-1 w-full rounded-lg border border-surface-600 bg-surface-950 px-3 py-2 text-sm text-gray-200"
                 value={caseId}
                 onChange={(e) => setCaseId(e.target.value)}
-                placeholder="e.g. active case UUID from Shadow"
+                placeholder="e.g. active case UUID from Advise"
               />
             </label>
             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -224,7 +224,7 @@ export default function ShadowLlmForensics() {
               <textarea
                 className="min-h-[44px] flex-1 min-w-[12rem] resize-y rounded-xl border border-surface-600 bg-surface-950 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
                 rows={2}
-                placeholder="Message Shadow LLM…"
+                placeholder="Message Advise…"
                 value={draft}
                 disabled={busy}
                 onChange={(e) => setDraft(e.target.value)}

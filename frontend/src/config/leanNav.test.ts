@@ -36,7 +36,7 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/cases/abc")).toBe(true);
     expect(isProductionSurfacePath("/ops/qa")).toBe(true);
     expect(isProductionSurfacePath("/ops/calibration")).toBe(true);
-    expect(isProductionSurfacePath("/ops/shadow")).toBe(true);
+    expect(isProductionSurfacePath("/ops/shadow")).toBe(false);
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/decisions")).toBe(true);
     expect(isProductionSurfacePath("/decisions/tr-abc")).toBe(true);
@@ -46,13 +46,14 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
     expect(isProductionSurfacePath("/login")).toBe(true);
     expect(isProductionSurfacePath("/auth/callback")).toBe(true);
-    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/decisions")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/payout-delay")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/investigation/shadow-llm")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/admin")).toBe(false);
     expect(isProductionSurfacePath("/command-center")).toBe(false);

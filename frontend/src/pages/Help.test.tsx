@@ -19,5 +19,7 @@ describe("Help", () => {
     expect(body).not.toMatch(/OSINT/);
     expect(body).not.toMatch(/Admin Panel/);
     expect(body).not.toMatch(/Simulation/);
+    expect(body).not.toMatch(/Shadow/);
+    expect(body).not.toMatch(/\/ops\/shadow/);
   });
 });

@@ -91,9 +91,9 @@ export default function ShadowMode() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <PageTitle module="shadow">Shadow / Observation Mode</PageTitle>
+          <PageTitle module="shadow">Observe</PageTitle>
           <p className="text-sm text-gray-500 mt-1">
-            Compare shadow rule packs against production without affecting live decisions
+            Compare observe-only rule packs against production without affecting live decisions
           </p>
         </div>
         <button

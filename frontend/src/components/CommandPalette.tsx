@@ -65,7 +65,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
   },
   {
     to: "/investigation/shadow-llm",
-    label: "Shadow LLM forensics",
+    label: "Advise",
     module: "investigation",
     keywords: "sidecar sse stream ollama shadow copilot",
   },
@@ -103,7 +103,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
   },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
-  { to: "/shadow", label: "Shadow mode", module: "shadow", keywords: "dry run" },
+  { to: "/shadow", label: "Observe", module: "shadow", keywords: "dry run observe shadow mode" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
   { to: "/ops/backtest", label: "Backtest jobs", module: "rules", keywords: "warehouse olap streaming" },
   {
@@ -388,7 +388,7 @@ export function CommandPalette() {
       contextual.push({
         id: "ctx:workbench-copilot-rail",
         label: "Toggle copilot rail (this case)",
-        hint: "Embedded Shadow AI + citation cards",
+        hint: "Embedded Advise + citation cards",
         module: "investigation",
         keywords: "copilot rail shadow chat sidebar workbench",
         run: () => {
