@@ -23,6 +23,9 @@ clickhouse:
 coreApi:
   enabled: true
   replicaCount: 2
+  extraEnv:
+    TARKA_DEPLOYMENT_PROFILE: production
+    TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
 signalApi:
   enabled: true
 

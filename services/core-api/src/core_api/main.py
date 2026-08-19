@@ -39,18 +39,21 @@ from .infrastructure.otel import (  # noqa: E402
 
 
 def _enforce_production_auth_profile() -> None:
-    """Run fail-closed auth checks when TARKA_DEPLOYMENT_PROFILE=production.
+    """Run fail-closed auth checks for production profile or Helm prod.
 
     Empty API_KEYS + ALLOW_INSECURE_NO_AUTH=false is 503 at request time
-    (shared ``require_api_key``). Soft-open auth is refused here so a
+    (shared ``require_api_key``) unless the production profile runs, in
+    which case boot is refused. Soft-open auth is refused here so a
     mis-set profile cannot boot. OIDC_ISSUER is not required. When the
     issuer *is* set, REDIS_URL must be set (no in-process OIDC fallback).
+    Helm core-on-aws sets ``TARKA_HELM_ENVIRONMENT=prod`` without
+    ``TARKA_DEPLOYMENT_PROFILE`` — same lock.
     """
     from decision_api.production_profile import (
-        deployment_profile_is_production,
+        should_enforce_production_profile,
     )
 
-    if not deployment_profile_is_production(os.environ):
+    if not should_enforce_production_profile(os.environ):
         return
     insecure = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
         "1",
@@ -60,7 +63,8 @@ def _enforce_production_auth_profile() -> None:
     }
     if insecure:
         raise RuntimeError(
-            "ALLOW_INSECURE_NO_AUTH is forbidden when TARKA_DEPLOYMENT_PROFILE=production"
+            "ALLOW_INSECURE_NO_AUTH is forbidden in production "
+            "(TARKA_DEPLOYMENT_PROFILE=production or Helm environment=prod)"
         )
     enforce_oidc_redis_for_production()
 

@@ -46,7 +46,12 @@ class TestHelmNetworkPolicy(unittest.TestCase):
         self.assertEqual(_policy_names(rendered), [])
 
     def test_environment_prod_emits_default_deny_and_allows(self) -> None:
-        rendered = _helm("--set", "global.environment=prod")
+        rendered = _helm(
+            "--set",
+            "global.environment=prod",
+            "--set",
+            "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+        )
         names = _policy_names(rendered)
         self.assertIn("tarka-tarka-default-deny", names)
         self.assertIn("tarka-tarka-allow-dns", names)
