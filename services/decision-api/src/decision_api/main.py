@@ -2006,6 +2006,9 @@ _SIGNAL_TAG_MAP = {
     "geo_tz_mismatch": "sdk:geo_tz_mismatch",
     "ip_is_proxy": "sdk:proxy",
     "ip_is_datacenter": "sdk:datacenter",
+    "is_rooted": "sdk:rooted",
+    "is_jailbroken": "sdk:jailbroken",
+    "has_biometrics": "sdk:biometrics",
 }
 
 
@@ -2592,6 +2595,35 @@ async def get_audit(
     ge = snap.get("graph_decision_explanation")
     if isinstance(ge, dict):
         out["graph_decision_explanation"] = ge
+    if detail_level in {"analyst", "full"}:
+        ep: dict[str, Any] = {}
+        payload = snap.get("payload")
+        if isinstance(payload, dict):
+            ep.update(payload)
+        metadata = snap.get("metadata")
+        if isinstance(metadata, dict):
+            ep["metadata"] = metadata
+        dc = snap.get("device_context")
+        if isinstance(dc, dict):
+            ep["device_context"] = dc
+        for k in (
+            "pack_id",
+            "pack_name",
+            "pack_reason",
+            "pack_why",
+            "advise",
+            "advise_status",
+            "advise_error",
+            "advise_timed_out",
+            "reasoning",
+            "rule_pack_file",
+        ):
+            if k in snap and k not in ep:
+                ep[k] = snap[k]
+        out["evaluate_payload"] = ep
+        reasons = snap.get("reasons")
+        if isinstance(reasons, list):
+            out["reasons"] = reasons
     return out
 
 

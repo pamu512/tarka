@@ -21,6 +21,7 @@ from decision_api.config import settings
 from decision_api.consortium import consortium_score_delta, hash_entity_id
 from decision_api.currency import normalize_amount
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
+from decision_api.device_integrity import device_integrity_snapshot
 from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.enforcement import resolve_enforcement_action
 from decision_api.eval_dag import EvalDAGRuntime
@@ -1167,6 +1168,10 @@ async def run_evaluate_decision(
             "payload": body.payload,
             "metadata": body.metadata,
         }
+        if body.device_context is not None:
+            slim_dc = device_integrity_snapshot(body.device_context.model_dump())
+            if slim_dc:
+                raw_snapshot["device_context"] = slim_dc
         if body.agent_context is not None:
             raw_snapshot["agent_context"] = body.agent_context.model_dump(
                 mode="json", exclude_none=True
