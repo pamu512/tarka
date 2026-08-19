@@ -41,6 +41,8 @@ def main() -> int:
     for preset in PRESETS:
         _run_for_preset(preset)
     print(f"Validated {len(PRESETS)} preset generations")
+    digest_script = Path("infra/scripts/ci/test_helm_image_digests.py")
+    subprocess.run([sys.executable, str(digest_script)], check=True)
     return 0
 
 
