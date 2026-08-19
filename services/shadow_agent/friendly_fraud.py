@@ -13,7 +13,9 @@ from sqlalchemy import Float, String, cast, func, or_, select
 from sqlalchemy.exc import NotSupportedError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
-from tarka_shared.audit_trail import AuditLog
+from tarka_shared.audit_trail import AuditLog, Case
+
+from shadow_tenant import require_tenant_for_read
 
 # Successful fulfillment / capture outcomes (case-insensitive match on ``case_outcome``).
 _FULFILLED_OUTCOMES: frozenset[str] = frozenset(
@@ -219,6 +221,7 @@ async def count_prior_successful_orders_same_ip(
     ip_address: str,
     before_timestamp: datetime,
     exclude_case_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> int:
     """
     Count persisted Shadow-style audit rows (``amount`` present) with the same ``ip_address``,
@@ -228,6 +231,7 @@ async def count_prior_successful_orders_same_ip(
     ip = (ip_address or "").strip()
     if not ip:
         return 0
+    scoped_tenant = require_tenant_for_read(tenant_id)
     bind = session.get_bind()
     if bind is None:
         raise RuntimeError("AsyncSession has no bind")
@@ -252,20 +256,21 @@ async def count_prior_successful_orders_same_ip(
         cast(fraud_e, String) == "",
     )
 
-    stmt = (
-        select(func.count())
-        .select_from(AuditLog)
-        .where(
-            amount_e.is_not(None),
-            ip_e == ip,
-            AuditLog.timestamp < before,
-            outcome_e.is_not(None),
-            outcome_e != "",
-            outcome_e != "null",
-            fulfilled,
-            not_fraud,
-        )
+    stmt = select(func.count()).select_from(AuditLog)
+    if scoped_tenant is not None:
+        stmt = stmt.join(Case, Case.id == AuditLog.case_id)
+    stmt = stmt.where(
+        amount_e.is_not(None),
+        ip_e == ip,
+        AuditLog.timestamp < before,
+        outcome_e.is_not(None),
+        outcome_e != "",
+        outcome_e != "null",
+        fulfilled,
+        not_fraud,
     )
+    if scoped_tenant is not None:
+        stmt = stmt.where(Case.tenant_id == scoped_tenant)
     if exclude_case_id:
         stmt = stmt.where(AuditLog.case_id != exclude_case_id)
 
@@ -279,6 +284,7 @@ async def build_friendly_fraud_signals(
     *,
     graph_context: dict[str, Any] | None = None,
     delivery_dispute_window: timedelta = timedelta(hours=72),
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Build ``friendly_fraud_signals`` for GRAPH CONTEXT:
@@ -294,6 +300,7 @@ async def build_friendly_fraud_signals(
     ip = _anchor_ip(meta)
     expected = _expected_delivery_hash(meta)
 
+    scoped_tenant = require_tenant_for_read(tenant_id)
     prior_db = 0
     if ip:
         prior_db = await count_prior_successful_orders_same_ip(
@@ -301,6 +308,7 @@ async def build_friendly_fraud_signals(
             ip_address=ip,
             before_timestamp=tx.timestamp,
             exclude_case_id=None,
+            tenant_id=scoped_tenant,
         )
 
     hint_raw = (graph_context or {}).get("prior_successful_orders_same_ip")
@@ -310,17 +318,20 @@ async def build_friendly_fraud_signals(
         prior_hint = 0
     prior_orders = max(prior_db, prior_hint)
 
-    stmt = (
-        select(
-            AuditLog.timestamp,
-            AuditLog.action_taken,
-            AuditLog.code_executed,
-            AuditLog.agent_notes,
-        )
-        .where(AuditLog.case_id == entity_s)
-        .order_by(AuditLog.timestamp.desc())
-        .limit(120)
+    stmt = select(
+        AuditLog.timestamp,
+        AuditLog.action_taken,
+        AuditLog.code_executed,
+        AuditLog.agent_notes,
     )
+    if scoped_tenant is not None:
+        stmt = stmt.join(Case, Case.id == AuditLog.case_id).where(
+            AuditLog.case_id == entity_s,
+            Case.tenant_id == scoped_tenant,
+        )
+    else:
+        stmt = stmt.where(AuditLog.case_id == entity_s)
+    stmt = stmt.order_by(AuditLog.timestamp.desc()).limit(120)
     rows = (await session.execute(stmt)).all()
 
     pairs_total = 0

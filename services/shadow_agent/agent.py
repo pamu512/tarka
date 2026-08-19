@@ -46,6 +46,8 @@ from tarka_shared.audit_trail import AuditLog, Case
 from tarka_shared.case_status import DEFAULT_CASE_STATUS
 from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID
 
+from shadow_tenant import UnscopedTenantReadError, require_tenant_for_read, tenant_binding_required
+
 logger = logging.getLogger(__name__)
 
 _OLLAMA_TIMEOUT_TYPES = (
@@ -56,15 +58,45 @@ _OLLAMA_TIMEOUT_TYPES = (
 )
 
 
-async def _ensure_case_for_shadow_audit(session: AsyncSession, case_id: str) -> None:
-    """Ensure a ``cases`` row exists so ``audit_logs.case_id`` FK can succeed."""
+async def _ensure_case_for_shadow_audit(
+    session: AsyncSession,
+    case_id: str,
+    *,
+    tenant_id: str | None = None,
+) -> None:
+    """Ensure a ``cases`` row exists so ``audit_logs.case_id`` FK can succeed.
+
+    When ``TENANT_BINDING_REQUIRED`` is on, never write ``DEFAULT_TENANT_ID`` —
+    use the request tenant. An existing case owned by another tenant fails closed.
+    """
     existing = await session.scalar(select(Case).where(Case.id == case_id))
     if existing is not None:
+        if tenant_binding_required():
+            bound = (tenant_id or "").strip()
+            if not bound:
+                raise UnscopedTenantReadError(
+                    "tenant_id is required",
+                    status_code=400,
+                )
+            if existing.tenant_id != bound:
+                raise UnscopedTenantReadError(
+                    f"tenant '{bound}' is outside caller scope",
+                    status_code=403,
+                )
         return
+    if tenant_binding_required():
+        write_tenant = (tenant_id or "").strip()
+        if not write_tenant:
+            raise UnscopedTenantReadError(
+                "tenant_id is required",
+                status_code=400,
+            )
+    else:
+        write_tenant = (tenant_id or "").strip() or DEFAULT_TENANT_ID
     session.add(
         Case(
             id=case_id,
-            tenant_id=DEFAULT_TENANT_ID,
+            tenant_id=write_tenant,
             name="shadow-sidecar-transaction-anchor",
             dataset_path=None,
             is_active=False,
@@ -124,6 +156,7 @@ class ShadowAgent:
         session: AsyncSession,
         *,
         graph_context: dict[str, Any] | None = None,
+        tenant_id: str | None = None,
     ) -> tuple[ShadowDecision, AuditLog]:
         """
         Forensic path: prompt → LLM ``chat_json_validated`` → :class:`~shadow_agent.schemas.ShadowDecision`.
@@ -156,9 +189,14 @@ class ShadowAgent:
         )
 
         # Sequential await (not concurrent) so history is fully loaded before prompt build + Ollama.
-        history = await get_recent_entity_transactions(session, entity_s, 5)
+        scoped_tenant = require_tenant_for_read(tenant_id)
+        history = await get_recent_entity_transactions(
+            session, entity_s, 5, tenant_id=scoped_tenant
+        )
         merged_ctx: dict[str, Any] = dict(graph_context) if graph_context else {}
-        ff_signals = await build_friendly_fraud_signals(session, tx, graph_context=graph_context)
+        ff_signals = await build_friendly_fraud_signals(
+            session, tx, graph_context=graph_context, tenant_id=scoped_tenant
+        )
         _inject_ff = (
             bool(graph_context)
             or int(ff_signals.get("prior_successful_orders_same_ip") or 0) >= 10
@@ -186,7 +224,7 @@ class ShadowAgent:
                         "hops=2 graph_probe=shared_ip_2hop",
                         entity_s,
                     )
-                    summary = await find_linked_entities(entity_s, tx, drv)
+                    summary = await find_linked_entities(entity_s, tx, drv, tenant_id=scoped_tenant)
                     merged_ctx["find_linked_entities"] = summary
                     logger.info(
                         "shadow_tool_find_linked_entities_complete entity_id=%s summary_chars=%s",
@@ -229,7 +267,7 @@ class ShadowAgent:
                         entity_s,
                         lid,
                     )
-                    review_payload = await check_review_integrity(lid, drv)
+                    review_payload = await check_review_integrity(lid, drv, tenant_id=scoped_tenant)
                     merged_ctx["check_review_integrity"] = review_payload
                     logger.info(
                         "shadow_tool_check_review_integrity_complete entity_id=%s "
@@ -369,7 +407,9 @@ class ShadowAgent:
         )
 
         try:
-            await _ensure_case_for_shadow_audit(session, str(decision.transaction_id))
+            await _ensure_case_for_shadow_audit(
+                session, str(decision.transaction_id), tenant_id=scoped_tenant
+            )
             session.add(audit_log)
             await session.commit()
             await session.refresh(audit_log)

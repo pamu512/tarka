@@ -20,6 +20,11 @@ from fastapi.responses import JSONResponse
 from ingestor.schemas import TransactionSchema
 from pydantic import ValidationError
 from agent import ShadowAgent, _ensure_case_for_shadow_audit
+from shadow_tenant import (
+    UnscopedTenantReadError,
+    bind_analyze_tenant,
+    tenant_binding_required,
+)
 from dispute_letter import RepresentmentLetterIn, generate_dispute_letter
 from graph_tool import find_linked_entities, neo4j_driver_from_env
 from review_integrity_tool import check_review_integrity
@@ -214,6 +219,17 @@ async def require_shadow_api_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized",
         )
+
+
+async def require_shadow_analyze_tenant(
+    request: Request,
+    _auth: Annotated[None, Depends(require_shadow_api_token)],
+) -> str | None:
+    """X-Shadow-Token plus shared tenant binding when ``TENANT_BINDING_REQUIRED`` is on."""
+    token = request.headers.get("x-shadow-token")
+    tid = await bind_analyze_tenant(request, credential=token)
+    request.state.bound_tenant_id = tid
+    return tid
 
 
 def get_shadow_llm_client(request: Request) -> OllamaLLMClient:
@@ -474,8 +490,9 @@ def build_app(
         )
         fac = app.state.async_session_factory
         async with fac() as bootstrap:
-            await _ensure_case_for_shadow_audit(bootstrap, _SENTINEL_INGESTION_REJECT_CASE_ID)
-            await bootstrap.commit()
+            if not tenant_binding_required():
+                await _ensure_case_for_shadow_audit(bootstrap, _SENTINEL_INGESTION_REJECT_CASE_ID)
+                await bootstrap.commit()
         app.state._db_engine = engine
         logger.info(
             "shadow_sidecar_startup owns_llm_client=%s db_backend=%s orm_tables=%s",
@@ -551,7 +568,8 @@ def build_app(
 
         try:
             async with factory() as session:
-                await _ensure_case_for_shadow_audit(session, case_audit_id)
+                bound = getattr(request.state, "bound_tenant_id", None)
+                await _ensure_case_for_shadow_audit(session, case_audit_id, tenant_id=bound)
                 _code_cap = 32_768
                 _notes_cap = 32_768
                 code_ex = (raw_body or "")[:_code_cap]
@@ -653,7 +671,9 @@ def build_app(
                 detail={"error": "neo4j_not_configured"},
             )
         try:
-            summary = await find_linked_entities(str(tx.entity_id), tx, drv)
+            token = request.headers.get("x-shadow-token")
+            tid = await bind_analyze_tenant(request, credential=token)
+            summary = await find_linked_entities(str(tx.entity_id), tx, drv, tenant_id=tid)
         finally:
             await drv.close()
         return JSONResponse(
@@ -834,7 +854,9 @@ def build_app(
                 detail={"error": "neo4j_not_configured"},
             )
         try:
-            payload = await check_review_integrity(str(listing_id).strip(), drv)
+            token = request.headers.get("x-shadow-token")
+            tid = await bind_analyze_tenant(request, credential=token)
+            payload = await check_review_integrity(str(listing_id).strip(), drv, tenant_id=tid)
         finally:
             await drv.close()
         return JSONResponse(content=payload)
@@ -875,7 +897,7 @@ def build_app(
 
     @application.post("/v1/analyze")
     async def analyze_transaction(
-        _auth: Annotated[None, Depends(require_shadow_api_token)],
+        tenant_id: Annotated[str | None, Depends(require_shadow_analyze_tenant)],
         request: Request,
         agent: Annotated[ShadowAgent, Depends(get_shadow_agent)],
         session: Annotated[AsyncSession, Depends(get_db_session)],
@@ -910,7 +932,14 @@ def build_app(
             graph_ctx is not None,
         )
         try:
-            decision, audit_log = await agent.evaluate(tx, session, graph_context=graph_ctx)
+            decision, audit_log = await agent.evaluate(
+                tx, session, graph_context=graph_ctx, tenant_id=tenant_id
+            )
+        except UnscopedTenantReadError as exc:
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"error": "tenant_scope_required", "message": exc.message},
+            ) from exc
         except AuditPersistenceError as exc:
             logger.exception(
                 "shadow_sidecar_analyze_audit_persist_failed entity_id=%s error_code=%s",
