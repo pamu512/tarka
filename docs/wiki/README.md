@@ -14,7 +14,7 @@ Or manually:
 
 ```bash
 git clone https://github.com/pamu512/tarka.wiki.git /tmp/tarka.wiki
-for f in wiki/*.md; do
+for f in docs/wiki/*.md; do
   base="$(basename "$f")"
   [[ "$base" == "README.md" ]] && continue
   cp "$f" "/tmp/tarka.wiki/$base"
@@ -32,4 +32,4 @@ GitHub wiki uses `master` as default branch for the wiki repo.
 
 After changing operator docs, compose profiles, or product surfaces referenced from wiki pages. Prefer linking to **`docs/INDEX.md`** and **`docs/docs/guides/`** in the main repo for depth; keep wiki pages as short entry points.
 
-If wiki and [`docs/INDEX.md`](../docs/INDEX.md) disagree, **trust the hub and the code**.
+If wiki and [`docs/INDEX.md`](../INDEX.md) disagree, **trust the hub and the code**.

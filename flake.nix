@@ -103,10 +103,10 @@
               };
 
               settings.processes.loki = {
-                command = "${pkgs.grafana-loki}/bin/loki -config.file ${./infrastructure/loki/loki-local.yaml}";
+                command = "${pkgs.grafana-loki}/bin/loki -config.file ${./infra/deploy/observability/loki/loki-local.yaml}";
               };
               settings.processes.promtail = {
-                command = "${pkgs.promtail}/bin/promtail -config.file ${./infrastructure/loki/promtail-local.yaml}";
+                command = "${pkgs.promtail}/bin/promtail -config.file ${./infra/deploy/observability/loki/promtail-local.yaml}";
                 depends_on."loki".condition = "process_started";
               };
             };
