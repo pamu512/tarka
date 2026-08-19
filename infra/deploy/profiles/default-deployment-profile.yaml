@@ -33,6 +33,7 @@ helm_contract:
 compose_production_hardening:
   core-api:
     TARKA_DEPLOYMENT_PROFILE: production
+    CASE_API_PRODUCTION_MODE: "true"
     ALLOW_INSECURE_NO_AUTH: "false"
     TENANT_BINDING_REQUIRED: "true"
   integration-ingress:

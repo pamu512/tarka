@@ -72,6 +72,29 @@ def test_prod_presets_set_copilot_production_mode_when_agent_enabled():
         assert 'COPILOT_PRODUCTION_MODE: "true"' in text, name
 
 
+def test_validate_prod_fails_missing_case_api_production_mode():
+    """Helm leftover: prod skipped CASE_API_PRODUCTION_MODE so sqlite fallback still ran."""
+    text = (HELM / "validate-prod.yaml").read_text(encoding="utf-8")
+    assert "CASE_API_PRODUCTION_MODE must be true in production" in text
+    case_at = text.index("CASE_API_PRODUCTION_MODE must be true in production")
+    gate_at = text.index("$prodOnK8s :=")
+    assert case_at < gate_at
+
+
+def test_prod_presets_set_case_api_production_mode():
+    presets = ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "presets"
+    for name in (
+        "prod-on-k8s.yaml",
+        "core-on-aws.yaml",
+        "core-on-gcp.yaml",
+        "full-on-k8s.yaml",
+        "investigation-on-aws.yaml",
+        "tenant-binding-enforced.yaml",
+    ):
+        text = (presets / name).read_text(encoding="utf-8")
+        assert 'CASE_API_PRODUCTION_MODE: "true"' in text, name
+
+
 def test_validate_prod_fails_missing_ingest_idempotency():
     text = (HELM / "validate-prod.yaml").read_text(encoding="utf-8")
     assert "INGEST_REQUIRE_IDEMPOTENCY_KEY" in text

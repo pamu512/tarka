@@ -43,6 +43,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set",
                 "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
+                "--set",
+                "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
                 "--set-string",
                 "coreApi.extraEnv.OIDC_ISSUER=https://idp.example.com",
             ]
@@ -129,6 +131,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "--set",
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set",
+                "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+                "--set",
                 "investigationAgent.enabled=true",
             ]
         )
@@ -177,7 +181,7 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertIn("TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
 
-    def test_environment_prod_without_ingest_idempotency_fails_render(self) -> None:
+    def test_environment_prod_without_case_api_production_mode_fails_render(self) -> None:
         r = _helm(
             [
                 "-f",
@@ -189,13 +193,33 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
             ]
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("CASE_API_PRODUCTION_MODE", r.stderr)
+
+    def test_core_on_aws_renders_case_api_production_mode(self) -> None:
+        r = _helm(["-f", str(_CORE_AWS)])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("CASE_API_PRODUCTION_MODE", r.stdout)
+
+    def test_environment_prod_without_ingest_idempotency_fails_render(self) -> None:
+        r = _helm(
+            [
+                "-f",
+                str(_CHART / "values.yaml"),
+                "--set",
+                "global.environment=prod",
+                "--set",
+                "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+                "--set",
+                "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+            ]
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertIn("INGEST_REQUIRE_IDEMPOTENCY_KEY", r.stderr)
 
     def test_full_on_k8s_renders_ingest_idempotency_true(self) -> None:
         r = _helm(["-f", str(_CHART / "presets" / "full-on-k8s.yaml")])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("INGEST_REQUIRE_IDEMPOTENCY_KEY", r.stdout)
-
 
 
 if __name__ == "__main__":

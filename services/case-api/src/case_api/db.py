@@ -16,7 +16,7 @@ from tarka_core.database import (
     sync_url_for_alembic,
 )
 
-from .config import settings
+from .config import production_lock_enabled, settings
 
 
 def _app_root() -> Path:
@@ -220,7 +220,8 @@ async def init_db() -> None:
         _bootstrap_mode = "alembic_head"
     except Exception as exc:
         # Local resilience: only DB bootstrap/migration failures trigger sqlite fallback.
-        if settings.case_api_production_mode or not _can_use_local_fallback(exc):
+        # Production profile / Helm prod / CASE_API_PRODUCTION_MODE refuse the fallback.
+        if production_lock_enabled() or not _can_use_local_fallback(exc):
             raise
         _fallback_reason = f"{exc.__class__.__module__}.{exc.__class__.__name__}"
         await _activate_local_fallback()
