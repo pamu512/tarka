@@ -109,6 +109,8 @@ _trail = AuditTrail(AuditRecord)
 _ws_clients: dict[WebSocket, str] = {}
 _PRIORITY_WEIGHT = {"critical": 100, "high": 70, "medium": 40, "low": 15}
 _STATUS_WEIGHT = {"open": 25, "investigating": 20, "resolved": -10, "closed": -30}
+
+
 def _request_support_id(request: Request) -> str:
     rid = (
         request.headers.get("x-request-id") or request.headers.get("x-correlation-id") or ""

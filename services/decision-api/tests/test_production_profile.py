@@ -174,6 +174,7 @@ def test_compose_production_hardening_sets_deployment_profile():
     ):
         assert needle in overlay
 
+
 def test_compose_production_hardening_sets_case_api_production_mode():
     """Overlay leftover: profile on core-api skipped case-api sqlite/evidence fail-close."""
     overlay = (
