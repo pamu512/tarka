@@ -43,6 +43,8 @@ def main() -> int:
     print(f"Validated {len(PRESETS)} preset generations")
     digest_script = Path("infra/scripts/ci/test_helm_image_digests.py")
     subprocess.run([sys.executable, str(digest_script)], check=True)
+    oidc_script = Path("infra/scripts/ci/test_helm_oidc_redis.py")
+    subprocess.run([sys.executable, str(oidc_script)], check=True)
     return 0
 
 

@@ -1,3 +1,34 @@
+{{- /* Issuer-without-Redis leftover from 324/328: Python refuses start when
+     TARKA_DEPLOYMENT_PROFILE=production and OIDC_ISSUER is set without REDIS_URL.
+     Helm must fail the same way at render — including core-on-aws (environment=prod,
+     PDB/HPA off) where the prod-on-k8s block below does not run. Empty OIDC_ISSUER
+     stays valid (API keys remain the machine path). */ -}}
+{{- $extraEnv := ((.Values.coreApi).extraEnv | default dict) }}
+{{- $oidcIssuer := "" }}
+{{- if hasKey $extraEnv "OIDC_ISSUER" }}
+{{- $oidcIssuer = trim (toString (index $extraEnv "OIDC_ISSUER")) }}
+{{- end }}
+{{- $deployProfile := "" }}
+{{- if hasKey $extraEnv "TARKA_DEPLOYMENT_PROFILE" }}
+{{- $deployProfile = lower (trim (toString (index $extraEnv "TARKA_DEPLOYMENT_PROFILE"))) }}
+{{- end }}
+{{- $prodProfile := or (eq (default "dev" .Values.global.environment) "prod") (eq $deployProfile "production") }}
+{{- if and $prodProfile (ne $oidcIssuer "") }}
+{{- $redisResolved := "" }}
+{{- if hasKey $extraEnv "REDIS_URL" }}
+{{- $redisResolved = trim (toString (default "" (index $extraEnv "REDIS_URL"))) }}
+{{- else }}
+{{- $extRedisOidc := (((((.Values.global).externalServices).redis) | default dict)) }}
+{{- if $extRedisOidc.enabled }}
+{{- $redisResolved = trim (toString (default "" $extRedisOidc.redisUrl)) }}
+{{- else if .Values.redis.enabled }}
+{{- $redisResolved = "redis://in-cluster" }}
+{{- end }}
+{{- end }}
+{{- if or (eq $redisResolved "") (contains "__" $redisResolved) }}
+{{- fail "OIDC_ISSUER is set in production but REDIS_URL is missing or still a placeholder — Redis is required for desk SSO (no in-process OIDC state fallback)" }}
+{{- end }}
+{{- end }}
 {{- /* Fail-closed for prod-on-k8s (environment=prod AND coreApi PDB+HPA on).
      core-on-aws also sets environment=prod but leaves PDB/HPA off and
      postgres.auth.password=fraud from chart defaults — do not fail that overlay. */ -}}
