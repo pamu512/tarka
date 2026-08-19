@@ -121,7 +121,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
 
       - name: Build sidecar images
         run: |
@@ -131,7 +131,7 @@ jobs:
           docker build -f services/shadow_agent/Dockerfile -t tarka-shadow-agent:ci .
 
       - name: Trivy — Orchestrator
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: tarka-orchestrator:ci
@@ -143,7 +143,7 @@ jobs:
           trivyignores: .trivyignore
 
       - name: Trivy — Rule Engine
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: tarka-rule-engine:ci
@@ -155,7 +155,7 @@ jobs:
           trivyignores: .trivyignore
 
       - name: Trivy — Shadow Agent
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: tarka-shadow-agent:ci
