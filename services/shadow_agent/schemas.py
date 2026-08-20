@@ -72,12 +72,12 @@ class HypothesisReport(BaseModel):
     saarthi_narrative: str | None = Field(
         default=None,
         max_length=4_000,
-        description="Two-sentence Saarthi (Gemini) analyst summary (Prompt 195).",
+        description="Two-sentence Gemini analyst summary (Prompt 195). Wire field name kept for compatibility.",
     )
     saarthi_attribution_engine: str | None = Field(
         default=None,
         max_length=32,
-        description="``gemini`` or ``fallback`` for ``saarthi_narrative``.",
+        description="``gemini`` or ``fallback`` for ``saarthi_narrative``. Wire field name kept for compatibility.",
     )
     analyst_suggestion_allowed: bool = Field(
         default=False,

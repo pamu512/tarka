@@ -32,6 +32,7 @@ from decision_api.evaluate.score import (
     blend_scores as _blend_scores,
     compute_fallback_reason as _compute_fallback_reason,
     decision_runtime_status as _decision_runtime_status,
+    degrade_skip_score_delta as _degrade_skip_score_delta,
     signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
@@ -955,6 +956,7 @@ async def run_evaluate_decision(
         if label_hits:
             rule_hits.extend(label_hits)
         replay_delta = 20.0 if is_replayed else 0.0
+        degrade_delta = _degrade_skip_score_delta(degrade_tags)
         base_score = (
             10.0
             + score_delta
@@ -963,6 +965,7 @@ async def run_evaluate_decision(
             + replay_delta
             + depth_delta
             + label_delta
+            + degrade_delta
         )
         final_score = _blend_scores(
             base_score, ml_score if isinstance(ml_score, float) else None
