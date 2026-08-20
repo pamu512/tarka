@@ -203,6 +203,14 @@ function packFile(p: RulePack): string {
   return p._file ?? ((p as unknown as Record<string, unknown>).file as string | undefined) ?? p.name;
 }
 
+type RulesWorkspaceTab = "builder" | "telemetry" | "changes";
+
+function compactChangeHint(ts: string): string {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts.slice(0, 16);
+  return d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 function normalizeRulePack(raw: RulePack, idx: number): RulePack {
   const rec = raw as unknown as Record<string, unknown>;
   const file =
@@ -288,6 +296,7 @@ export default function Rules() {
   >([]);
   const [telemetryMeta, setTelemetryMeta] = useState<{ total_hits: number; since_unix: number } | null>(null);
   const [telemetryLoading, setTelemetryLoading] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<RulesWorkspaceTab>("builder");
 
   const sandboxTenantDefault =
     searchParams.get("tenant_id")?.trim() || workspaceTenantId?.trim() || "demo";
@@ -317,6 +326,7 @@ export default function Rules() {
     setEditingPack(structuredClone(match));
     setDirty(false);
     setTagInputs({});
+    setWorkspaceTab("builder");
   }, [searchParams, packs, loading, dirty, selectedFile]);
 
   useEffect(() => {
@@ -415,6 +425,7 @@ export default function Rules() {
     setEditingPack(structuredClone(pack));
     setDirty(false);
     setTagInputs({});
+    setWorkspaceTab("builder");
   }
 
   function mutate(fn: (p: RulePack) => void) {
@@ -781,44 +792,6 @@ export default function Rules() {
             ))}
           </div>
         )}
-        {(telemetryMeta || telemetryRows.length > 0) && (
-          <div className="border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
-              Rule hit telemetry (since API process start, N3–N4)
-            </div>
-            {telemetryMeta && (
-              <p className="text-[11px] text-gray-500 mb-2 font-mono">
-                Total hits: {telemetryMeta.total_hits} · Prometheus: tarka_json_rule_hits_total
-              </p>
-            )}
-            {telemetryRows.length === 0 ? (
-              <p className="text-[11px] text-gray-600">No rule hits recorded yet — run evaluations against this API.</p>
-            ) : (
-              <ul className="max-h-24 overflow-y-auto space-y-0.5 font-mono text-[11px]">
-                {telemetryRows.map((r, i) => (
-                  <li key={`${r.pack_file}-${r.rule_id}-${r.kind}-${i}`} className="truncate text-gray-400">
-                    <span className="text-brand-400">{r.hits}</span>× {r.pack_file} · {r.rule_id}{" "}
-                    <span className="text-gray-600">({r.kind})</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-        {ruleChangeLog.length > 0 && (
-          <div className="flex-1 min-w-0 border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent pack changes</div>
-            <ul className="space-y-0.5 max-h-20 overflow-y-auto font-mono text-[11px]">
-              {ruleChangeLog.map((e, i) => (
-                <li key={`${e.ts}-${e.file}-${i}`} className="truncate">
-                  <span className="text-gray-500">{e.ts.slice(0, 19)}</span>{" "}
-                  <span className="text-brand-300">{e.action}</span> {e.file}{" "}
-                  <span className="text-gray-600">({e.actor})</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
@@ -1004,7 +977,92 @@ export default function Rules() {
         </aside>
 
         {/* ── Main content ────────────────────────────────── */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <div className="shrink-0 px-6 pt-3" role="tablist" aria-label="Rules workspace">
+            <div className="flex gap-1 bg-surface-900 border border-surface-700 rounded-lg p-1 w-fit max-w-full flex-wrap">
+              <RulesWorkspaceTabButton
+                id="rules-tab-builder"
+                label="Builder"
+                selected={workspaceTab === "builder"}
+                onSelect={() => setWorkspaceTab("builder")}
+              />
+              <RulesWorkspaceTabButton
+                id="rules-tab-telemetry"
+                label="Hit telemetry"
+                hint={telemetryMeta ? `${telemetryMeta.total_hits} hits` : undefined}
+                selected={workspaceTab === "telemetry"}
+                onSelect={() => setWorkspaceTab("telemetry")}
+              />
+              <RulesWorkspaceTabButton
+                id="rules-tab-changes"
+                label="Recent changes"
+                hint={ruleChangeLog[0] ? compactChangeHint(ruleChangeLog[0].ts) : undefined}
+                selected={workspaceTab === "changes"}
+                onSelect={() => setWorkspaceTab("changes")}
+              />
+            </div>
+          </div>
+          {workspaceTab === "telemetry" ? (
+            <div
+              id="rules-tab-telemetry-panel"
+              role="tabpanel"
+              aria-labelledby="rules-tab-telemetry"
+              className="flex-1 overflow-y-auto p-6"
+            >
+              <div className="max-w-5xl border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50 text-xs text-gray-400">
+                <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                  Rule hit telemetry (since API process start, N3–N4)
+                </div>
+                {telemetryMeta && (
+                  <p className="text-[11px] text-gray-500 mb-2 font-mono">
+                    Total hits: {telemetryMeta.total_hits} · Prometheus: tarka_json_rule_hits_total
+                  </p>
+                )}
+                {telemetryRows.length === 0 ? (
+                  <p className="text-[11px] text-gray-600">No rule hits recorded yet — run evaluations against this API.</p>
+                ) : (
+                  <ul className="max-h-[min(24rem,60vh)] overflow-y-auto space-y-0.5 font-mono text-[11px]">
+                    {telemetryRows.map((r, i) => (
+                      <li key={`${r.pack_file}-${r.rule_id}-${r.kind}-${i}`} className="truncate text-gray-400">
+                        <span className="text-brand-400">{r.hits}</span>× {r.pack_file} · {r.rule_id}{" "}
+                        <span className="text-gray-600">({r.kind})</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : workspaceTab === "changes" ? (
+            <div
+              id="rules-tab-changes-panel"
+              role="tabpanel"
+              aria-labelledby="rules-tab-changes"
+              className="flex-1 overflow-y-auto p-6"
+            >
+              <div className="max-w-5xl border border-surface-700 rounded-lg px-3 py-2 bg-surface-900/50 text-xs text-gray-400">
+                <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Recent pack changes</div>
+                {ruleChangeLog.length === 0 ? (
+                  <p className="text-[11px] text-gray-600">No pack changes recorded yet.</p>
+                ) : (
+                  <ul className="space-y-0.5 max-h-[min(24rem,60vh)] overflow-y-auto font-mono text-[11px]">
+                    {ruleChangeLog.map((e, i) => (
+                      <li key={`${e.ts}-${e.file}-${i}`} className="truncate">
+                        <span className="text-gray-500">{e.ts.slice(0, 19)}</span>{" "}
+                        <span className="text-brand-300">{e.action}</span> {e.file}{" "}
+                        <span className="text-gray-600">({e.actor})</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : (
+          <div
+            id="rules-tab-builder-panel"
+            role="tabpanel"
+            aria-labelledby="rules-tab-builder"
+            className="flex-1 overflow-y-auto"
+          >
           {editingPack ? (
             <div className="p-6 space-y-5 max-w-5xl">
               {/* Pack header */}
@@ -1119,6 +1177,8 @@ export default function Rules() {
                 </p>
               </div>
             </div>
+          )}
+          </div>
           )}
         </main>
       </div>
@@ -1569,6 +1629,43 @@ function SimulationPanel({
 }
 
 // ── Small Components ─────────────────────────────────────────────────
+
+function RulesWorkspaceTabButton({
+  id,
+  label,
+  hint,
+  selected,
+  onSelect,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      id={id}
+      aria-selected={selected}
+      aria-controls={`${id}-panel`}
+      onClick={onSelect}
+      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
+        selected
+          ? "bg-brand-600 text-white"
+          : "text-gray-400 hover:text-gray-200 hover:bg-surface-800"
+      }`}
+    >
+      {label}
+      {hint ? (
+        <span className={`ml-1.5 font-mono font-normal ${selected ? "text-white/80" : "text-gray-500"}`}>
+          {hint}
+        </span>
+      ) : null}
+    </button>
+  );
+}
 
 function Modal({
   children,
