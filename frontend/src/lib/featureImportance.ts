@@ -1,4 +1,4 @@
-import type { InferenceContext } from "../../api/inferenceContext";
+import type { InferenceContext } from "../api/inferenceContext";
 
 export type FeatureImportanceRequestBody = {
   trace_id: string;
