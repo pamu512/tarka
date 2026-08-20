@@ -156,8 +156,9 @@ export default function Decisions() {
       <div className="space-y-1">
         <PageTitle module="dashboard">Decisions</PageTitle>
         <p className="text-sm text-gray-500">
-          Live decision stream — allow, block, and review outcomes across all event types.
-          Empty when the API returns no rows; Tarka does not invent fixtures.
+          Journey decision stream — progressive friction from signup through login, payment, and
+          beyond. Filter by event type to isolate any step. Empty until audit/recent returns live
+          rows; Tarka does not invent fixtures.
         </p>
       </div>
 

@@ -25,6 +25,7 @@ export function deterministicAuditRecentItem(offset: number): AuditRecentItem {
     amount: Math.round((12.5 + offset * 3.17 + (offset % 97)) * 100) / 100,
     currency: "USD",
     rule_result: rr,
+    tags: [],
     ai_confidence: Math.min(0.99, 0.35 + (Math.abs(offset * 17) % 60) / 100),
     created_at,
   };

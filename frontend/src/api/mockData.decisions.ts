@@ -256,6 +256,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       amount: 100,
       currency: "USD",
       rule_result: "DENY",
+      tags: ["synthetic", "rules_only_path"],
       ai_confidence: null,
       created_at: new Date(t - 60_000).toISOString(),
     };
@@ -272,6 +273,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         amount: Math.round((12.5 + i * 3.17 + (t % 97)) * 100) / 100,
         currency: "USD",
         rule_result: rr,
+        tags: [] as string[],
         ai_confidence: Math.min(0.99, 0.35 + ((i * 17 + t) % 60) / 100),
         created_at: new Date(t - i * 1500).toISOString(),
       };

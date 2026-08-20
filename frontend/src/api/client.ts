@@ -277,6 +277,8 @@ export interface AuditRecentItem {
   amount: number | null;
   currency: string | null;
   rule_result: AuditRuleResult;
+  /** Persisted degrade / signal tags from the evaluate path. */
+  tags: string[];
   /** Model / integrity confidence in ``0..1`` when present. */
   ai_confidence: number | null;
   created_at: string | null;

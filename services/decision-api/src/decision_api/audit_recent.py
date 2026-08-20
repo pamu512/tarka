@@ -55,6 +55,7 @@ def shape_audit_recent_item(row: AuditRecord) -> dict[str, Any]:
         "amount": amount,
         "currency": currency,
         "rule_result": derive_rule_result(row.decision, row.tags, snap),
+        "tags": list(row.tags) if row.tags else [],
         "ai_confidence": _ai_confidence(snap),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }

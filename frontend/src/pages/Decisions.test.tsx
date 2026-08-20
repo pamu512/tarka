@@ -40,6 +40,7 @@ const LOGIN_REVIEW = {
   amount: null,
   currency: null,
   rule_result: "REVIEW" as const,
+  tags: [] as string[],
   ai_confidence: 0.6,
   created_at: "2026-08-18T08:00:00Z",
 };
@@ -52,8 +53,22 @@ const PAYMENT_ALLOW = {
   amount: 42,
   currency: "USD",
   rule_result: "ALLOW" as const,
+  tags: [] as string[],
   ai_confidence: 0.95,
   created_at: "2026-08-18T09:00:00Z",
+};
+
+const SIGNUP_DEGRADED = {
+  trace_id: "tr-signup-1",
+  short_id: "SIGNUP01",
+  event_type: "signup" as const,
+  decision: "deny",
+  amount: null,
+  currency: null,
+  rule_result: "REVIEW" as const,
+  tags: ["ml:unavailable"],
+  ai_confidence: null,
+  created_at: "2026-08-18T07:00:00Z",
 };
 
 describe("Decisions stream", () => {
@@ -139,6 +154,34 @@ describe("Decisions stream", () => {
     fireEvent.change(screen.getByTestId("filter-rule-result"), { target: { value: "ALLOW" } });
 
     expect(screen.getByTestId("decisions-empty")).toHaveTextContent("No decisions match");
+  });
+
+  it("filters signup as a first-class event type", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW, PAYMENT_ALLOW, SIGNUP_DEGRADED],
+    });
+
+    render(wrap(<Decisions />));
+    await waitFor(() => expect(screen.queryAllByTestId(/decisions-row-/)).toHaveLength(3));
+
+    fireEvent.change(screen.getByTestId("filter-event-type"), { target: { value: "signup" } });
+
+    expect(screen.queryAllByTestId(/decisions-row-/)).toHaveLength(1);
+    expect(screen.getByTestId("decisions-row-tr-signup-1")).toBeInTheDocument();
+  });
+
+  it("shows degraded-path deny as REVIEW, not DENY", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [SIGNUP_DEGRADED],
+    });
+
+    render(wrap(<Decisions />));
+    await waitFor(() => expect(screen.getByTestId("decisions-row-tr-signup-1")).toBeInTheDocument());
+    const row = screen.getByTestId("decisions-row-tr-signup-1");
+    expect(row.textContent).toContain("REVIEW");
+    expect(row.textContent).not.toContain("DENY");
   });
 
   it("does not mention chargebacks or payment inbox in copy", async () => {

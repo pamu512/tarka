@@ -42,7 +42,7 @@ def test_source_includes_event_type_and_decision_keys():
 
 def test_source_includes_existing_keys():
     keys = _returned_keys_from_source()
-    for expected in ("trace_id", "short_id", "amount", "currency", "rule_result", "ai_confidence", "created_at"):
+    for expected in ("trace_id", "short_id", "amount", "currency", "rule_result", "tags", "ai_confidence", "created_at"):
         assert expected in keys, f"{expected} missing from returned keys: {keys}"
 
 
@@ -83,6 +83,7 @@ def _shape_inline(row):
         "amount": amount,
         "currency": currency,
         "rule_result": derive_rule_result(row.decision, row.tags, snap),
+        "tags": list(row.tags) if row.tags else [],
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -123,3 +124,21 @@ def test_existing_fields_with_payload():
     assert shaped["currency"] == "USD"
     assert shaped["rule_result"] == "REVIEW"
     assert shaped["created_at"] is not None
+
+
+def test_tags_surfaced_in_output():
+    row = _fake_row(tags=["ml:unavailable", "enrichment:unavailable"])
+    shaped = _shape_inline(row)
+    assert shaped["tags"] == ["ml:unavailable", "enrichment:unavailable"]
+
+
+def test_tags_empty_list_when_none():
+    row = _fake_row(tags=None)
+    shaped = _shape_inline(row)
+    assert shaped["tags"] == []
+
+
+def test_signup_event_type_first_class():
+    row = _fake_row(event_type="signup", decision="review")
+    shaped = _shape_inline(row)
+    assert shaped["event_type"] == "signup"
