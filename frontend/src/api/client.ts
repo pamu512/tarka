@@ -272,6 +272,8 @@ export type AuditRuleResult = "ALLOW" | "DENY" | "REVIEW" | "SHADOW_REVIEW";
 export interface AuditRecentItem {
   trace_id: string;
   short_id: string;
+  event_type: string | null;
+  decision: string | null;
   amount: number | null;
   currency: string | null;
   rule_result: AuditRuleResult;

@@ -1,6 +1,8 @@
 import type { AuditRecentItem, AuditRuleResult } from "../api/client";
 
 const RULE_CYCLE: readonly AuditRuleResult[] = ["ALLOW", "DENY", "REVIEW", "SHADOW_REVIEW"];
+const EVENT_TYPE_CYCLE = ["login", "payment", "signup", "device", "session", "custom"] as const;
+const DECISION_CYCLE = ["allow", "deny", "review"] as const;
 
 /** Stable epoch so pagination requests return identical rows for the same offset across refreshes. */
 const SYNTHETIC_EPOCH_MS = 1704067200000;
@@ -18,6 +20,8 @@ export function deterministicAuditRecentItem(offset: number): AuditRecentItem {
   return {
     trace_id,
     short_id,
+    event_type: EVENT_TYPE_CYCLE[Math.abs(offset) % EVENT_TYPE_CYCLE.length],
+    decision: DECISION_CYCLE[Math.abs(offset) % DECISION_CYCLE.length],
     amount: Math.round((12.5 + offset * 3.17 + (offset % 97)) * 100) / 100,
     currency: "USD",
     rule_result: rr,

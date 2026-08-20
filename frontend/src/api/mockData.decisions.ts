@@ -246,9 +246,13 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
   if (path === "/api/decisions/v1/audit/recent") {
     const t = Date.now();
     const cycle = ["ALLOW", "DENY", "REVIEW", "SHADOW_REVIEW"] as const;
+    const eventTypes = ["login", "payment", "signup", "device", "session", "custom"] as const;
+    const rawDecisions = ["allow", "deny", "review"] as const;
     const demoDeterministic: Record<string, unknown> = {
       trace_id: "deterministic-ai-bypass-demo",
       short_id: "DETERMIN",
+      event_type: "payment",
+      decision: "deny",
       amount: 100,
       currency: "USD",
       rule_result: "DENY",
@@ -263,6 +267,8 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       return {
         trace_id,
         short_id,
+        event_type: eventTypes[i % eventTypes.length],
+        decision: rawDecisions[i % rawDecisions.length],
         amount: Math.round((12.5 + i * 3.17 + (t % 97)) * 100) / 100,
         currency: "USD",
         rule_result: rr,

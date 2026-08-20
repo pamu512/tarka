@@ -50,6 +50,8 @@ def shape_audit_recent_item(row: AuditRecord) -> dict[str, Any]:
     return {
         "trace_id": str(row.trace_id),
         "short_id": _short_id(row.trace_id),
+        "event_type": row.event_type or None,
+        "decision": row.decision or None,
         "amount": amount,
         "currency": currency,
         "rule_result": derive_rule_result(row.decision, row.tags, snap),
