@@ -65,9 +65,12 @@ function stressBatch(seq: number): AuditRecentItem[] {
     return {
       trace_id,
       short_id: short,
+      event_type: null,
+      decision: null,
       amount: Math.round((k % 5000) * 100) / 100,
       currency: "USD",
       rule_result,
+      tags: [],
       ai_confidence: Math.min(0.99, 0.4 + ((k * 13) % 55) / 100),
       created_at: new Date().toISOString(),
     };

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   decisions,
@@ -39,6 +39,48 @@ function RuleResultPill({ result }: { result: AuditRuleResult }) {
   );
 }
 
+function uniqueSorted(items: AuditRecentItem[], key: "event_type" | "rule_result"): string[] {
+  const set = new Set<string>();
+  for (const it of items) {
+    const v = it[key];
+    if (v) set.add(v);
+  }
+  return [...set].sort();
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+  testId,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  testId: string;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-gray-400">
+      {label}
+      <select
+        data-testid={testId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-surface-800 border border-surface-600 rounded px-1.5 py-1 text-xs text-gray-200 focus:border-brand-500 outline-none"
+      >
+        <option value="">All</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function Decisions() {
   const { tenantId } = useTenantEnvironment();
   const { traceId } = useParams<{ traceId?: string }>();
@@ -49,6 +91,19 @@ export default function Decisions() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
+  const [filterEventType, setFilterEventType] = useState("");
+  const [filterRuleResult, setFilterRuleResult] = useState("");
+
+  const eventTypeOptions = useMemo(() => uniqueSorted(items, "event_type"), [items]);
+  const ruleResultOptions = useMemo(() => uniqueSorted(items, "rule_result"), [items]);
+
+  const filtered = useMemo(() => {
+    let rows = items;
+    if (filterEventType) rows = rows.filter((r) => r.event_type === filterEventType);
+    if (filterRuleResult) rows = rows.filter((r) => r.rule_result === filterRuleResult);
+    return rows;
+  }, [items, filterEventType, filterRuleResult]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -56,7 +111,7 @@ export default function Decisions() {
       const res = await decisions.recentAudit(tenantId);
       setItems(res.items ?? []);
     } catch (e) {
-      setError(toUserFacingError(e, { subject: "Decisions queue", action: "load recent audit" }));
+      setError(toUserFacingError(e, { subject: "Decisions stream", action: "load recent audit" }));
       setItems([]);
     } finally {
       setLoading(false);
@@ -101,15 +156,15 @@ export default function Decisions() {
       <div className="space-y-1">
         <PageTitle module="dashboard">Decisions</PageTitle>
         <p className="text-sm text-gray-500">
-          Investigator queue of recent evaluations from{" "}
-          <span className="font-mono text-xs text-gray-400">GET /api/decisions/v1/audit/recent</span>
-          . Empty when the API returns no rows — this desk does not invent fixtures.
+          Journey decision stream — progressive friction from signup through login, payment, and
+          beyond. Filter by event type to isolate any step. Empty until audit/recent returns live
+          rows; Tarka does not invent fixtures.
         </p>
       </div>
 
       <DegradedModeBanner
         error={error}
-        title={error ? "Decisions queue unavailable" : undefined}
+        title={error ? "Decisions stream unavailable" : undefined}
         hint={error ? "Retry the audit/recent fetch. Tarka does not show placeholder decisions." : undefined}
         onRetry={error ? () => void refresh() : undefined}
       />
@@ -122,7 +177,7 @@ export default function Decisions() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-medium text-gray-200">Audit detail</h2>
             <Link to="/decisions" className="text-xs text-brand-300 hover:underline">
-              Back to queue
+              Back to stream
             </Link>
           </div>
           {detailLoading ? (
@@ -176,24 +231,42 @@ export default function Decisions() {
       ) : null}
 
       <div className="bg-surface-900 border border-surface-700 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-surface-700 text-sm text-gray-300 flex items-center justify-between gap-3">
+        <div className="px-4 py-3 border-b border-surface-700 text-sm text-gray-300 flex items-center justify-between gap-3 flex-wrap">
           <span>Recent decisions</span>
-          <button
-            type="button"
-            disabled={loading || !tenantId.trim()}
-            onClick={() => void refresh()}
-            className="px-2 py-1 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-300 disabled:opacity-50"
-          >
-            Refresh
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <FilterSelect
+              label="Event type"
+              value={filterEventType}
+              options={eventTypeOptions}
+              onChange={setFilterEventType}
+              testId="filter-event-type"
+            />
+            <FilterSelect
+              label="Rule result"
+              value={filterRuleResult}
+              options={ruleResultOptions}
+              onChange={setFilterRuleResult}
+              testId="filter-rule-result"
+            />
+            <button
+              type="button"
+              disabled={loading || !tenantId.trim()}
+              onClick={() => void refresh()}
+              className="px-2 py-1 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-300 disabled:opacity-50"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : items.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500" data-testid="decisions-empty">
-            No recent decisions for this tenant. The queue stays empty until audit/recent returns live rows.
+            {items.length === 0
+              ? "No recent decisions for this tenant. The stream stays empty until audit/recent returns live rows."
+              : "No decisions match the current filters."}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -201,6 +274,8 @@ export default function Decisions() {
               <thead>
                 <tr className="text-gray-400 bg-surface-800/50 border-b border-surface-700">
                   <th className="text-left py-3 px-4 font-medium">Short ID</th>
+                  <th className="text-left py-3 px-4 font-medium">Event type</th>
+                  <th className="text-left py-3 px-4 font-medium">Decision</th>
                   <th className="text-left py-3 px-4 font-medium">Rule result</th>
                   <th className="text-left py-3 px-4 font-medium">Amount</th>
                   <th className="text-left py-3 px-4 font-medium">Created</th>
@@ -208,7 +283,7 @@ export default function Decisions() {
                 </tr>
               </thead>
               <tbody>
-                {items.map((row) => (
+                {filtered.map((row) => (
                   <tr
                     key={row.trace_id}
                     data-testid={`decisions-row-${row.trace_id}`}
@@ -222,6 +297,8 @@ export default function Decisions() {
                         {row.short_id}
                       </Link>
                     </td>
+                    <td className="py-3 px-4 text-xs text-gray-300">{row.event_type ?? "—"}</td>
+                    <td className="py-3 px-4 text-xs text-gray-300">{row.decision ?? "—"}</td>
                     <td className="py-3 px-4">
                       <RuleResultPill result={row.rule_result} />
                     </td>
