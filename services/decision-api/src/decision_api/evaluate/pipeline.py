@@ -1389,6 +1389,7 @@ async def run_evaluate_decision(
             metrics_inc=_metrics_inc_safe,
             case_api_url=settings.case_api_url,
             case_create_on_deny_review=settings.case_create_on_deny_review,
+            case_internal_token=settings.case_internal_token,
             integration_ingress_url=settings.integration_ingress_url,
             ingress_internal_token=settings.ingress_internal_token,
             loyalty_abuse_url=settings.loyalty_abuse_url,

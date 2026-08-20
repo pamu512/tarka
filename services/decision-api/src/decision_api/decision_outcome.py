@@ -108,6 +108,7 @@ def schedule_decision_outcomes(
     metrics_inc: MetricsInc,
     case_api_url: str = "",
     case_create_on_deny_review: bool = False,
+    case_internal_token: str = "",
     integration_ingress_url: str = "",
     ingress_internal_token: str = "",
     loyalty_abuse_url: str = "",
@@ -221,12 +222,15 @@ def schedule_decision_outcomes(
         and case_create_on_deny_review
         and ctx.decision in ("deny", "review")
     ):
+        _case_headers: dict[str, str] = dict(upstream_headers or {})
+        if case_internal_token:
+            _case_headers["X-Internal-Token"] = case_internal_token
         add(
             maybe_create_case_for_outcome,
             http=http,
             case_api_url=case_api_url,
             ctx=ctx,
-            headers=upstream_headers or {},
+            headers=_case_headers,
         )
 
     if not ctx.shadow_request:
