@@ -887,7 +887,12 @@ async def run_evaluate_decision(
             )
             replay_delta_cc = 20.0 if is_replayed else 0.0
             champion_rule_score = (
-                10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc + label_delta
+                10.0
+                + score_delta
+                + consortium_delta
+                + graph_delta
+                + replay_delta_cc
+                + label_delta
             )
             challenger_rule_score = (
                 10.0

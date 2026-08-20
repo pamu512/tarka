@@ -159,9 +159,7 @@ class Settings(BaseSettings):
     prior_label_score_enabled: bool = os.environ.get(
         "PRIOR_LABEL_SCORE_ENABLED", "true"
     ).strip().lower() in ("1", "true", "yes", "on")
-    prior_label_max_delta: float = float(
-        os.environ.get("PRIOR_LABEL_MAX_DELTA", "10")
-    )
+    prior_label_max_delta: float = float(os.environ.get("PRIOR_LABEL_MAX_DELTA", "10"))
 
     evidence_signing_secret: str = os.environ.get("EVIDENCE_SIGNING_SECRET", "")
     decision_log_enabled: bool = os.environ.get(
