@@ -20,7 +20,10 @@ def test_derive_rule_result_explicit_and_shadow_tags():
 def test_deny_with_fallback_reason_becomes_review():
     """A deny under degraded signals (skipped check) should surface as REVIEW, not DENY."""
     assert derive_rule_result("deny", [], {"fallback_reason": "circuit_ml"}) == "REVIEW"
-    assert derive_rule_result("deny", [], {"fallback_reason": "circuit_ml; circuit_graph"}) == "REVIEW"
+    assert (
+        derive_rule_result("deny", [], {"fallback_reason": "circuit_ml; circuit_graph"})
+        == "REVIEW"
+    )
 
 
 def test_deny_without_fallback_reason_stays_deny():

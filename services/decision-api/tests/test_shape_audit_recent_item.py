@@ -16,7 +16,9 @@ from types import SimpleNamespace
 from decision_api.audit_recent_derive import derive_rule_result
 
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "decision_api" / "audit_recent.py"
+SRC = (
+    Path(__file__).resolve().parent.parent / "src" / "decision_api" / "audit_recent.py"
+)
 
 
 def _returned_keys_from_source() -> set[str]:
@@ -42,7 +44,16 @@ def test_source_includes_event_type_and_decision_keys():
 
 def test_source_includes_existing_keys():
     keys = _returned_keys_from_source()
-    for expected in ("trace_id", "short_id", "amount", "currency", "rule_result", "tags", "ai_confidence", "created_at"):
+    for expected in (
+        "trace_id",
+        "short_id",
+        "amount",
+        "currency",
+        "rule_result",
+        "tags",
+        "ai_confidence",
+        "created_at",
+    ):
         assert expected in keys, f"{expected} missing from returned keys: {keys}"
 
 
@@ -74,7 +85,9 @@ def _shape_inline(row):
     raw_amt = payload.get("amount")
     amount = float(raw_amt) if raw_amt is not None else None
     cur = payload.get("currency")
-    currency = str(cur).strip().upper()[:8] if cur is not None and str(cur).strip() else None
+    currency = (
+        str(cur).strip().upper()[:8] if cur is not None and str(cur).strip() else None
+    )
     return {
         "trace_id": str(row.trace_id),
         "short_id": _short_id(row.trace_id),
