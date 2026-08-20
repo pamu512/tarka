@@ -151,3 +151,50 @@ class TestScoutPackEndpoint:
         assert len(eligible) == 0
         eligible_shadow = _iter_eligible_packs([pack], exclude_shadow=False)
         assert len(eligible_shadow) == 1
+
+    @pytest.mark.asyncio
+    async def test_reject_missing_is_ai_authored(self, client):
+        body = _scout_pack_body()
+        body["is_ai_authored"] = False
+        r = await client.post("/v1/rules/scout-pack", json=body)
+        assert r.status_code == 422
+        detail = r.json()["detail"]
+        assert detail["contract"] == "ai_authored_pack"
+        assert any("is_ai_authored" in e for e in detail["validation_errors"])
+
+    @pytest.mark.asyncio
+    async def test_reject_score_delta_out_of_bounds(self, client):
+        body = _scout_pack_body()
+        body["rules"][0]["score_delta"] = 50.0
+        r = await client.post("/v1/rules/scout-pack", json=body)
+        assert r.status_code == 422
+        assert any("score_delta" in e for e in r.json()["detail"]["validation_errors"])
+
+    @pytest.mark.asyncio
+    async def test_reject_unknown_field(self, client):
+        body = _scout_pack_body()
+        body["rules"][0]["when"] = [{"op": "eq", "field": "evil_field", "value": "x"}]
+        r = await client.post("/v1/rules/scout-pack", json=body)
+        assert r.status_code == 422
+        assert any(
+            "unknown field" in e for e in r.json()["detail"]["validation_errors"]
+        )
+
+    @pytest.mark.asyncio
+    async def test_reject_unknown_op(self, client):
+        body = _scout_pack_body()
+        body["rules"][0]["when"] = [
+            {"op": "execute_sql", "field": "canvas_hash", "value": "x"}
+        ]
+        r = await client.post("/v1/rules/scout-pack", json=body)
+        assert r.status_code == 422
+        assert any(
+            "disallowed op" in e for e in r.json()["detail"]["validation_errors"]
+        )
+
+    @pytest.mark.asyncio
+    async def test_reject_empty_rules(self, client):
+        body = _scout_pack_body()
+        body["rules"] = []
+        r = await client.post("/v1/rules/scout-pack", json=body)
+        assert r.status_code == 422

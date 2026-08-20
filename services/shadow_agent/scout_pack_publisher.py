@@ -35,7 +35,7 @@ def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
     rule = dict(suggested_rule)
     rule.setdefault("id", f"scout_{fp_kind}_{uuid.uuid4().hex[:8]}")
 
-    return {
+    pack: dict[str, Any] = {
         "version": 1,
         "name": f"Scout: {fp_kind} {fp_value}".strip(),
         "mode": "shadow",
@@ -49,6 +49,14 @@ def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
         "scout_report_id": report_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
+    from pack_author_contract import validate_ai_authored_pack
+
+    result = validate_ai_authored_pack(pack)
+    if not result["ok"]:
+        raise ValueError(f"scout pack rejected by AI author contract: {result['errors']}")
+
+    return pack
 
 
 def publish_scout_pack_http(

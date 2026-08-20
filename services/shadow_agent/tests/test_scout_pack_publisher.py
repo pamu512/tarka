@@ -108,3 +108,17 @@ def test_pack_written_to_disk_loadable(tmp_path: Path):
     assert loaded["mode"] == "shadow"
     assert loaded["is_ai_authored"] is True
     assert len(loaded["rules"]) == 1
+
+
+def test_contract_rejects_score_delta_out_of_bounds():
+    report = _sample_report()
+    report["suggested_rule"]["score_delta"] = 50.0
+    with pytest.raises(ValueError, match="rejected by AI author contract"):
+        scout_report_to_shadow_pack(report)
+
+
+def test_contract_rejects_unknown_field():
+    report = _sample_report()
+    report["suggested_rule"]["when"] = [{"op": "eq", "field": "evil_field", "value": "x"}]
+    with pytest.raises(ValueError, match="rejected by AI author contract"):
+        scout_report_to_shadow_pack(report)
