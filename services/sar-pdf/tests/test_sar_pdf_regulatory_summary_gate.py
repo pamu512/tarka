@@ -9,11 +9,11 @@ from pathlib import Path
 import pytest
 from pypdf import PdfReader
 
-_SRC_SAARTHI = Path(__file__).resolve().parents[1] / "src"
-if str(_SRC_SAARTHI) not in sys.path:
-    sys.path.insert(0, str(_SRC_SAARTHI))
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
-from saarthi.pdf_generator import (  # noqa: E402
+from sar_pdf.pdf_generator import (  # noqa: E402
     REGULATORY_SUMMARY_HEADING,
     sar_shadow_json_to_formal_pdf_bytes,
 )
