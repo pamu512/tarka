@@ -244,8 +244,7 @@ async def event_qa_pending(
             "trace_id": str(rec.trace_id),
             "entity_id": rec.entity_id,
             "event_type": rec.event_type,
-            "score": rec.score,
-            # Blind: expose payload context but NOT decision/rule_result/recommended_action.
+            # Blind: NO score, decision, rule_result, or recommended_action.
             "amount": payload.get("amount"),
             "currency": payload.get("currency"),
             "created_at": rec.created_at.isoformat() if rec.created_at else None,
@@ -330,6 +329,7 @@ async def event_qa_review(
         "schema_id": "tarka.event_qa_review/v1",
         "trace_id": str(row.trace_id),
         "original_decision": original_decision,
+        "original_score": row.score,
         "reviewer_decision": reviewer,
         "agree": agree,
         "y_label_written": y_label_written,

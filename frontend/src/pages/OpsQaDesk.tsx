@@ -42,7 +42,6 @@ type EventQaItem = {
   trace_id: string;
   entity_id: string;
   event_type: string;
-  score: number;
   amount?: number | null;
   currency?: string | null;
   created_at: string | null;
@@ -274,6 +273,7 @@ function EventQaPanel({ tenantId }: { tenantId: string }) {
     trace_id: string;
     agree: boolean;
     original_decision: string;
+    original_score: number | null;
   } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -337,6 +337,7 @@ function EventQaPanel({ tenantId }: { tenantId: string }) {
         trace_id: out.trace_id,
         agree: out.agree,
         original_decision: out.original_decision,
+        original_score: out.original_score,
       });
       await refresh();
     } catch (e) {
@@ -425,6 +426,11 @@ function EventQaPanel({ tenantId }: { tenantId: string }) {
           {" — "}
           {lastReview.agree ? "Agreed" : "Disagreed"} with engine decision:{" "}
           <span className="font-mono">{lastReview.original_decision}</span>
+          {lastReview.original_score != null && (
+            <span className="ml-1 font-mono text-xs opacity-75">
+              (score {lastReview.original_score})
+            </span>
+          )}
         </div>
       )}
 

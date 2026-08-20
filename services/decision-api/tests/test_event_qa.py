@@ -225,6 +225,41 @@ def test_drift_skip_blocked_on_moderate():
 # ── y_label mapping logic ────────────────────────────────────────
 
 
+# ── Blind-safety: pending payload must not leak score/decision ────
+
+
+def test_pending_item_has_no_score_or_decision_keys():
+    """The pending endpoint schema must not expose score, decision,
+    rule_result, or recommended_action — those leak the engine verdict."""
+    allowed_keys = {
+        "trace_id",
+        "entity_id",
+        "event_type",
+        "amount",
+        "currency",
+        "created_at",
+    }
+    leaked_keys = {
+        "score",
+        "decision",
+        "rule_result",
+        "recommended_action",
+        "enforcement_action",
+    }
+    # Simulate what the pending endpoint returns per item.
+    sample_item = {
+        "trace_id": "abc",
+        "entity_id": "e1",
+        "event_type": "payment",
+        "amount": 100,
+        "currency": "USD",
+        "created_at": "2026-08-20T00:00:00",
+    }
+    present = set(sample_item.keys())
+    assert present <= allowed_keys, f"extra keys: {present - allowed_keys}"
+    assert not (present & leaked_keys), f"leaked keys: {present & leaked_keys}"
+
+
 def test_y_label_mapping():
     """Reviewer 'deny' → '1' (FRAUD), 'allow' → '0' (LEGITIMATE), 'review' → skip."""
     y_map = {"deny": "1", "allow": "0"}

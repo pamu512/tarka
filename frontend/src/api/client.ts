@@ -1787,7 +1787,6 @@ export const decisions = {
         trace_id: string;
         entity_id: string;
         event_type: string;
-        score: number;
         amount?: number | null;
         currency?: string | null;
         created_at: string | null;
@@ -1800,6 +1799,7 @@ export const decisions = {
     return request<{
       trace_id: string;
       original_decision: string;
+      original_score: number | null;
       reviewer_decision: string;
       agree: boolean;
       y_label_written: boolean;
