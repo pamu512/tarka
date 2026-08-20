@@ -36,32 +36,74 @@ def load_contract_text() -> str:
 # Allowed values (mirrored from PACK_AUTHOR.md — single source of truth)
 # ---------------------------------------------------------------------------
 
-ALLOWED_FIELDS: frozenset[str] = frozenset({
-    # event type / identity
-    "event_type", "entity_id", "session_id", "acc_id", "user_id",
-    # device-context signals
-    "device_fingerprint", "canvas_hash", "webgl_vendor",
-    "user_agent", "screen_resolution", "timezone_offset", "language",
-    "platform", "vendor",
-    # velocity / counters
-    "tx_count_1h", "tx_count_24h", "tx_amount_1h", "tx_amount_24h",
-    "distinct_devices_24h", "distinct_ips_24h",
-    # fingerprint / biometric
-    "vendor_fingerprint_score", "vendor_incognia_risk",
-    "ip_address", "ip_risk_score", "geo_country", "geo_city",
-    # payment
-    "amount", "currency",
-})
+ALLOWED_FIELDS: frozenset[str] = frozenset(
+    {
+        # event type / identity
+        "event_type",
+        "entity_id",
+        "session_id",
+        "acc_id",
+        "user_id",
+        # device-context signals
+        "device_fingerprint",
+        "canvas_hash",
+        "webgl_vendor",
+        "user_agent",
+        "screen_resolution",
+        "timezone_offset",
+        "language",
+        "platform",
+        "vendor",
+        # velocity / counters
+        "tx_count_1h",
+        "tx_count_24h",
+        "tx_amount_1h",
+        "tx_amount_24h",
+        "distinct_devices_24h",
+        "distinct_ips_24h",
+        # fingerprint / biometric
+        "vendor_fingerprint_score",
+        "vendor_incognia_risk",
+        "ip_address",
+        "ip_risk_score",
+        "geo_country",
+        "geo_city",
+        # payment
+        "amount",
+        "currency",
+    }
+)
 
-ALLOWED_OPS: frozenset[str] = frozenset({
-    "eq", "not_eq", "gt", "gte", "lt", "lte",
-    "in", "not_in", "contains", "starts_with", "ends_with",
-    "exists", "not_exists", "is_true", "is_false",
-})
+ALLOWED_OPS: frozenset[str] = frozenset(
+    {
+        "eq",
+        "not_eq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "not_in",
+        "contains",
+        "starts_with",
+        "ends_with",
+        "exists",
+        "not_exists",
+        "is_true",
+        "is_false",
+    }
+)
 
-ALLOWED_EVENT_TYPES: frozenset[str] = frozenset({
-    "login", "payment", "signup", "device", "session", "custom",
-})
+ALLOWED_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "login",
+        "payment",
+        "signup",
+        "device",
+        "session",
+        "custom",
+    }
+)
 
 SCORE_DELTA_MIN: float = 5.0
 SCORE_DELTA_MAX: float = 30.0
@@ -106,9 +148,7 @@ class AIAuthoredPack(BaseModel):
         lower = self.authored_by.lower()
         for brand in ("tarka", "saarthi"):
             if brand in lower:
-                raise ValueError(
-                    f"authored_by must not contain Tarka brand name '{brand}'"
-                )
+                raise ValueError(f"authored_by must not contain Tarka brand name '{brand}'")
         return self
 
 
@@ -136,26 +176,18 @@ def validate_ai_authored_pack(doc: dict[str, Any]) -> dict[str, Any]:
     for rule in pack.rules:
         for cond in rule.when:
             if cond.field not in ALLOWED_FIELDS:
-                errors.append(
-                    f"rule {rule.id}: unknown field '{cond.field}'"
-                )
+                errors.append(f"rule {rule.id}: unknown field '{cond.field}'")
             if cond.op not in ALLOWED_OPS:
-                errors.append(
-                    f"rule {rule.id}: disallowed op '{cond.op}'"
-                )
+                errors.append(f"rule {rule.id}: disallowed op '{cond.op}'")
             # event_type value check
             if cond.field == "event_type" and cond.op == "eq":
                 if isinstance(cond.value, str) and cond.value not in ALLOWED_EVENT_TYPES:
-                    errors.append(
-                        f"rule {rule.id}: unknown event_type value '{cond.value}'"
-                    )
+                    errors.append(f"rule {rule.id}: unknown event_type value '{cond.value}'")
             if cond.field == "event_type" and cond.op == "in":
                 if isinstance(cond.value, list):
                     for v in cond.value:
                         if isinstance(v, str) and v not in ALLOWED_EVENT_TYPES:
-                            errors.append(
-                                f"rule {rule.id}: unknown event_type value '{v}'"
-                            )
+                            errors.append(f"rule {rule.id}: unknown event_type value '{v}'")
 
     if errors:
         return {"ok": False, "errors": errors}

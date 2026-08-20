@@ -182,9 +182,7 @@ def test_deny_100_rejected():
 
 def test_unknown_field_rejected():
     pack = _valid_pack()
-    pack["rules"][0]["when"] = [
-        {"field": "consortium_score", "op": "gte", "value": 50}
-    ]
+    pack["rules"][0]["when"] = [{"field": "consortium_score", "op": "gte", "value": 50}]
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
     assert any("unknown field" in e for e in result["errors"])
@@ -192,9 +190,7 @@ def test_unknown_field_rejected():
 
 def test_invented_kyc_field_rejected():
     pack = _valid_pack()
-    pack["rules"][0]["when"] = [
-        {"field": "kyc_verified", "op": "is_true"}
-    ]
+    pack["rules"][0]["when"] = [{"field": "kyc_verified", "op": "is_true"}]
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
 
@@ -204,9 +200,7 @@ def test_invented_kyc_field_rejected():
 
 def test_unknown_op_rejected():
     pack = _valid_pack()
-    pack["rules"][0]["when"] = [
-        {"field": "canvas_hash", "op": "regex", "value": ".*"}
-    ]
+    pack["rules"][0]["when"] = [{"field": "canvas_hash", "op": "regex", "value": ".*"}]
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
     assert any("disallowed op" in e for e in result["errors"])
@@ -214,9 +208,7 @@ def test_unknown_op_rejected():
 
 def test_between_op_rejected():
     pack = _valid_pack()
-    pack["rules"][0]["when"] = [
-        {"field": "amount", "op": "between", "value": [10, 100]}
-    ]
+    pack["rules"][0]["when"] = [{"field": "amount", "op": "between", "value": [10, 100]}]
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
 
@@ -250,11 +242,13 @@ def test_missing_authored_by_rejected():
 
 def test_multiple_valid_rules():
     pack = _valid_pack()
-    pack["rules"].append({
-        "id": "r2",
-        "when": [{"field": "webgl_vendor", "op": "eq", "value": "NVIDIA"}],
-        "score_delta": 15,
-    })
+    pack["rules"].append(
+        {
+            "id": "r2",
+            "when": [{"field": "webgl_vendor", "op": "eq", "value": "NVIDIA"}],
+            "score_delta": 15,
+        }
+    )
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is True
     assert len(result["pack"]["rules"]) == 2
@@ -279,9 +273,7 @@ def test_too_many_rules_rejected():
 
 def test_unknown_event_type_value_rejected():
     pack = _valid_pack()
-    pack["rules"][0]["when"] = [
-        {"field": "event_type", "op": "eq", "value": "wire_transfer"}
-    ]
+    pack["rules"][0]["when"] = [{"field": "event_type", "op": "eq", "value": "wire_transfer"}]
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
     assert any("event_type" in e for e in result["errors"])
