@@ -26,7 +26,7 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 
 ## Configuration
 
-Requires **`OPENAI_API_KEY`** (or compatible base URL) for LLM rounds. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
+Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM preferred; public `api.openai.com` is not the enterprise default. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (or compatible). Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
 
 ### Durable store (HA)
 

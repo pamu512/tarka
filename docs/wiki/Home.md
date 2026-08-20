@@ -18,10 +18,11 @@ Short operator mirror of the repo docs hub. **Canonical source:** [`docs/INDEX.m
 
 ## Product invariants
 
+- **Evaluate-first** — `decision-api` (Rust JSON packs) owns allow / deny / flag / review.
+- **Audit everything** — every decision has a trail; human overrides store why (`override → y_label`).
+- **Review is residual** — born from evaluate deny / review. ALLOW never becomes a case.
+- **Advise, never decide** — Shadow / investigation / trend advise only; never silent FLAG→ALLOW.
 - **Prove every signal** — durable audit / graph edges, not vendor scorecards.
-- **`decision-api` decides** — Rust JSON packs via `tarka_rule_engine`.
-- **Shadow / investigation / trend advise** — never silent FLAG→ALLOW or Wasm auto-promote.
-- **Decision graph records accountability** — fail-soft writers; never overrides allow/deny.
 - **Offline / no live-tenant fantasy** — demos and holdouts are local fixtures.
 
 ## Canonical docs (repo)

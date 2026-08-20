@@ -1,10 +1,9 @@
 # Decision API
 
-The Decision API is the central scoring engine. It receives fraud evaluation requests, orchestrates rules, ML models, and OPA policies in parallel, then returns a decision (`allow`, `review`, or `deny`) with a composite score.
+Canonical evaluate service. Rust JSON packs (`tarka_rule_engine` via `tarka-core`) own allow / deny / flag / review. The Python HTTP macroservice (`decision_api.main`) mounts the Rust evaluation pipeline behind FastAPI routes.
 
-**Port:** 8000
-**Version:** 4.0.0
-**Framework:** Python / FastAPI
+**Port:** 8000  
+**Framework:** Python / FastAPI (HTTP layer); Rust / `tarka-core` (evaluation engine)
 
 ---
 
@@ -384,7 +383,7 @@ All settings are configured via environment variables or a `.env` file.
 | `API_KEYS` | _(empty)_ | Comma-separated API keys. Empty = no auth (dev mode) |
 | `DENY_THRESHOLD` | `80` | Score at or above which the decision is `deny` |
 | `REVIEW_THRESHOLD` | `50` | Score at or above which the decision is `review` |
-| `SCORE_BLEND_STRATEGY` | `average` | How to combine rule and ML scores: `average`, `max`, or `rules_only` |
+
 | `FEATURE_SERVICE_URL` | _(empty)_ | Feature Service URL. Empty = inline features from payload |
 | `ML_SCORING_URL` | _(empty)_ | ML Scoring Service URL. Empty = skip ML scoring |
 | `GRAPH_SERVICE_URL` | _(empty)_ | Graph Service URL. Empty = skip graph upserts |
@@ -392,20 +391,6 @@ All settings are configured via environment variables or a `.env` file.
 | `ATTESTATION_NONCE_TTL` | `300` | Nonce expiry in seconds |
 | `ATTESTATION_HMAC_SECRET` | _(empty)_ | HMAC secret for browser attestation |
 | `RATE_LIMIT_RPM` | `1000` | Rate limit in requests per minute |
-
----
-
-## Score Blending
-
-The final score is derived from two inputs: the **rule score** (base 10 + sum of `score_delta` from fired rules) and the **ML score** (0–100 from ML Scoring service).
-
-| Strategy | Formula |
-|---|---|
-| `average` | `(rule_score + ml_score) / 2` |
-| `max` | `max(rule_score, ml_score)` |
-| `rules_only` | `rule_score` (ML score ignored) |
-
-If ML Scoring is not configured or returns an error, the rule score is used as-is regardless of the strategy.
 
 ---
 

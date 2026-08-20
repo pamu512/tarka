@@ -2,8 +2,7 @@
 
 How product features move data, who **decides**, and how outcomes affect downstream systems.
 
-**Authority invariant:** `decision-api` (Rust JSON packs via `tarka_rule_engine`) owns allow / deny / flag / review actions. Shadow, investigation-agent, and trend **advise**, escalate, draft, and cite — they never silently clear FLAG→ALLOW or auto-promote WASM.
-
+**Authority invariant:** `decision-api` (Rust JSON packs via `tarka_rule_engine`) owns allow / deny / flag / review actions. Advise (Shadow agent), investigation, and trend **advise**, escalate, draft, and cite — they never silently clear FLAG→ALLOW or auto-promote WASM.
 Related: [repo-productionization-runbook](repo-productionization-runbook.md) · [SYSTEM_DESIGN](../../SYSTEM_DESIGN.md) · [STUB_REGISTER](../../STUB_REGISTER.md) · architecture canvas (IDE).
 
 ---

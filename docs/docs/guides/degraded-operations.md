@@ -1,7 +1,6 @@
 # Degraded Operations Runbook
 
-This runbook defines how investigation-agent and Investigation surfaces behave when upstreams or LLM configuration are degraded.
-
+This runbook defines how Investigation (Advise) surfaces behave when upstreams or LLM configuration are degraded.
 ## Copilot degraded modes
 
 `POST /v1/chat` now includes:

@@ -1,9 +1,8 @@
 # Case API
 
-The Case API provides investigation case management with workflow automation, SLA tracking, a full audit trail, WebSocket live feeds, and webhook delivery with a dead letter queue.
+Cases are **residual**: born from evaluate → review / deny. ALLOW never becomes a case. The Case API provides persistence, audit trail, workflow hooks, WebSocket live feeds, and webhook delivery for these evaluate-born cases.
 
-**Port:** 8002
-**Version:** 4.0.0
+**Port:** 8002  
 **Framework:** Python / FastAPI
 
 Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
@@ -211,9 +210,9 @@ GET /v1/cases/{case_id}/sla
 }
 ```
 
-**SLA deadlines by priority:**
+**SLA deadlines by priority (operator-configurable defaults, not product promises):**
 
-| Priority | SLA Window |
+| Priority | Default Window |
 |---|---|
 | `critical` | 1 hour |
 | `high` | 4 hours |

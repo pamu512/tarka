@@ -1,6 +1,6 @@
 # Tarka
 
-Tarka is a local-first fraud OS: evaluate packs, graph, cases, and investigation-agent.
+Tarka is a local-first fraud OS: evaluate packs + audit trail + analyst desk.
 
 **Status:** beta. There is no GA tag. Development is on `master`.
 
@@ -15,8 +15,8 @@ docker compose \
   up --build
 ```
 
-- [Author a pack](docs/docs/guides/rules.md) — JSON rule packs
-- [Open a case](docs/docs/guides/feature-data-flows.md#3-cases-brief-sar) — `/cases` + pack-why
+- [Author a pack](docs/docs/guides/rules.md) — JSON rule packs (strategy analyst)
+- [First evaluate](docs/docs/guides/oss-15-minute-first-decision.md) — `POST /decisions/v1/decisions/evaluate`
 
 ```
 Can-run
@@ -38,7 +38,7 @@ Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
 ## Vision (below the fold)
 
-Manifesto, graph moat, Advise / local inference, and model-class notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
+Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
 
 Optional after desk works: graph (`--profile graph`) and local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
