@@ -1,6 +1,6 @@
 # Architecture
 
-Tarka is a modular fraud stack. Day-1 deploy is **core-api** (decision-api + case-api in one process). Authoritative decisions come from **Rust JSON packs** (`tarka_rule_engine`) inside decision-api.
+Tarka is a local-first fraud OS. Day-1 deploy is **core-api** (decision-api + case-api in one process). Authoritative decisions come from **Rust JSON packs** (`tarka_rule_engine`) inside decision-api. Product vision is evaluate-first — see [`VISION.md`](../../VISION.md).
 
 For end-to-end feature diagrams (evaluate, ingest→Shadow, cases/SAR, trend, investigation), see **[Feature data flows](guides/feature-data-flows.md)**.
 
@@ -33,7 +33,7 @@ flowchart LR
 | **decision-api** | Evaluate pipeline, rules/GitOps, depth fusion, trend APIs, vendors |
 | **orchestrator** | TransactionSchema ingest → evaluate → optional Shadow |
 | **shadow_agent** | Local-first forensics LLM (Ollama/OpenAI-compatible) |
-| **investigation-agent** | Analyst copilot + AgentRun |
+| **investigation-agent** | Pack-why on evaluate-born residual cases; copilot + AgentRun |
 | **graph-service** | Entity graph HTTP; orchestrator GraphClient (Janus/Neo4j) |
 | **signal-api** | Features + ML under one plane |
 | **integration-ingress** | OSINT, sanctions, Integration Hub, vault/KMS |
