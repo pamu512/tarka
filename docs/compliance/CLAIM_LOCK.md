@@ -5,7 +5,7 @@
 ## Allowed language
 
 - Offline / fixture holdouts and golden corpora prove **wiring and gates**, not named live tenants.
-- Shadow / investigation / trend **advise**; decision-api **decides**.
+- **Observe** = observe-only evaluate (`metadata.shadow`) + pack canary; **Advise** = LLM copilot (investigation, Shadow agent, trend) — advise only, never decides. decision-api **decides**.
 - Partner fusion and enrichment are honest only when credentials and sinks are real; otherwise degrade (503 / WAIVED), never invent success.
 - Vertical packs and kill-criteria gates are installable locally; empty tenant ≠ demo SHA proof.
 

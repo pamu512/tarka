@@ -17,10 +17,14 @@ Primary workloads hoisted from the former `tarka_v2_core/` wrapper:
 
 | Service | Path | Notes |
 |---------|------|-------|
-| Orchestrator | `services/orchestrator/main.py` | Flat layout — no `src/orchestrator/` nesting |
-| Shadow agent | `services/shadow_agent/main.py` | Flat layout |
-| Rule engine | `services/rule_engine/main.py` | Flat layout |
-| Legacy HTTP services | `services/case-api/`, `services/graph-service/`, … | Hoisted from `legacy_attic/` |
+| decision-api | `services/decision-api/src/decision_api/` | Canonical evaluate (Rust packs via `tarka-core`) |
+| core-api | `services/core-api/src/core_api/` | Macroservice mounting `/decisions` + `/cases` |
+| Orchestrator | `services/orchestrator/main.py` | Ingest rail; flat layout |
+| Shadow agent | `services/shadow_agent/main.py` | LLM advise (optional); flat layout |
+| Rule engine | `services/rule_engine/main.py` | **Legacy** dual-run / rollback only (`RULE_EVAL_BACKEND=python`) |
+| case-api | `services/case-api/` | Residual cases from evaluate deny/review |
+| graph-service | `services/graph-service/` | Entity graph + decision-accountability SoR (optional; `--profile graph`) |
+| investigation-agent | `services/investigation-agent/` | Pack-why on residual cases; copilot (advise only) |
 
 ## packages/
 

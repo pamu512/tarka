@@ -21,7 +21,7 @@ flowchart LR
 | Surface | Role |
 |---------|------|
 | decision-api evaluate | **Allow / deny / flag / review** |
-| Shadow / trend / Saarthi | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
+| Shadow / trend / investigation | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
 
 ---
 
@@ -50,7 +50,7 @@ Legacy Python `rule_engine` HTTP evaluate is dual-run / compatibility only (`RUL
 |-------|-----|
 | PostgreSQL | Cases, SAR, audit-oriented SoR, feature definitions |
 | Redis | Tags, velocities, telemetry dual-write |
-| JanusGraph / Neo4j | Topology; Neo4j preferred for usable `get_graph_signals` |
+| JanusGraph / Neo4j | Topology (optional; `--profile graph`). Off on lite. |
 | ClickHouse / DuckDB | Analytics KPIs (503 when offline) |
 | NATS JetStream | Async workers |
 | SQLite | Trend agent store; Shadow audit (sidecar) |

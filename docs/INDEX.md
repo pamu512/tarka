@@ -28,7 +28,14 @@ Investigators do not author rules; strategy analysts do. Cases are residual: bor
 1. **Blind predetermined-N evaluate events** — HIL confirms the engine. Schedulable; skip only if no drift.
 2. **Second-human sample of cases already closed by HIL** — existing `qa_sample_closed_cases` / `/ops/qa`.
 
-Do not collapse them into one workflow.
+Do not collapse them into one workflow. Do not invent review rates.
+
+## Product locks
+
+- **Skip does not block.** Skipping or avoiding a risk check raises showing-signs risk; it does not hard-block.
+- **Entity states** — proven / already-risky · showing-signs · unknown. Device is a node, not the person. ATO victims stay good.
+- **Visual rule builder** is stretch, not the product. Strategy analysts author JSON packs.
+- **No Tarka-branded model.** Advise is BYO LLM.
 
 ## Compose (one story)
 
