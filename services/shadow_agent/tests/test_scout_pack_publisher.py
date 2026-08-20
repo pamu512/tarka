@@ -76,7 +76,9 @@ def test_pack_contains_suggested_rule():
 
 
 def test_pack_name_includes_fingerprint_kind():
-    pack = scout_report_to_shadow_pack(_sample_report(fingerprint_kind="webgl_vendor", fingerprint_value="ANGLE"))
+    pack = scout_report_to_shadow_pack(
+        _sample_report(fingerprint_kind="webgl_vendor", fingerprint_value="ANGLE")
+    )
     assert "webgl_vendor" in pack["name"]
     assert "ANGLE" in pack["name"]
     assert pack["name"].startswith("Scout:")
