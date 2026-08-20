@@ -23,8 +23,8 @@ export type TriageHeaderProps = {
   riskScore: number;
   /** Scan-layer signals (Velocity, Graph, Loyalty, Geo enrichment). */
   flashCards: readonly TriageFlashCard[];
-  /** Single-line Saarthi / ML “why” — sight layer narrative. */
-  saarthiLine: string | null;
+  /** Single-line ML “why” — sight layer narrative. */
+  sightLine: string | null;
   className?: string;
 };
 
@@ -60,7 +60,7 @@ export function TriageHeader({
   verdict,
   riskScore,
   flashCards,
-  saarthiLine,
+  sightLine,
   className = "",
 }: TriageHeaderProps) {
   const score = clampScore(riskScore);
@@ -146,12 +146,12 @@ export function TriageHeader({
         </div>
       </div>
 
-      {/* Saarthi one-liner — tertiary */}
+      {/* Sight one-liner — tertiary */}
       <div className="border-t border-surface-700 bg-black/25 px-3 sm:px-4 py-2">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-400/90 mb-1">Why (sight)</p>
         <p className="text-sm text-gray-200 leading-snug line-clamp-1">
-          {saarthiLine?.trim() ? (
-            saarthiLine.trim()
+          {sightLine?.trim() ? (
+            sightLine.trim()
           ) : (
             <span className="text-gray-500 italic">No narrative attached — open Scan tabs for evidence.</span>
           )}
