@@ -1,6 +1,8 @@
-# System design — v2 ingest path (Orchestrator → Rule Engine → Shadow)
+# System design — v2 ingest path (historical)
 
-This document describes the **TransactionSchema** ingestion flow through the **v1.3 sidecar** services that ship today: validation at the API edge, **async HTTP** to the rule engine, an optional **async HTTP** hop to the Shadow sidecar, and—on the Shadow path—a **relational `AuditLog` commit** after the model returns.
+> **Historical / v2-ingest-only.** This document describes the Orchestrator → Rule Engine → Shadow sidecar rail. Canonical evaluate is **decision-api** (Rust packs via `tarka-core`), reached directly or through core-api. See [`ARCHITECTURE.md`](../ARCHITECTURE.md) for the current stack and wiring.
+
+This document describes the **TransactionSchema** ingestion flow through the **v1.3 sidecar** services: validation at the API edge, **async HTTP** to the rule engine, an optional **async HTTP** hop to the Shadow sidecar, and—on the Shadow path—a **relational `AuditLog` commit** after the model returns.
 
 **Default dev ports** (all overrideable via env; bind flags are operator-owned):
 

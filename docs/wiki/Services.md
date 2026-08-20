@@ -5,7 +5,7 @@
 | **decision-api** / **core-api** | Evaluate, rules/GitOps, cases macroservice |
 | **orchestrator** | TransactionSchema ingest rail |
 | **shadow_agent** | LLM forensics when rules request `SHADOW_REVIEW` |
-| **investigation-agent** | Desk copilot + AgentRun (+ decision graph writer) |
+| **investigation-agent** | Pack-why on evaluate-born residual cases; copilot + AgentRun (+ decision graph writer) |
 | **graph-service** | Entity graph API + decision context SQLite SoR |
 | **signal-api** | Feature serving + ML scoring |
 | **integration-ingress** | OSINT / Hub / vault |

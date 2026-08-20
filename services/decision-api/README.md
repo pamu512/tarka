@@ -1,8 +1,8 @@
 # decision-api (canonical)
 
-Synchronous Tarka decision API — **canonical** service package.
+Canonical evaluate service. Rust JSON packs (`tarka_rule_engine` via `tarka-core`) own allow / deny / flag / review. Python FastAPI is the HTTP layer; evaluation is Rust.
 
-Canonical decision service. The former `legacy_v1_decision_api` tree has been removed; rules and alembic live here.
+Service docs: [`docs/docs/services/decision-api.md`](../../docs/docs/services/decision-api.md). The former `legacy_v1_decision_api` tree has been removed; rules and alembic live here.
 
 ## Build & run
 

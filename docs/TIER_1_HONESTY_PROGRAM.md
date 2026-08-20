@@ -9,7 +9,7 @@ Eliminate Potemkin surfaces: **ship durable execution**, **delete** the route, o
 - Executive KPIs → real analytics or **503**
 - SAR transport → durable filing + worker
 - Vendors → HTTP adapters via `vendors/bootstrap.py`
-- Visual rules → native Rust `tarka_rule_engine` (no Rego transpile)
+- Visual rules → native Rust `tarka_rule_engine` (no Rego transpile). Visual rule builder is stretch, not the product; strategy analysts author JSON packs
 - CI: `scripts/audit_stubs.py`, `scripts/audit_prod_desk_mocks.py`
 - Desk-strict + invent-success fail-closed (see [`STUB_REGISTER.md`](STUB_REGISTER.md))
 

@@ -1,8 +1,8 @@
 # Tarka
 
-**Prove every signal.** Open-source, modular fraud decisioning you run yourself.
+**Prove every signal.** Local-first fraud OS you run yourself.
 
-Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **cases/SAR**, and **local-first Advise** forensics. `decision-api` owns allow/deny; Advise, investigation, and trend **advise** only. **Observe** is evaluate with `metadata.shadow` — not the LLM.
+Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review / investigation is residual — born from evaluate deny / review. ALLOW never becomes a case. Graph is optional topological memory. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is evaluate with `metadata.shadow` — not the LLM.
 
 ---
 
@@ -16,13 +16,13 @@ Tarka combines real-time **evaluate** (Rust JSON packs), **graph** topology, **c
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, honesty knobs, desk-strict |
 | [STUB_REGISTER](../STUB_REGISTER.md) | Honesty ledger (no Potemkin APIs) |
-| [Triad INDEX](../INDEX.md) | Operator hub |
+| [Operator hub](../INDEX.md) | Documentation index |
 
 ## Compose paths
 
-1. **Desk / day-1:** `infra/deploy/docker-compose.lite.yml` (+ fraud-desk overlay) → **core-api**
-2. **Ingest rail:** `infra/deploy/docker-compose.v2-ingest.yml` → decision-api + orchestrator + shadow_agent
-3. **Trend loop:** `--profile trend-tick` or `make trend-tick`
+1. **Desk / day-1:** `infra/deploy/docker-compose.lite.yml` (+ fraud-desk overlay) → **core-api** (evaluate + cases + desk)
+2. **Ingest rail (optional):** `infra/deploy/docker-compose.v2-ingest.yml` → orchestrator + shadow_agent (async ingest; not required for day-1)
+3. **Trend loop (optional):** `--profile trend-tick` or `make trend-tick`
 
 ## Authority
 
