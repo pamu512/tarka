@@ -158,16 +158,14 @@ async def event_qa_sample(
         eligible: list[str] = []
     else:
         uuid_list = [_uuid_mod.UUID(t) for t in all_trace_ids]
-        eligible_stmt = (
-            select(AuditRecord.trace_id, AuditRecord.tags)
-            .where(
-                AuditRecord.tenant_id == tenant_id,
-                AuditRecord.trace_id.in_(uuid_list),
-            )
+        eligible_stmt = select(AuditRecord.trace_id, AuditRecord.tags).where(
+            AuditRecord.tenant_id == tenant_id,
+            AuditRecord.trace_id.in_(uuid_list),
         )
         eligible_result = await session.execute(eligible_stmt)
         eligible = [
-            str(tid) for tid, tags in eligible_result.all()
+            str(tid)
+            for tid, tags in eligible_result.all()
             if not _has_event_qa_tag(tags)
         ]
 
@@ -234,21 +232,24 @@ async def event_qa_pending(
             continue
         # Already reviewed?
         if any(
-            str(t).startswith("qa:event_agree") or str(t).startswith("qa:event_disagree")
+            str(t).startswith("qa:event_agree")
+            or str(t).startswith("qa:event_disagree")
             for t in (rec.tags or [])
         ):
             continue
         snap = rec.payload_snapshot if isinstance(rec.payload_snapshot, dict) else {}
         payload = snap.get("payload") if isinstance(snap.get("payload"), dict) else {}
-        items.append({
-            "trace_id": str(rec.trace_id),
-            "entity_id": rec.entity_id,
-            "event_type": rec.event_type,
-            # Blind: NO score, decision, rule_result, or recommended_action.
-            "amount": payload.get("amount"),
-            "currency": payload.get("currency"),
-            "created_at": rec.created_at.isoformat() if rec.created_at else None,
-        })
+        items.append(
+            {
+                "trace_id": str(rec.trace_id),
+                "entity_id": rec.entity_id,
+                "event_type": rec.event_type,
+                # Blind: NO score, decision, rule_result, or recommended_action.
+                "amount": payload.get("amount"),
+                "currency": payload.get("currency"),
+                "created_at": rec.created_at.isoformat() if rec.created_at else None,
+            }
+        )
         if len(items) >= limit:
             break
 
@@ -361,7 +362,8 @@ async def event_qa_metrics(
         tag_set = set(tags or [])
         if EVENT_QA_TAG in tag_set:
             has_verdict = any(
-                str(t).startswith("qa:event_agree") or str(t).startswith("qa:event_disagree")
+                str(t).startswith("qa:event_agree")
+                or str(t).startswith("qa:event_disagree")
                 for t in tag_set
             )
             if not has_verdict:

@@ -17,6 +17,7 @@ from decision_api.champion_challenger_audit import drift_promote_gate
 
 # ── Pure helper replicas (avoid deep import chain for unit tests) ──
 
+
 def _has_event_qa_tag(tags: list | None, prefix: str = "qa:event_") -> bool:
     return any(str(t).startswith(prefix) for t in (tags or []))
 
@@ -168,7 +169,11 @@ def test_drift_skip_allowed_when_ok():
 
 
 def test_drift_skip_blocked_when_elevated():
-    drift = {"hint": "elevated_bin_shift_review_calibration", "drift_score": 0.3, "psi": 0.4}
+    drift = {
+        "hint": "elevated_bin_shift_review_calibration",
+        "drift_score": 0.3,
+        "psi": 0.4,
+    }
     gate = drift_promote_gate(drift)
     assert gate["promote_allowed"] is False
 
