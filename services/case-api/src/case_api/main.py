@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import sys
 import uuid
@@ -99,6 +100,8 @@ from rate_limiter import setup_rate_limiter  # noqa: E402
 from tarka_shared.tracing import setup_tracing  # noqa: E402
 from tenant_binding import parse_api_key_tenant_map  # noqa: E402
 from webhook_sender import WebhookSender  # noqa: E402
+
+log = logging.getLogger("case-api")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -249,6 +252,57 @@ def _maybe_record_human_disposition_decision(
             prior_disp,
             reason="superseded by later human disposition",
             supersede_to=new_id,
+        )
+
+
+async def _persist_disposition_y_label(
+    http: Any,
+    *,
+    tenant_id: str,
+    trace_id: str,
+    reason_code: str,
+) -> None:
+    """Push disposition y_label to decision-api calibration store (best-effort)."""
+    from .disposition import y_label_class_for_reason
+
+    try:
+        ground_truth = y_label_class_for_reason(reason_code)
+    except (KeyError, ValueError):
+        return
+    y = "1" if ground_truth == "FRAUD" else "0"
+    base = settings.decision_api_url.strip().rstrip("/")
+    if not base or not trace_id.strip():
+        return
+    token = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()
+    headers: dict[str, str] = {}
+    if token:
+        headers["X-Internal-Token"] = token
+    try:
+        r = await http.post(
+            f"{base}/v1/calibration/y-labels/merge",
+            json={
+                "tenant_id": tenant_id,
+                "labels": [
+                    {"trace_id": trace_id.strip(), "y_label": y, "source": "disposition"},
+                ],
+            },
+            headers=headers,
+            timeout=5.0,
+        )
+        status = getattr(r, "status_code", None)
+        if status and int(status) >= 400:
+            log.warning(
+                "disposition_y_label_merge_failed status=%s tenant=%s trace=%s",
+                status,
+                tenant_id,
+                trace_id,
+            )
+    except Exception:
+        log.warning(
+            "disposition_y_label_merge_error tenant=%s trace=%s",
+            tenant_id,
+            trace_id,
+            exc_info=True,
         )
 
 
@@ -795,6 +849,16 @@ async def update_case(
             trace_id=str(case.trace_id or ""),
             agent_run_id=str(body.get("agent_run_id") or "").strip() or None,
         )
+        if reason_code and str(case.trace_id or "").strip():
+            http: httpx.AsyncClient = request.app.state.http
+            asyncio.ensure_future(
+                _persist_disposition_y_label(
+                    http,
+                    tenant_id=case.tenant_id,
+                    trace_id=str(case.trace_id),
+                    reason_code=reason_code,
+                )
+            )
     new_state["maker_checker"] = maker_checker_public(case.labels, case.status)
 
     diff = _trail.diff(old_state, CaseOut.model_validate(case).model_dump(mode="json"))

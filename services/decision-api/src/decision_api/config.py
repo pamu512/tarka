@@ -240,6 +240,9 @@ class Settings(BaseSettings):
     case_create_on_deny_review: bool = os.environ.get(
         "CASE_CREATE_ON_DENY_REVIEW", ""
     ).strip().lower() in ("1", "true", "yes", "on")
+    #: S2S token for internal case-api calls (sent as X-Internal-Token). Avoids
+    #: requiring API_KEYS on the desk (which would 401 the viewer UI).
+    case_internal_token: str = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()
     #: CQRS lag budget: warn (degrade tag) when async OSINT Redis cache ``updated_at`` is older (0 = off).
     async_enrich_max_age_minutes: int = int(
         os.environ.get("ASYNC_ENRICH_MAX_AGE_MINUTES", "60")

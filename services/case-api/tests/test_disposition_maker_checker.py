@@ -83,3 +83,13 @@ def test_low_impact_applies_immediately():
     assert out.status_applied is True
     assert out.status == "resolved_legit"
     assert "disposition:FALSE_POSITIVE" in out.labels
+
+
+def test_y_label_class_covers_all_reason_codes():
+    """Every DISPOSITION_REASON_CODES entry maps to a valid y_label class."""
+    from case_api.disposition import DISPOSITION_REASON_CODES
+
+    for code, expected_class in DISPOSITION_REASON_CODES.items():
+        assert expected_class in {"FRAUD", "LEGITIMATE"}, f"unexpected class for {code}"
+        actual = y_label_class_for_reason(code)
+        assert actual == expected_class, f"{code} → {actual}, expected {expected_class}"

@@ -2544,6 +2544,25 @@ if _STATIC_DIR.is_dir():
         return FileResponse(_STATIC_DIR / "dashboard.html")
 
 
+@app.get("/v1/audit/recent")
+async def get_audit_recent(
+    request: Request,
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    limit: int = Query(default=50, ge=1, le=200),
+    session: AsyncSession = Depends(get_session),
+):
+    from decision_api.audit_recent import shape_audit_recent_item
+
+    result = await session.execute(
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.created_at.desc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    return {"items": [shape_audit_recent_item(r) for r in rows]}
+
+
 @app.get("/v1/audit/{trace_id}")
 async def get_audit(
     trace_id: UUID,

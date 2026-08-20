@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import time
@@ -149,6 +150,20 @@ class AuthUser:
 
 async def _authenticate(request: Request) -> AuthUser:
     """Extract and validate credentials from request."""
+    # S2S internal token (CASE_INTERNAL_TOKEN) — grants analyst for service-to-service calls
+    # without requiring API_KEYS on the desk (which would 401 the viewer UI).
+    internal_token = request.headers.get("x-internal-token", "")
+    expected_internal = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()
+    if (
+        internal_token
+        and expected_internal
+        and len(internal_token) == len(expected_internal)
+        and hmac.compare_digest(internal_token, expected_internal)
+    ):
+        return AuthUser(
+            "internal-service", ["service", "analyst"], "internal_token", tenant_ids={"*"}
+        )
+
     api_key = request.headers.get("x-api-key", "")
     api_keys_raw = os.environ.get("API_KEYS", "").strip()
     valid_keys = (
