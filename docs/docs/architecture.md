@@ -22,7 +22,6 @@ flowchart LR
 |---------|------|
 | decision-api evaluate | **Allow / deny / flag / review** |
 | Shadow / trend / investigation | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
-
 ---
 
 ## Major components

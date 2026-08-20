@@ -1,5 +1,5 @@
 """
-Saarthi hypothesis narrative generator (Prompt 195).
+Hypothesis narrative generator (Prompt 195).
 
 Turns DuckDB Scout ``HypothesisReport`` / coordinated-burst payloads into a fixed
 two-sentence analyst summary via Gemini, with a deterministic fallback when
@@ -23,7 +23,7 @@ _DEFAULT_MODEL = "gemini-1.5-pro"
 _MAX_PAYLOAD_CHARS = 80_000
 
 _SYSTEM_INSTRUCTION = (
-    "You are Saarthi, a senior fraud analyst assistant. Given JSON from a DuckDB Scout "
+    "You are a senior fraud analyst assistant. Given JSON from a DuckDB Scout "
     "coordinated-burst probe, write exactly two sentences for human analysts.\n"
     "Sentence 1: Describe the coordination threat (e.g. potential botnet, device farm, "
     "spoofed iPhone/Android fingerprint) using only evidence in the JSON.\n"
@@ -195,7 +195,7 @@ def generate_hypothesis_narrative_gemini(
     try:
         import httpx
     except ImportError:
-        logger.warning("saarthi_hypothesis_narrative_httpx_missing")
+        logger.warning("hypothesis_narrative_httpx_missing")
         return None
 
     try:
@@ -219,7 +219,7 @@ def generate_hypothesis_narrative_gemini(
         res.raise_for_status()
         data = res.json()
     except Exception:
-        logger.exception("saarthi_hypothesis_narrative_gemini_failed")
+        logger.exception("hypothesis_narrative_gemini_failed")
         return None
 
     text = _extract_gemini_text(data if isinstance(data, dict) else {})
@@ -235,7 +235,7 @@ def generate_hypothesis_narrative(
     prefer_gemini: bool = True,
 ) -> dict[str, Any]:
     """
-    Build a two-sentence Saarthi narrative for one Scout burst.
+    Build a two-sentence analyst narrative for one Scout burst.
 
     Returns ``{ narrative, attribution_engine, sentence_count }``.
     """

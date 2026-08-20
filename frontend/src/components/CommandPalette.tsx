@@ -50,7 +50,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
     module: "graph",
     keywords: "fund flow mule payout layering user a user b",
   },
-  { to: "/investigation", label: "Investigation Copilot", module: "investigation", keywords: "chat saarthi llm" },
+  { to: "/investigation", label: "Investigation Copilot", module: "investigation", keywords: "chat copilot llm" },
   {
     to: "/investigation/synthetic-identity",
     label: "Synthetic identity detectors",
@@ -416,7 +416,7 @@ export function CommandPalette() {
           label: "Investigation Copilot (full page)",
           hint: `${routeCase.caseId.slice(0, 14)}${routeCase.caseId.length > 14 ? "…" : ""} · ${tenantOnCasePage}`,
           module: "investigation",
-          keywords: "copilot chat saarthi this case current full page",
+          keywords: "copilot chat advise this case current full page",
           run: () => {
             navigate(copilotUrl(routeCase.caseId, tenantOnCasePage));
             close();
@@ -430,7 +430,7 @@ export function CommandPalette() {
         label: "Investigation Copilot (latest open case)",
         hint: `${t.title} · ${t.tenantId}`,
         module: "investigation",
-        keywords: "copilot chat saarthi recent tab",
+        keywords: "copilot chat advise recent tab",
         run: () => {
           navigate(copilotUrl(t.caseId, t.tenantId));
           close();

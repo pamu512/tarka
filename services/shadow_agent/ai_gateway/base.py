@@ -18,14 +18,14 @@ class AIGateway(ABC):
         """HTTP origin for Shadow fraud workflows (Ollama-compatible ``/api/chat``)."""
 
     @property
-    def saarthi_llm_base_url(self) -> str | None:
-        """Optional REST origin for Saarthi SAR drafting (e.g. Gemini OpenAI-compat proxy)."""
+    def sar_llm_base_url(self) -> str | None:
+        """Optional REST origin for SAR drafting (e.g. Gemini OpenAI-compat proxy)."""
         return None
 
     @abstractmethod
     async def run_shadow_investigate_inference(self, coro: Callable[[], Awaitable[T]]) -> T:
         """Execute one Shadow ``shadow.investigate`` / sidecar inference (demo may throttle)."""
 
-    async def run_saarthi_inference(self, coro: Callable[[], Awaitable[T]]) -> T:
-        """Saarthi SAR narrative / PDF pipeline LLM calls — cloud uses Gemini without global locks."""
+    async def run_sar_inference(self, coro: Callable[[], Awaitable[T]]) -> T:
+        """SAR narrative / PDF pipeline LLM calls — cloud uses Gemini without global locks."""
         return await coro()

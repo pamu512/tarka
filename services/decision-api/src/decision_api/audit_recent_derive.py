@@ -29,5 +29,11 @@ def derive_rule_result(
     if d == "allow":
         return "ALLOW"
     if d == "deny":
+        # ponytail: a deny under degraded signals (fallback_reason set) is surfaced
+        # as REVIEW — ops should triage it, not treat an incomplete-signal deny as
+        # a confirmed block.  Upgrade path: dedicated DEGRADED status if ops needs
+        # to distinguish "deny needing review" from organic reviews.
+        if snap.get("fallback_reason"):
+            return "REVIEW"
         return "DENY"
     return "REVIEW"
