@@ -91,9 +91,7 @@ class _FakeLLMClient:
 
 def test_no_llm_template_pack_validates():
     """Without an LLM client, build_scout_pack uses the deterministic template."""
-    pack = asyncio.get_event_loop().run_until_complete(
-        build_scout_pack(_sample_report(), llm_client=None)
-    )
+    pack = asyncio.run(build_scout_pack(_sample_report(), llm_client=None))
     assert pack is not None
     assert pack["mode"] == "shadow"
     assert pack["is_ai_authored"] is True
@@ -109,7 +107,7 @@ def test_no_llm_template_pack_validates():
 
 def test_llm_valid_pack_accepted():
     client = _FakeLLMClient(_valid_llm_pack("vllm"))
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is not None
@@ -120,7 +118,7 @@ def test_llm_valid_pack_accepted():
 
 def test_llm_authored_by_propagated():
     client = _FakeLLMClient(_valid_llm_pack("self_hosted"))
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(
             _sample_report(), llm_client=client, authored_by="self_hosted",
         )
@@ -138,7 +136,7 @@ def test_llm_live_mode_rejected():
     bad = _valid_llm_pack()
     bad["mode"] = "active"
     client = _FakeLLMClient(bad)
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -146,7 +144,7 @@ def test_llm_live_mode_rejected():
 
 def test_llm_invalid_schema_rejected():
     client = _FakeLLMClient({"garbage": True})
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -156,7 +154,7 @@ def test_llm_score_delta_over_cap_rejected():
     bad = _valid_llm_pack()
     bad["rules"][0]["score_delta"] = 100
     client = _FakeLLMClient(bad)
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -166,7 +164,7 @@ def test_llm_unknown_field_rejected():
     bad = _valid_llm_pack()
     bad["rules"][0]["when"] = [{"op": "eq", "field": "evil_field", "value": "x"}]
     client = _FakeLLMClient(bad)
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -179,7 +177,7 @@ def test_llm_unknown_field_rejected():
 
 def test_llm_insufficient_evidence_no_pack():
     client = _FakeLLMClient({"ok": False, "reason": "insufficient_evidence"})
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -187,7 +185,7 @@ def test_llm_insufficient_evidence_no_pack():
 
 def test_author_pack_from_hypothesis_returns_declined():
     client = _FakeLLMClient({"ok": False, "reason": "insufficient_evidence"})
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         author_pack_from_hypothesis(_sample_report(), client, authored_by="vllm")
     )
     assert result["ok"] is False
@@ -209,7 +207,7 @@ class _FailingLLMClient:
 
 def test_llm_call_failure_returns_none():
     client = _FailingLLMClient()
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is None
@@ -257,7 +255,7 @@ def test_resolve_authored_by_default():
 
 def test_llm_pack_has_scout_report_id():
     client = _FakeLLMClient(_valid_llm_pack("vllm"))
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is not None
@@ -266,7 +264,7 @@ def test_llm_pack_has_scout_report_id():
 
 def test_llm_pack_has_created_at():
     client = _FakeLLMClient(_valid_llm_pack("vllm"))
-    pack = asyncio.get_event_loop().run_until_complete(
+    pack = asyncio.run(
         build_scout_pack(_sample_report(), llm_client=client, authored_by="vllm")
     )
     assert pack is not None

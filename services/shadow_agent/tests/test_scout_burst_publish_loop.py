@@ -116,9 +116,7 @@ def test_probe_no_llm_publishes_template_pack():
     payload = _sample_scan_payload(count=1)
     with mock.patch.dict("os.environ", {}, clear=True), \
          mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
     assert len(result["dropped"]) == 0
@@ -147,9 +145,7 @@ def test_probe_llm_valid_pack_posted():
     with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
          mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
          mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
     assert len(posted) == 1
@@ -171,9 +167,7 @@ def test_probe_llm_authored_by_from_backend():
     with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "self-hosted", "SHADOW_LLM_BASE_URL": "http://my-llm:8000/v1"}), \
          mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
          mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
     assert posted[0]["authored_by"] == "self_hosted"
@@ -193,9 +187,7 @@ def test_probe_llm_live_mode_no_post():
     with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
          mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
          mock.patch("scout_pack_publisher._post_pack") as mock_post:
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
     assert len(result["dropped"]) == 1
@@ -209,9 +201,7 @@ def test_probe_llm_insufficient_evidence_no_post():
     with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
          mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
          mock.patch("scout_pack_publisher._post_pack") as mock_post:
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
     assert len(result["dropped"]) == 1
@@ -224,9 +214,7 @@ def test_probe_llm_invalid_schema_no_post():
     with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
          mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
          mock.patch("scout_pack_publisher._post_pack") as mock_post:
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
     assert len(result["dropped"]) == 1
@@ -248,12 +236,8 @@ def test_dedup_same_fingerprint_no_second_pack():
     payload = _sample_scan_payload(count=1)
     with mock.patch.dict("os.environ", {}, clear=True), \
          mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
-        r1 = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
-        r2 = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        r1 = asyncio.run(publish_scout_burst_packs(payload))
+        r2 = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(r1["published"]) == 1
     assert call_count == 1
@@ -272,9 +256,7 @@ def test_dedup_different_fingerprint_both_published():
     payload = _sample_scan_payload(count=2)
     with mock.patch.dict("os.environ", {}, clear=True), \
          mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 2
     assert len(posted) == 2
@@ -306,9 +288,7 @@ def test_empty_scan_no_publish():
         "hypothesis_reports": [],
     }
     with mock.patch("scout_pack_publisher._post_pack") as mock_post:
-        result = asyncio.get_event_loop().run_until_complete(
-            publish_scout_burst_packs(payload)
-        )
+        result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
     assert result["published"] == []
