@@ -169,6 +169,40 @@ def signal_availability_notes_from_tags(degrade_tags: list[str]) -> list[str]:
     return out
 
 
+_DEGRADE_SKIP_SCORE: dict[str, float] = {
+    "lists:unavailable": 5.0,
+    "graph:unavailable": 5.0,
+    "graph:stale_skipped": 5.0,
+    "enrichment:unavailable": 5.0,
+    "ml:unavailable": 5.0,
+    "opa:unavailable": 5.0,
+    "calibration:unavailable": 5.0,
+    "counter:unavailable": 5.0,
+    "location:unavailable": 5.0,
+    "redis:tag_merge_unavailable": 5.0,
+    "redis:tenant_flags_unavailable": 5.0,
+    "redis:entity_tags_unavailable": 5.0,
+}
+
+_DEGRADE_SKIP_CAP = 15.0
+
+
+def degrade_skip_score_delta(degrade_tags: list[str]) -> float:
+    """Modest score bump (+5 each, capped at +15) for runtime-unavailable hops.
+
+    Only scores *:unavailable / stale-skip tags (a deployed service that
+    failed at request time). Does NOT score *:unconfigured, *:disabled,
+    or *:disabled_by_tenant — those reflect operator posture, not entity
+    avoidance.  Capped so skipped hops alone cannot reach review (50).
+    """
+    # ponytail: flat 5 per tag, hard cap 15; upgrade to per-hop weights
+    # if product needs tiering.
+    total = 0.0
+    for tag in degrade_tags:
+        total += _DEGRADE_SKIP_SCORE.get(tag, 0.0)
+    return min(total, _DEGRADE_SKIP_CAP)
+
+
 def decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
     if notes:
         return "Degraded"
