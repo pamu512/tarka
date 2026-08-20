@@ -13,9 +13,6 @@ import uuid
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-import pytest
-
-
 # ── Pure helper replicas (avoid deep import chain for unit tests) ──
 
 def _has_event_qa_tag(tags: list | None, prefix: str = "qa:event_") -> bool:
