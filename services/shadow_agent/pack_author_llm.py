@@ -54,8 +54,9 @@ async def author_pack_from_hypothesis(
                 "Based on this report, produce exactly one JSON rule pack "
                 "that conforms to the contract above. "
                 f'Set authored_by to "{authored_by}". '
-                "If the evidence is insufficient, respond with a minimal "
-                "pack containing one conservative rule."
+                "If the evidence is insufficient to justify a rule, "
+                'respond with {"ok": false, "reason": "insufficient_evidence"}. '
+                "Do not invent rules without supporting evidence."
             ),
         },
     ]
@@ -68,5 +69,11 @@ async def author_pack_from_hypothesis(
 
     if not isinstance(raw, dict):
         return {"ok": False, "errors": ["llm_response_not_object"]}
+
+    # LLM explicitly declined (insufficient evidence)
+    if raw.get("ok") is False:
+        reason = raw.get("reason", "llm_declined")
+        logger.info("pack_author_llm_declined: %s", reason)
+        return {"ok": False, "errors": [f"llm_declined: {reason}"]}
 
     return validate_ai_authored_pack(raw)

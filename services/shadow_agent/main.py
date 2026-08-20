@@ -686,8 +686,12 @@ def build_app(
     ) -> JSONResponse:
         """DuckDB Scout: detect shared canvas_hash / webgl_vendor bursts (>5 acc_ids / 4h)."""
         from scout_coordinated_burst import run_scout_coordinated_burst_probe
+        from scout_pack_publisher import publish_scout_burst_packs
 
         payload = run_scout_coordinated_burst_probe()
+        if payload.get("hypothesis_reports"):
+            publish_result = await publish_scout_burst_packs(payload)
+            payload["pack_publish"] = publish_result
         return JSONResponse(content=payload)
 
     @application.post("/v1/hypotheses/backtest-blocks")

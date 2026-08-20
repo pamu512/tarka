@@ -16,6 +16,21 @@ Override model with ``SHADOW_LLM_MODEL``. Evaluate (`POST /v1/analyze`) uses thi
 
 Unknown ``SHADOW_LLM_BACKEND`` values (for example ``azure``) **fail closed** — they do not fall through to laptop Ollama. For in-tenant Azure/Vertex/Bedrock-compatible OpenAI APIs use ``self-hosted`` / ``vllm`` plus ``SHADOW_LLM_BASE_URL``. ``TARKA_DEPLOYMENT_PROFILE=production`` refuses public ``api.openai.com`` / ``api.anthropic.com``.
 
+## Pack authoring with BYO LLM
+
+When ``SHADOW_LLM_BACKEND`` and ``SHADOW_LLM_BASE_URL`` are set, ``publish_scout_pack`` sends the hypothesis report to the LLM and validates the response against ``PACK_AUTHOR.md`` before publishing. If the LLM returns an invalid pack or declines (insufficient evidence), the pack is dropped — no fallback to an invented rule.
+
+Example for Azure OpenAI or vLLM:
+
+```sh
+SHADOW_LLM_BACKEND=vllm          # or self-hosted
+SHADOW_LLM_BASE_URL=http://vllm:8000/v1   # OpenAI-compat origin
+SHADOW_LLM_MODEL=llama3.2        # optional override
+SHADOW_LLM_API_KEY=...           # optional
+```
+
+Without these vars the deterministic ``suggested_shadow_rule`` template is used (current default). See ``pack_author_llm.py`` and ``PACK_AUTHOR.md`` for the contract.
+
 Brand map (vs library `services/shadow` and desktop `tools/shadow`): [`../SHADOW.md`](../SHADOW.md).
 
 Container build: see `Dockerfile` (context = repo root).
