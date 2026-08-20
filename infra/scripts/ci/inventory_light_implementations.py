@@ -30,7 +30,7 @@ class Rule:
 
 RULES: tuple[Rule, ...] = (
     Rule(
-        component="Saarthi copilot LLM fallback",
+        component="Copilot LLM fallback",
         owner="services/investigation-agent",
         priority="P0",
         path_glob="services/investigation-agent/src/investigation_agent/main.py",
@@ -39,7 +39,7 @@ RULES: tuple[Rule, ...] = (
         hardening_hint="Expose structured degraded metadata and deterministic fallback artifacts.",
     ),
     Rule(
-        component="Saarthi upstream tool gating",
+        component="Upstream tool gating",
         owner="services/investigation-agent",
         priority="P0",
         path_glob="services/investigation-agent/src/investigation_agent/tools.py",
@@ -48,7 +48,7 @@ RULES: tuple[Rule, ...] = (
         hardening_hint="Normalize tool error schema with upstream/severity/retryability hints.",
     ),
     Rule(
-        component="Saarthi tabular batch store",
+        component="Tabular batch store",
         owner="services/investigation-agent",
         priority="P1",
         path_glob="services/investigation-agent/src/investigation_agent/batch_store.py",

@@ -1,6 +1,6 @@
 # Investigation Copilot — Intended use, out of scope, and data flows
 
-This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the OSS **investigation-agent** (Saarthi) is meant to be used, what it must **not** be relied upon for, and **where data moves**—including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
+This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the OSS **investigation-agent** is meant to be used, what it must **not** be relied upon for, and **where data moves**—including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
 
 > **Not legal advice.** Intended use and scope must be validated against your **sector**, **jurisdiction**, **contracts**, and **DPA** with qualified counsel and your DPO. Regional builds (`AI_GOVERNANCE_PROFILE`) adjust **prompt wording and deployment defaults**; they do **not** constitute certification or a legal determination of compliance.
 

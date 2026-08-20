@@ -132,7 +132,7 @@ paths:
         Config-derived only; does not probe external networks.
       responses:
         "200":
-          description: Setup snapshot (schema saarthi_setup_v1)
+          description: Setup snapshot (schema saarthi_setup_v1, wire name kept for compatibility)
           content:
             application/json:
               schema:
