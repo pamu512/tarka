@@ -97,7 +97,9 @@ async def publish_scout_pack(
 
     try:
         pack = await build_scout_pack(
-            report, llm_client=llm_client, authored_by=authored_by,
+            report,
+            llm_client=llm_client,
+            authored_by=authored_by,
         )
     finally:
         if llm_client is not None and hasattr(llm_client, "aclose"):
@@ -115,7 +117,8 @@ async def publish_scout_pack(
     body = json.dumps(pack).encode("utf-8")
 
     req = urllib.request.Request(
-        url, data=body,
+        url,
+        data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -185,32 +188,43 @@ async def publish_scout_burst_packs(
                 continue
 
             pack = await build_scout_pack(
-                report, llm_client=llm_client, authored_by=authored_by,
+                report,
+                llm_client=llm_client,
+                authored_by=authored_by,
             )
             if pack is None:
-                dropped.append({
-                    "fingerprint": fk,
-                    "reason": "pack_rejected_by_validation",
-                })
+                dropped.append(
+                    {
+                        "fingerprint": fk,
+                        "reason": "pack_rejected_by_validation",
+                    }
+                )
                 logger.info(
                     "scout_burst_pack_dropped fp_kind=%s fp_value=%s",
-                    fk[0], fk[1],
+                    fk[0],
+                    fk[1],
                 )
                 continue
 
             try:
-                resp = _post_pack(pack, decision_api_url=decision_api_url,
-                                  actor=authored_by or "scout_coordinated_burst")
+                resp = _post_pack(
+                    pack,
+                    decision_api_url=decision_api_url,
+                    actor=authored_by or "scout_coordinated_burst",
+                )
                 _published_fingerprints.add(fk)
-                published.append({
-                    "fingerprint": fk,
-                    "pack_name": pack.get("name"),
-                    "response": resp,
-                })
+                published.append(
+                    {
+                        "fingerprint": fk,
+                        "pack_name": pack.get("name"),
+                        "response": resp,
+                    }
+                )
             except Exception:
                 logger.exception(
                     "scout_burst_pack_post_failed fp_kind=%s fp_value=%s",
-                    fk[0], fk[1],
+                    fk[0],
+                    fk[1],
                 )
                 dropped.append({"fingerprint": fk, "reason": "post_failed"})
     finally:
@@ -239,7 +253,8 @@ def _post_pack(
     body = json.dumps(pack).encode("utf-8")
 
     req = urllib.request.Request(
-        url, data=body,
+        url,
+        data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
     )

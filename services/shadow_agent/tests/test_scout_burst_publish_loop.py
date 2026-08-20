@@ -37,23 +37,25 @@ from scout_pack_publisher import (  # noqa: E402
 def _sample_scan_payload(*, count: int = 1) -> dict[str, Any]:
     reports = []
     for i in range(count):
-        reports.append({
-            "report_id": f"rpt-{i:03d}",
-            "strategy": "coordinated_burst",
-            "fingerprint_kind": "canvas_hash",
-            "fingerprint_value": f"fp_value_{i}",
-            "distinct_account_count": 8,
-            "suggested_rule": {
-                "id": f"scout_canvas_hash_fp_value_{i}",
-                "when": [{"op": "eq", "field": "canvas_hash", "value": f"fp_value_{i}"}],
-                "score_delta": 25.0,
-                "metadata": {
-                    "is_shadow": True,
-                    "source": "scout_coordinated_burst",
-                    "fingerprint_kind": "canvas_hash",
+        reports.append(
+            {
+                "report_id": f"rpt-{i:03d}",
+                "strategy": "coordinated_burst",
+                "fingerprint_kind": "canvas_hash",
+                "fingerprint_value": f"fp_value_{i}",
+                "distinct_account_count": 8,
+                "suggested_rule": {
+                    "id": f"scout_canvas_hash_fp_value_{i}",
+                    "when": [{"op": "eq", "field": "canvas_hash", "value": f"fp_value_{i}"}],
+                    "score_delta": 25.0,
+                    "metadata": {
+                        "is_shadow": True,
+                        "source": "scout_coordinated_burst",
+                        "fingerprint_kind": "canvas_hash",
+                    },
                 },
-            },
-        })
+            }
+        )
     return {
         "strategy": "coordinated_burst",
         "bursts_found": count,
@@ -114,8 +116,10 @@ def test_probe_no_llm_publishes_template_pack():
         return {"status": "created"}
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {}, clear=True), \
-         mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
+    with (
+        mock.patch.dict("os.environ", {}, clear=True),
+        mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack),
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
@@ -142,9 +146,14 @@ def test_probe_llm_valid_pack_posted():
     client = _FakeLLMClient(llm_pack)
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
-         mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
-         mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"},
+        ),
+        mock.patch("llm_client.build_shadow_llm_client", return_value=client),
+        mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack),
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
@@ -164,9 +173,14 @@ def test_probe_llm_authored_by_from_backend():
     client = _FakeLLMClient(_valid_llm_pack("self_hosted"))
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "self-hosted", "SHADOW_LLM_BASE_URL": "http://my-llm:8000/v1"}), \
-         mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
-         mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SHADOW_LLM_BACKEND": "self-hosted", "SHADOW_LLM_BASE_URL": "http://my-llm:8000/v1"},
+        ),
+        mock.patch("llm_client.build_shadow_llm_client", return_value=client),
+        mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack),
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 1
@@ -184,9 +198,14 @@ def test_probe_llm_live_mode_no_post():
     client = _FakeLLMClient(bad)
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
-         mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
-         mock.patch("scout_pack_publisher._post_pack") as mock_post:
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"},
+        ),
+        mock.patch("llm_client.build_shadow_llm_client", return_value=client),
+        mock.patch("scout_pack_publisher._post_pack") as mock_post,
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
@@ -198,9 +217,14 @@ def test_probe_llm_insufficient_evidence_no_post():
     client = _FakeLLMClient({"ok": False, "reason": "insufficient_evidence"})
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
-         mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
-         mock.patch("scout_pack_publisher._post_pack") as mock_post:
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"},
+        ),
+        mock.patch("llm_client.build_shadow_llm_client", return_value=client),
+        mock.patch("scout_pack_publisher._post_pack") as mock_post,
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
@@ -211,9 +235,14 @@ def test_probe_llm_invalid_schema_no_post():
     client = _FakeLLMClient({"garbage": True})
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"}), \
-         mock.patch("llm_client.build_shadow_llm_client", return_value=client), \
-         mock.patch("scout_pack_publisher._post_pack") as mock_post:
+    with (
+        mock.patch.dict(
+            "os.environ",
+            {"SHADOW_LLM_BACKEND": "vllm", "SHADOW_LLM_BASE_URL": "http://vllm:8000/v1"},
+        ),
+        mock.patch("llm_client.build_shadow_llm_client", return_value=client),
+        mock.patch("scout_pack_publisher._post_pack") as mock_post,
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     mock_post.assert_not_called()
@@ -234,8 +263,10 @@ def test_dedup_same_fingerprint_no_second_pack():
         return {"status": "created"}
 
     payload = _sample_scan_payload(count=1)
-    with mock.patch.dict("os.environ", {}, clear=True), \
-         mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
+    with (
+        mock.patch.dict("os.environ", {}, clear=True),
+        mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack),
+    ):
         r1 = asyncio.run(publish_scout_burst_packs(payload))
         r2 = asyncio.run(publish_scout_burst_packs(payload))
 
@@ -254,8 +285,10 @@ def test_dedup_different_fingerprint_both_published():
         return {"status": "created"}
 
     payload = _sample_scan_payload(count=2)
-    with mock.patch.dict("os.environ", {}, clear=True), \
-         mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack):
+    with (
+        mock.patch.dict("os.environ", {}, clear=True),
+        mock.patch("scout_pack_publisher._post_pack", side_effect=fake_post_pack),
+    ):
         result = asyncio.run(publish_scout_burst_packs(payload))
 
     assert len(result["published"]) == 2
