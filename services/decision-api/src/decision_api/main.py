@@ -1055,6 +1055,7 @@ from decision_api.analytics_dashboards import router as analytics_dashboards_rou
 from decision_api.backtest_api import router as backtest_router  # noqa: E402
 from decision_api.ml_export_api import router as ml_export_router  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
+from decision_api.event_qa import router as event_qa_router  # noqa: E402
 from decision_api.captcha import router as captcha_router  # noqa: E402
 from decision_api.compliance_api import router as compliance_router  # noqa: E402
 from decision_api.consortium_api import router as consortium_router  # noqa: E402
@@ -1104,6 +1105,7 @@ app.include_router(lists_router)
 app.include_router(consortium_router)
 app.include_router(internal_counters_router)
 app.include_router(calibration_router)
+app.include_router(event_qa_router)
 app.include_router(reporting_nl_router)
 app.include_router(rego_deprecation_router)
 app.include_router(rule_compiler_router)

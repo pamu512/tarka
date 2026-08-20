@@ -1763,6 +1763,89 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/champion-challenger-audit?${q}`);
   },
 
+  // ── Event QA (blind evaluate-event review) ──
+
+  eventQaSample(tenantId: string, opts: { n?: number; seed?: string } = {}) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (opts.n != null) q.set("n", String(opts.n));
+    if (opts.seed) q.set("seed", opts.seed);
+    return request<{
+      tenant_id: string;
+      candidates: number;
+      sampled: number;
+      tagged: number;
+      sample_n: number;
+    }>(`/api/decisions/v1/event-qa/sample?${q}`, { method: "POST" });
+  },
+
+  eventQaPending(tenantId: string, limit = 100) {
+    const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
+    return request<{
+      tenant_id: string;
+      count: number;
+      items: Array<{
+        trace_id: string;
+        entity_id: string;
+        event_type: string;
+        amount?: number | null;
+        currency?: string | null;
+        created_at: string | null;
+      }>;
+    }>(`/api/decisions/v1/event-qa/pending?${q}`);
+  },
+
+  eventQaReview(body: { trace_id: string; reviewer_decision: string }, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      trace_id: string;
+      original_decision: string;
+      original_score: number | null;
+      reviewer_decision: string;
+      agree: boolean;
+      y_label_written: boolean;
+    }>(`/api/decisions/v1/event-qa/review?${q}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  eventQaMetrics(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      tenant_id: string;
+      pending: number;
+      reviewed: number;
+      agree: number;
+      disagree: number;
+      agreement_rate: number | null;
+      disagreement_rate: number | null;
+      cadence_hours: number;
+      sample_n: number;
+    }>(`/api/decisions/v1/event-qa/metrics?${q}`);
+  },
+
+  eventQaSkipCheck(tenantId: string, profile = "default") {
+    const q = new URLSearchParams({ tenant_id: tenantId, profile });
+    return request<{
+      tenant_id: string;
+      skip_allowed: boolean;
+      reason: string;
+      drift: Record<string, unknown>;
+      drift_promote_gate: Record<string, unknown>;
+      cadence_hours: number;
+      sample_n: number;
+    }>(`/api/decisions/v1/event-qa/skip-check?${q}`);
+  },
+
+  eventQaSchedule() {
+    return request<{
+      sample_n: number;
+      cadence_hours: number;
+      env: Record<string, string>;
+      cron_example: string;
+    }>("/api/decisions/v1/event-qa/schedule");
+  },
+
   partnerFusionStatus() {
     return request<{
       schema_id: string;
