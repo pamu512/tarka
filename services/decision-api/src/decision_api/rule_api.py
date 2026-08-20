@@ -580,6 +580,69 @@ async def add_rule(
     return {"added": body.id}
 
 
+class ScoutPackIn(BaseModel):
+    """A scout-authored shadow pack created by the AI scout agent."""
+    name: str = Field(min_length=1, max_length=256)
+    mode: str = Field(default="shadow")
+    rules: list[dict[str, Any]] = Field(default_factory=list)
+    tag_rules: list[dict[str, Any]] = Field(default_factory=list)
+    authored_by: str = Field(default="scout_coordinated_burst", max_length=128)
+    is_ai_authored: bool = Field(default=True)
+    scout_report_id: str = Field(default="", max_length=128)
+
+
+@router.post("/scout-pack", status_code=201)
+async def create_scout_pack(
+    body: ScoutPackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Persist a scout-suggested rule pack in Observe (shadow) mode.
+
+    The pack is written with ``mode=shadow`` so the Observe page lists it and
+    shadow evaluation covers it.  It never affects live decisions until an
+    analyst promotes it through the existing governance gates.
+    """
+    _require_rule_governance(x_rule_governance_secret)
+    if body.mode != "shadow":
+        raise HTTPException(400, "scout packs must use mode='shadow'")
+    pack: dict[str, Any] = {
+        "version": 1,
+        "name": body.name,
+        "mode": "shadow",
+        "rules": body.rules,
+        "tag_rules": body.tag_rules,
+        "canary_percent": None,
+        "effective_at": None,
+        "approved_by": None,
+        "authored_by": body.authored_by,
+        "is_ai_authored": body.is_ai_authored,
+        "scout_report_id": body.scout_report_id,
+    }
+    errors = _validate_rule_pack(pack)
+    if errors:
+        raise HTTPException(422, detail={"validation_errors": errors})
+    fpath = _new_pack_path("scout")
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    actor = _actor_from_headers(x_actor) if x_actor else body.authored_by
+    _append_rule_change(
+        "create_scout_pack",
+        fpath.name,
+        actor=actor,
+        detail={
+            "name": body.name,
+            "authored_by": body.authored_by,
+            "is_ai_authored": body.is_ai_authored,
+            "scout_report_id": body.scout_report_id,
+            "rule_count": len(body.rules),
+        },
+    )
+    return {"file": fpath.name, "pack": pack, "mode": "shadow"}
+
+
 class RulePackMode(BaseModel):
     mode: str
 
