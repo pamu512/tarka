@@ -19,7 +19,9 @@ Requires: httpx (same as investigation-agent).
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Ingest .md files into investigation-agent knowledge RAG")
+    p = argparse.ArgumentParser(
+        description="Ingest .md files into investigation-agent knowledge RAG"
+    )
     p.add_argument("--base-url", default="http://localhost:8006", help="Agent base URL")
     p.add_argument("--tenant-id", required=True)
     p.add_argument("--analyst-id", required=True)
