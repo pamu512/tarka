@@ -19,6 +19,7 @@ from decision_api.async_osint_redis import (
 from decision_api.challenge_policy import apply_challenge_policy
 from decision_api.config import settings
 from decision_api.consortium import consortium_score_delta, hash_entity_id
+from decision_api.prior_label import lookup_prior_fraud_delta
 from decision_api.currency import normalize_amount
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.device_integrity import device_integrity_snapshot
@@ -453,6 +454,13 @@ async def run_evaluate_decision(
             except Exception:
                 consortium_delta = 0.0
 
+        # Prior-fraud label boost: entity with confirmed-fraud y_label gets a bounded delta.
+        label_delta, label_tags, label_hits = lookup_prior_fraud_delta(
+            body.tenant_id, body.entity_id
+        )
+        if label_tags:
+            signal_tags.extend(label_tags)
+
         # Graph routing (OSS #42): choose whether to call graph-service and which checkpoint to use.
         graph_checkpoint = _graph_checkpoint_from_body(body)
         graph_routing: dict[str, Any] | None = None
@@ -880,7 +888,12 @@ async def run_evaluate_decision(
             )
             replay_delta_cc = 20.0 if is_replayed else 0.0
             champion_rule_score = (
-                10.0 + score_delta + consortium_delta + graph_delta + replay_delta_cc
+                10.0
+                + score_delta
+                + consortium_delta
+                + graph_delta
+                + replay_delta_cc
+                + label_delta
             )
             challenger_rule_score = (
                 10.0
@@ -889,6 +902,7 @@ async def run_evaluate_decision(
                 + consortium_delta
                 + graph_delta
                 + replay_delta_cc
+                + label_delta
             )
             policy_routing = build_policy_routing_audit(
                 cohort_bucket=cohort_bucket_0_99(
@@ -939,6 +953,8 @@ async def run_evaluate_decision(
             rule_hits.append("consortium_shared_signal")
         if graph_delta > 0:
             rule_hits.append("graph_network_risk")
+        if label_hits:
+            rule_hits.extend(label_hits)
         replay_delta = 20.0 if is_replayed else 0.0
         degrade_delta = _degrade_skip_score_delta(degrade_tags)
         base_score = (
@@ -948,6 +964,7 @@ async def run_evaluate_decision(
             + graph_delta
             + replay_delta
             + depth_delta
+            + label_delta
             + degrade_delta
         )
         final_score = _blend_scores(
