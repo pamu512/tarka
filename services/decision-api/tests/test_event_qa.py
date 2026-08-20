@@ -13,6 +13,8 @@ import uuid
 from datetime import UTC, datetime
 from unittest.mock import patch
 
+from decision_api.champion_challenger_audit import drift_promote_gate
+
 # ── Pure helper replicas (avoid deep import chain for unit tests) ──
 
 def _has_event_qa_tag(tags: list | None, prefix: str = "qa:event_") -> bool:
@@ -149,8 +151,6 @@ def test_cadence_hours_clamps():
 
 
 # ── Drift-skip logic (pure, uses drift_promote_gate) ────────────
-
-from decision_api.champion_challenger_audit import drift_promote_gate
 
 
 def test_drift_skip_allowed_when_ok():
