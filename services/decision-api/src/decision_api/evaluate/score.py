@@ -169,6 +169,43 @@ def signal_availability_notes_from_tags(degrade_tags: list[str]) -> list[str]:
     return out
 
 
+_DEGRADE_SKIP_SCORE: dict[str, float] = {
+    "lists:unavailable": 5.0,
+    "graph:unavailable": 5.0,
+    "graph:unconfigured": 5.0,
+    "graph:stale_skipped": 5.0,
+    "enrichment:unavailable": 5.0,
+    "enrichment:unconfigured": 5.0,
+    "ml:unavailable": 5.0,
+    "ml:unconfigured": 5.0,
+    "ml:disabled": 5.0,
+    "opa:unavailable": 5.0,
+    "opa:unconfigured": 5.0,
+    "calibration:unavailable": 5.0,
+    "calibration:unconfigured": 5.0,
+    "counter:unavailable": 5.0,
+    "counter:unconfigured": 5.0,
+    "location:unavailable": 5.0,
+    "location:unconfigured": 5.0,
+    "redis:tag_merge_unavailable": 5.0,
+    "redis:tenant_flags_unavailable": 5.0,
+    "redis:entity_tags_unavailable": 5.0,
+}
+
+
+def degrade_skip_score_delta(degrade_tags: list[str]) -> float:
+    """Modest score bump (+5 each) for skipped/unavailable first-party hops.
+
+    Makes the entity warmer ("showing signs") when checks are missing,
+    without forcing deny unless the explicit fail-closed opt-in is on.
+    """
+    # ponytail: flat 5 per tag; upgrade to per-hop weights if product needs tiering.
+    total = 0.0
+    for tag in degrade_tags:
+        total += _DEGRADE_SKIP_SCORE.get(tag, 0.0)
+    return total
+
+
 def decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
     if notes:
         return "Degraded"
