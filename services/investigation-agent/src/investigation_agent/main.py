@@ -918,7 +918,7 @@ async def _deterministic_tools_only_fallback(
     unique_tools = ", ".join(sorted(set(touched))) if touched else "none"
     scope_hint = f" for case_id={case_id}" if case_id else ""
     reply = (
-        "LLM is currently unavailable, so Saarthi executed deterministic read-only tools only"
+        "LLM is currently unavailable, so the investigation agent executed deterministic read-only tools only"
         f"{scope_hint}. Tool surface used: {unique_tools}. "
         "Review source references and evidence summary outputs for analyst-safe fallback handling."
     )
@@ -1649,7 +1649,7 @@ async def health_details(request: Request):
 async def integration_surface():
     """
     Machine-readable integration contract: tool surface, upstream flags, profile id.
-    For adapter parity tests and Saarthi Pro / third-party stack mapping (no raw URLs).
+    For adapter parity tests and third-party stack mapping (no raw URLs).
     """
     return build_integration_snapshot(settings, disabled_tools=effective_disabled_tools(settings))
 
@@ -3302,7 +3302,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     )
 
 
-class SaarthiFeatureImportanceBody(BaseModel):
+class FeatureImportanceBody(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     trace_id: str = ""
@@ -3316,12 +3316,12 @@ class SaarthiFeatureImportanceBody(BaseModel):
 
 
 @app.post("/v1/saarthi/feature-importance")
-async def saarthi_feature_importance(body: SaarthiFeatureImportanceBody):
-    """Rank audit signals by relative influence on risk_score (Saarthi / Gemini with heuristic fallback)."""
-    from investigation_agent.saarthi_feature_importance import rank_feature_importance_saarthi
+async def feature_importance(body: FeatureImportanceBody):
+    """Rank audit signals by relative influence on risk_score (Gemini with heuristic fallback)."""
+    from investigation_agent.feature_importance import rank_feature_importance
 
     payload = body.model_dump()
-    result = await rank_feature_importance_saarthi(payload)
+    result = await rank_feature_importance(payload)
     result.pop("_tags", None)
     return result
 
