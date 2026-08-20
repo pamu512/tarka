@@ -140,6 +140,118 @@ async def publish_scout_pack(
         raise
 
 
+# ponytail: in-memory dedup — survives within process lifetime only.
+# Upgrade path: query decision-api for existing scout packs on startup.
+_published_fingerprints: set[tuple[str, str]] = set()
+
+
+def _fingerprint_key(report: dict[str, Any]) -> tuple[str, str]:
+    return (
+        str(report.get("fingerprint_kind", "")),
+        str(report.get("fingerprint_value", "")),
+    )
+
+
+async def publish_scout_burst_packs(
+    scan_payload: dict[str, Any],
+    *,
+    decision_api_url: str | None = None,
+) -> dict[str, Any]:
+    """Publish packs for all gate-passed hypothesis reports in one scan result.
+
+    Deduplicates on ``(fingerprint_kind, fingerprint_value)`` so a second probe
+    with the same burst does not write a second pack.
+
+    Returns ``{"published": [...], "skipped": [...], "dropped": [...]}``.
+    """
+    reports = scan_payload.get("hypothesis_reports") or []
+    published: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    dropped: list[dict[str, Any]] = []
+
+    llm_client = None
+    authored_by: str | None = None
+    if _llm_backend_configured():
+        from llm_client import build_shadow_llm_client
+
+        llm_client = build_shadow_llm_client()
+        authored_by = _resolve_authored_by()
+
+    try:
+        for report in reports:
+            fk = _fingerprint_key(report)
+            if fk in _published_fingerprints:
+                skipped.append({"fingerprint": fk, "reason": "already_published"})
+                continue
+
+            pack = await build_scout_pack(
+                report, llm_client=llm_client, authored_by=authored_by,
+            )
+            if pack is None:
+                dropped.append({
+                    "fingerprint": fk,
+                    "reason": "pack_rejected_by_validation",
+                })
+                logger.info(
+                    "scout_burst_pack_dropped fp_kind=%s fp_value=%s",
+                    fk[0], fk[1],
+                )
+                continue
+
+            try:
+                resp = _post_pack(pack, decision_api_url=decision_api_url,
+                                  actor=authored_by or "scout_coordinated_burst")
+                _published_fingerprints.add(fk)
+                published.append({
+                    "fingerprint": fk,
+                    "pack_name": pack.get("name"),
+                    "response": resp,
+                })
+            except Exception:
+                logger.exception(
+                    "scout_burst_pack_post_failed fp_kind=%s fp_value=%s",
+                    fk[0], fk[1],
+                )
+                dropped.append({"fingerprint": fk, "reason": "post_failed"})
+    finally:
+        if llm_client is not None and hasattr(llm_client, "aclose"):
+            await llm_client.aclose()
+
+    return {"published": published, "skipped": skipped, "dropped": dropped}
+
+
+def _post_pack(
+    pack: dict[str, Any],
+    *,
+    decision_api_url: str | None = None,
+    actor: str = "scout_coordinated_burst",
+) -> dict[str, Any]:
+    """POST a validated pack to decision-api (sync, urllib)."""
+    import urllib.request
+    import urllib.error
+
+    base = (
+        decision_api_url
+        or os.environ.get("DECISION_API_URL", "").strip()
+        or "http://decision-api:8001"
+    )
+    url = f"{base.rstrip('/')}/v1/rules/scout-pack"
+    body = json.dumps(pack).encode("utf-8")
+
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    governance_secret = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
+    if governance_secret:
+        req.add_header("X-Rule-Governance-Secret", governance_secret)
+    req.add_header("X-Actor", actor)
+
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read())
+
+
 def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
     """Convert a scout hypothesis report dict into a valid shadow-mode rule pack.
 
