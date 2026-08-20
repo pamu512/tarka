@@ -1,71 +1,109 @@
 # Tarka — Vision
 
-**Project:** Tarka 1.3.0-beta  
 **Category:** Local-First Fraud Intelligence (LFFI)
 
----
-
-## The privacy–intelligence paradox
-
-Fraud is a **reasoning problem** dressed up as a **data problem**.
-
-The industry built itself around a contradiction: **high-quality intelligence**—the kind that needs rich context, sequence, and now LLM-grade synthesis—**wants data in one place**, usually someone else’s cloud. **High-quality privacy**—GDPR-class minimization, residency, and defensible DPAs—**wants data fragmented, local, and provably contained**.
-
-Pick intelligence, and you bleed **PII across borders** into multi-tenant SaaS. Pick privacy, and you retreat to **brittle rules and shallow velocity** because nobody will ship the full transaction graph and chargeback PDFs to a vendor API.
-
-**That paradox is not a law of physics. It is a deployment choice.**
-
-Tarka resolves it by **moving inference gravity to the edge**: the same graph and audit trail your bank already owns, **reasoned over by models that never leave silicon you control** when you run Shadow on local inference (e.g. Ollama on-loopback). You trade **capital expense (RAM, unified memory, ops)** for **strategic optionality (no mandatory PII export for “smart” fraud)**.
+Privacy vs intelligence is a deployment choice: inference on metal you control.
 
 ---
 
-## The Tarka Triad
+## What Tarka is
 
-Three layers, three different failure modes if any one is missing. Together they are the minimum credible stack for **post-black-box** fraud.
+Tarka is a **local-first fraud OS**. Two things define the product:
 
-| Pillar | Role | One-line job |
-|--------|------|----------------|
-| **Rust — Speed** | Deterministic **first response** | Turn policy into **bytes you can replay**: same inputs → same outputs, manifests, `tarka replay`, WASM leaves where configured. This is **speed as auditability**—not speed as “hide the model.” |
-| **JanusGraph — Context** | **Topological memory** | Transactions are not rows; they are **vertices and edges** in an evolving graph. **Context** is who touched which device, which IP, which listing—**multi-hop**, not a single feature vector refreshed nightly. |
-| **Shadow AI — Reasoning** | **Forensic synthesis** | Turn graph signals + policy payloads into **structured, citeable narratives** for analysts and downstream case systems. **Reasoning** here means: hypotheses **grounded in graph context**, not a lone score from a black box. |
+1. **Audit everything.** Every engine, rule, and AI decision has an audit trail. If a human changes the decision, we store *why* so the model can learn (`override → y_label`).
 
-Rust answers “what does policy **mandate**?”  
-JanusGraph answers “what **relationships** exist?”  
-Shadow answers “what **story** does an investigator need to act?”
+2. **Review is the exception.** Investigation is a residual station born from evaluate → deny / review. ALLOW never becomes a case. When review happens, there is a feedback loop back into the packs.
 
-Strip one leg, and you get either **un-auditable ML**, **context-free rules**, or **graphs nobody can explain**.
+**Add-on:** omniscient AI (BYO LLM / scout) detects when a new rule is needed, writes it, parks it in canary / Observe, then auto-promotes or asks HIL when promote gates miss. Humans still own the live pack via gates.
 
 ---
 
-## The market gap
+## What Tarka is not
 
-Incumbent **cloud fraud APIs** (e.g. **Sift**, **Forter**, and the same architectural class) won the last decade by centralizing **signals + models + ops**. That centralization collides with three structural shifts:
-
-1. **Regulation and procurement** — GDPR, UK GDPR, emerging state laws, and bank-grade DPAs increasingly treat **cross-border enrichment of raw transaction payloads** as a **negotiation**, not a checkbox. “Send us everything, we return a score” is under pressure **even when vendors are competent**.
-
-2. **LLM economics** — **General reasoning** is now cheap enough to run **locally** on unified-memory machines. The old excuse—“only the hyperscaler can afford the model”—is weaker every hardware generation. The bottleneck moves from **GPU capex** to **architecture**: can your stack **co-locate** graph, rules, and inference without shipping PII?
-
-3. **Adversarial maturity** — Coordinated abuse is **graph-native** (rings, mules, device farms). Row-scoring vendors bolt on **graph features**; Tarka assumes **the graph is the system of record for coordination**, not an optional enrichment pipe.
-
-**Gap statement:** The market still sells **“trust our cloud brain.”** Tarka sells **“trust your own edges, receipts, and Gremlin traversals.”** That is not a feature delta—it is a **different category**: **LFFI**.
+- Not a better remote score.
+- Not a case-management CRM.
+- Not a card / chargeback product.
+- Not a Tarka-branded model.
 
 ---
 
-## Where inference runs
+## Journey, not payments
 
-**Production default** is a Linux VM and Compose **desk** profile: rules + audit on metal you control. See [SRE compose runbooks](docs/docs/operations/sre-compose-profiles.md).
+Progressive friction from signup onward: **login → device → onboarding → payment → payout**. At each hop: **allow / step-up / review / block**. Each event heats the next.
 
-**Local Shadow** (Ollama on-loopback) is an **optional forensics** add-on so cluster narratives need not leave the VPC. That is a residency choice, not a laptop SKU requirement. Graph and large local weights belong on separate hosts from evaluate.
+Skipping or avoiding a risk check does **not** block — it raises showing-signs risk.
 
-Colocating Gremlin + a 30B-class model + evaluate on one box is a **demo**, not the baseline.
+Chargeback is one late label, not the product. Labels include dispositions, step-up outcomes, disputes, and other ground truth.
+
+---
+
+## Entity states
+
+Do not flatten to a device flag.
+
+| State | Meaning |
+|-------|---------|
+| **proven / already-risky** | Known good or known bad from prior evidence |
+| **showing-signs** | Behavioral indicators accumulating |
+| **unknown** | No signal yet |
+
+Device is a node, not the person. ATO victims stay good.
+
+---
+
+## Selling point (vs Sardine / Unit21)
+
+Owned JSON packs + native SDK evidence + in-tenant / VPC stack.
+
+The demo beat is **"AI wrote this rule"** into Observe / canary — not a caption on `device_signals`, not a CRM ticket queue.
+
+---
+
+## Inference
+
+**Production default** is a Linux VM + Compose desk: rules + audit on metal you control. See [SRE Compose profiles](docs/docs/operations/sre-compose-profiles.md).
+
+**Graph (Janus)** is topological memory when wired — capable in repo, optional, not a day-1 requirement, not the minimum stack.
+
+**Advise (LLM)** is optional forensics / copilot, BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM. In-tenant / VPC preferred; public internet APIs are not the enterprise default.
+
+Colocating Gremlin + 30B + evaluate on one box is a **demo**, not the baseline.
+
+---
+
+## Evaluate stays Rust
+
+`decision-api` owns allow / deny / flag / review. Rust JSON packs via `tarka_rule_engine`. No Tarka-branded model. No Python rule engine as canonical.
+
+---
+
+## Shadow naming
+
+Do not collapse.
+
+| Name | What it is |
+|------|------------|
+| **Observe** | Observe-only evaluate (`metadata.shadow`) + pack canary. RFP "shadow mode" = Observe only. |
+| **Advise** | `shadow_agent` LLM, ops docs only. Hide Shadow chrome from lean. |
+
+Never print "Shadow" as a third product on the desk.
+
+---
+
+## QA: two separate loops
+
+1. **Blind predetermined-N evaluate events** so HIL confirms the engine. Schedulable; skip only if no drift.
+2. **Second-human sample of cases already closed by HIL** (existing `qa_sample_closed_cases` / `/ops/qa`).
+
+Do not collapse them.
 
 ---
 
 ## Conviction
 
-We are not building a **better remote score**. We are building **infrastructure where intelligence and privacy stop trading off**—because **the model, the graph, and the rule engine share the same air-gapped room**.
-
 **Prove every signal.** If it cannot be replayed, traversed, or cited from your own audit and graph edges, it does not ship.
+
+We are not building a better remote score. We are building infrastructure where intelligence and privacy stop trading off — because the model, the graph, and the rule engine share the same air-gapped room when you choose that deployment.
 
 ---
 
