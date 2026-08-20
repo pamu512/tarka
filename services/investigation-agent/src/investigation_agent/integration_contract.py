@@ -14,7 +14,7 @@ from investigation_agent.tools import TOOL_DEFINITIONS
 Logical integration contract for the investigation copilot.
 
 Exposes a versioned, machine-readable snapshot of which upstream services are configured
-and which tools are registered—used for adapter parity checks and Saarthi Pro positioning
+and which tools are registered—used for adapter parity checks and positioning
 ("maintained adapter" against a declared profile).
 
 Does not expose raw URLs (avoid leaking internal endpoints in health responses).

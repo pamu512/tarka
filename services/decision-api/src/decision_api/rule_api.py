@@ -580,6 +580,169 @@ async def add_rule(
     return {"added": body.id}
 
 
+class ScoutPackIn(BaseModel):
+    """A scout-authored shadow pack created by the AI scout agent."""
+
+    name: str = Field(min_length=1, max_length=256)
+    mode: str = Field(default="shadow")
+    rules: list[dict[str, Any]] = Field(default_factory=list)
+    tag_rules: list[dict[str, Any]] = Field(default_factory=list)
+    authored_by: str = Field(default="scout_coordinated_burst", max_length=128)
+    is_ai_authored: bool = Field(default=True)
+    scout_report_id: str = Field(default="", max_length=128)
+
+
+# ponytail: mirrors pack_author_contract.validate_ai_authored_pack
+# from shadow_agent, kept inline so decision-api stays self-contained.
+_AI_PACK_ALLOWED_FIELDS: frozenset[str] = frozenset(
+    {
+        "event_type",
+        "entity_id",
+        "session_id",
+        "acc_id",
+        "user_id",
+        "device_fingerprint",
+        "canvas_hash",
+        "webgl_vendor",
+        "user_agent",
+        "screen_resolution",
+        "timezone_offset",
+        "language",
+        "platform",
+        "vendor",
+        "tx_count_1h",
+        "tx_count_24h",
+        "tx_amount_1h",
+        "tx_amount_24h",
+        "distinct_devices_24h",
+        "distinct_ips_24h",
+        "vendor_fingerprint_score",
+        "vendor_incognia_risk",
+        "ip_address",
+        "ip_risk_score",
+        "geo_country",
+        "geo_city",
+        "amount",
+        "currency",
+    }
+)
+_AI_PACK_ALLOWED_OPS: frozenset[str] = frozenset(
+    {
+        "eq",
+        "not_eq",
+        "gt",
+        "gte",
+        "lt",
+        "lte",
+        "in",
+        "not_in",
+        "contains",
+        "starts_with",
+        "ends_with",
+        "exists",
+        "not_exists",
+        "is_true",
+        "is_false",
+    }
+)
+_AI_PACK_SCORE_DELTA_MIN = 5.0
+_AI_PACK_SCORE_DELTA_MAX = 30.0
+
+
+def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
+    """Enforce the AI pack-author contract on a scout pack."""
+    errors: list[str] = []
+    if pack.get("mode") != "shadow":
+        errors.append("mode must be 'shadow'")
+    if pack.get("is_ai_authored") is not True:
+        errors.append("is_ai_authored must be true")
+    rules = pack.get("rules") or []
+    if not rules:
+        errors.append("rules must not be empty")
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        rid = rule.get("id", "unknown")
+        sd = rule.get("score_delta")
+        try:
+            sd_f = float(sd)
+        except (TypeError, ValueError):
+            errors.append(f"rule {rid}: score_delta is not a number")
+            continue
+        if sd_f < _AI_PACK_SCORE_DELTA_MIN or sd_f > _AI_PACK_SCORE_DELTA_MAX:
+            errors.append(
+                f"rule {rid}: score_delta {sd_f} outside [{_AI_PACK_SCORE_DELTA_MIN}, {_AI_PACK_SCORE_DELTA_MAX}]"
+            )
+        for cond in rule.get("when") or []:
+            if not isinstance(cond, dict):
+                continue
+            field = cond.get("field", "")
+            op = cond.get("op", "eq")
+            if field and field not in _AI_PACK_ALLOWED_FIELDS:
+                errors.append(f"rule {rid}: unknown field '{field}'")
+            if op not in _AI_PACK_ALLOWED_OPS:
+                errors.append(f"rule {rid}: disallowed op '{op}'")
+    return errors
+
+
+@router.post("/scout-pack", status_code=201)
+async def create_scout_pack(
+    body: ScoutPackIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Persist a scout-suggested rule pack in Observe (shadow) mode.
+
+    The pack is written with ``mode=shadow`` so the Observe page lists it and
+    shadow evaluation covers it.  It never affects live decisions until an
+    analyst promotes it through the existing governance gates.
+    """
+    _require_rule_governance(x_rule_governance_secret)
+    if body.mode != "shadow":
+        raise HTTPException(400, "scout packs must use mode='shadow'")
+    pack: dict[str, Any] = {
+        "version": 1,
+        "name": body.name,
+        "mode": "shadow",
+        "rules": body.rules,
+        "tag_rules": body.tag_rules,
+        "canary_percent": None,
+        "effective_at": None,
+        "approved_by": None,
+        "authored_by": body.authored_by,
+        "is_ai_authored": body.is_ai_authored,
+        "scout_report_id": body.scout_report_id,
+    }
+    ai_errors = _validate_ai_authored_pack(pack)
+    if ai_errors:
+        raise HTTPException(
+            422,
+            detail={"validation_errors": ai_errors, "contract": "ai_authored_pack"},
+        )
+    errors = _validate_rule_pack(pack)
+    if errors:
+        raise HTTPException(422, detail={"validation_errors": errors})
+    fpath = _new_pack_path("scout")
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    actor = _actor_from_headers(x_actor) if x_actor else body.authored_by
+    _append_rule_change(
+        "create_scout_pack",
+        fpath.name,
+        actor=actor,
+        detail={
+            "name": body.name,
+            "authored_by": body.authored_by,
+            "is_ai_authored": body.is_ai_authored,
+            "scout_report_id": body.scout_report_id,
+            "rule_count": len(body.rules),
+        },
+    )
+    return {"file": fpath.name, "pack": pack, "mode": "shadow"}
+
+
 class RulePackMode(BaseModel):
     mode: str
 

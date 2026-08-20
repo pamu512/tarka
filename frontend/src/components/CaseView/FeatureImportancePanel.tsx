@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { saarthi } from "../../api/client";
+import { featureImportance as featureImportanceApi } from "../../api/client";
 import type {
-  SaarthiFeatureImportanceRequestBody,
-  SaarthiFeatureImportanceResponse,
-} from "../../lib/saarthi/featureImportance";
+  FeatureImportanceRequestBody,
+  FeatureImportanceResponse,
+} from "../../lib/featureImportance";
 import { toUserFacingError } from "../../utils/userFacingErrors";
 
 const CHART_HEIGHT_PER_ROW = 28;
@@ -12,14 +12,14 @@ const CHART_MIN = 200;
 const BAR_TOP = "#5eead4";
 const BAR_REST = "#334155";
 
-export type SaarthiFeatureImportancePanelProps = {
+export type FeatureImportancePanelProps = {
   /** Stable key so we refetch when the underlying audit snapshot changes. */
   requestKey: string;
-  payload: SaarthiFeatureImportanceRequestBody | null;
+  payload: FeatureImportanceRequestBody | null;
 };
 
-export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFeatureImportancePanelProps) {
-  const [data, setData] = useState<SaarthiFeatureImportanceResponse | null>(null);
+export function FeatureImportancePanel({ requestKey, payload }: FeatureImportancePanelProps) {
+  const [data, setData] = useState<FeatureImportanceResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,14 +35,14 @@ export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFe
       setLoading(true);
       setError(null);
       try {
-        const res = await saarthi.featureImportance(payload, { signal: ac.signal });
+        const res = await featureImportanceApi.rank(payload, { signal: ac.signal });
         if (!ac.signal.aborted) setData(res);
       } catch (e) {
         if ((e as Error).name === "AbortError") return;
         if (!ac.signal.aborted) {
           setData(null);
           setError(
-            toUserFacingError(e, { subject: "Saarthi feature importance", action: "rank drivers for this score" }),
+            toUserFacingError(e, { subject: "Feature importance", action: "rank drivers for this score" }),
           );
         }
       } finally {
@@ -55,11 +55,11 @@ export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFe
   if (!payload) {
     return (
       <section
-        id="saarthi-feature-importance"
+        id="feature-importance"
         aria-label="Feature importance"
         className="rounded-xl border border-surface-700 bg-surface-900/80 px-4 py-3"
       >
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Feature importance (Saarthi)</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Feature importance</h3>
         <p className="text-sm text-gray-500">Load a case with a decision audit to rank which signals moved this score.</p>
       </section>
     );
@@ -73,16 +73,16 @@ export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFe
 
   return (
     <section
-      id="saarthi-feature-importance"
+      id="feature-importance"
       aria-label="Feature importance"
       className="rounded-xl border border-surface-700 bg-surface-900/80 px-4 py-4 space-y-3"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Feature importance (Saarthi)</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Feature importance</h3>
           <p className="text-[11px] text-gray-500 mt-0.5 max-w-3xl leading-snug">
             Relative influence on the <span className="text-gray-300 font-mono tabular-nums">{payload.risk_score.toFixed(1)}</span>
-            /100 score for this trace — ranked by Saarthi from the audit inference bundle (not raw SHAP).
+            /100 score for this trace — ranked from the audit inference bundle (not raw SHAP).
           </p>
         </div>
         {data?.attribution_engine === "mock" ? (
@@ -91,7 +91,7 @@ export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFe
           </span>
         ) : data?.attribution_engine === "gemini" ? (
           <span className="text-[10px] font-medium uppercase tracking-wide px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-200/90 shrink-0">
-            Saarthi live
+            Live
           </span>
         ) : null}
       </div>
@@ -99,7 +99,7 @@ export function SaarthiFeatureImportancePanel({ requestKey, payload }: SaarthiFe
       {loading && !data ? (
         <div className="flex items-center gap-2 text-xs text-gray-400 py-8" aria-busy="true">
           <span className="inline-block size-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin shrink-0" />
-          Asking Saarthi to rank drivers…
+          Ranking drivers…
         </div>
       ) : null}
 

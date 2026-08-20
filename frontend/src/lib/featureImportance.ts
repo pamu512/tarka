@@ -1,6 +1,6 @@
-import type { InferenceContext } from "../../api/inferenceContext";
+import type { InferenceContext } from "../api/inferenceContext";
 
-export type SaarthiFeatureImportanceRequestBody = {
+export type FeatureImportanceRequestBody = {
   trace_id: string;
   tenant_id: string;
   entity_id: string;
@@ -11,7 +11,7 @@ export type SaarthiFeatureImportanceRequestBody = {
   tags: string[];
 };
 
-export type SaarthiFeatureImportanceItem = {
+export type FeatureImportanceItem = {
   signal_id: string;
   label: string;
   /** Relative weight 0–100 (sums to ~100 across items). */
@@ -19,8 +19,8 @@ export type SaarthiFeatureImportanceItem = {
   category?: string;
 };
 
-export type SaarthiFeatureImportanceResponse = {
-  items: SaarthiFeatureImportanceItem[];
+export type FeatureImportanceResponse = {
+  items: FeatureImportanceItem[];
   lead_rationale: string;
   attribution_engine: "mock" | "gemini" | "heuristic";
 };
@@ -40,8 +40,8 @@ function pushSignal(out: RawSignal[], seen: Set<string>, row: RawSignal): void {
 
 /** Deterministic driver ranking from audit inference (mock + heuristic fallback). */
 export function rankFeatureImportanceFromAudit(
-  body: SaarthiFeatureImportanceRequestBody,
-): SaarthiFeatureImportanceResponse {
+  body: FeatureImportanceRequestBody,
+): FeatureImportanceResponse {
   const ctx = body.inference_context;
   const raw: RawSignal[] = [];
   const seen = new Set<string>();
@@ -143,7 +143,7 @@ export function rankFeatureImportanceFromAudit(
   raw.sort((a, b) => b.weight - a.weight);
   const top = raw.slice(0, 8);
   const sumW = top.reduce((s, r) => s + r.weight, 0) || 1;
-  const items: SaarthiFeatureImportanceItem[] = top.map((r) => ({
+  const items: FeatureImportanceItem[] = top.map((r) => ({
     signal_id: r.signal_id,
     label: r.label,
     category: r.category,
@@ -154,7 +154,7 @@ export function rankFeatureImportanceFromAudit(
   const leadLabel = lead?.label ?? "composite risk";
   const lead_rationale =
     items.length > 0
-      ? `Saarthi ranks **${leadLabel}** as the strongest explanatory driver for this ${body.decision} at ${body.risk_score.toFixed(1)}/100 — use the chart for relative weighting across velocity, graph, integrity, and policy signals.`
+      ? `**${leadLabel}** is the strongest explanatory driver for this ${body.decision} at ${body.risk_score.toFixed(1)}/100 — use the chart for relative weighting across velocity, graph, integrity, and policy signals.`
       : `Insufficient structured drivers on the audit to rank feature importance for trace ${body.trace_id}.`;
 
   return {
@@ -164,7 +164,7 @@ export function rankFeatureImportanceFromAudit(
   };
 }
 
-export function buildSaarthiFeatureImportanceRequest(params: {
+export function buildFeatureImportanceRequest(params: {
   traceId: string;
   tenantId: string;
   entityId: string;
@@ -173,7 +173,7 @@ export function buildSaarthiFeatureImportanceRequest(params: {
   inference: InferenceContext | null;
   ruleHits: string[];
   tags: string[];
-}): SaarthiFeatureImportanceRequestBody {
+}): FeatureImportanceRequestBody {
   return {
     trace_id: params.traceId,
     tenant_id: params.tenantId,

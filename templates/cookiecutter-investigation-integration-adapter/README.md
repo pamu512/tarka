@@ -1,6 +1,6 @@
 # Cookiecutter: investigation integration adapter
 
-Scaffolds a Python package for an HTTP adapter: client stubs, profile id placeholder, and smoke test. Replace stubs with real mapping logic against the customer’s Case / Graph / Decision APIs. **Vendor-maintained** adapter packaging and **Saarthi Pro** commercial details live in the private [Saarthi-pro](https://github.com/pamu512/Saarthi-pro) repository; this template is OSS reference only.
+Scaffolds a Python package for an HTTP adapter: client stubs, profile id placeholder, and smoke test. Replace stubs with real mapping logic against the customer’s Case / Graph / Decision APIs. This template is OSS reference only.
 
 ## Prerequisites
 
@@ -43,6 +43,6 @@ cd <generated_dir> && pip install -e '.[dev]' && pytest -q
 3. Set `INTEGRATION_PROFILE_ID` in deployment config to match `integration_profile_id` (see [Investigation agent integration contract](../../docs/docs/guides/investigation-agent-integration-contract.md)).
 4. Extend HTTP mapping in `adapter.py` for customer-specific fields; keep the mock path as a regression baseline.
 5. Add contract/golden tests in your CI; mirror vocabulary from this repo’s `.github/workflows/ci.yml` job **`test-investigation-agent-golden-matrix`**.
-6. Follow [Saarthi customer API change policy](../../docs/docs/guides/saarthi-customer-api-change-policy.md) for versioning and breaking changes.
+6. Follow [Customer API change policy](../../docs/docs/guides/investigation-agent-integration-contract.md) for versioning and breaking changes.
 
 `package_name` must be a valid Python import name (letters, digits, underscores). `adapter_slug` is the directory name; keep them aligned unless you have a strong reason not to.
