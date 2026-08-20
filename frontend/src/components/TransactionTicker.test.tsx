@@ -31,9 +31,12 @@ describe("TransactionTicker", () => {
         {
           trace_id: "00000000-0000-4000-8000-000000000001",
           short_id: "00000000",
+          event_type: "payment",
+          decision: "review",
           amount: 42.5,
           currency: "USD",
           rule_result: "SHADOW_REVIEW",
+          tags: [],
           ai_confidence: 0.72,
           created_at: "2026-01-01T00:00:00.000Z",
         },
