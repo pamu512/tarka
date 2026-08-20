@@ -1,7 +1,7 @@
 import {
   rankFeatureImportanceFromAudit,
-  type SaarthiFeatureImportanceRequestBody,
-} from "../lib/saarthi/featureImportance";
+  type FeatureImportanceRequestBody,
+} from "../lib/featureImportance";
 import { isSessionNoiseAuditRow } from "../utils/copilotContext";
 import { type AnyObj, mockRandomAlpha } from "./mockData.shared";
 
@@ -506,7 +506,7 @@ export function getInvestigationMockResponse(
   }
 
   if (path.includes("/api/investigation/v1/saarthi/feature-importance") && method === "POST") {
-    const b = body as SaarthiFeatureImportanceRequestBody;
+    const b = body as FeatureImportanceRequestBody;
     const ranked = rankFeatureImportanceFromAudit(b);
     return { ...ranked, attribution_engine: "mock" as const };
   }

@@ -53,8 +53,8 @@ import { InferenceMetricTrack } from "../components/InferenceMetricTrack";
 import { SarManagementPanel } from "../components/SarManagementPanel";
 import { KycHandoverPanel } from "../components/compliance/KycHandoverPanel";
 import { EntityProfileSparklines } from "../components/CaseView/EntityProfileSparklines";
-import { SaarthiFeatureImportancePanel } from "../components/CaseView/SaarthiFeatureImportancePanel";
-import { buildSaarthiFeatureImportanceRequest } from "../lib/saarthi/featureImportance";
+import { FeatureImportancePanel } from "../components/CaseView/FeatureImportancePanel";
+import { buildFeatureImportanceRequest } from "../lib/featureImportance";
 import { VelocityHeatmap } from "../components/CaseView/VelocityHeatmap";
 
 const GeographicCollisionMap = lazy(() =>
@@ -120,7 +120,7 @@ function humanizeRecommendedAction(code: string): string {
   return RECOMMENDED_ACTION_LABELS[c] ?? c.replace(/_/g, " ");
 }
 
-/** First clause for the sight-layer “why” line (Saarthi / ML summary). */
+/** First clause for the sight-layer “why” line (ML summary). */
 function firstSightSentence(text: string): string {
   const t = text.trim();
   if (!t) return "";
@@ -663,9 +663,9 @@ function CaseDetailWorkbench() {
     [decisionExplain?.evaluate_payload],
   );
 
-  const saarthiFeatureImportancePayload = useMemo(() => {
+  const featureImportancePayload = useMemo(() => {
     if (!caseData?.trace_id || !decisionExplain) return null;
-    return buildSaarthiFeatureImportanceRequest({
+    return buildFeatureImportanceRequest({
       traceId: caseData.trace_id,
       tenantId: caseData.tenant_id,
       entityId: caseData.entity_id,
@@ -677,7 +677,7 @@ function CaseDetailWorkbench() {
     });
   }, [caseData, decisionExplain]);
 
-  const saarthiFeatureImportanceKey = useMemo(() => {
+  const featureImportanceKey = useMemo(() => {
     if (!caseData?.trace_id || !decisionExplain) return "";
     return `${caseData.trace_id}:${decisionExplain.score}:${decisionExplain.decision}:${velocityArtifactsUpdatedAt ?? ""}`;
   }, [caseData?.trace_id, decisionExplain, velocityArtifactsUpdatedAt]);
@@ -975,7 +975,7 @@ function CaseDetailWorkbench() {
         verdict={decisionExplain?.decision ?? "review"}
         riskScore={decisionExplain?.score ?? 0}
         flashCards={triageFlashCards}
-        saarthiLine={sightLine}
+        sightLine={sightLine}
       />
 
       <EntityProfileSparklines
@@ -991,9 +991,9 @@ function CaseDetailWorkbench() {
         anchorIso={caseData.updated_at ?? caseData.created_at}
       />
 
-      <SaarthiFeatureImportancePanel
-        requestKey={saarthiFeatureImportanceKey}
-        payload={saarthiFeatureImportancePayload}
+      <FeatureImportancePanel
+        requestKey={featureImportanceKey}
+        payload={featureImportancePayload}
       />
 
       <Suspense
