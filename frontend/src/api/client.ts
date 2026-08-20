@@ -6,9 +6,9 @@ import {
   normalizeInferenceContext,
 } from "./inferenceContext";
 import {
-  type SaarthiFeatureImportanceRequestBody,
-  type SaarthiFeatureImportanceResponse,
-} from "../lib/saarthi/featureImportance";
+  type FeatureImportanceRequestBody,
+  type FeatureImportanceResponse,
+} from "../lib/featureImportance";
 import { reportDataOutcome } from "./dataSourceState";
 import { deskStrictEnabled, isUpstreamUnavailableBody, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
@@ -3932,18 +3932,18 @@ export const compliance = {
   },
 };
 
-// ── Saarthi (investigation-agent :8006, /v1/saarthi) ─────────────────
+// ── Feature importance (investigation-agent :8006) ───────────────────
 
 export type {
-  SaarthiFeatureImportanceItem,
-  SaarthiFeatureImportanceRequestBody,
-  SaarthiFeatureImportanceResponse,
-} from "../lib/saarthi/featureImportance";
-export { buildSaarthiFeatureImportanceRequest } from "../lib/saarthi/featureImportance";
+  FeatureImportanceItem,
+  FeatureImportanceRequestBody,
+  FeatureImportanceResponse,
+} from "../lib/featureImportance";
+export { buildFeatureImportanceRequest } from "../lib/featureImportance";
 
-export const saarthi = {
-  featureImportance(body: SaarthiFeatureImportanceRequestBody, init?: RequestInit) {
-    return request<SaarthiFeatureImportanceResponse>("/api/investigation/v1/saarthi/feature-importance", {
+export const featureImportance = {
+  rank(body: FeatureImportanceRequestBody, init?: RequestInit) {
+    return request<FeatureImportanceResponse>("/api/investigation/v1/saarthi/feature-importance", {
       method: "POST",
       body: JSON.stringify(body),
       ...init,

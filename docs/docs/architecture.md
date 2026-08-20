@@ -21,7 +21,7 @@ flowchart LR
 | Surface | Role |
 |---------|------|
 | decision-api evaluate | **Allow / deny / flag / review** |
-| Shadow / trend / Saarthi | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
+| Shadow / trend / investigation-agent | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
 
 ---
 

@@ -1,6 +1,6 @@
 # Investigation Copilot — integration contract (OSS reference)
 
-This document describes the **machine-readable integration surface** of `services/investigation-agent`, aligned with an **adapter-first** commercial strategy (e.g. Saarthi Pro): third parties implement **their** APIs behind a stable **logical tool surface** and declare a **`profile_id`**.
+This document describes the **machine-readable integration surface** of `services/investigation-agent`, aligned with an **adapter-first** strategy: third parties implement **their** APIs behind a stable **logical tool surface** and declare a **`profile_id`**.
 
 > **Not a legal or procurement artifact.** Use for engineering parity, smoke tests, and RFP technical appendices.
 
@@ -63,8 +63,8 @@ Add `--api-key` if the deployment requires it.
 ## Related
 
 - [CHANGELOG_INTEGRATION](investigation-agent-integration-contract.md)
-- [Saarthi customer API change policy](investigation-agent-integration-contract.md) (notice windows, joint certification, contract vs customer API versions)
-- Adapter cookiecutter template: [`templates/cookiecutter-investigation-integration-adapter/`](../../../templates/cookiecutter-investigation-integration-adapter/) (OSS scaffold for HTTP adapters; vendor-maintained packaging → private [Saarthi-pro](https://github.com/pamu512/Saarthi-pro))
+- [Customer API change policy](investigation-agent-integration-contract.md) (notice windows, joint certification, contract vs customer API versions)
+- Adapter cookiecutter template: [`templates/cookiecutter-investigation-integration-adapter/`](../../../templates/cookiecutter-investigation-integration-adapter/) (OSS scaffold for HTTP adapters)
 
 - [Investigation Copilot — intended use & data flows](investigation-agent-intended-use-and-data-flows.md)
 - [Investigation Agent Project](../services/investigation-agent.md)

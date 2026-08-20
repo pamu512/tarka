@@ -1,7 +1,7 @@
 [project]
-name = "tarka-saarthi"
+name = "tarka-sar-pdf"
 version = "0.1.0"
-description = "Saarthi SAR PDF generation from Shadow structured JSON."
+description = "SAR PDF generation from Shadow structured JSON."
 requires-python = ">=3.11"
 dependencies = [
   "httpx>=0.28.0",

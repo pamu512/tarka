@@ -51,8 +51,7 @@ class DemoAIGateway(AIGateway):
         return self._base
 
     @property
-    def saarthi_llm_base_url(self) -> str | None:
-        # Local Saarthi may still use Ollama for drafts unless SAARTHI_GEMINI_URL is set.
+    def sar_llm_base_url(self) -> str | None:
         return (os.environ.get("SAARTHI_GEMINI_URL") or "").strip() or None
 
     async def run_shadow_investigate_inference(self, coro: Callable[[], Awaitable[T]]) -> T:

@@ -9,7 +9,7 @@
 **Omniscient** means a shared, freshness-aware **read model** for case/entity/trace evidence — not autonomous allow/deny or case closure.
 
 - Decision-api / rules remain sole allow/deny authority.
-- Shadow and Saarthi (investigation-agent) are **analyst force-multipliers**.
+- Shadow and investigation-agent (Advise) are **analyst force-multipliers**.
 - AI may escalate suspicion and draft narratives; it must **never** clear a deterministic `FLAG` or auto-resolve a case by default.
 
 ## Track B — Shadow demotion

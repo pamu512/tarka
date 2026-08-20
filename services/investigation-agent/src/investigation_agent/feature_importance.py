@@ -1,4 +1,4 @@
-"""Saarthi feature-importance ranking for case triage (Prompt 166)."""
+"""Feature-importance ranking for case triage (Prompt 166)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ def _clamp01(n: float) -> float:
 
 
 def rank_feature_importance_heuristic(body: dict[str, Any]) -> dict[str, Any]:
-    """Mirror of ``frontend/src/lib/saarthi/featureImportance.ts`` heuristic."""
+    """Mirror of ``frontend/src/lib/featureImportance.ts`` heuristic."""
     ctx = body.get("inference_context") if isinstance(body.get("inference_context"), dict) else {}
     risk_score = float(body.get("risk_score") or 0)
     decision = str(body.get("decision") or "review")
@@ -142,7 +142,7 @@ def rank_feature_importance_heuristic(body: dict[str, Any]) -> dict[str, Any]:
 
     lead_label = items[0]["label"] if items else "composite risk"
     lead_rationale = (
-        f"Saarthi ranks {lead_label} as the strongest explanatory driver for this {decision} "
+        f"{lead_label} is the strongest explanatory driver for this {decision} "
         f"at {risk_score:.1f}/100 — chart shows relative weight across velocity, graph, integrity, and policy signals."
         if items
         else f"Insufficient structured drivers on the audit to rank feature importance for trace {trace_id}."
@@ -168,7 +168,7 @@ def _parse_gemini_json(text: str) -> dict[str, Any] | None:
         return None
 
 
-async def rank_feature_importance_saarthi(body: dict[str, Any]) -> dict[str, Any]:
+async def rank_feature_importance(body: dict[str, Any]) -> dict[str, Any]:
     """Try Gemini JSON ranking; fall back to heuristic."""
     api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
     model = (os.environ.get("SAARTHI_GEMINI_MODEL") or "gemini-1.5-pro").strip()
@@ -183,7 +183,7 @@ async def rank_feature_importance_saarthi(body: dict[str, Any]) -> dict[str, Any
         return rank_feature_importance_heuristic(body)
 
     system = (
-        "You are Saarthi, a fraud analyst assistant. Given a decision audit JSON, return ONLY valid JSON "
+        "You are a fraud analyst assistant. Given a decision audit JSON, return ONLY valid JSON "
         "with keys: items (array of {signal_id, label, importance 0-100, category}), lead_rationale (string). "
         "Rank 4-8 signals that best explain the risk_score. importance values should sum to approximately 100. "
         "Prefer velocity, graph, integrity/geo, rules, and ML drivers present in inference_context."

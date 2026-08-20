@@ -31,7 +31,7 @@ def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "SaarthiMock/1.0"
+    server_version = "TarkaMock/1.0"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         print(f"[mock] {self.address_string()} - {fmt % args}")
@@ -164,7 +164,7 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=18080)
     args = ap.parse_args()
     httpd = HTTPServer((args.host, args.port), Handler)
-    print(f"Saarthi upstream mock on http://{args.host}:{args.port} (Ctrl+C to stop)")
+    print(f"Upstream mock on http://{args.host}:{args.port} (Ctrl+C to stop)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

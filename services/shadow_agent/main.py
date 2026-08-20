@@ -780,11 +780,11 @@ def build_app(
         return JSONResponse(content=out)
 
     @application.post("/v1/saarthi/hypothesis-narrative")
-    async def http_saarthi_hypothesis_narrative(
+    async def http_hypothesis_narrative(
         _auth: Annotated[None, Depends(require_shadow_api_token)],
         request: Request,
     ) -> JSONResponse:
-        """Saarthi (Gemini): two-sentence narrative for DuckDB Scout burst evidence."""
+        """Gemini: two-sentence narrative for DuckDB Scout burst evidence."""
         try:
             raw = await request.json()
         except json.JSONDecodeError as exc:
@@ -798,11 +798,11 @@ def build_app(
                 detail={"error": "expected_json_object"},
             )
         try:
-            from saarthi.hypothesis_narrative import generate_hypothesis_narrative
+            from sar_pdf.hypothesis_narrative import generate_hypothesis_narrative
         except ImportError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail={"error": "saarthi_package_unavailable"},
+                detail={"error": "sar_pdf_package_unavailable"},
             ) from exc
         scout_payload = (
             raw.get("scout_result") if isinstance(raw.get("scout_result"), dict) else raw

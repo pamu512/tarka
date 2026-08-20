@@ -41,7 +41,7 @@ jobs:
             services/orchestrator/pyproject.toml
             services/rule_engine/pyproject.toml
             services/shadow/pyproject.toml
-            services/saarthi/pyproject.toml
+            services/sar-pdf/pyproject.toml
             services/shadow_agent/pyproject.toml
 
       - name: Install tooling and editable sidecars
@@ -55,7 +55,7 @@ jobs:
           (cd services/rule_engine && pip install -e .)
           (cd services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis
-          pip install -e "./services/saarthi[dev]"
+          pip install -e "./services/sar-pdf[dev]"
           (cd services/shadow_agent && pip install -e .)
 
       - name: Ruff (sidecars + ingestor)
@@ -65,7 +65,7 @@ jobs:
             services/shadow \
             services/shadow_agent \
             services/orchestrator \
-            services/saarthi \
+            services/sar-pdf \
             services/ingestor
 
       - name: Ruff format (sidecars + ingestor)
@@ -76,7 +76,7 @@ jobs:
             services/shadow \
             services/shadow_agent \
             services/orchestrator \
-            services/saarthi \
+            services/sar-pdf \
             services/ingestor
 
       - name: Pytest — Rule Engine
@@ -105,8 +105,8 @@ jobs:
           SHADOW_API_KEY: ci-placeholder-not-for-production
         run: pytest tests -q
 
-      - name: Pytest — Saarthi (SAR PDF)
-        working-directory: services/saarthi
+      - name: Pytest — SAR PDF
+        working-directory: services/sar-pdf
         run: pytest tests -q
 
   # Multi-stage Dockerfiles under services/*/Dockerfile — scan after lint+tests pass.

@@ -235,7 +235,7 @@ async def build_command_center_payload(
             "Investigation Copilot",
             "/investigation",
             "investigation",
-            "Saarthi",
+            "Advise",
             "Ready",
             "normal",
         ),

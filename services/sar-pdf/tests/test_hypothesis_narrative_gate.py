@@ -1,4 +1,4 @@
-"""Gate (Prompt 195): Saarthi two-sentence hypothesis narrative from Scout bursts."""
+"""Gate (Prompt 195): two-sentence hypothesis narrative from Scout bursts."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from saarthi.hypothesis_narrative import (  # noqa: E402
+from sar_pdf.hypothesis_narrative import (  # noqa: E402
     generate_hypothesis_narrative,
     generate_hypothesis_narrative_fallback,
     normalize_two_sentence_narrative,

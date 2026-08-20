@@ -384,20 +384,20 @@ def scan_coordinated_bursts(
     return out
 
 
-def _saarthi_narrative_mode() -> str:
+def _narrative_mode() -> str:
     return (os.environ.get("SHADOW_SCOUT_SAARTHI_NARRATIVE") or "auto").strip().lower()
 
 
-def _maybe_attach_saarthi_narratives(payload: dict[str, Any]) -> None:
-    mode = _saarthi_narrative_mode()
+def _maybe_attach_narratives(payload: dict[str, Any]) -> None:
+    mode = _narrative_mode()
     if mode in ("off", "disabled", "false", "0"):
         return
     if not payload.get("hypothesis_reports"):
         return
     try:
-        from saarthi.hypothesis_narrative import attach_narratives_to_scout_result
+        from sar_pdf.hypothesis_narrative import attach_narratives_to_scout_result
     except ImportError:
-        logger.debug("scout_saarthi_narrative_skipped_saarthi_package_unavailable")
+        logger.debug("scout_narrative_skipped_sar_pdf_package_unavailable")
         return
     attach_narratives_to_scout_result(payload, prefer_gemini=mode != "fallback_only")
 
@@ -407,7 +407,7 @@ def run_scout_coordinated_burst_probe() -> dict[str, Any]:
     payload = scan_coordinated_bursts()
     reports = payload.get("hypothesis_reports") or []
     if reports:
-        _maybe_attach_saarthi_narratives(payload)
+        _maybe_attach_narratives(payload)
     payload["scout_summary"] = (
         f"{len(reports)} coordinated burst(s) detected in DuckDB raw_signals."
         if reports
@@ -415,7 +415,7 @@ def run_scout_coordinated_burst_probe() -> dict[str, Any]:
     )
     if reports:
         first = reports[0] if isinstance(reports[0], dict) else {}
-        saarthi = first.get("saarthi_narrative")
-        if isinstance(saarthi, str) and saarthi.strip():
-            payload["scout_summary"] = saarthi.strip()
+        narrative = first.get("saarthi_narrative")
+        if isinstance(narrative, str) and narrative.strip():
+            payload["scout_summary"] = narrative.strip()
     return payload

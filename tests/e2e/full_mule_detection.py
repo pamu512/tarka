@@ -5,7 +5,7 @@ Scenario (synthetic, in-process orchestrator + DuckDB + graph stub):
   1. Five marketplace users transact on the same device fingerprint (DuckDB cluster).
   2. Graph stub returns a dense neighborhood (mule-cluster signal).
   3. Shadow ``/v1/analyze`` is stubbed to return a high-risk executive summary (``MULE_CLUSTER_FLAGGED``).
-  4. SAR draft PDF is produced via Saarthi from structured Shadow-shaped JSON.
+  4. SAR draft PDF is produced via sar_pdf from structured Shadow-shaped JSON.
   5. Human approval is recorded with ``POST /v1/ai/feedback`` (JSONL audit sink).
 
 Run (recommended: orchestrator venv has DuckDB, FastAPI, ReportLab, pypdf)::
@@ -31,9 +31,9 @@ _SERVICES = _REPO_ROOT / "services"
 _ORCH_ROOT = _SERVICES / "orchestrator"
 _INGESTOR_SRC = _SERVICES / "ingestor" / "src"
 _SHARED_SRC = _SERVICES / "shared"
-_SAARTHI_SRC = _SERVICES / "saarthi" / "src"
+_SAR_PDF_SRC = _SERVICES / "sar-pdf" / "src"
 _PKG_SHARED = _REPO_ROOT / "packages" / "shared-core"
-for _p in (_ORCH_ROOT, _SERVICES, _INGESTOR_SRC, _SHARED_SRC, _SAARTHI_SRC, _PKG_SHARED):
+for _p in (_ORCH_ROOT, _SERVICES, _INGESTOR_SRC, _SHARED_SRC, _SAR_PDF_SRC, _PKG_SHARED):
     s = str(_p)
     if s not in sys.path:
         sys.path.insert(0, s)
@@ -125,7 +125,7 @@ def test_full_mule_cluster_shadow_sar_pdf_human_approval(
     from orchestrator.analytics.duck_provider import DuckAnalyticsProvider  # noqa: E402
     from orchestrator.main import create_app  # noqa: E402
     from orchestrator.models.cases import CaseORM, CaseStatus  # noqa: E402
-    from saarthi.pdf_generator import REGULATORY_SUMMARY_HEADING, sar_shadow_json_to_formal_pdf_bytes  # noqa: E402
+    from sar_pdf.pdf_generator import REGULATORY_SUMMARY_HEADING, sar_shadow_json_to_formal_pdf_bytes  # noqa: E402
     from tarka_shared.audit_trail import AuditLog, Case  # noqa: E402
     from tarka_shared.case_status import DEFAULT_CASE_STATUS  # noqa: E402
     from tarka_shared.data.tenant_constants import DEFAULT_TENANT_ID  # noqa: E402

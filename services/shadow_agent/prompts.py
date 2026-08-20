@@ -45,7 +45,7 @@ _GRAPH_TOPOLOGY_INSTRUCTIONS: Final[str] = (
     "``distinct_account_count``, and ``confidence`` in ``ai_reasoning``; when bursts are found, "
     "elevate ``risk_score`` / ``is_fraud`` unless contradictory transaction facts exist. "
     "Reference ``suggested_rule`` only as a hypothesis—not as deployed policy. "
-    "Prefer ``saarthi_narrative`` (two-sentence Saarthi summary) in ``ai_reasoning`` when present. "
+    "Prefer ``saarthi_narrative`` (two-sentence analyst summary) in ``ai_reasoning`` when present. "
     "Only treat bursts with ``analyst_suggestion_allowed: true`` as promotion-ready—entries blocked "
     "by the 7-day DuckDB backtest (FPR ≥ 0.1%) must not be escalated to analysts.\n\n"
 )

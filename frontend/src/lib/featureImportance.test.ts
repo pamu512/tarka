@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { InferenceContext } from "../../api/inferenceContext";
+import type { InferenceContext } from "../api/inferenceContext";
 import { rankFeatureImportanceFromAudit } from "./featureImportance";
 
 function minimalCtx(overrides: Partial<InferenceContext> = {}): InferenceContext {

@@ -88,7 +88,7 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8004,
     },
     "agent": {
-        "codename": "Saarthi",
+        "codename": "investigation-agent",
         "name": "Investigation Agent (AI)",
         "description": "LLM-powered investigation copilot with tool-use loop",
         "services": ["investigation-agent"],
