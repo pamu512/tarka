@@ -293,12 +293,16 @@ async def _persist_disposition_y_label(
         if status and int(status) >= 400:
             log.warning(
                 "disposition_y_label_merge_failed status=%s tenant=%s trace=%s",
-                status, tenant_id, trace_id,
+                status,
+                tenant_id,
+                trace_id,
             )
     except Exception:
         log.warning(
             "disposition_y_label_merge_error tenant=%s trace=%s",
-            tenant_id, trace_id, exc_info=True,
+            tenant_id,
+            trace_id,
+            exc_info=True,
         )
 
 

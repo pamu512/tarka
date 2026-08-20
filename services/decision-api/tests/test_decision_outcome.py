@@ -91,7 +91,9 @@ def test_allow_does_not_create_case():
         case_create_on_deny_review=True,
         case_api_url="http://case.test",
     )
-    assert not any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
+    assert not any(
+        "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
+    )
 
 
 def test_case_create_uses_internal_token_header():
@@ -132,7 +134,9 @@ def test_case_create_uses_internal_token_header():
         case_api_url="http://case.test",
         case_internal_token="s2s-secret-token",
     )
-    case_tasks = [t for t in bg.tasks if "maybe_create_case" in getattr(t[0], "__name__", "")]
+    case_tasks = [
+        t for t in bg.tasks if "maybe_create_case" in getattr(t[0], "__name__", "")
+    ]
     assert len(case_tasks) == 1
     fn, args, kwargs = case_tasks[0]
     asyncio.run(fn(*args, **kwargs))
