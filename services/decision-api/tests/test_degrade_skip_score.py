@@ -19,6 +19,7 @@ from decision_api.evaluate.score import (
 
 # -- 1. Runtime unavailable adds score --
 
+
 def test_single_unavailable_tag_adds_delta():
     assert degrade_skip_score_delta(["graph:unavailable"]) == 5.0
 
@@ -42,6 +43,7 @@ def test_base_score_increases_with_skip_delta():
 
 
 # -- 2. Operator posture tags do NOT score --
+
 
 def test_unconfigured_tags_zero_delta():
     posture = [
@@ -96,6 +98,7 @@ def test_lite_desk_posture_zero_delta():
 
 # -- 3. Cap at 15 --
 
+
 def test_many_unavailable_capped():
     all_tags = list(_DEGRADE_SKIP_SCORE.keys())
     assert len(all_tags) > 3  # more than cap / 5
@@ -114,14 +117,14 @@ def test_no_degrade_tags_zero_delta():
 
 # -- 4. Skip does NOT force deny --
 
+
 def test_skip_tags_do_not_force_deny():
     for tag in _DEGRADE_SKIP_SCORE:
-        assert not force_deny_from_degrade_tags([tag]), (
-            f"{tag} must not force deny"
-        )
+        assert not force_deny_from_degrade_tags([tag]), f"{tag} must not force deny"
 
 
 # -- 5. Fail-closed opt-in still forces deny --
+
 
 def test_fail_closed_catalog_forces_deny():
     assert force_deny_from_degrade_tags(["feature:catalog_fail_closed"])
