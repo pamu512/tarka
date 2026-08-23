@@ -591,8 +591,17 @@ class TestVerticalPacks:
         assert r1.json()["seed"] == 42
         assert r1.json()["events_evaluated"] == r2.json()["events_evaluated"]
 
-
-class TestChampionChallengerPolicyRouting:
+    @pytest.mark.asyncio
+    async def test_benchmark_vertical_pack_fintech_delta_in_smoke_band(self, client):
+        """Matches scripts/benchmarks/vertical_benchmark_thresholds.v1.json gates."""
+        r = await client.post(
+            "/v1/simulation/benchmark/vertical",
+            json={"scenario": "baseline", "vertical": "fintech", "seed": 42},
+        )
+        assert r.status_code == 200
+        delta = r.json()["delta"]
+        f1 = float(delta["f1_score"])
+        assert -0.2 <= f1 <= 0.5, f"fintech delta.f1_score={f1} outside smoke band"
     """OSS #31: optional audit-only challenger rule path vs production canary."""
 
     @pytest.mark.asyncio

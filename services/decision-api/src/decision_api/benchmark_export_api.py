@@ -78,7 +78,7 @@ def _run_vertical_benchmark(
 ) -> dict[str, Any]:
     import random
 
-    from decision_api.simulation_api import _eval_with_override_rules
+    from decision_api.simulation_api import _eval_vertical_benchmark_baseline, _eval_with_override_rules
     from decision_api.simulator import (
         SCENARIO_TEMPLATES,
         analyze_simulation,
@@ -97,7 +97,7 @@ def _run_vertical_benchmark(
             raise HTTPException(404, f"Unknown vertical pack: {vertical}")
         random.seed(seed)
         events = generate_scenario(profile)
-        baseline = [_eval_with_override_rules(e, []) for e in events]
+        baseline = [_eval_vertical_benchmark_baseline(e) for e in events]
         vertical_decisions = [
             _eval_with_override_rules(e, pack.get("rules", [])) for e in events
         ]
