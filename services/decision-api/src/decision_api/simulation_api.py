@@ -181,6 +181,30 @@ class ABTestRequest(BaseModel):
     allow_underpowered: bool = False
 
 
+def _decision_from_score(score: float) -> str:
+    if score >= settings.deny_threshold:
+        return "deny"
+    if score >= settings.review_threshold:
+        return "review"
+    return "allow"
+
+
+def _eval_vertical_benchmark_baseline(event: dict[str, Any]) -> dict[str, Any]:
+    """Score-floor baseline for vertical pack benchmarks (no RULES_PATH packs).
+
+    ``_eval_with_override_rules(e, [])`` means production rules (AB-test semantics);
+    vertical smoke compares pack-only rules against an unscoped floor so deltas stay
+    stable as the default rules directory grows.
+    """
+    score = 10.0
+    return {
+        "decision": _decision_from_score(score),
+        "score": score,
+        "rule_hits": [],
+        "tags": [],
+    }
+
+
 def _eval_with_override_rules(
     event: dict[str, Any], override_rules: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -306,7 +330,7 @@ async def benchmark_vertical_pack(body: VerticalBenchmarkRequest):
 
     events = generate_scenario(profile)
     _reject_underpowered(len(events), body.allow_underpowered)
-    baseline = [_eval_with_override_rules(e, []) for e in events]
+    baseline = [_eval_vertical_benchmark_baseline(e) for e in events]
     vertical = [
         _eval_with_override_rules(e, vertical_pack.get("rules", [])) for e in events
     ]
