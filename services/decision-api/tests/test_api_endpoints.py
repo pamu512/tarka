@@ -602,6 +602,7 @@ class TestVerticalPacks:
         delta = r.json()["delta"]
         f1 = float(delta["f1_score"])
         assert -0.2 <= f1 <= 0.5, f"fintech delta.f1_score={f1} outside smoke band"
+
     """OSS #31: optional audit-only challenger rule path vs production canary."""
 
     @pytest.mark.asyncio

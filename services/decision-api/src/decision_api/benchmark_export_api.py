@@ -78,7 +78,10 @@ def _run_vertical_benchmark(
 ) -> dict[str, Any]:
     import random
 
-    from decision_api.simulation_api import _eval_vertical_benchmark_baseline, _eval_with_override_rules
+    from decision_api.simulation_api import (
+        _eval_vertical_benchmark_baseline,
+        _eval_with_override_rules,
+    )
     from decision_api.simulator import (
         SCENARIO_TEMPLATES,
         analyze_simulation,
