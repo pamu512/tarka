@@ -22,6 +22,12 @@ interface ImportMetaEnv {
   readonly VITE_SHOW_DEMO_BADGES?: string;
   /** Lean analyst nav — triad + cases (default on). Set `false` at **build** time for full brochure/demo surface. */
   readonly VITE_LEAN_NAV?: string;
+  /** Graph plane. Empty / absent = plane off (hide /graph, deep link shows Plane off). */
+  readonly VITE_GRAPH_SERVICE_URL?: string;
+  /** Advise / investigation-agent plane. Empty = plane off. */
+  readonly VITE_INVESTIGATION_AGENT_URL?: string;
+  /** signal-api plane (features / ML / calibration). Empty = plane off. */
+  readonly VITE_SIGNAL_API_URL?: string;
 }
 
 interface ImportMeta {

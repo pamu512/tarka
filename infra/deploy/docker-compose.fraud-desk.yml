@@ -1,4 +1,4 @@
-# Fraud desk Day-1 profile (missed-mark bridge Track A4)
+# Thin desk overlay (evaluate-only UI) — lean nav + desk-strict.
 #
 # From repository root:
 #   docker compose \
@@ -6,8 +6,9 @@
 #     -f infra/deploy/docker-compose.fraud-desk.yml \
 #     up --build
 #
-# Does NOT enable --profile graph (no Janus/Gremlin). Desk is the Linux default.
-# Frontend: lean nav + desk-strict (no auto mock fallback on case/calibration/QA).
+# Does NOT start investigation-agent, signal-api, or integration-ingress.
+# Does NOT enable --profile graph. Empty plane URLs hide Graph / Advise chrome.
+# Former ~8 GB "Desk" (agent + signals + ingress) is docker-compose.full-desk.yml.
 
 services:
   frontend:

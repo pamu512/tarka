@@ -207,9 +207,10 @@ Sibling bridges (refund/cancel/dispute) are **advisory / fail-soft**: missing UR
 
 | Compose | Hosts which flows |
 |---------|-------------------|
-| `docker-compose.lite.yml` | Evaluate + cases via core-api; trend store volume; desk UI |
+| `docker-compose.lite.yml` | Evaluate-only: core-api + postgres/redis + frontend |
 | `docker-compose.v2-ingest.yml` | Ingest → decide → Shadow; optional `trend-tick` |
-| fraud-desk overlay | Lean nav + desk-strict mocks |
+| fraud-desk overlay | Thin desk: lean nav + desk-strict mocks |
+| investigation / signals overlays | Advise plane / signal-api + ingress (see [SRE compose profiles](../operations/sre-compose-profiles.md)) |
 
 Gateway map: [frontend/nginx.conf](../../../frontend/nginx.conf).
 

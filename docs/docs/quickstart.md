@@ -8,19 +8,18 @@ Get a Tarka desk stack running and evaluate a first decision.
 - Python 3.11+ (optional CLI)
 - Git
 
-## Day-1: fraud desk (recommended)
+## Day-1: evaluate-only (recommended)
 
 ```bash
 git clone https://github.com/pamu512/tarka.git
 cd tarka
 
-docker compose \
-  -f infra/deploy/docker-compose.lite.yml \
-  -f infra/deploy/docker-compose.fraud-desk.yml \
-  up --build
+docker compose -f infra/deploy/docker-compose.lite.yml up --build
 ```
 
-This brings up **Postgres**, **Redis**, **core-api** (decision-api + case-api), **integration-ingress**, **signal-api**, and the **frontend**. Lean nav + desk-strict mocks are on by default.
+This brings up **Postgres**, **Redis**, **core-api** (decision-api + case-api), and the **frontend**. It does **not** start investigation-agent, signal-api, or integration-ingress.
+
+Thin desk (lean nav + desk-strict): also merge `infra/deploy/docker-compose.fraud-desk.yml`. Full desk / +investigation / +signals: [SRE compose profiles](operations/sre-compose-profiles.md).
 
 **15-minute first decision:** [oss-15-minute-first-decision](guides/oss-15-minute-first-decision.md)
 

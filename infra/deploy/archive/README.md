@@ -22,7 +22,7 @@ docker compose \
 
 ## Canonical compose (stay under `infra/deploy/`)
 
-1. **Desk / day-1:** `docker-compose.lite.yml` + `docker-compose.fraud-desk.yml`
+1. **Evaluate-only / day-1:** `docker-compose.lite.yml` (optional fraud-desk). Full desk: `docker-compose.full-desk.yml`.
 2. **Local modular / profiles:** `docker-compose.yml` (`core`, `full`, `graph`, …)
 3. **Production hardening overlay:** `docker-compose.production-hardening.yml`
 

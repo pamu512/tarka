@@ -1,0 +1,41 @@
+# Evaluate-only sketch — matches compose docker-compose.lite.yml Day-1.
+# Chart values.yaml already defaults investigationAgent / signalApi /
+# integrationIngress to false. This file makes that shape explicit.
+#
+#   helm install tarka infra/deploy/helm/fraud-stack \
+#     -f infra/deploy/helm/fraud-stack/values.yaml \
+#     -f infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml
+#
+# Do not use this file to enable investigation. prod-on-k8s is a separate HA
+# overlay and may turn investigation on; it is not this evaluate-only shape.
+
+coreApi:
+  enabled: true
+  replicaCount: 1
+
+signalApi:
+  enabled: false
+
+investigationAgent:
+  enabled: false
+
+integrationIngress:
+  enabled: false
+
+graphService:
+  enabled: false
+
+nats:
+  enabled: false
+
+clickhouse:
+  enabled: false
+
+dataPlane:
+  enabled: false
+
+graphqlGateway:
+  enabled: false
+
+frontend:
+  enabled: true

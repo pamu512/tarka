@@ -6,13 +6,13 @@ Tarka is a local-first fraud OS: evaluate packs + audit trail + analyst desk.
 
 ## Day-1 (compose)
 
-Same two compose files as [`docs/INDEX.md`](docs/INDEX.md) and the [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md):
+Evaluate-only lite (Rust packs + `core-api`). Thin desk overlay is optional. Same path as [`docs/INDEX.md`](docs/INDEX.md) and the [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 ```bash
-docker compose \
-  -f infra/deploy/docker-compose.lite.yml \
-  -f infra/deploy/docker-compose.fraud-desk.yml \
-  up --build
+docker compose -f infra/deploy/docker-compose.lite.yml up --build
+# thin desk (lean /decisions + /rules):
+#   -f infra/deploy/docker-compose.fraud-desk.yml
+# + investigation / + signals / full desk: see the SRE runbook
 ```
 
 - [Author a pack](docs/docs/guides/rules.md) — JSON rule packs (strategy analyst)
@@ -40,7 +40,7 @@ Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
 Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
 
-Optional after desk works: graph (`--profile graph`) and local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Optional after evaluate works: investigation overlay, signals overlay, graph (`--profile graph`), local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 **15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 

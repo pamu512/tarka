@@ -40,13 +40,10 @@ Do not collapse them into one workflow. Do not invent review rates.
 ## Compose (one story)
 
 ```bash
-docker compose \
-  -f infra/deploy/docker-compose.lite.yml \
-  -f infra/deploy/docker-compose.fraud-desk.yml \
-  up --build
+docker compose -f infra/deploy/docker-compose.lite.yml up --build
 ```
 
-Same command as the README. Lab / legacy files (`v2-ingest`, graph-wire, streams-ai, …) live under `infra/deploy/archive/`.
+Evaluate-only Day-1 (same as the README). Thin desk: add `-f infra/deploy/docker-compose.fraud-desk.yml`. Investigation / signals / full desk: [SRE compose profiles](docs/operations/sre-compose-profiles.md). Lab / legacy files (`v2-ingest`, graph-wire, streams-ai, …) live under `infra/deploy/archive/`.
 
 ## Wiki
 
