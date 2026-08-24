@@ -15,7 +15,8 @@ describe("ForbiddenUnauthorized", () => {
     const link = screen.getByRole("link", { name: /back to desk/i });
     expect(link).toHaveAttribute("href", leanHomePath());
     expect(link).not.toHaveAttribute("href", "/dashboard");
-    expect(leanHomePath()).toBe("/cases");
+    expect(leanHomePath()).toBe("/decisions");
+    expect(link).toHaveAttribute("href", "/decisions");
     const signIn = screen.getByRole("link", { name: /sign in/i });
     expect(signIn).toHaveAttribute("href", "/login");
   });

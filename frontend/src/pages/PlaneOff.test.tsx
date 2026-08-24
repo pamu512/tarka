@@ -18,6 +18,8 @@ describe("PlaneOff", () => {
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
     const back = screen.getByRole("link", { name: /back to desk/i });
     expect(back).toHaveAttribute("href", leanHomePath());
+    expect(back).toHaveAttribute("href", "/decisions");
+    expect(back).not.toHaveAttribute("href", "/cases");
   });
 
   it("states Advise plane off", () => {

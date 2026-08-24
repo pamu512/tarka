@@ -10,13 +10,14 @@ async function loadLeanNav() {
 }
 
 describe("leanNav", () => {
-  it("defaults to lean home /cases when VITE_LEAN_NAV is unset", async () => {
+  it("defaults to lean home /decisions when VITE_LEAN_NAV is unset", async () => {
     vi.stubEnv("VITE_LEAN_NAV", undefined);
     vi.resetModules();
     const { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath } = await loadLeanNav();
     expect(LEAN_NAV).toBe(true);
     expect(INCLUDE_DEMO_SURFACE).toBe(false);
-    expect(leanHomePath()).toBe("/cases");
+    expect(leanHomePath()).toBe("/decisions");
+    expect(leanHomePath()).not.toBe("/cases");
   });
 
   it("uses demo home /command-center when VITE_LEAN_NAV=false", async () => {
