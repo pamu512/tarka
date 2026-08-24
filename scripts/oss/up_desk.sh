@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command OSS desk: lite + fraud-desk, then first-decision smoke.
+# One-command OSS thin desk: evaluate-only lite + fraud-desk UI, then first-decision smoke.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"

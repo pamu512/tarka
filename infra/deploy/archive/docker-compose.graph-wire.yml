@@ -13,10 +13,12 @@ services:
     environment:
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
       DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}
-  investigation-agent:
-    environment:
-      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
-      DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
   graph-service:
     environment:
       DECISION_GRAPH_ENABLED: ${DECISION_GRAPH_ENABLED:-1}

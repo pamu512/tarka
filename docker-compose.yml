@@ -1,4 +1,6 @@
-# One compose front door (same as README / docs/INDEX.md):
+# Thin-desk front door (evaluate-only lite + lean UI). Same as README / docs/INDEX.md.
+# Does not start investigation-agent, signal-api, or integration-ingress.
+# Full desk (~8 GB): infra/deploy/docker-compose.full-desk.yml
 #
 #   docker compose \
 #     -f infra/deploy/docker-compose.lite.yml \

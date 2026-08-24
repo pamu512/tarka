@@ -5,7 +5,7 @@ import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { parseCaseDetailRoute, parseCaseOpenInput } from "../utils/caseOpenQuery";
 import { ModuleIcon, type ModuleId } from "./ModuleIcon";
-import { LEAN_NAV, isProductionSurfacePath } from "../config/leanNav";
+import { LEAN_NAV, isNavItemVisible } from "../config/leanNav";
 
 type CommandItem = {
   id: string;
@@ -192,9 +192,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
   { to: "/help", label: "Help & guide", module: "help", keywords: "docs" },
 ];
 
-const MODULE_ROUTES = LEAN_NAV
-  ? MODULE_ROUTES_ALL.filter((r) => isProductionSurfacePath(r.to))
-  : MODULE_ROUTES_ALL;
+const MODULE_ROUTES = MODULE_ROUTES_ALL.filter((r) => isNavItemVisible(r.to));
 
 function normalize(s: string) {
   return s.toLowerCase().trim();

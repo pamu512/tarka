@@ -1,6 +1,6 @@
-# Minimal in-cluster profile (Lite-ish).
-# Closest fraud-stack toggles for a small footprint — not a 1:1 of
-# infra/deploy/docker-compose.lite.yml (core-api + signal-api).
+# Minimal in-cluster profile (Lite-ish). Not evaluate-only: this preset still
+# enables investigation-agent + data-plane. For compose-shaped evaluate-only
+# (core-api + frontend, planes off) use presets/evaluate-only.yaml.
 #
 #   helm install tarka infra/deploy/helm/fraud-stack \
 #     -f infra/deploy/helm/fraud-stack/values.yaml \

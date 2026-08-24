@@ -103,6 +103,9 @@ coreApi:
     botScoreReviewThreshold: 50
   extraEnv: {}
 
+# Chart default is evaluate / core-only. signal-api, investigation-agent, and
+# integration-ingress stay off until a preset or --set turns them on.
+# Compose equivalent: docker-compose.lite.yml (see presets/evaluate-only.yaml).
 signalApi:
   enabled: false
   image: tarka-signal-api

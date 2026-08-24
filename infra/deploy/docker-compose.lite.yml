@@ -1,16 +1,23 @@
-# Tarka Lite — "try it in 5 minutes" deployment
-# Core: postgres, redis, core-api (decision+case), integration-ingress, frontend.
-# Optional OSS path: janusgraph/janusgraph:1.0.0 (BerkeleyJE volume) + graph-service (profile: graph); signal-api is always on for core-api.
-# so policy routing, typologies, velocities, and graph checkpoints work without the full stack.
+# Tarka Lite — evaluate-only Day-1 (Rust packs + core-api + thin desk).
+# Default services: postgres, redis, core-api (decision+case), frontend.
+# Empty URL = plane off. signal-api, integration-ingress, investigation-agent
+# are additive overlays — they do NOT start on `docker compose -f …lite.yml up`.
 #
 # Usage:
 #   docker compose -f infra/deploy/docker-compose.lite.yml up --build
+# Thin desk (lean /decisions + /rules + residual /cases):
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up --build
+# + investigation (Advise / copilot):
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.investigation.yml up --build
+# + signals (signal-api + integration-ingress + nats):
+#   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.signals.yml up --build
+# Full desk (~8 GB): infra/deploy/docker-compose.full-desk.yml
 # Optional async ingest (data-plane :8007 + orchestrator :8790 + outbox-processor):
 #   docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up --build
 # Optional graph evaluate read (sets GRAPH_SERVICE_URL):
 #   docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/archive/docker-compose.graph-wire.yml --profile graph up --build
-# Day-1 desk: also merge infra/deploy/docker-compose.fraud-desk.yml (see README / docs/INDEX.md).
 # Demo vertical overlay (archived): infra/deploy/archive/docker-compose.demo-vertical.yml
+# Profiles: docs/docs/operations/sre-compose-profiles.md
 
 name: tarka-lite
 
@@ -49,6 +56,8 @@ services:
       - "4222:4222"
     volumes:
       - fraud_nats_lite:/data
+    # Sync evaluate does not use NATS. Started with --profile ingest or the signals overlay.
+    profiles: [ingest]
 
   janusgraph:
     image: docker.io/janusgraph/janusgraph:1.0.0
@@ -76,10 +85,10 @@ services:
       REDIS_URL: redis://redis:6379/0
       AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       RULES_PATH: /app/rules
-      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
-      ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-}
+      ML_SCORING_URL: ${ML_SCORING_URL:-}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
-      NATS_URL: ${NATS_URL:-nats://nats:4222}
+      NATS_URL: ${NATS_URL:-}
       OPA_URL: ""
       EDGE_SECURITY_SIGNALS_ENABLED: ${EDGE_SECURITY_SIGNALS_ENABLED:-false}
       API_KEYS: ${API_KEYS:-}
@@ -101,10 +110,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      nats:
-        condition: service_started
-      signal-api:
-        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/health')"]
       interval: 10s
@@ -125,49 +130,6 @@ services:
       janusgraph:
         condition: service_healthy
     profiles: [graph]
-
-  signal-api:
-    build:
-      context: ../..
-      dockerfile: services/signal-api/Dockerfile
-    environment:
-      REDIS_URL: redis://redis:6379/0
-      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
-      FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
-      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
-      DISABLE_ML: ${DISABLE_ML:-true}
-    ports:
-      - "8004:8004"
-    depends_on:
-      redis:
-        condition: service_healthy
-
-  integration-ingress:
-    build:
-      context: ../..
-      dockerfile: services/integration-ingress/Dockerfile
-    environment:
-      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
-      KMS_PROVIDER: local
-      KMS_ACTIVE_KEY_ID: lite-v1
-      INTEGRATION_VAULT_KEY: lite-dev-key
-      NATS_URL: nats://nats:4222
-      REDIS_URL: redis://redis:6379/0
-    ports:
-      - "8003:8003"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      nats:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/v1/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
 
   data-plane:
     build:
@@ -260,41 +222,6 @@ services:
         condition: service_started
     profiles: [ingest]
 
-  investigation-agent:
-    build:
-      context: ../..
-      dockerfile: services/investigation-agent/Dockerfile
-    environment:
-      CASE_API_URL: http://core-api:8000/cases
-      DECISION_API_URL: http://core-api:8000/decisions
-      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
-      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
-      LLM_PROVIDER_FALLBACKS: ${LLM_PROVIDER_FALLBACKS:-anthropic,gemini,ollama}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      API_KEYS: ${API_KEYS:-}
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
-      OKF_ENABLED: ${OKF_ENABLED:-true}
-      OKF_SHARED_ROOT: /app/knowledge/shared
-      OKF_TENANT_ROOT: /var/lib/tarka/knowledge/tenants
-      INVESTIGATION_DATA_DIR: /var/lib/tarka/investigation-agent
-    ports:
-      - "8006:8006"
-    volumes:
-      - ${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
-      - investigation_agent_data:/var/lib/tarka/investigation-agent
-    depends_on:
-      core-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/v1/ready')"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
-
   frontend:
     build:
       context: ../..
@@ -303,9 +230,6 @@ services:
       - "3000:80"
     depends_on:
       - core-api
-      - integration-ingress
-      - signal-api
-      - investigation-agent
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
       interval: 10s
@@ -316,5 +240,4 @@ volumes:
   fraud_pg:
   fraud_nats_lite:
   trend_agent_data:
-  investigation_agent_data:
   janusgraph_data:

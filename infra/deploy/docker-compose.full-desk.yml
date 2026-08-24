@@ -1,0 +1,13 @@
+# Full analyst desk (~8 GB planning floor) — evaluate + signals + investigation + thin UI.
+# Day-1 is evaluate-only lite (optionally + fraud-desk). This file is the former
+# "Desk" shape that bundled agent + signal-api + ingress as if they were evaluate tax.
+#
+#   docker compose -f infra/deploy/docker-compose.full-desk.yml up --build
+#
+# Does NOT enable --profile graph. See docs/docs/operations/sre-compose-profiles.md.
+
+include:
+  - path: docker-compose.lite.yml
+  - path: docker-compose.fraud-desk.yml
+  - path: docker-compose.signals.yml
+  - path: docker-compose.investigation.yml

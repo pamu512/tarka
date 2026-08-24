@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { TarkaLogo } from "../components/TarkaLogo";
-import { LEAN_NAV, LEAN_NAV_PATHS } from "../config/leanNav";
+import { LEAN_NAV, isPlaneEnabled, visibleLeanNavPaths } from "../config/leanNav";
 
 function Section({
   id,
@@ -29,7 +29,7 @@ function Sub({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const DESK_PATHS = [...LEAN_NAV_PATHS].sort();
+const DESK_PATHS = visibleLeanNavPaths();
 
 export default function Help() {
   return (
@@ -145,12 +145,21 @@ export default function Help() {
       </Section>
 
       <Section id="graph-rules" title="Graph &amp; rules">
-        <Sub title="Graph (/graph)">
-          <p>
-            Entity neighborhood for the workspace tenant. Tenant is the same workspace id as the top bar (
-            <code className="text-gray-500">tarka-workspace-tenant</code>), not a second localStorage key.
-          </p>
-        </Sub>
+        {isPlaneEnabled("graph") ? (
+          <Sub title="Graph (/graph)">
+            <p>
+              Entity neighborhood for the workspace tenant. Tenant is the same workspace id as the top bar (
+              <code className="text-gray-500">tarka-workspace-tenant</code>), not a second localStorage key.
+            </p>
+          </Sub>
+        ) : (
+          <Sub title="Graph">
+            <p>
+              Plane off when <code className="text-gray-500">GRAPH_SERVICE_URL</code> is empty. Deep links render
+              that state; they do not productize a 503.
+            </p>
+          </Sub>
+        )}
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
@@ -161,8 +170,9 @@ export default function Help() {
 
       <Section id="ops" title="Ops">
         <p>
-          Calibration, QA, dispute deadlines, counters, and SAR transport sit on the lean ops
-          strip. They read live decision/case APIs and fail closed when those APIs are down.
+          QA, dispute deadlines, and SAR transport sit on the lean ops strip when those case-api
+          routes are in the nav. Calibration and counters appear only when the signals plane URL is
+          set. They read live APIs and fail closed when those APIs are down.
         </p>
       </Section>
 

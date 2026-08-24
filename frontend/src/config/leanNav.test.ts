@@ -60,4 +60,59 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/simulation")).toBe(false);
     expect(isProductionSurfacePath("/shadow")).toBe(false);
   });
+
+  it("treats empty plane URLs as off and hides Graph / Advise / signal chrome", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "");
+    vi.stubEnv("VITE_INVESTIGATION_AGENT_URL", "  ");
+    vi.stubEnv("VITE_SIGNAL_API_URL", undefined);
+    vi.resetModules();
+    const {
+      isPlaneEnabled,
+      isNavItemVisible,
+      visibleLeanNavPaths,
+      planeForPath,
+    } = await loadLeanNav();
+    expect(isPlaneEnabled("graph")).toBe(false);
+    expect(isPlaneEnabled("advise")).toBe(false);
+    expect(isPlaneEnabled("signals")).toBe(false);
+    expect(planeForPath("/graph")).toBe("graph");
+    expect(planeForPath("/graph/mule-path")).toBe("graph");
+    expect(planeForPath("/investigation/shadow-llm")).toBe("advise");
+    expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/investigation/shadow-llm")).toBe(false);
+    expect(isNavItemVisible("/ops/calibration")).toBe(false);
+    expect(isNavItemVisible("/ops/counters")).toBe(false);
+    expect(isNavItemVisible("/decisions")).toBe(true);
+    expect(isNavItemVisible("/rules")).toBe(true);
+    expect(isNavItemVisible("/cases")).toBe(true);
+    expect(visibleLeanNavPaths()).not.toContain("/graph");
+    expect(visibleLeanNavPaths()).toContain("/decisions");
+    expect(visibleLeanNavPaths()).toContain("/rules");
+  });
+
+  it("shows Graph / Advise / signal chrome when plane URLs are set", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.stubEnv("VITE_INVESTIGATION_AGENT_URL", "http://investigation-agent:8006");
+    vi.stubEnv("VITE_SIGNAL_API_URL", "http://signal-api:8004");
+    vi.resetModules();
+    const { isPlaneEnabled, isNavItemVisible } = await loadLeanNav();
+    expect(isPlaneEnabled("graph")).toBe(true);
+    expect(isPlaneEnabled("advise")).toBe(true);
+    expect(isPlaneEnabled("signals")).toBe(true);
+    expect(isNavItemVisible("/graph")).toBe(true);
+    expect(isNavItemVisible("/ops/calibration")).toBe(true);
+    expect(isNavItemVisible("/investigation")).toBe(false);
+  });
+
+  it("hides Graph on the brochure surface when the graph URL is empty", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "false");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "");
+    vi.resetModules();
+    const { isNavItemVisible, INCLUDE_DEMO_SURFACE } = await loadLeanNav();
+    expect(INCLUDE_DEMO_SURFACE).toBe(true);
+    expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/command-center")).toBe(true);
+  });
 });
