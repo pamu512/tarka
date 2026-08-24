@@ -407,10 +407,10 @@ export default function App() {
               </>
             ) : (
               <>
-                <Route path="/command-center" element={<Navigate to="/cases" replace />} />
+                <Route path="/command-center" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/shadow" element={<Navigate to="/ops/shadow" replace />} />
-                <Route path="/exec-dashboards" element={<Navigate to="/cases" replace />} />
-                <Route path="/ops/workload" element={<Navigate to="/cases" replace />} />
+                <Route path="/exec-dashboards" element={<Navigate to={leanHomePath()} replace />} />
+                <Route path="/ops/workload" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <Navigate to="/graph" replace /> : <PlaneOff plane="graph" />} />
                 <Route path="/analytics/review-rings" element={<Navigate to="/analytics" replace />} />
                 <Route path="/ops/ml-lifecycle" element={<Navigate to="/ops/calibration" replace />} />
@@ -429,9 +429,9 @@ export default function App() {
                 <Route path="/ops/backups" element={<Navigate to="/ops/infra" replace />} />
                 <Route path="/integrations/webhook-logs" element={<Navigate to="/integrations" replace />} />
                 <Route path="/integrations/rate-limit-shields" element={<Navigate to="/integrations" replace />} />
-                <Route path="/analytics/promo-abuse" element={<Navigate to="/cases" replace />} />
-                <Route path="/integrations/seller-integrity" element={<Navigate to="/cases" replace />} />
-                <Route path="/integrations/payout-delay" element={<Navigate to="/cases" replace />} />
+                <Route path="/analytics/promo-abuse" element={<Navigate to={leanHomePath()} replace />} />
+                <Route path="/integrations/seller-integrity" element={<Navigate to={leanHomePath()} replace />} />
+                <Route path="/integrations/payout-delay" element={<Navigate to={leanHomePath()} replace />} />
                 {/* Stale / unknown paths not in isProductionSurfacePath allowlist */}
                 <Route path="*" element={<Navigate to={leanHomePath()} replace />} />
               </>

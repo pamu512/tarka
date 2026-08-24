@@ -6,7 +6,7 @@
  * chrome when the corresponding frontend URL is unset.
  *
  * - Production image (frontend/Dockerfile): `ARG VITE_LEAN_NAV=true` — brochure
- *   routes are not registered; deep links to unknown paths redirect home.
+ *   routes are not registered; deep links to unknown paths redirect to `/decisions`.
  * - Demo: `docker compose … --build-arg VITE_LEAN_NAV=false` or merge
  *   `infra/deploy/docker-compose.demo-vertical.yml` (sets the build arg).
  */
@@ -81,8 +81,11 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/help",
 ]);
 
+/** Evaluate-only / thin desk home — decision stream, not the residual cases inbox. */
 export function leanHomePath(): string {
-  return LEAN_NAV ? "/cases" : "/command-center";
+  if (!LEAN_NAV) return "/command-center";
+  if (LEAN_NAV_PATHS.has("/decisions")) return "/decisions";
+  return "/rules";
 }
 
 /** True when this path is part of the production lean surface (or a case/dispute deep link). */

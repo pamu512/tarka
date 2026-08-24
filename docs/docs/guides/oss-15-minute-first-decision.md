@@ -61,7 +61,7 @@ curl -sS -X POST 'http://127.0.0.1:8000/decisions/v1/decisions/evaluate' \
 
 ### 3. UI (optional)
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — Cases / audit should reflect the evaluate when the stack is wired (Lite frontend → core-api).
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — first paint is `/decisions` (evaluate stream), not the residual cases inbox. Audit on that page should reflect the evaluate when the stack is wired (Lite frontend → core-api).
 
 ## Next after first decision
 

@@ -179,7 +179,7 @@ export default function Help() {
       <Section id="account" title="Settings">
         <p>
           Workspace appearance (light, dark, or system). Sign out from the account menu clears the browser session
-          tokens and returns you to the case queue. Full OIDC SSO is not on this desk yet.
+          tokens and returns you to the decision stream. Full OIDC SSO is not on this desk yet.
         </p>
       </Section>
     </div>
