@@ -53,6 +53,9 @@ def test_source_includes_existing_keys():
         "tags",
         "ai_confidence",
         "created_at",
+        "rule_hits",
+        "rule_pack_file",
+        "integrity",
     ):
         assert expected in keys, f"{expected} missing from returned keys: {keys}"
 

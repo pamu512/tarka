@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from decision_api.audit_recent_derive import derive_rule_result
+from decision_api.device_integrity import audit_integrity
 from decision_api.models import AuditRecord
 
 
@@ -58,4 +59,7 @@ def shape_audit_recent_item(row: AuditRecord) -> dict[str, Any]:
         "tags": list(row.tags) if row.tags else [],
         "ai_confidence": _ai_confidence(snap),
         "created_at": row.created_at.isoformat() if row.created_at else None,
+        "rule_hits": list(row.rule_hits) if row.rule_hits else [],
+        "rule_pack_file": snap.get("rule_pack_file"),
+        "integrity": audit_integrity(snap),
     }
