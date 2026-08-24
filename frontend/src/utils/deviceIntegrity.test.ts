@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { DEVICE_INTEGRITY_MISSING, resolveDeviceIntegrity } from "./deviceIntegrity";
+import {
+  DEVICE_INTEGRITY_MISSING,
+  resolveDeviceIntegrity,
+  resolveIntegrityPresence,
+} from "./deviceIntegrity";
 
 describe("resolveDeviceIntegrity", () => {
   it("says missing for every field when nothing is on the case", () => {
@@ -61,5 +65,39 @@ describe("resolveDeviceIntegrity", () => {
       device_context: { signals: { is_rooted: false } },
     });
     expect(view.rooted).toBe("no");
+  });
+});
+
+describe("resolveIntegrityPresence", () => {
+  it("uses evaluate audit integrity map when present", () => {
+    const view = resolveIntegrityPresence({
+      integrity: {
+        is_rooted: "true",
+        is_jailbroken: "present",
+        has_biometrics: "missing",
+      },
+    });
+    expect(view.rooted).toBe("true");
+    expect(view.jailbroken).toBe("present");
+    expect(view.biometrics).toBe("missing");
+  });
+
+  it("derives present|missing|true and never invents false for omitted fields", () => {
+    const omitted = resolveIntegrityPresence({
+      device_context: { signals: { is_emulator: false } },
+    });
+    expect(omitted.rooted).toBe("missing");
+    expect(omitted.jailbroken).toBe("missing");
+    expect(omitted.biometrics).toBe("missing");
+
+    const explicitFalse = resolveIntegrityPresence({
+      device_context: { signals: { is_rooted: false } },
+    });
+    expect(explicitFalse.rooted).toBe("present");
+
+    const rooted = resolveIntegrityPresence({
+      device_context: { signals: { is_rooted: true } },
+    });
+    expect(rooted.rooted).toBe("true");
   });
 });

@@ -66,6 +66,18 @@
       "when": [{ "op": "is_true", "field": "ip_is_datacenter" }],
       "tags": ["sdk:datacenter"],
       "score_delta": 20
+    },
+    {
+      "id": "sdk_rooted",
+      "when": [{ "op": "is_true", "field": "is_rooted" }],
+      "tags": ["sdk:rooted"],
+      "score_delta": 40
+    },
+    {
+      "id": "sdk_jailbroken",
+      "when": [{ "op": "is_true", "field": "is_jailbroken" }],
+      "tags": ["sdk:jailbroken"],
+      "score_delta": 40
     }
   ],
   "tag_rules": []

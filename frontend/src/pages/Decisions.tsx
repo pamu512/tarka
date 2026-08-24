@@ -9,7 +9,11 @@ import {
 } from "../api/client";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { PageTitle } from "../components/PageTitle";
+import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
+import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { packIdFromRulePackFile, resolvePackWhy } from "../utils/packWhy";
+import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
 
 function formatAmount(amount: number | null, currency: string | null): string {
   if (amount == null && !currency) return "—";
@@ -37,6 +41,22 @@ function RuleResultPill({ result }: { result: AuditRuleResult }) {
       {result}
     </span>
   );
+}
+
+function compactIntegrity(row: AuditRecentItem): string {
+  const view = resolveIntegrityPresence({
+    integrity: row.integrity,
+    tags: row.tags,
+  });
+  return `rooted ${view.rooted} · jailbroken ${view.jailbroken} · bio ${view.biometrics}`;
+}
+
+function compactPack(row: AuditRecentItem): string {
+  return packIdFromRulePackFile(row.rule_pack_file) ?? "missing";
+}
+
+function compactRule(row: AuditRecentItem): string {
+  return row.rule_hits?.length ? row.rule_hits.join(", ") : "missing";
 }
 
 function uniqueSorted(items: AuditRecentItem[], key: "event_type" | "rule_result"): string[] {
@@ -151,6 +171,33 @@ export default function Decisions() {
     };
   }, [traceId, tenantId]);
 
+  const packWhy = useMemo(
+    () =>
+      detail
+        ? {
+            ...resolvePackWhy({
+              rule_pack_file: detail.rule_pack_file,
+              rule_hits: detail.rule_hits,
+              evaluate_payload: detail.evaluate_payload ?? null,
+            }),
+            advise: null,
+          }
+        : null,
+    [detail],
+  );
+
+  const integrity = useMemo(
+    () =>
+      detail
+        ? resolveIntegrityPresence({
+            integrity: detail.integrity,
+            tags: detail.tags,
+            evaluate_payload: detail.evaluate_payload ?? null,
+          })
+        : null,
+    [detail],
+  );
+
   return (
     <div className="p-6 space-y-5 animate-fade-in" data-testid="decisions-queue">
       <div className="space-y-1">
@@ -192,6 +239,9 @@ export default function Decisions() {
                 hint={detailError ? "Fail-closed: no invented analyst snapshot." : undefined}
               />
               {detail ? (
+                <>
+                {packWhy ? <PackWhyStrip {...packWhy} /> : null}
+                {integrity ? <DeviceIntegrityStrip {...integrity} /> : null}
                 <dl className="grid gap-2 sm:grid-cols-2 text-sm">
                   <div>
                     <dt className="text-[11px] text-gray-500">Trace</dt>
@@ -220,6 +270,7 @@ export default function Decisions() {
                     </dd>
                   </div>
                 </dl>
+                </>
               ) : !detailError ? (
                 <p className="text-sm text-gray-500" data-testid="decisions-detail-empty">
                   No audit row for this trace.
@@ -277,6 +328,9 @@ export default function Decisions() {
                   <th className="text-left py-3 px-4 font-medium">Event type</th>
                   <th className="text-left py-3 px-4 font-medium">Decision</th>
                   <th className="text-left py-3 px-4 font-medium">Rule result</th>
+                  <th className="text-left py-3 px-4 font-medium">Pack</th>
+                  <th className="text-left py-3 px-4 font-medium">Rule</th>
+                  <th className="text-left py-3 px-4 font-medium">Integrity</th>
                   <th className="text-left py-3 px-4 font-medium">Amount</th>
                   <th className="text-left py-3 px-4 font-medium">Created</th>
                   <th className="text-left py-3 px-4 font-medium">Trace</th>
@@ -302,6 +356,9 @@ export default function Decisions() {
                     <td className="py-3 px-4">
                       <RuleResultPill result={row.rule_result} />
                     </td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-300">{compactPack(row)}</td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-300">{compactRule(row)}</td>
+                    <td className="py-3 px-4 font-mono text-xs text-gray-400">{compactIntegrity(row)}</td>
                     <td className="py-3 px-4 font-mono text-xs text-gray-300">
                       {formatAmount(row.amount, row.currency)}
                     </td>

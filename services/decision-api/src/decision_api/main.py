@@ -2613,6 +2613,9 @@ async def get_audit(
         "enforcement_action": snap.get("enforcement_action"),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
+    from decision_api.device_integrity import audit_integrity
+
+    out["integrity"] = audit_integrity(snap)
     ge = snap.get("graph_decision_explanation")
     if isinstance(ge, dict):
         out["graph_decision_explanation"] = ge
@@ -2638,6 +2641,7 @@ async def get_audit(
             "advise_timed_out",
             "reasoning",
             "rule_pack_file",
+            "integrity",
         ):
             if k in snap and k not in ep:
                 ep[k] = snap[k]

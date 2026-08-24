@@ -22,6 +22,7 @@ export type PackWhySource = {
   pack_id?: string | null;
   pack_name?: string | null;
   pack_reason?: string | null;
+  rule_hits?: readonly string[] | null;
   reasons?: readonly string[] | null;
   driver_explain?: ReadonlyArray<{ label?: string; reason?: string }> | null;
   evaluate_payload?: Record<string, unknown> | null;
@@ -130,9 +131,16 @@ export function resolvePackWhy(input: PackWhySource): PackWhyView {
   );
   const reasoning = firstNonEmpty(trimStr(ep?.reasoning));
   const reasoningIfPlain = reasoning && !isTechnicalReasoning(reasoning) ? reasoning : null;
+  const ruleHitsWhy = input.rule_hits?.length
+    ? input.rule_hits.filter((h) => typeof h === "string" && h.trim()).join(", ")
+    : null;
   const why =
-    firstNonEmpty(explicitReason, reasoningIfPlain, firstDriverLabel(input.driver_explain)) ??
-    PACK_WHY_MISSING;
+    firstNonEmpty(
+      explicitReason,
+      reasoningIfPlain,
+      firstDriverLabel(input.driver_explain),
+      ruleHitsWhy,
+    ) ?? PACK_WHY_MISSING;
 
   const fromPayload = payloadAdvise(ep);
   const status = firstNonEmpty(input.advise_status, input.advise_error);
