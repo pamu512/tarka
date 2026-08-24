@@ -75,6 +75,16 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBe("Ask the cardholder to confirm the last three charges.");
   });
 
+  it("uses rule_hits as the why when no pack_reason is on the evaluate snapshot", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "device_signals.json",
+      rule_hits: ["sdk_rooted", "sdk_emulator"],
+    });
+    expect(view.packId).toBe("device_signals");
+    expect(view.why).toBe("sdk_rooted, sdk_emulator");
+    expect(view.advise).toBeNull();
+  });
+
   it("uses the timeout copy only when advise already timed out on the case", () => {
     const view = resolvePackWhy({
       rule_pack_file: "fintech.json",

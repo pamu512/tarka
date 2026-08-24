@@ -3,13 +3,9 @@
  * Always rendered. If a field is absent, show "missing" — never hide, never invent.
  */
 
-import {
-  DEVICE_INTEGRITY_MISSING,
-  type DeviceIntegrityView,
-  type IntegrityTriState,
-} from "../../utils/deviceIntegrity";
+import { DEVICE_INTEGRITY_MISSING } from "../../utils/deviceIntegrity";
 
-function Value({ testId, value }: { testId: string; value: IntegrityTriState }) {
+function Value({ testId, value }: { testId: string; value: string }) {
   return (
     <p data-testid={testId} className="text-sm text-gray-200 leading-snug">
       {value === DEVICE_INTEGRITY_MISSING ? (
@@ -21,7 +17,15 @@ function Value({ testId, value }: { testId: string; value: IntegrityTriState }) 
   );
 }
 
-export function DeviceIntegrityStrip({ rooted, jailbroken, biometrics }: DeviceIntegrityView) {
+export function DeviceIntegrityStrip({
+  rooted,
+  jailbroken,
+  biometrics,
+}: {
+  rooted: string;
+  jailbroken: string;
+  biometrics: string;
+}) {
   return (
     <section
       data-testid="device-integrity-strip"

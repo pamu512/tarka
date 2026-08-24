@@ -198,4 +198,69 @@ describe("Decisions stream", () => {
     expect(text).not.toContain("payment queue");
     expect(text).not.toContain("payment inbox");
   });
+
+  it("shows pack, rule hits, and integrity present|missing|true on the decision detail", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "ent-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 62,
+      tags: ["sdk:rooted"],
+      rule_hits: ["sdk_rooted"],
+      rule_pack_file: "device_signals.json",
+      integrity: {
+        is_rooted: "true",
+        is_jailbroken: "missing",
+        has_biometrics: "missing",
+      },
+      created_at: "2026-08-24T08:00:00Z",
+    });
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+
+    await waitFor(() => expect(client.decisions.getAudit).toHaveBeenCalled());
+    expect(await screen.findByTestId("pack-why-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-pack")).toHaveTextContent("device_signals");
+    expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("sdk_rooted");
+    expect(screen.queryByTestId("pack-why-advise")).not.toBeInTheDocument();
+    expect(screen.getByTestId("device-integrity-rooted")).toHaveTextContent("true");
+    expect(screen.getByTestId("device-integrity-jailbroken")).toHaveTextContent("missing");
+    expect(screen.getByTestId("device-integrity-biometrics")).toHaveTextContent("missing");
+  });
+
+  it("surfaces pack, rule, and missing integrity on an evaluate-born FLAG row", async () => {
+    const flagRow = {
+      ...LOGIN_REVIEW,
+      trace_id: "tr-flag-1",
+      short_id: "FLAG0001",
+      decision: "review",
+      rule_result: "REVIEW" as const,
+      rule_hits: ["sdk_rooted"],
+      rule_pack_file: "device_signals.json",
+      integrity: {
+        is_rooted: "true",
+        is_jailbroken: "missing",
+        has_biometrics: "missing",
+      },
+    };
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [flagRow],
+    });
+
+    render(wrap(<Decisions />));
+
+    const row = await screen.findByTestId("decisions-row-tr-flag-1");
+    expect(row.textContent).toContain("device_signals");
+    expect(row.textContent).toContain("sdk_rooted");
+    expect(row.textContent).toContain("true");
+    expect(row.textContent).toContain("missing");
+    expect(row.textContent).not.toContain("Advise");
+  });
 });

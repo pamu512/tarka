@@ -706,12 +706,14 @@ function CaseDetailWorkbench() {
     () =>
       resolvePackWhy({
         rule_pack_file: decisionExplain?.rule_pack_file,
+        rule_hits: decisionExplain?.rule_hits,
         reasons: decisionExplain?.reasons,
         driver_explain: decisionExplain?.inference_context?.driver_explain,
         evaluate_payload: decisionExplain?.evaluate_payload ?? null,
       }),
     [
       decisionExplain?.rule_pack_file,
+      decisionExplain?.rule_hits,
       decisionExplain?.reasons,
       decisionExplain?.inference_context?.driver_explain,
       decisionExplain?.evaluate_payload,
