@@ -19,6 +19,15 @@ export type DeviceIntegritySource = {
   top_signals?: readonly string[] | null;
   device_context?: Record<string, unknown> | null;
   evaluate_payload?: Record<string, unknown> | null;
+  integrity?: Record<string, unknown> | null;
+};
+
+export type IntegrityPresence = "true" | "present" | typeof DEVICE_INTEGRITY_MISSING;
+
+export type IntegrityPresenceView = {
+  rooted: IntegrityPresence;
+  jailbroken: IntegrityPresence;
+  biometrics: IntegrityPresence;
 };
 
 const TAG_ROOTED = "sdk:rooted";
@@ -73,5 +82,44 @@ export function resolveDeviceIntegrity(input: DeviceIntegritySource): DeviceInte
     rooted: triState(readBool(signals?.is_rooted), tagHit(tags, TAG_ROOTED)),
     jailbroken: triState(readBool(signals?.is_jailbroken), tagHit(tags, TAG_JAILBROKEN)),
     biometrics: triState(readBool(signals?.has_biometrics), tagHit(tags, TAG_BIOMETRICS)),
+  };
+}
+
+function asPresence(v: unknown): IntegrityPresence | null {
+  return v === "true" || v === "present" || v === DEVICE_INTEGRITY_MISSING ? v : null;
+}
+
+function derivePresence(booleanValue: boolean | undefined, tagged: boolean): IntegrityPresence {
+  if (booleanValue === true || tagged) return "true";
+  if (booleanValue === false) return "present";
+  return DEVICE_INTEGRITY_MISSING;
+}
+
+/**
+ * Decision-row / FLAG labels: present | missing | true.
+ * Never invent false for omitted jailbreak / biometrics / root.
+ */
+export function resolveIntegrityPresence(input: DeviceIntegritySource): IntegrityPresenceView {
+  const fromMap =
+    asRecord(input.integrity) ??
+    asRecord(asRecord(input.evaluate_payload)?.integrity) ??
+    asRecord(deviceContextFrom(input)?.integrity);
+  const dc = deviceContextFrom(input);
+  const signals = signalsFrom(dc) ?? signalsFrom(fromMap);
+  const tagList = [...(input.tags ?? []), ...(input.top_signals ?? [])].filter(
+    (t): t is string => typeof t === "string" && t.length > 0,
+  );
+  const tags = new Set(tagList);
+
+  return {
+    rooted:
+      asPresence(fromMap?.is_rooted) ??
+      derivePresence(readBool(signals?.is_rooted), tagHit(tags, TAG_ROOTED)),
+    jailbroken:
+      asPresence(fromMap?.is_jailbroken) ??
+      derivePresence(readBool(signals?.is_jailbroken), tagHit(tags, TAG_JAILBROKEN)),
+    biometrics:
+      asPresence(fromMap?.has_biometrics) ??
+      derivePresence(readBool(signals?.has_biometrics), tagHit(tags, TAG_BIOMETRICS)),
   };
 }

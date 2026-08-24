@@ -1,6 +1,10 @@
 """Native device-integrity snapshot + signal tags (no attestation verify)."""
 
-from decision_api.device_integrity import device_integrity_snapshot
+from decision_api.device_integrity import (
+    audit_integrity,
+    device_integrity_snapshot,
+    integrity_presence,
+)
 from decision_api.main import extract_signal_tags
 
 
@@ -20,6 +24,11 @@ def test_snapshot_keeps_booleans_including_false():
     assert snap == {
         "platform": "ios",
         "signals": {"is_jailbroken": True, "has_biometrics": False},
+        "integrity": {
+            "is_rooted": "missing",
+            "is_jailbroken": "true",
+            "has_biometrics": "present",
+        },
     }
     assert "device_id" not in snap
     assert "attestation" not in snap
@@ -30,7 +39,16 @@ def test_snapshot_omits_absent_booleans():
     snap = device_integrity_snapshot(
         {"platform": "android", "signals": {"is_vpn": True}}
     )
-    assert snap == {"platform": "android", "signals": {}}
+    assert snap == {
+        "platform": "android",
+        "signals": {},
+        "integrity": {
+            "is_rooted": "missing",
+            "is_jailbroken": "missing",
+            "has_biometrics": "missing",
+        },
+    }
+    assert integrity_presence({})["is_rooted"] == "missing"
 
 
 def test_snapshot_none_and_empty():
@@ -45,6 +63,16 @@ def test_extract_signal_tags_native_integrity():
     assert "sdk:rooted" in tags
     assert "sdk:jailbroken" in tags
     assert "sdk:biometrics" in tags
+
+
+def test_audit_integrity_always_three_keys():
+    assert audit_integrity(None) == {
+        "is_rooted": "missing",
+        "is_jailbroken": "missing",
+        "has_biometrics": "missing",
+    }
+    assert audit_integrity({"integrity": {"is_rooted": "true"}})["is_rooted"] == "true"
+    assert audit_integrity({"integrity": {"is_rooted": "true"}})["is_jailbroken"] == "missing"
 
 
 def test_extract_signal_tags_false_integrity_not_tagged():

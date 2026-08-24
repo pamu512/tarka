@@ -264,6 +264,8 @@ export interface AuditEntry {
   /** Present when ``detail_level`` is ``analyst`` or ``full`` — normalized evaluate body (transaction envelope). */
   evaluate_payload?: Record<string, unknown> | null;
   input_map?: Record<string, unknown> | null;
+  /** Evaluate snapshot: is_rooted / is_jailbroken / has_biometrics → present | missing | true. */
+  integrity?: Record<string, string> | null;
 }
 
 /** Compact row from ``GET /v1/audit/recent`` (decision-api / core mount). */
@@ -282,6 +284,9 @@ export interface AuditRecentItem {
   /** Model / integrity confidence in ``0..1`` when present. */
   ai_confidence: number | null;
   created_at: string | null;
+  rule_hits?: string[];
+  rule_pack_file?: string | null;
+  integrity?: Record<string, string> | null;
 }
 
 export interface AuditRecentResponse {
