@@ -10,7 +10,8 @@ import { AnalystReadinessBar } from "./components/AnalystReadinessBar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ModuleIcon, type ModuleId } from "./components/ModuleIcon";
 import { TarkaLogo } from "./components/TarkaLogo";
-import { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath, isProductionSurfacePath } from "./config/leanNav";
+import { INCLUDE_DEMO_SURFACE, leanHomePath, isNavItemVisible, isPlaneEnabled } from "./config/leanNav";
+import PlaneOff from "./pages/PlaneOff";
 import MlLifecycle from "./pages/MlLifecycle";
 import OpsCalibration from "./pages/OpsCalibration";
 import OpsQaDesk from "./pages/OpsQaDesk";
@@ -177,12 +178,10 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-const NAV_GROUPS = LEAN_NAV
-  ? NAV_GROUPS_ALL.map((g) => ({
-      ...g,
-      items: g.items.filter((i) => isProductionSurfacePath(i.to)),
-    })).filter((g) => g.items.length > 0)
-  : NAV_GROUPS_ALL;
+const NAV_GROUPS = NAV_GROUPS_ALL.map((g) => ({
+  ...g,
+  items: g.items.filter((i) => isNavItemVisible(i.to)),
+})).filter((g) => g.items.length > 0);
 
 function RedirectLinkAnalysisToGraph() {
   const [params] = useSearchParams();
@@ -351,22 +350,22 @@ export default function App() {
             <Route path="/entity-lists" element={<EntityLists />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/ops/backtest" element={<BacktestJobConfigurator />} />
-            <Route path="/graph" element={<GraphInvestigationPage />} />
-            <Route path="/graph/link-analysis" element={<RedirectLinkAnalysisToGraph />} />
+            <Route path="/graph" element={isPlaneEnabled("graph") ? <GraphInvestigationPage /> : <PlaneOff plane="graph" />} />
+            <Route path="/graph/link-analysis" element={isPlaneEnabled("graph") ? <RedirectLinkAnalysisToGraph /> : <PlaneOff plane="graph" />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/analytics/rule-performance" element={<RulePerformance />} />
             <Route path="/analytics/audit-log" element={<AuditLogExplorer />} />
             <Route path="/transactions/live" element={<TransactionsLiveGrid />} />
-            <Route path="/ops/calibration" element={<OpsCalibration />} />
+            <Route path="/ops/calibration" element={isPlaneEnabled("signals") ? <OpsCalibration /> : <PlaneOff plane="signals" />} />
             <Route path="/ops/qa" element={<OpsQaDesk />} />
             <Route path="/ops/dispute-deadlines" element={<DisputeDeadlineQueue />} />
             <Route path="/ops/shadow" element={<OpsShadow />} />
             <Route path="/ops/integrity" element={<OpsIntegrity />} />
-            <Route path="/investigation" element={<Investigation />} />
-            <Route path="/investigation/dag-trace" element={<DagTracePage />} />
-            <Route path="/investigation/shadow-llm" element={<ShadowLlmForensics />} />
+            <Route path="/investigation" element={isPlaneEnabled("advise") ? <Investigation /> : <PlaneOff plane="advise" />} />
+            <Route path="/investigation/dag-trace" element={isPlaneEnabled("advise") ? <DagTracePage /> : <PlaneOff plane="advise" />} />
+            <Route path="/investigation/shadow-llm" element={isPlaneEnabled("advise") ? <ShadowLlmForensics /> : <PlaneOff plane="advise" />} />
             <Route path="/compliance" element={<Compliance />} />
-            <Route path="/ops/counters" element={<OpsCounters />} />
+            <Route path="/ops/counters" element={isPlaneEnabled("signals") ? <OpsCounters /> : <PlaneOff plane="signals" />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />
             <Route path="/ops/sar-transport" element={<OpsSarTransportBoard />} />
             <Route path="/ops/infra" element={<OpsInfraDashboard />} />
@@ -383,7 +382,7 @@ export default function App() {
                 <Route path="/shadow" element={<ShadowMode />} />
                 <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
                 <Route path="/ops/workload" element={<WorkloadBalancer />} />
-                <Route path="/graph/mule-path" element={<MulePathVisualizer />} />
+                <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <MulePathVisualizer /> : <PlaneOff plane="graph" />} />
                 <Route path="/analytics/review-rings" element={<ReviewRingClusters />} />
                 <Route path="/ops/ml-lifecycle" element={<MlLifecycle />} />
                 <Route path="/ops/ml-parquet-export" element={<PitMlParquetExport />} />
@@ -412,7 +411,7 @@ export default function App() {
                 <Route path="/shadow" element={<Navigate to="/ops/shadow" replace />} />
                 <Route path="/exec-dashboards" element={<Navigate to="/cases" replace />} />
                 <Route path="/ops/workload" element={<Navigate to="/cases" replace />} />
-                <Route path="/graph/mule-path" element={<Navigate to="/graph" replace />} />
+                <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <Navigate to="/graph" replace /> : <PlaneOff plane="graph" />} />
                 <Route path="/analytics/review-rings" element={<Navigate to="/analytics" replace />} />
                 <Route path="/ops/ml-lifecycle" element={<Navigate to="/ops/calibration" replace />} />
                 <Route path="/ops/ml-parquet-export" element={<Navigate to="/ops/calibration" replace />} />

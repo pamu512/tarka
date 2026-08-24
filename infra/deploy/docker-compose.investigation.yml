@@ -1,0 +1,59 @@
+# Investigation / Advise overlay — not Day-1 evaluate tax.
+#
+#   docker compose \
+#     -f infra/deploy/docker-compose.lite.yml \
+#     -f infra/deploy/docker-compose.investigation.yml \
+#     up --build
+#
+# Sets VITE_INVESTIGATION_AGENT_URL so desk nav can show Advise chrome.
+# GRAPH_SERVICE_URL stays empty unless the graph overlay (or host env) sets it.
+
+name: tarka-lite
+
+services:
+  investigation-agent:
+    build:
+      context: ../..
+      dockerfile: services/investigation-agent/Dockerfile
+    environment:
+      CASE_API_URL: http://core-api:8000/cases
+      DECISION_API_URL: http://core-api:8000/decisions
+      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
+      ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_PROVIDER_FALLBACKS: ${LLM_PROVIDER_FALLBACKS:-anthropic,gemini,ollama}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      API_KEYS: ${API_KEYS:-}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      OKF_ENABLED: ${OKF_ENABLED:-true}
+      OKF_SHARED_ROOT: /app/knowledge/shared
+      OKF_TENANT_ROOT: /var/lib/tarka/knowledge/tenants
+      INVESTIGATION_DATA_DIR: /var/lib/tarka/investigation-agent
+    ports:
+      - "8006:8006"
+    volumes:
+      - ${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}:/var/lib/tarka/knowledge/tenants:ro
+      - investigation_agent_data:/var/lib/tarka/investigation-agent
+    depends_on:
+      core-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8006/v1/ready')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_INVESTIGATION_AGENT_URL: ${VITE_INVESTIGATION_AGENT_URL:-http://investigation-agent:8006}
+    depends_on:
+      - investigation-agent
+
+volumes:
+  investigation_agent_data:

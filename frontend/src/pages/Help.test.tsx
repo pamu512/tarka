@@ -10,8 +10,9 @@ describe("Help", () => {
     expect(screen.getAllByText("/cases").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/decisions").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/disputes").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("/graph").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/help").length).toBeGreaterThan(0);
+    expect(screen.getByText(/plane off/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
     const body = document.body.textContent ?? "";
     expect(body.toLowerCase()).not.toMatch(/prototype/);
     expect(body.toLowerCase()).not.toMatch(/synthetic data/);
