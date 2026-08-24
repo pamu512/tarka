@@ -4,7 +4,7 @@ Day-1 path for engineers joining Tarka.
 
 ## Recommended (Docker)
 
-Follow [`docs/docs/quickstart.md`](docs/quickstart.md): lite + fraud-desk compose, then `python3 scripts/oss/first_decision_smoke.py`.
+Follow [`docs/docs/quickstart.md`](docs/quickstart.md): evaluate-only lite compose, then `python3 scripts/oss/first_decision_smoke.py`.
 
 ## Docs map
 

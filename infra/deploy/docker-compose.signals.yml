@@ -1,0 +1,90 @@
+# Signals overlay — feature / ML / calibration + integration-ingress.
+# Not Day-1 evaluate tax. Empty FEATURE_SERVICE_URL / ML_SCORING_URL on lite
+# means those hops are off (same as Helm signalApi.enabled: false).
+#
+#   docker compose \
+#     -f infra/deploy/docker-compose.lite.yml \
+#     -f infra/deploy/docker-compose.signals.yml \
+#     up --build
+#
+# Brings nats (ingress + optional fan-out). Sync evaluate does not need nats.
+
+name: tarka-lite
+
+services:
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-sd", "/data"]
+    ports:
+      - "4222:4222"
+    volumes:
+      - fraud_nats_lite:/data
+    # Drop lite.yml profiles: [ingest] so this overlay starts nats without --profile ingest.
+    profiles: !reset
+
+  signal-api:
+    build:
+      context: ../..
+      dockerfile: services/signal-api/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
+      FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
+      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
+      DISABLE_ML: ${DISABLE_ML:-true}
+    ports:
+      - "8004:8004"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  integration-ingress:
+    build:
+      context: ../..
+      dockerfile: services/integration-ingress/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      KMS_PROVIDER: local
+      KMS_ACTIVE_KEY_ID: lite-v1
+      INTEGRATION_VAULT_KEY: lite-dev-key
+      NATS_URL: nats://nats:4222
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  core-api:
+    environment:
+      FEATURE_SERVICE_URL: ${FEATURE_SERVICE_URL:-http://signal-api:8004/features}
+      ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
+    depends_on:
+      signal-api:
+        condition: service_started
+      nats:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_SIGNAL_API_URL: ${VITE_SIGNAL_API_URL:-http://signal-api:8004}
+    depends_on:
+      - signal-api
+      - integration-ingress
+
+volumes:
+  fraud_nats_lite:

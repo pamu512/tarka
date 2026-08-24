@@ -15,7 +15,7 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | Logical service | Host port (typical) | Compose service name | OpenAPI spec | Notes |
 |-----------------|---------------------|----------------------|--------------|--------|
 | Graph Service | 8001 | `graph-service` | [graph-service.yaml](../../../contracts/openapi/graph-service.yaml) | Neo4j-backed; requires `graph` profile |
-| Integration ingress | 8003 | `integration-ingress` | [integration-ingress.yaml](../../../contracts/openapi/integration-ingress.yaml) | `integration` profile; also **`docker-compose.lite.yml`** |
+| Integration ingress | 8003 | `integration-ingress` | [integration-ingress.yaml](../../../contracts/openapi/integration-ingress.yaml) | `integration` profile; compose **signals** overlay (`docker-compose.signals.yml`), not default lite |
 | Investigation agent | 8006 | `investigation-agent` | [investigation-agent.yaml](../../../contracts/openapi/investigation-agent.yaml) | `agent` profile; Slack/Teams/Lark **chat_bridge** embedded under **`/v1/chat/…`** (not a separate `:8009` container in default compose) |
 | GraphQL gateway | 8010 | `graphql-gateway` | _(no REST OpenAPI in repo — GraphQL schema is code-first; see [API Reference — GraphQL Gateway](../api-reference.md#graphql-gateway))_ | `gateway` profile; defaults target **`http://core-api:8000/decisions`** and **`/cases`**. |
 | Frontend (nginx) | 3000 → container 80 | `frontend` | _(UI)_ | `ui` / `full` profile |

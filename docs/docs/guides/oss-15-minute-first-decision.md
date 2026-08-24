@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Docker + Docker Compose v2
-- ~8 GB RAM free for images (Linux VM or any Docker host; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
+- ~3 GB RAM free for evaluate-only images (Linux VM or any Docker host; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
 - Ports free: `8000`, `3000`, `5432`, `6379`
 
 ## Steps
@@ -25,7 +25,7 @@ cp infra/deploy/env/community.env.example infra/deploy/.env
 # Local try-it: allow unauthenticated evaluate (never use in production)
 echo 'ALLOW_INSECURE_NO_AUTH=true' >> infra/deploy/.env
 
-# Preferred: fraud-desk overlay (lean nav + desk-strict, no graph profile)
+# Evaluate-only (+ optional fraud-desk overlay for lean nav + desk-strict)
 docker compose \
   -f infra/deploy/docker-compose.lite.yml \
   -f infra/deploy/docker-compose.fraud-desk.yml \
@@ -61,7 +61,7 @@ curl -sS -X POST 'http://127.0.0.1:8000/decisions/v1/decisions/evaluate' \
 
 ### 3. UI (optional)
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — Cases / audit should reflect the evaluate when the stack is wired (Lite frontend → core-api).
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — first paint is `/decisions` (evaluate stream), not the residual cases inbox. Audit on that page should reflect the evaluate when the stack is wired (Lite frontend → core-api).
 
 ## Next after first decision
 

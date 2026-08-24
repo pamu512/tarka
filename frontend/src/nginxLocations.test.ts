@@ -16,8 +16,12 @@ describe("production nginx hops", () => {
     expect(conf).toContain("location /graphql");
     expect(conf).toContain("orchestrator:8790");
     expect(conf).toContain("investigation-agent:8006");
+    expect(conf).toContain("signal-api:8004");
+    expect(conf).toContain("integration-ingress:8003");
     expect(conf).toContain("graphql-gateway:8010");
     expect(conf).toContain("upstream_unavailable");
+    expect(conf).toContain("set $tarka_optional signal-api:8004");
+    expect(conf).toContain("set $tarka_optional integration-ingress:8003");
   });
 
   it("does not route analytics at the retired data-platform :8014 listener", () => {
