@@ -13,9 +13,7 @@ from decision_api.device_feature_merge import merge_device_context_into_features
 from decision_api.device_integrity import audit_integrity, integrity_presence
 from decision_api.schemas import DeviceContextIn
 
-_PACK_PATH = (
-    Path(__file__).resolve().parent.parent / "rules" / "device_signals.json"
-)
+_PACK_PATH = Path(__file__).resolve().parent.parent / "rules" / "device_signals.json"
 
 
 def _device_signals_pack() -> dict:

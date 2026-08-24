@@ -72,7 +72,10 @@ def test_audit_integrity_always_three_keys():
         "has_biometrics": "missing",
     }
     assert audit_integrity({"integrity": {"is_rooted": "true"}})["is_rooted"] == "true"
-    assert audit_integrity({"integrity": {"is_rooted": "true"}})["is_jailbroken"] == "missing"
+    assert (
+        audit_integrity({"integrity": {"is_rooted": "true"}})["is_jailbroken"]
+        == "missing"
+    )
 
 
 def test_extract_signal_tags_false_integrity_not_tagged():
