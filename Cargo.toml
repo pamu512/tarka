@@ -10,6 +10,6 @@ members = [
 ]
 exclude = [
     "crates/tarka-kms",
-    "fuzz",
+    "legacy_attic/fuzz",
     "services/batch-ingest",
 ]
