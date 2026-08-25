@@ -4,6 +4,9 @@ Attic, not delete. Files here were leftover at the repository root after the
 v1.3 hoist. They are not on the load-bearing path. Prefer
 `docs/REPOSITORY_LAYOUT.md` for the live tree.
 
+Do not re-run `infra/scripts/restructure_v130_layout.py`. That one-shot hoist
+script still `rmtree`s `legacy_attic/` after rewriting paths.
+
 ## Moved (this PR)
 
 | Path | Why |
