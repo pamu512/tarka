@@ -8,7 +8,7 @@
 //!
 //! ```text
 //! cargo install cargo-fuzz
-//! cd fuzz && cargo fuzz run evidence_manifest_decode -- -runs=1000000
+//! cd legacy_attic/fuzz && cargo fuzz run evidence_manifest_decode -- -runs=1000000
 //! ```
 
 #![no_main]

@@ -69,7 +69,7 @@ while IFS= read -r -d '' pyproject; do
   echo "::endgroup::"
 done < <(
   find . \( -name .git -o -name target -o -name node_modules -o -name __pycache__ \) -prune -o \
-    -path './templates/*' -prune -o \
+    -path './legacy_attic/templates/*' -prune -o \
     -name pyproject.toml -print0 |
     sort -z
 )

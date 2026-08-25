@@ -13,12 +13,12 @@ tarka/
 
 The repository root also has other **load-bearing** trees (not leftover):
 `crates/`, `tests/`, `scripts/`, `sdk/`, `proto/`, `contracts/`, `migrations/`,
-`adapters/`, `knowledge/`, `tools/`, `rules/`, `schemas/`, `triggers/`,
-`templates/`, `fuzz/`. Compose front doors (`docker-compose.yml` and overlays)
-stay at root and include files under `infra/deploy/`.
+`adapters/`, `knowledge/`, `tools/`, `rules/`, `schemas/`. Compose front doors
+(`docker-compose.yml` and overlays) stay at root and include files under
+`infra/deploy/`.
 
-Leftover root pointers live in [`legacy_attic/`](../legacy_attic/README.md)
-(attic, not delete).
+Leftovers (cookiecutter, cargo-fuzz, SQL trigger, root pointers) live in
+[`legacy_attic/`](../legacy_attic/README.md) (attic, not delete).
 
 ## services/
 

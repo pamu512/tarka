@@ -1,5 +1,5 @@
 """
-Gate (Prompt 111): ``triggers/immutable_cases.sql`` rejects ``graph_snapshot`` updates on ``cases``.
+Gate (Prompt 111): ``legacy_attic/triggers/immutable_cases.sql`` rejects ``graph_snapshot`` updates on ``cases``.
 
 Requires Postgres + ``psycopg``. Run::
 
@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_TRIGGER_SQL = _REPO_ROOT / "triggers" / "immutable_cases.sql"
+_TRIGGER_SQL = _REPO_ROOT / "legacy_attic" / "triggers" / "immutable_cases.sql"
 
 
 @pytest.fixture
