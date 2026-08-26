@@ -107,10 +107,10 @@ exclude = [
     "dist",
     "build",
     # Cookiecutter/Jinja placeholders are not valid Python until rendered.
-    "templates",
+    "legacy_attic/templates",
 ]
 extend-exclude = [
-    "templates/cookiecutter-investigation-integration-adapter",
+    "legacy_attic/templates/cookiecutter-investigation-integration-adapter",
     # Protobuf / gRPC generated stubs (Google naming conventions).
     "crates/tarka-py/python",
 ]

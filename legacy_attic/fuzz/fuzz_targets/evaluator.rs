@@ -4,7 +4,7 @@
 //!
 //! ```text
 //! cargo install cargo-fuzz
-//! cd fuzz && cargo fuzz run evaluator -- -runs=100000
+//! cd legacy_attic/fuzz && cargo fuzz run evaluator -- -runs=100000
 //! ```
 //!
 //! ## Invariants (must hold for every input)

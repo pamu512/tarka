@@ -44,7 +44,7 @@ class Case(Base):
         default=DEFAULT_CASE_STATUS,
         server_default=text(f"'{DEFAULT_CASE_STATUS}'"),
     )
-    #: Analyst / owner assignment (one of two columns mutable under ``triggers/immutable_cases.sql``).
+    #: Analyst / owner assignment (one of two columns mutable under ``legacy_attic/triggers/immutable_cases.sql``).
     assigned_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_optimization_manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     duckdb_path: Mapped[str | None] = mapped_column(String(2048), nullable=True)

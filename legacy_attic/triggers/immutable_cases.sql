@@ -8,7 +8,7 @@
 --     on mutating ``updated_at`` directly).
 --
 -- Apply after ``cases`` exists and optional evidence-locker columns are present:
---   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f triggers/immutable_cases.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f legacy_attic/triggers/immutable_cases.sql
 --
 -- PostgreSQL 11+ (uses trigger EXECUTE FUNCTION syntax).
 
