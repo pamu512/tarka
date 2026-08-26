@@ -1,6 +1,6 @@
 # Tarka v1.3.0 repository layout
 
-Five purpose-built zones at the repository root:
+Five purpose-built product zones:
 
 ```
 tarka/
@@ -10,6 +10,15 @@ tarka/
 ├── infra/             # Deployment manifests, CI scripts, policy gates
 └── docs/              # Execution kits, runbooks, release notes
 ```
+
+The repository root also has other **load-bearing** trees (not leftover):
+`crates/`, `tests/`, `scripts/`, `sdk/`, `proto/`, `contracts/`, `migrations/`,
+`adapters/`, `knowledge/`, `tools/`, `rules/`, `schemas/`. Compose front doors
+(`docker-compose.yml` and overlays) stay at root and include files under
+`infra/deploy/`.
+
+Leftovers (cookiecutter, cargo-fuzz, SQL trigger, root pointers) live in
+[`legacy_attic/`](../legacy_attic/README.md) (attic, not delete).
 
 ## services/
 
@@ -52,12 +61,9 @@ Primary workloads hoisted from the former `tarka_v2_core/` wrapper:
 | [`compliance/`](compliance/) | Control narratives (not certifications) |
 | Wiki mirror | [`wiki/`](wiki/) — publish with [`scripts/docs/sync-github-wiki.sh`](../scripts/docs/sync-github-wiki.sh); hub wins on conflict |
 
-Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md), [`STUB_REGISTER.md`](STUB_REGISTER.md).
+Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md). Canonical honesty ledger: [`STUB_REGISTER.md`](STUB_REGISTER.md).
 
 ## Migration
 
-Run once after checkout (already applied on v1.3.0 branches):
-
-```bash
-python3 infra/scripts/restructure_v130_layout.py
-```
+The v1.3 hoist script (`infra/scripts/restructure_v130_layout.py`) is historical
+and already applied. Do not re-run it: it still `rmtree`s `legacy_attic/`.
