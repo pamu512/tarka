@@ -4,7 +4,7 @@ This is a **label + holdout loop**, not a live GNN. Evaluate still decides allow
 
 ## What exists today
 
-1. **Evaluate snapshot** — `payload_snapshot.subgraph_snapshot` plus a JSONL receipt under `CALIBRATION_DATA_DIR`. Fields: named edges, user/bridge vertices that were actually returned from graph-service, `trace_id`, `entity_id` / `user_id`, `role`.
+1. **Evaluate snapshot** — `payload_snapshot.subgraph_snapshot` plus a JSONL receipt under `CALIBRATION_DATA_DIR`. Identity is hop v1.2 `(tenant_id, vtype, id)` — `user:abc` and `device:abc` are different vertices. Fields: named edges (type kept, not rewritten to RELATED), user/bridge vertices that were actually returned from graph-service, `trace_id`, `entity_id` / `user_id`, required evaluate `role`.
 2. **Empty `GRAPH_SERVICE_URL`** — snapshot status is `graph:missing`. Neighbors are not invented from `party_graph` or anywhere else.
 3. **Labels** — `y_label` + `why` from the existing y_label store (analyst override). Late chargeback sits on the same record as two fields: raw `dispute_outcome` and `chargeback_class` (`FRAUD` / `FRIENDLY` / `SERVICE` / `UNKNOWN`). There is no chargeback inbox or case CRM here.
 4. **Export** — labeled rows `(subgraph_snapshot, y_label)` only. Unlabeled receipts are dropped.

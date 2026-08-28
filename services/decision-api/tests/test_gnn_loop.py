@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from decision_api.gnn_loop.export import export_labeled_rows
-from decision_api.gnn_loop.snapshot import snapshot_at_evaluate
+from decision_api.gnn_loop.snapshot import snapshot_at_evaluate, snapshot_from_written
 from decision_api.gnn_loop.train import evaluate_holdout_gate, write_gate_artifact
 from decision_api.y_label_store import load_label_records, merge_y_labels
 
@@ -234,3 +234,93 @@ async def test_serve_refuses_when_gate_blocks(tmp_path, monkeypatch):
     )
     out = await score_graph_risk("t", "e1")
     assert out is None
+
+
+def test_same_id_different_vtype_are_two_vertices():
+    snap = snapshot_from_written(
+        {
+            "nodes": [
+                {
+                    "id": "abc",
+                    "vtype": "user",
+                    "labels": ["user"],
+                    "properties": {
+                        "tenant_id": "acme",
+                        "vtype": "user",
+                        "roles": ["buyer"],
+                    },
+                },
+                {
+                    "id": "abc",
+                    "vtype": "device",
+                    "labels": ["device"],
+                    "properties": {"tenant_id": "acme", "vtype": "device"},
+                },
+            ],
+            "edges": [
+                {
+                    "from_id": "abc",
+                    "to_id": "abc",
+                    "type": "USED",
+                    "from_vtype": "user",
+                    "to_vtype": "device",
+                }
+            ],
+        },
+        trace_id="t-hop",
+        entity_id="abc",
+        user_id="abc",
+        role="buyer",
+        tenant_id="acme",
+    )
+    keys = {(v["tenant_id"], v["vtype"], v["id"]) for v in snap["vertices"]}
+    assert keys == {("acme", "user", "abc"), ("acme", "device", "abc")}
+    assert {v["kind"] for v in snap["vertices"]} == {"user", "bridge"}
+    user = next(v for v in snap["vertices"] if v["vtype"] == "user")
+    assert user["role"] == "buyer"
+    assert snap["role"] == "buyer"
+    assert snap["edges"][0]["type"] == "USED"
+    assert snap["edges"][0]["from_id"] == "abc"
+    assert snap["edges"][0]["to_id"] == "abc"
+
+
+def test_named_used_edge_survives_export(tmp_path, monkeypatch):
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    merge_y_labels(
+        "acme", by_trace={"t-used": "1"}, why_by_trace={"t-used": "override"}
+    )
+    receipt = snapshot_from_written(
+        {
+            "vertices": [
+                {"id": "u1", "vtype": "user", "kind": "user"},
+                {"id": "d1", "vtype": "device", "kind": "bridge"},
+            ],
+            "edges": [{"from_id": "u1", "to_id": "d1", "type": "USED"}],
+        },
+        trace_id="t-used",
+        entity_id="u1",
+        user_id="u1",
+        role="buyer",
+        tenant_id="acme",
+    )
+    rows = export_labeled_rows("acme", [receipt])
+    assert len(rows) == 1
+    assert rows[0]["trainable"] is True
+    assert rows[0]["subgraph_snapshot"]["edges"][0]["type"] == "USED"
+    assert rows[0]["subgraph_snapshot"]["role"] == "buyer"
+
+
+def test_evaluate_role_is_required_on_receipt():
+    snap = snapshot_at_evaluate(
+        graph_service_url="",
+        trace_id="t-role",
+        entity_id="u1",
+        user_id="u1",
+        role="member",
+        tenant_id="acme",
+        written_subgraph=None,
+        party_graph={"nodes": [{"id": "u1", "role": "diner"}]},
+    )
+    assert snap["status"] == "graph:missing"
+    assert snap["role"] == "member"
+    assert snap["vertices"] == []
