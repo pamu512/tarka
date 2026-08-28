@@ -1326,7 +1326,7 @@ async def run_evaluate_decision(
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
                 user_id=_uid or body.entity_id,
-                role="",
+                role=body.role,
                 trace_id=str(trace_id),
                 payload=body.payload if isinstance(body.payload, dict) else None,
                 metadata=body.metadata if isinstance(body.metadata, dict) else None,
