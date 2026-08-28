@@ -122,6 +122,7 @@ async def test_evaluate_second_request_sees_prior_aggregate_counts(
         "tenant_id": "agg_gate_tenant",
         "event_type": "payment",
         "entity_id": "agg_gate_entity",
+        "role": "member",
         "payload": {"amount": 50.0},
     }
     r1 = await c.post("/v1/decisions/evaluate", json=body)
@@ -150,6 +151,7 @@ async def test_evaluate_calls_redis_merge_and_cache_score(aggregate_eval_client)
             "tenant_id": "t_redis",
             "event_type": "login",
             "entity_id": "e1",
+            "role": "member",
             "payload": {},
         },
     )

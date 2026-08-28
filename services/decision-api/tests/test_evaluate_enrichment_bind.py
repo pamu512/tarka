@@ -17,6 +17,7 @@ def test_bind_runtime_and_feature_fallback() -> None:
         tenant_id="t1",
         entity_id="e1",
         event_type=EventType.payment,
+        role="member",
         payload={"amount": 1.0},
     )
     snap = enrichment.feature_snapshot_fallback(body, ["tag:a"])
@@ -64,6 +65,7 @@ async def test_empty_feature_url_tags_unconfigured(
         tenant_id="t1",
         entity_id="e1",
         event_type=EventType.payment,
+        role="member",
         payload={"amount": 1.0},
     )
     tags: list[str] = []

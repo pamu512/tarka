@@ -173,6 +173,8 @@ export interface DecisionRequest {
   event_type: string;
   entity_id: string;
   tenant_id: string;
+  role: string;
+  parties?: Array<{ entity_id?: string; user_id?: string; role: string }>;
   session_id?: string;
   payload?: Record<string, unknown>;
   device_context?: Record<string, unknown>;

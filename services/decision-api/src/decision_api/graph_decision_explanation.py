@@ -69,6 +69,29 @@ def build_graph_decision_explanation_v1(
             )
         why_links.append({"factor_id": fid, "evidence": ev})
 
+    named = graph_risk.get("named_edges")
+    if isinstance(named, list):
+        for edge in named[:16]:
+            if not isinstance(edge, dict):
+                continue
+            et = str(edge.get("type") or "").strip()
+            src = str(edge.get("from_id") or edge.get("src") or "").strip()
+            dst = str(edge.get("to_id") or edge.get("dst") or "").strip()
+            if not et or not src or not dst:
+                continue
+            why_links.append(
+                {
+                    "factor_id": "graph_named_edge",
+                    "evidence": [
+                        {
+                            "kind": "named_edge",
+                            "ref": f"{src}-{et}->{dst}",
+                            "role": "topology",
+                        }
+                    ],
+                }
+            )
+
     out: dict[str, Any] = {
         "schema_id": SCHEMA_ID,  # tarka.graph_decision_explanation/v1
         "trace_id": trace_id,

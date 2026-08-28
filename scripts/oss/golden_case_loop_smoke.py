@@ -84,6 +84,7 @@ def main() -> int:
                 "tenant_id": "demo",
                 "event_type": "payment",
                 "entity_id": "golden-loop-user",
+                "role": "member",
                 "payload": {"amount": 42.0, "currency": "USD"},
                 "metadata": {"shadow": False},
             },

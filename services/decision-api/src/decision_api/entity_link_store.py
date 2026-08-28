@@ -5,7 +5,7 @@ from typing import Any
 
 import redis.asyncio as aioredis
 
-"""Server-side entity ↔ device ↔ vendor ID linking (Redis).
+"""Server-side entity ↔ device ↔ vendor ID linking (Redis cache, not the graph DB).
 
 Keys (tenant-scoped, TTL aligned with fingerprint store where applicable):
   fraud:link:device_entity:{tenant}:{device_id}  -> ZSET member=entity_id, score=last_seen unix

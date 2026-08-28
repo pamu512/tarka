@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from tarka_core.internal_monitor import InternalMonitor
+from graph_contract import consume_graph_answers
 
 from decision_api.integrity_policy import (
     adjust_integrity_confidence,
@@ -492,6 +493,7 @@ def build_inference_context(
         },
         "graph_risk_score": round(graph_risk_score, 4),
         "graph_risk_reasons": graph_risk_reasons,
+        **consume_graph_answers(graph_meta),
         "external_signal_score": round(external_signal_score, 4),
         "external_signal_providers": external_signal_providers,
         "policy_experiment_id": policy_experiment_id.strip()[:128]
