@@ -15,6 +15,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       ...actual.decisions,
       recentAudit: vi.fn(),
       getAudit: vi.fn(),
+      overrideDecisionLabel: vi.fn(),
     },
   };
 });
@@ -72,9 +73,12 @@ const SIGNUP_DEGRADED = {
 };
 
 describe("Decisions stream", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { clearDeskAnalystApiKey } = await import("@/api/deskAnalystSession");
+    clearDeskAnalystApiKey();
     vi.mocked(client.decisions.recentAudit).mockReset();
     vi.mocked(client.decisions.getAudit).mockReset();
+    vi.mocked(client.decisions.overrideDecisionLabel).mockReset();
   });
 
   it("shows a fail-closed empty state when audit/recent returns no rows", async () => {
@@ -262,5 +266,115 @@ describe("Decisions stream", () => {
     expect(row.textContent).toContain("true");
     expect(row.textContent).toContain("missing");
     expect(row.textContent).not.toContain("Advise");
+  });
+
+  it("opens a FLAG row as viewer with minimal audit (no 403-tier request)", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "desk-login-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 50,
+      tags: ["sdk:vpn", "sdk:automation"],
+      rule_hits: ["sdk_vpn", "sdk_automation"],
+      rule_pack_file: "device_signals.json",
+      integrity: {
+        is_rooted: "missing",
+        is_jailbroken: "missing",
+        has_biometrics: "missing",
+      },
+      created_at: "2026-08-28T08:00:00Z",
+    });
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+
+    await waitFor(() => expect(client.decisions.getAudit).toHaveBeenCalled());
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", {
+      detail_level: "minimal",
+    });
+    expect(screen.queryByTestId("decision-override-form")).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/Auto:\s*deny/i);
+    expect(document.body.textContent ?? "").not.toMatch(/model already learned/i);
+  });
+
+  it("opens a FLAG row as analyst and stores override why as a label", async () => {
+    const { setDeskAnalystApiKey } = await import("@/api/deskAnalystSession");
+    setDeskAnalystApiKey("desk-analyst-local");
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "desk-login-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 50,
+      tags: ["sdk:vpn", "sdk:automation"],
+      rule_hits: ["sdk_vpn", "sdk_automation"],
+      rule_pack_file: "device_signals.json",
+      integrity: {
+        is_rooted: "missing",
+        is_jailbroken: "missing",
+        has_biometrics: "missing",
+      },
+      created_at: "2026-08-28T08:00:00Z",
+    });
+    vi.mocked(client.decisions.overrideDecisionLabel).mockResolvedValue({
+      ok: true,
+      learned: false,
+    });
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+
+    await waitFor(() => expect(client.decisions.getAudit).toHaveBeenCalled());
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", {
+      detail_level: "analyst",
+    });
+    expect(await screen.findByTestId("decision-override-form")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("decision-override-why"), {
+      target: { value: "Known contractor VPN" },
+    });
+    fireEvent.click(screen.getByTestId("decision-override-submit"));
+    await waitFor(() => expect(client.decisions.overrideDecisionLabel).toHaveBeenCalled());
+    expect(client.decisions.overrideDecisionLabel).toHaveBeenCalledWith("demo", {
+      trace_id: "tr-login-1",
+      entity_id: "desk-login-1",
+      y_label: "LEGITIMATE",
+      why: "Known contractor VPN",
+    });
+    expect(document.body.textContent ?? "").not.toMatch(/model already learned/i);
+  });
+
+  it("does not POST an override without why", async () => {
+    const { setDeskAnalystApiKey } = await import("@/api/deskAnalystSession");
+    setDeskAnalystApiKey("desk-analyst-local");
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "desk-login-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 50,
+      tags: [],
+      rule_hits: ["sdk_vpn"],
+      rule_pack_file: "device_signals.json",
+      created_at: "2026-08-28T08:00:00Z",
+    });
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+    await screen.findByTestId("decision-override-form");
+    fireEvent.click(screen.getByTestId("decision-override-submit"));
+    expect(client.decisions.overrideDecisionLabel).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import { requestOpenCommandPalette } from "./CommandPalette";
 import { ModuleIcon } from "./ModuleIcon";
 import { WorkspaceBar } from "./WorkspaceBar";
 import { clearSessionTokens } from "../api/authSession";
+import { clearDeskAnalystApiKey } from "../api/deskAnalystSession";
 
 function IconUser({ className = "w-5 h-5" }: { className?: string }) {
   return (
@@ -79,6 +80,7 @@ function AccountMenu() {
             className="w-full px-3 py-2.5 text-left text-sm text-gray-300 hover:bg-surface-800"
             onClick={() => {
               clearSessionTokens();
+              clearDeskAnalystApiKey();
               setOpen(false);
               navigate("/login");
             }}

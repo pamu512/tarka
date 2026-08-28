@@ -7,6 +7,7 @@ import {
   type AuditRecentItem,
   type AuditRuleResult,
 } from "../api/client";
+import { hasDeskAnalystSession } from "../api/deskAnalystSession";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { PageTitle } from "../components/PageTitle";
 import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
@@ -110,6 +111,10 @@ export default function Decisions() {
   const [detail, setDetail] = useState<AuditEntry | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [overrideWhy, setOverrideWhy] = useState("");
+  const [overrideBusy, setOverrideBusy] = useState(false);
+  const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
+  const analystSession = hasDeskAnalystSession();
 
   const [filterEventType, setFilterEventType] = useState("");
   const [filterRuleResult, setFilterRuleResult] = useState("");
@@ -147,6 +152,8 @@ export default function Decisions() {
       setDetail(null);
       setDetailError(null);
       setDetailLoading(false);
+      setOverrideWhy("");
+      setOverrideMsg(null);
       return;
     }
     let cancelled = false;
@@ -155,7 +162,9 @@ export default function Decisions() {
     setDetail(null);
     (async () => {
       try {
-        const row = await decisions.getAudit(traceId, tenantId, { detail_level: "analyst" });
+        const row = await decisions.getAudit(traceId, tenantId, {
+          detail_level: analystSession ? "analyst" : "minimal",
+        });
         if (!cancelled) setDetail(row);
       } catch (e) {
         if (!cancelled) {
@@ -169,7 +178,7 @@ export default function Decisions() {
     return () => {
       cancelled = true;
     };
-  }, [traceId, tenantId]);
+  }, [traceId, tenantId, analystSession]);
 
   const packWhy = useMemo(
     () =>
@@ -270,6 +279,65 @@ export default function Decisions() {
                     </dd>
                   </div>
                 </dl>
+                {analystSession ? (
+                  <form
+                    data-testid="decision-override-form"
+                    className="space-y-2 border-t border-surface-700 pt-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const why = overrideWhy.trim();
+                      if (!why || !detail.trace_id || overrideBusy) return;
+                      setOverrideBusy(true);
+                      setOverrideMsg(null);
+                      void decisions
+                        .overrideDecisionLabel(tenantId, {
+                          trace_id: detail.trace_id,
+                          entity_id: detail.entity_id,
+                          y_label: "LEGITIMATE",
+                          why,
+                        })
+                        .then(() => {
+                          setOverrideMsg(
+                            "Override stored as a label for the next evaluate. Not a claim that the model learned.",
+                          );
+                        })
+                        .catch((err) => {
+                          setOverrideMsg(
+                            toUserFacingError(err, {
+                              subject: "Decision override",
+                              action: "store label",
+                            }),
+                          );
+                        })
+                        .finally(() => setOverrideBusy(false));
+                    }}
+                  >
+                    <p className="text-xs text-gray-400">
+                      Analyst override — stores why as a label (not a CRM close). Viewer stays 403.
+                    </p>
+                    <textarea
+                      data-testid="decision-override-why"
+                      value={overrideWhy}
+                      onChange={(e) => setOverrideWhy(e.target.value)}
+                      rows={2}
+                      placeholder="Why this FLAG/review is overridden…"
+                      className="w-full rounded-md border border-surface-600 bg-surface-800 px-2 py-1.5 text-sm text-gray-100"
+                    />
+                    <button
+                      type="submit"
+                      data-testid="decision-override-submit"
+                      disabled={overrideBusy || !overrideWhy.trim()}
+                      className="px-2 py-1 text-xs rounded border border-surface-600 hover:border-brand-500 text-gray-300 disabled:opacity-50"
+                    >
+                      Store override label
+                    </button>
+                    {overrideMsg ? (
+                      <p className="text-xs text-gray-400" data-testid="decision-override-status">
+                        {overrideMsg}
+                      </p>
+                    ) : null}
+                  </form>
+                ) : null}
                 </>
               ) : !detailError ? (
                 <p className="text-sm text-gray-500" data-testid="decisions-detail-empty">

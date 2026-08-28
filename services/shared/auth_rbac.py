@@ -151,7 +151,8 @@ class AuthUser:
 async def _authenticate(request: Request) -> AuthUser:
     """Extract and validate credentials from request."""
     # S2S internal token (CASE_INTERNAL_TOKEN) — grants analyst for service-to-service calls
-    # without requiring API_KEYS on the desk (which would 401 the viewer UI).
+    # without putting API_KEYS in the browser. Local desk: API_KEYS + ALLOW_INSECURE_NO_AUTH
+    # keeps anonymous as viewer; a valid seed key elevates to SERVICE_API_KEY_ROLE.
     internal_token = request.headers.get("x-internal-token", "")
     expected_internal = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()
     if (
@@ -228,6 +229,11 @@ async def _authenticate(request: Request) -> AuthUser:
             "authentication misconfigured: set API_KEYS or OIDC_ISSUER (or ALLOW_INSECURE_NO_AUTH=true for local development)",
         )
 
+    # Local desk only: seed API_KEYS + no OIDC. Anonymous stays viewer so the
+    # stream loads; paste-login sends the key. Do not apply when OIDC is configured.
+    if allow_insecure and valid_keys and not (os.environ.get("OIDC_ISSUER") or "").strip():
+        return AuthUser(user_id="anonymous", roles=["viewer"], auth_type="none", tenant_ids={"*"})
+
     raise HTTPException(401, "authentication required")
 
 
@@ -261,8 +267,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.auth_user = user
             if tenant_binding_required():
                 await enforce_tenant_access(request, allowed_tenants=user.tenant_ids)
-        except HTTPException:
-            raise
+        except HTTPException as exc:
+            from starlette.responses import JSONResponse
+
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
         except Exception as e:
             raise HTTPException(401, str(e))
         return await call_next(request)

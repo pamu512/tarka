@@ -8,6 +8,11 @@ if [[ ! -f "$DEPLOY/.env" ]]; then
   cp "$DEPLOY/env/community.env.example" "$DEPLOY/.env"
   echo 'ALLOW_INSECURE_NO_AUTH=true' >> "$DEPLOY/.env"
 fi
+# Local analyst paste-login. Viewer stays anonymous under ALLOW_INSECURE_NO_AUTH.
+if ! grep -q '^API_KEYS=' "$DEPLOY/.env"; then
+  echo 'API_KEYS=desk-analyst-local' >> "$DEPLOY/.env"
+  echo 'SERVICE_API_KEY_ROLE=analyst' >> "$DEPLOY/.env"
+fi
 docker compose \
   -f "$DEPLOY/docker-compose.lite.yml" \
   -f "$DEPLOY/docker-compose.fraud-desk.yml" \

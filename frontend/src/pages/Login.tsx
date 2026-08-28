@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactElement } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useState, type FormEvent, type ReactElement } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 
+import { clearDeskAnalystApiKey, setDeskAnalystApiKey } from "@/api/deskAnalystSession";
 import { leanHomePath } from "@/config/leanNav";
 
 type AuthConfig = {
@@ -30,10 +31,20 @@ function detailFromBody(text: string): string | null {
 
 export default function Login(): ReactElement {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const next = safeNext(params.get("next"));
   const [config, setConfig] = useState<AuthConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analystKey, setAnalystKey] = useState("");
+
+  const submitAnalystKey = (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = analystKey.trim();
+    if (!trimmed) return;
+    setDeskAnalystApiKey(trimmed);
+    navigate(next);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -100,16 +111,48 @@ export default function Login(): ReactElement {
         <div className="space-y-3 text-sm text-gray-400">
           <p>
             Local mode — SSO is not configured on this desk (<code className="text-gray-300">OIDC_ISSUER</code>{" "}
-            is empty). Use existing local credentials:{" "}
-            <code className="text-gray-300">ALLOW_INSECURE_NO_AUTH</code> or{" "}
-            <code className="text-gray-300">API_KEYS</code> still apply.
+            is empty). Default is viewer (
+            <code className="text-gray-300">ALLOW_INSECURE_NO_AUTH</code>
+            ). Analyst routes still require the seed API key — it is not bundled.
           </p>
-          <Link
-            to={next}
+          <form className="space-y-2" onSubmit={submitAnalystKey}>
+            <label className="block text-xs text-gray-500" htmlFor="local-analyst-key">
+              Seed analyst key (session only)
+            </label>
+            <input
+              id="local-analyst-key"
+              data-testid="local-analyst-key"
+              type="password"
+              autoComplete="off"
+              value={analystKey}
+              onChange={(e) => setAnalystKey(e.target.value)}
+              placeholder="desk-analyst-local"
+              className="w-full rounded-md border border-surface-600 bg-surface-800 px-3 py-2 text-sm text-gray-100"
+            />
+            <button
+              type="submit"
+              data-testid="local-analyst-submit"
+              className="inline-flex items-center justify-center rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition-colors"
+            >
+              Use analyst session
+            </button>
+          </form>
+          <p className="text-xs text-gray-500">
+            Seed from <code className="text-gray-400">scripts/oss/up_desk.sh</code>:{" "}
+            <code className="text-gray-300">desk-analyst-local</code>. Full audit GET and override POST
+            stay fail-closed for viewer.
+          </p>
+          <button
+            type="button"
+            data-testid="local-viewer-continue"
             className="inline-flex items-center justify-center rounded-md bg-surface-700 px-4 py-2 text-sm font-medium text-gray-100 hover:bg-surface-600 transition-colors"
+            onClick={() => {
+              clearDeskAnalystApiKey();
+              navigate(next);
+            }}
           >
-            Continue to desk
-          </Link>
+            Continue as viewer
+          </button>
         </div>
       ) : null}
     </div>

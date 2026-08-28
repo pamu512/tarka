@@ -9,6 +9,7 @@ import {
   type FeatureImportanceRequestBody,
   type FeatureImportanceResponse,
 } from "../lib/featureImportance";
+import { getDeskAnalystApiKey } from "./deskAnalystSession";
 import { reportDataOutcome } from "./dataSourceState";
 import { deskStrictEnabled, isUpstreamUnavailableBody, mocksAllowedForUrl } from "./deskMockPolicy";
 import { assertIntegrationSecretsTransportSecure } from "../utils/integrationSecretsTransport";
@@ -1339,6 +1340,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
   };
+  if (!headers["x-api-key"] && !headers["X-API-Key"]) {
+    const deskKey = getDeskAnalystApiKey();
+    if (deskKey) headers["x-api-key"] = deskKey;
+  }
   try {
     const res = await fetch(url, {
       ...init,
@@ -1417,6 +1422,25 @@ export const decisions = {
       q.set("detail_level", opts.detail_level);
     }
     return request<AuditEntry>(`/api/decisions/v1/audit/${encodeURIComponent(traceId)}?${q}`);
+  },
+
+  overrideDecisionLabel(
+    tenantId: string,
+    body: { trace_id: string; entity_id: string; y_label: string; why: string },
+  ) {
+    return request<{ ok: boolean; learned: boolean }>(
+      "/api/decisions/v1/calibration/y-labels/override",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          trace_id: body.trace_id,
+          entity_id: body.entity_id,
+          y_label: body.y_label,
+          why: body.why,
+        }),
+      },
+    );
   },
 
   recentAudit(tenantId: string, limit: number = 50) {

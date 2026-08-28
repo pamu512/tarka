@@ -64,19 +64,22 @@ def _path(tenant_id: str) -> Path:
     return target
 
 
-def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
+def _read_raw(tenant_id: str) -> dict[str, Any]:
     try:
         path = _path(tenant_id)
     except ValueError:
-        return {"by_trace": {}, "by_entity": {}}
+        return {}
     if not path.is_file():
-        return {"by_trace": {}, "by_entity": {}}
+        return {}
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"by_trace": {}, "by_entity": {}}
-    if not isinstance(raw, dict):
-        return {"by_trace": {}, "by_entity": {}}
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
+    raw = _read_raw(tenant_id)
     by_t = raw.get("by_trace") if isinstance(raw.get("by_trace"), dict) else {}
     by_e = raw.get("by_entity") if isinstance(raw.get("by_entity"), dict) else {}
     return {
@@ -85,17 +88,25 @@ def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
     }
 
 
+def load_override_whys(tenant_id: str) -> dict[str, str]:
+    raw = _read_raw(tenant_id)
+    why = raw.get("why_by_trace") if isinstance(raw.get("why_by_trace"), dict) else {}
+    return {str(k): str(v).strip() for k, v in why.items() if str(v).strip()}
+
+
 def merge_y_labels(
     tenant_id: str,
     *,
     by_trace: dict[str, str] | None = None,
     by_entity: dict[str, str] | None = None,
+    why_by_trace: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Merge 0/1 maps into durable store. Returns store snapshot + counts."""
     with _lock:
         cur = load_y_labels(tenant_id)
         t_map = dict(cur["by_trace"])
         e_map = dict(cur["by_entity"])
+        why_map = load_override_whys(tenant_id)
         added = 0
         for k, v in (by_trace or {}).items():
             key = str(k).strip()
@@ -108,7 +119,12 @@ def merge_y_labels(
             key = str(k).strip()
             if key and v in {"0", "1"}:
                 e_map[key] = v
-        payload = {"by_trace": t_map, "by_entity": e_map}
+        for k, v in (why_by_trace or {}).items():
+            key = str(k).strip()
+            reason = str(v).strip()
+            if key and reason:
+                why_map[key] = reason
+        payload = {"by_trace": t_map, "by_entity": e_map, "why_by_trace": why_map}
         path = _path(tenant_id)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return {
@@ -118,4 +134,5 @@ def merge_y_labels(
             "updated": added,
             "by_trace": t_map,
             "by_entity": e_map,
+            "why_by_trace": why_map,
         }
