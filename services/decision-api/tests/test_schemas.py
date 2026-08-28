@@ -13,7 +13,11 @@ from pydantic import ValidationError
 class TestEvaluateRequest:
     def test_minimal_valid(self):
         r = EvaluateRequest(
-            tenant_id="t1", event_type="login", entity_id="u1", role="member", payload={}
+            tenant_id="t1",
+            event_type="login",
+            entity_id="u1",
+            role="member",
+            payload={},
         )
         assert r.tenant_id == "t1"
         assert r.event_type == EventType.login

@@ -73,6 +73,7 @@ def main() -> int:
         "tenant_id": "demo",
         "entity_id": "oss-15min-user",
         "event_type": "payment",
+        "role": "member",
         "payload": {
             "amount": 42.0,
             "currency": "USD",

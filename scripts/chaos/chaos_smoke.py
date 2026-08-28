@@ -125,6 +125,7 @@ def smoke_evaluate_ok() -> None:
             "tenant_id": "chaos_smoke",
             "event_type": "login",
             "entity_id": "chaos-smoke-entity",
+            "role": "member",
             "payload": {"source": "chaos_smoke", "amount": 50, "currency": "USD"},
         }
     ).encode()
@@ -155,6 +156,7 @@ def evaluate_any_status() -> tuple[int, str]:
             "tenant_id": "chaos_smoke",
             "event_type": "login",
             "entity_id": "chaos-smoke-entity",
+            "role": "member",
             "payload": {"source": "chaos_smoke_fault", "amount": 50, "currency": "USD"},
         }
     ).encode()
