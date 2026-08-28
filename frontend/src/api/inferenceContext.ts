@@ -29,6 +29,9 @@ export interface InferenceContext {
   };
   graph_risk_score: number;
   graph_risk_reasons: string[];
+  named_edges?: Array<Record<string, unknown>>;
+  multi_id_user_ids?: string[];
+  roles?: string[];
   external_signal_score: number;
   external_signal_providers: string[];
   policy_experiment_id: string | null;
@@ -142,6 +145,21 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
       Array.isArray((r as { graph_risk_reasons?: unknown }).graph_risk_reasons)
         ? ((r as { graph_risk_reasons: unknown[] }).graph_risk_reasons ?? []).filter((x): x is string => typeof x === "string")
         : [],
+    named_edges: Array.isArray((r as { named_edges?: unknown }).named_edges)
+      ? ((r as { named_edges: unknown[] }).named_edges ?? []).filter(
+          (x): x is Record<string, unknown> => x != null && typeof x === "object",
+        )
+      : [],
+    multi_id_user_ids: Array.isArray((r as { multi_id_user_ids?: unknown }).multi_id_user_ids)
+      ? ((r as { multi_id_user_ids: unknown[] }).multi_id_user_ids ?? []).filter(
+          (x): x is string => typeof x === "string" && x.trim().length > 0,
+        )
+      : [],
+    roles: Array.isArray((r as { roles?: unknown }).roles)
+      ? ((r as { roles: unknown[] }).roles ?? []).filter(
+          (x): x is string => typeof x === "string" && x.trim().length > 0,
+        )
+      : [],
     external_signal_score:
       typeof (r as { external_signal_score?: unknown }).external_signal_score === "number"
         ? ((r as { external_signal_score: number }).external_signal_score ?? 0)

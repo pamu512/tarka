@@ -8,6 +8,11 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
+from graph_contract import (
+    UnsignedGraphToken,
+    empty_graph_answers,
+    graph_answers_from_neighborhood,
+)
 
 from .algorithms import (
     compute_entity_risk,
@@ -150,6 +155,8 @@ class LinkRequest(BaseModel):
     from_external_id: str
     to_external_id: str
     relationship: str
+    from_entity_type: str | None = None
+    to_entity_type: str | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -207,13 +214,16 @@ async def entities_search(tenant_id: str, q: str = "", label: str | None = None,
 
 @app.post("/v1/entities", response_model=EntityResponse)
 async def upsert_entity_endpoint(body: UpsertEntityRequest):
-    gid = await upsert_entity(
-        body.tenant_id,
-        body.entity_type,
-        body.external_id,
-        body.properties,
-        tags=body.tags,
-    )
+    try:
+        gid = await upsert_entity(
+            body.tenant_id,
+            body.entity_type,
+            body.external_id,
+            body.properties,
+            tags=body.tags,
+        )
+    except UnsignedGraphToken as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     try:
         await refresh_touched_and_neighbors(body.tenant_id, [body.external_id])
     except Exception:
@@ -274,13 +284,20 @@ async def entity_deep_context(external_id: str, tenant_id: str):
 @app.post("/v1/links")
 async def links_endpoint(body: LinkRequest):
     try:
+        props = dict(body.properties or {})
+        if body.from_entity_type:
+            props["from_vtype"] = body.from_entity_type
+        if body.to_entity_type:
+            props["to_vtype"] = body.to_entity_type
         await create_link(
             body.tenant_id,
             body.from_external_id,
             body.to_external_id,
             body.relationship,
-            body.properties,
+            props,
         )
+    except UnsignedGraphToken as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception:
@@ -312,6 +329,7 @@ async def subgraph(entity_id: str, tenant_id: str, depth: int = 2):
 class SchemaUpdateRequest(BaseModel):
     entity_types: list[str] = Field(default_factory=list)
     relationship_types: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
     typed_edges: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Optional hetero constraints: relationship + allowed endpoint entity types (xFraud-style).",
@@ -339,6 +357,7 @@ async def put_schema(tenant_id: str, body: SchemaUpdateRequest):
         extra=body.extra,
         typed_edges=body.typed_edges or None,
         node_context_hints=body.node_context_hints or None,
+        roles=body.roles or None,
     )
     save_tenant_schema(schema)
     return schema.to_dict()
@@ -424,6 +443,17 @@ async def fraud_rings_endpoint(tenant_id: str, min_size: int = 3):
 async def entity_risk_endpoint(tenant_id: str, entity_id: str, checkpoint: str | None = None):
     """Optional ``checkpoint`` selects graph profile (OSS #49). See GET /v1/checkpoint-profiles."""
     base = await compute_entity_risk(tenant_id, entity_id, checkpoint=checkpoint)
+    try:
+        sub = await query_subgraph(tenant_id, entity_id, 2)
+        answers = graph_answers_from_neighborhood(
+            entity_id,
+            list(sub.get("nodes") or []),
+            list(sub.get("edges") or []),
+        )
+        base.update(answers)
+    except Exception:
+        log.exception("graph answers attach failed tenant=%s entity=%s", tenant_id, entity_id)
+        base.update(empty_graph_answers())
     # Beta may overwrite score/factors; growth always comes from compute.
     growth = {
         "relation_count": base.get("relation_count", 0),

@@ -14,6 +14,7 @@ const defaultEvaluate = `{
   "tenant_id": "demo-tenant",
   "event_type": "payment",
   "entity_id": "entity-1",
+  "role": "member",
   "payload": {
     "transaction_amount": 12000
   }

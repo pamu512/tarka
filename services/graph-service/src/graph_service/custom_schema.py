@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from graph_contract import register_etypes, register_roles, register_vtypes, reset_tenant_registry
+
 """Per-tenant custom schema configuration.
 
 Each tenant may define additional entity types (node labels) and relationship
@@ -16,6 +18,7 @@ types beyond the built-in defaults.  Schemas are stored as JSON files in a
 log = logging.getLogger(__name__)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+_SAFE_ROLE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 _SAFE_TENANT_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
 
 
@@ -26,6 +29,15 @@ def _norm_rel_token(rel: str) -> str:
 _SCHEMAS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "schemas"
 
 _DEFAULT_ENTITY_TYPES = [
+    "user",
+    "device",
+    "ip",
+    "phone",
+    "payment",
+    "place",
+    "promo",
+    "order",
+    # Legacy labels remain registerable so existing tenants/tests keep working.
     "Person",
     "Account",
     "Device",
@@ -37,12 +49,12 @@ _DEFAULT_ENTITY_TYPES = [
 _DEFAULT_RELATIONSHIP_TYPES = [
     "USED",
     "SEEN_AT",
-    "SHARED_WITH",
+    "PARTY_WITH",
+    "OWNS",
     "REFERRED",
     "KYC_VERIFIED_BY",
-    "OWNS",
+    "SHARED_WITH",
     "CUSTOM",
-    "RELATED",
 ]
 
 
@@ -61,6 +73,7 @@ class TenantSchema:
         extra: dict[str, Any] | None = None,
         typed_edges: list[dict[str, Any]] | None = None,
         node_context_hints: dict[str, list[str]] | None = None,
+        roles: list[str] | None = None,
     ) -> None:
         self.tenant_id = tenant_id
         self.entity_types: list[str] = list(
@@ -69,6 +82,7 @@ class TenantSchema:
         self.relationship_types: list[str] = list(
             dict.fromkeys(_DEFAULT_RELATIONSHIP_TYPES + (relationship_types or []))
         )
+        self.roles: list[str] = list(dict.fromkeys(roles or []))
         self.extra: dict[str, Any] = extra or {}
         self.typed_edges: list[dict[str, Any]] = list(typed_edges or [])
         self.node_context_hints: dict[str, list[str]] = dict(node_context_hints or {})
@@ -86,6 +100,7 @@ class TenantSchema:
             "relationship_types": self.relationship_types,
             "typed_edges": self.typed_edges,
             "node_context_hints": self.node_context_hints,
+            "roles": self.roles,
             "extra": self.extra,
         }
 
@@ -105,6 +120,7 @@ class TenantSchema:
             extra=extra or None,
             typed_edges=typed_edges if isinstance(typed_edges, list) else None,
             node_context_hints=hints if isinstance(hints, dict) else None,
+            roles=data.get("roles") if isinstance(data.get("roles"), list) else None,
         )
 
 
@@ -152,7 +168,16 @@ def load_tenant_schema(tenant_id: str) -> TenantSchema:
         schema = TenantSchema(tenant_id=tenant_id)
 
     _cache[tenant_id] = schema
+    _sync_contract_registry(schema)
     return schema
+
+
+def _sync_contract_registry(schema: TenantSchema) -> None:
+    reset_tenant_registry(schema.tenant_id)
+    register_vtypes(schema.tenant_id, schema.entity_types)
+    register_etypes(schema.tenant_id, schema.relationship_types)
+    if schema.roles:
+        register_roles(schema.tenant_id, schema.roles)
 
 
 def save_tenant_schema(schema: TenantSchema) -> None:
@@ -166,6 +191,11 @@ def save_tenant_schema(schema: TenantSchema) -> None:
     ]
     if bad:
         raise ValueError(f"unsafe identifiers rejected: {bad}")
+    bad_roles = [
+        r for r in schema.roles if not _SAFE_ROLE.fullmatch(str(r).strip().lower())
+    ]
+    if bad_roles:
+        raise ValueError(f"unsafe roles rejected: {bad_roles}")
     for spec in schema.typed_edges:
         if not isinstance(spec, dict):
             raise ValueError("typed_edges entries must be objects")
@@ -192,6 +222,7 @@ def save_tenant_schema(schema: TenantSchema) -> None:
         encoding="utf-8",
     )
     _cache[schema.tenant_id] = schema
+    _sync_contract_registry(schema)
     log.info("saved schema for tenant %s to %s", schema.tenant_id, path)
 
 

@@ -12,14 +12,21 @@ from .entity_risk_score import (
     link_props_for_match,
 )
 from .hetero_schema import validate_typed_edge_or_raise
+from graph_contract import (
+    UnsignedGraphToken,
+    merge_roles,
+    require_etype,
+    require_vtype,
+    roles_from_properties,
+)
 
 _driver: AsyncDriver | None = None
 
 ALLOWED_LABELS = frozenset(
-    {"Person", "Account", "Device", "Payment", "Document", "Decision", "Custom"}
+    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
 )
 ALLOWED_RELS = frozenset(
-    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
 )
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -28,13 +35,13 @@ _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 def _sanitize_label(label: str) -> str:
     """Reject labels that could contain Cypher injection."""
     if not _SAFE_IDENTIFIER.match(label):
-        return "Custom"
+        raise UnsignedGraphToken("vtype", label)
     return label
 
 
 def _sanitize_rel(rel: str) -> str:
     if not _SAFE_IDENTIFIER.match(rel):
-        return "RELATED"
+        raise UnsignedGraphToken("etype", rel)
     return rel
 
 
@@ -63,19 +70,30 @@ async def upsert_entity(
     tags: list[str] | None = None,
 ) -> str:
     driver = await get_driver()
-    tenant_labels = get_allowed_labels(tenant_id)
-    label = entity_type if entity_type in (ALLOWED_LABELS | tenant_labels) else "Custom"
+    get_allowed_labels(tenant_id)
+    label = require_vtype(tenant_id, entity_type)
     label = _sanitize_label(label)
-    props = {**properties, "tenant_id": tenant_id, "external_id": external_id}
+    props = {**properties, "tenant_id": tenant_id, "external_id": external_id, "vtype": label}
     if tags is not None:
         props["tags"] = tags
+    incoming_roles = roles_from_properties(properties)
 
+    q_exist = f"""
+    MATCH (n:{label} {{tenant_id: $tenant_id, external_id: $external_id}})
+    RETURN n.roles AS roles LIMIT 1
+    """
     q = f"""
     MERGE (n:{label} {{tenant_id: $tenant_id, external_id: $external_id}})
     SET n += $properties, n.updated_at = datetime()
     RETURN elementId(n) AS gid
     """
     async with driver.session() as session:
+        existing = await session.run(
+            q_exist, tenant_id=tenant_id, external_id=external_id
+        )
+        erec = await existing.single()
+        old_roles = list(erec["roles"] or []) if erec and erec["roles"] else []
+        props["roles"] = merge_roles(old_roles, incoming_roles)
         result = await session.run(
             q,
             tenant_id=tenant_id,
@@ -151,21 +169,35 @@ async def create_link(
     properties: dict[str, Any],
 ) -> None:
     driver = await get_driver()
-    rel = relationship.upper().replace(" ", "_")
-    tenant_rels = get_allowed_rels(tenant_id)
-    if rel not in (ALLOWED_RELS | tenant_rels):
-        rel = "RELATED"
+    get_allowed_rels(tenant_id)
+    rel = require_etype(tenant_id, relationship)
     rel = _sanitize_rel(rel)
-    create_props = _link_properties_with_observed_at(properties)
-    match_props = link_props_for_match(properties)
-    q_meta = """
-    MATCH (a {tenant_id: $tenant_id, external_id: $from_id})
-    MATCH (b {tenant_id: $tenant_id, external_id: $to_id})
+    from_vtype = (properties or {}).get("from_vtype") or (properties or {}).get("from_entity_type")
+    to_vtype = (properties or {}).get("to_vtype") or (properties or {}).get("to_entity_type")
+
+    def _endpoint(alias: str, id_param: str, vtype: Any) -> str:
+        if vtype:
+            lab = _sanitize_label(require_vtype(tenant_id, str(vtype)))
+            return f"({alias}:{lab} {{tenant_id: $tenant_id, external_id: ${id_param}}})"
+        return f"({alias} {{tenant_id: $tenant_id, external_id: ${id_param}}})"
+
+    a_pat = _endpoint("a", "from_id", from_vtype)
+    b_pat = _endpoint("b", "to_id", to_vtype)
+    edge_props = {
+        k: v
+        for k, v in (properties or {}).items()
+        if k not in ("from_vtype", "to_vtype", "from_entity_type", "to_entity_type")
+    }
+    create_props = _link_properties_with_observed_at(edge_props)
+    match_props = link_props_for_match(edge_props)
+    q_meta = f"""
+    MATCH {a_pat}
+    MATCH {b_pat}
     RETURN labels(a) AS la, labels(b) AS lb
     """
     q = f"""
-    MATCH (a {{tenant_id: $tenant_id, external_id: $from_id}})
-    MATCH (b {{tenant_id: $tenant_id, external_id: $to_id}})
+    MATCH {a_pat}
+    MATCH {b_pat}
     MERGE (a)-[r:{rel}]->(b)
     ON CREATE SET r += $create_props
     ON MATCH SET r += $match_props
@@ -211,7 +243,13 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     driver = await get_driver()
     depth = max(1, min(int(depth), 5))
     q = f"""
-    MATCH (root {{tenant_id: $tenant_id, external_id: $eid}})
+    OPTIONAL MATCH (u:user {{tenant_id: $tenant_id, external_id: $eid}})
+    WITH u
+    OPTIONAL MATCH (x {{tenant_id: $tenant_id, external_id: $eid}})
+    WHERE u IS NULL
+    WITH u, collect(DISTINCT x) AS hits
+    WITH coalesce(u, CASE WHEN size(hits) = 1 THEN hits[0] ELSE null END) AS root
+    WHERE root IS NOT NULL
     OPTIONAL MATCH p = (root)-[*1..{depth}]-(n)
     WITH collect(DISTINCT root) + collect(DISTINCT n) AS node_list, collect(p) AS paths
     WITH node_list,

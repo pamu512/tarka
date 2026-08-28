@@ -11,7 +11,7 @@ Canonical OpenAPI: [`contracts/openapi/graph-service.yaml`](../../../contracts/o
 | In scope | Out of scope |
 |----------|--------------|
 | `GET /v1/analytics/entity-risk` during `POST /v1/decisions/evaluate` | `GET /v1/subgraph` (Link Analysis UI) |
-| Scalar risk summary consumed by rules/scoring | Raw `{nodes, edges}` graph payloads |
+| Risk summary **and** named edges / `multi_id_user_ids` / `roles[]` on the receipt | Invented SHARES_*/SAME_AS/RELATED edges |
 | Freshness guard in `_fetch_graph_risk` | NATS decision-stream graph indexer (planned) |
 
 ---
@@ -30,7 +30,8 @@ GET {GRAPH_SERVICE_URL}/v1/analytics/entity-risk
 | Query param | Set by | Meaning |
 |-------------|--------|---------|
 | `tenant_id` | Evaluate body | Tenant isolation key |
-| `entity_id` | Evaluate body | Subject entity (same id used in rules) |
+| `entity_id` | Evaluate body | Primary **user** id (same public field). Identity in the graph is `(tenant_id, vtype, id)`. |
+| `role` | Evaluate body (required) | Registered role string. Unsigned → 422. |
 | `checkpoint` | Routing policy or evaluate metadata (`graph_checkpoint`) | **Analytics profile** (`minimal` / `standard` / `deep`), not a timestamp |
 
 Headers: shared upstream auth (`x-api-key` via `_upstream_headers()`).
@@ -64,18 +65,18 @@ JSON is parsed once in `_fetch_graph_risk` via `httpx` `response.json()`. The re
   "graph_profile_multiplier": 1.0,
   "graph_profile_max_neighbor_hops": 3,
   "graph_data_as_of": "2026-06-25T12:34:56.789Z",
-  "gnn_beta": {
-    "risk_score": 72.0,
-    "model": "graph_risk_beta_v1",
-    "reasons": ["high_neighbor_risk"]
-  }
+  "named_edges": [
+    {"from_id": "user-42", "to_id": "dev-1", "type": "USED"}
+  ],
+  "multi_id_user_ids": ["user-99"],
+  "roles": ["member"]
 }
 ```
 
 | Field | Type | Role |
 |-------|------|------|
 | `entity_id` | string | Echo of queried entity |
-| `risk_score` | number 0–100 | Composite heuristic score (+ optional GNN overlay at endpoint) |
+| `risk_score` | number 0–100 | Composite heuristic score |
 | `risk_factors` | string[] | Human/machine-readable factor codes |
 | `connected_flagged_count` | int | Flagged neighbor count |
 | `community_size` | int | Bounded neighborhood size |
@@ -85,7 +86,9 @@ JSON is parsed once in `_fetch_graph_risk` via `httpx` `response.json()`. The re
 | `graph_profile_multiplier` | number | Score multiplier from checkpoint registry |
 | `graph_profile_max_neighbor_hops` | int | Traversal depth cap (1–5) |
 | `graph_data_as_of` | string (ISO-8601 UTC) | **Freshness**: latest graph write time on the entity vertex (`updated_at`, `last_seen`, `tags_updated_at`, or `observed_at`) |
-| `gnn_beta` | object \| omitted | Optional second-pass model overlay |
+| `named_edges` | object[] | Incident edges with their real type names (never rewritten to RELATED) |
+| `multi_id_user_ids` | string[] | Other user vertices that share a bridge |
+| `roles` | string[] | `roles[]` on the user vertex |
 
 When the entity is missing from the graph DB, graph-service returns `risk_score: 0`, `risk_factors: ["entity_not_found"]`, and typically **no** `graph_data_as_of`.
 
@@ -97,12 +100,11 @@ Use **`graph_data_as_of`** for ingestion lag. Decision API warns when this times
 
 ---
 
-## Why scalars, not raw graph structures?
+## Graph answers on evaluate (contract v1.2)
 
-1. **Latency budget** — Evaluate p95 target (~50 ms service SLO) cannot afford serializing multi-hop `{nodes, edges}` on every decision.
-2. **Stable rule surface** — JSON rules match on **tags** (`graph:high_risk_entity`, `graph:connected_flagged:2`) and numeric score deltas, not Gremlin/Cypher objects.
-3. **Separation of concerns** — Graph DB holds topology; graph-service **aggregates** it (`compute_entity_risk`). Link Analysis UI uses `GET /v1/subgraph` separately.
-4. **Fail-soft** — A compact dict degrades cleanly (skip step, no graph delta). Partial subgraphs would be harder to reason about under circuit-open / timeout.
+Evaluate still keeps `entity_id` as the user id. The hop must also consume **named edges**, `multi_id_user_ids`, and `roles[]` onto `inference_context`, `pack_why.graph`, and the audit receipt. Empty `GRAPH_SERVICE_URL` is `graph:missing` / `graph:unconfigured` — do not stub neighbors. Timeout degrades; do not invent edges.
+
+Rules still match tags and score deltas. Topology is not a second rule language.
 
 ### What the Rule Engine actually receives
 

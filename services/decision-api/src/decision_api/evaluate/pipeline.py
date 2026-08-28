@@ -156,6 +156,13 @@ async def run_evaluate_decision(
     from decision_api.policy_set import current_policy_set_id
 
     policy_set_id = current_policy_set_id() or None
+    from decision_api.graph_hop_contract import graph_pack_why, validate_evaluate_roles
+    from graph_contract import UnsignedGraphToken
+
+    try:
+        validate_evaluate_roles(body.tenant_id, body.role, body.parties)
+    except UnsignedGraphToken as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     tenant_flags = await _load_tenant_flags_for_evaluate(body.tenant_id)
 
     # Extract SDK signal tags
@@ -1243,6 +1250,14 @@ async def run_evaluate_decision(
             snap_extra["location"] = location_meta
         if graph_decision_explanation is not None:
             snap_extra["graph_decision_explanation"] = graph_decision_explanation
+        snap_extra["pack_why"] = graph_pack_why(
+            graph_risk if isinstance(graph_risk, dict) else None
+        )
+        snap_extra["role"] = body.role
+        if body.parties:
+            snap_extra["parties"] = [
+                p.model_dump() if hasattr(p, "model_dump") else p for p in body.parties
+            ]
 
         snap_extra["counter_version"] = _audit_counter_version_label()
         snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)

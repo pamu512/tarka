@@ -1,6 +1,14 @@
 {
   "tenant_id": "default",
   "entity_types": [
+    "user",
+    "device",
+    "ip",
+    "phone",
+    "payment",
+    "place",
+    "promo",
+    "order",
     "Person",
     "Account",
     "Device",
@@ -14,18 +22,20 @@
   ],
   "relationship_types": [
     "USED",
-    "SHARED_WITH",
+    "SEEN_AT",
+    "PARTY_WITH",
+    "OWNS",
     "REFERRED",
     "KYC_VERIFIED_BY",
-    "OWNS",
+    "SHARED_WITH",
     "CUSTOM",
-    "RELATED",
     "SENT_TO",
     "RECEIVED_FROM",
     "LOCATED_AT",
     "CONTACTED"
   ],
+  "roles": [],
   "extra": {
-    "description": "Default schema with common fraud-detection entity and relationship types"
+    "description": "Default schema: user + bridge vtypes. Legacy labels remain registerable. RELATED is not a rewrite target."
   }
 }
