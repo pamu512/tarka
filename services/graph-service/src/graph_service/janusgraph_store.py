@@ -35,12 +35,8 @@ from .janusgraph_gremlin import (
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")
 
-ALLOWED_LABELS = frozenset(
-    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
-)
-ALLOWED_RELS = frozenset(
-    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
-)
+ALLOWED_LABELS = frozenset({"user", "device", "ip", "phone", "payment", "place", "promo", "order"})
+ALLOWED_RELS = frozenset({"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"})
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
@@ -192,7 +188,9 @@ def _upsert_entity_sync(
             if isinstance(raw_roles, str):
                 try:
                     parsed = json.loads(raw_roles)
-                    old_roles = [str(x) for x in parsed] if isinstance(parsed, list) else [raw_roles]
+                    old_roles = (
+                        [str(x) for x in parsed] if isinstance(parsed, list) else [raw_roles]
+                    )
                 except json.JSONDecodeError:
                     old_roles = [raw_roles]
             elif isinstance(raw_roles, list):

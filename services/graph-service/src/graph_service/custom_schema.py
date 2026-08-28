@@ -191,9 +191,7 @@ def save_tenant_schema(schema: TenantSchema) -> None:
     ]
     if bad:
         raise ValueError(f"unsafe identifiers rejected: {bad}")
-    bad_roles = [
-        r for r in schema.roles if not _SAFE_ROLE.fullmatch(str(r).strip().lower())
-    ]
+    bad_roles = [r for r in schema.roles if not _SAFE_ROLE.fullmatch(str(r).strip().lower())]
     if bad_roles:
         raise ValueError(f"unsafe roles rejected: {bad_roles}")
     for spec in schema.typed_edges:

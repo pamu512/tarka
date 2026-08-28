@@ -329,9 +329,7 @@ async def compute_entity_risk(
             .toList()
         )
         if not vl:
-            hits = (
-                g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(2).toList()
-            )
+            hits = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(2).toList()
             vl = hits[:1] if len(hits) == 1 else []
         if not vl:
             return entity_not_found_payload(
