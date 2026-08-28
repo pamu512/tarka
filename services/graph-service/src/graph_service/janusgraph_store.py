@@ -17,6 +17,15 @@ from .entity_risk_score import (
     decorate_subgraph_node,
 )
 from .hetero_schema import validate_typed_edge_or_raise
+from graph_contract import (
+    USER_VTYPE,
+    UnsignedGraphToken,
+    janus_graph_id,
+    merge_roles,
+    require_etype,
+    require_vtype,
+    roles_from_properties,
+)
 from .janusgraph_gremlin import (
     get_traversal_source,
     run_in_gremlin_thread,
@@ -27,23 +36,41 @@ from .janusgraph_gremlin import (
 log = logging.getLogger("graph-service.janus")
 
 ALLOWED_LABELS = frozenset(
-    {"Person", "Account", "Device", "Payment", "Document", "Decision", "Custom"}
+    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
 )
 ALLOWED_RELS = frozenset(
-    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
 )
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
+def refuse_label(tenant_id: str, label: str) -> str:
+    """Refuse unsigned vtypes. Never rewrite to Custom."""
+    return require_vtype(tenant_id, label)
+
+
+def refuse_rel(tenant_id: str, rel: str) -> str:
+    """Refuse unsigned etypes. Never rewrite to RELATED."""
+    return require_etype(tenant_id, rel)
+
+
+def vertex_lookup_uses_label() -> bool:
+    return True
+
+
+def janus_graph_id_for(tenant_id: str, vtype: str, entity_id: str) -> str:
+    return janus_graph_id(tenant_id, vtype, entity_id)
+
+
 def _sanitize_label(label: str) -> str:
     if not _SAFE_IDENTIFIER.match(label):
-        return "Custom"
+        raise UnsignedGraphToken("vtype", label)
     return label
 
 
 def _sanitize_rel(rel: str) -> str:
     if not _SAFE_IDENTIFIER.match(rel):
-        return "RELATED"
+        raise UnsignedGraphToken("etype", rel)
     return rel
 
 
@@ -125,10 +152,11 @@ def _upsert_entity_sync(
     tags: list[str] | None,
 ) -> str:
     g = get_traversal_source()
-    tenant_labels = get_allowed_labels(tenant_id)
-    label = entity_type if entity_type in (ALLOWED_LABELS | tenant_labels) else "Custom"
+    get_allowed_labels(tenant_id)
+    label = refuse_label(tenant_id, entity_type)
     label = _sanitize_label(label)
-    props = {**properties, "tenant_id": tenant_id, "external_id": external_id}
+    incoming_roles = roles_from_properties(properties)
+    props = {**properties, "tenant_id": tenant_id, "external_id": external_id, "vtype": label}
     if tags is not None:
         props["tags"] = _tags_encode(tags) or "[]"
 
@@ -147,18 +175,41 @@ def _upsert_entity_sync(
                 t = t.property(Cardinality.single, k, val)
         return t
 
-    # Merge by tenant + external_id (any label); same external_id is unique per tenant.
+    # Identity is (tenant_id, vtype, id). user:abc and device:abc are different vertices.
     existing_list = (
-        g.V().has("tenant_id", tenant_id).has("external_id", external_id).limit(1).toList()
+        g.V()
+        .hasLabel(label)
+        .has("tenant_id", tenant_id)
+        .has("external_id", external_id)
+        .limit(1)
+        .toList()
     )
     if existing_list:
         v = existing_list[0]
+        old_roles: list[str] = []
+        with contextlib.suppress(Exception):
+            raw_roles = g.V(v).values("roles").limit(1).next()
+            if isinstance(raw_roles, str):
+                try:
+                    parsed = json.loads(raw_roles)
+                    old_roles = [str(x) for x in parsed] if isinstance(parsed, list) else [raw_roles]
+                except json.JSONDecodeError:
+                    old_roles = [raw_roles]
+            elif isinstance(raw_roles, list):
+                old_roles = [str(x) for x in raw_roles]
+        props["roles"] = merge_roles(old_roles, incoming_roles)
         apply_props(g.V(v), drop_tags_first=True).iterate()
-        return f"jvg:{tenant_id}:{external_id}"
+        return janus_graph_id(tenant_id, label, external_id)
+    props["roles"] = incoming_roles
 
-    base = g.addV(label).property("tenant_id", tenant_id).property("external_id", external_id)
+    base = (
+        g.addV(label)
+        .property("tenant_id", tenant_id)
+        .property("external_id", external_id)
+        .property("vtype", label)
+    )
     apply_props(base, drop_tags_first=False).iterate()
-    return f"jvg:{tenant_id}:{external_id}"
+    return janus_graph_id(tenant_id, label, external_id)
 
 
 async def upsert_entity(
@@ -221,14 +272,22 @@ def _create_link_sync(
     properties: dict[str, Any],
 ) -> None:
     g = get_traversal_source()
-    rel = relationship.upper().replace(" ", "_")
-    tenant_rels = get_allowed_rels(tenant_id)
-    if rel not in (ALLOWED_RELS | tenant_rels):
-        rel = "RELATED"
+    get_allowed_rels(tenant_id)
+    rel = refuse_rel(tenant_id, relationship)
     rel = _sanitize_rel(rel)
 
-    a = g.V().has("tenant_id", tenant_id).has("external_id", from_external_id).limit(1).toList()
-    b = g.V().has("tenant_id", tenant_id).has("external_id", to_external_id).limit(1).toList()
+    from_vtype = (properties or {}).get("from_vtype") or (properties or {}).get("from_entity_type")
+    to_vtype = (properties or {}).get("to_vtype") or (properties or {}).get("to_entity_type")
+    a_trav = g.V().has("tenant_id", tenant_id).has("external_id", from_external_id)
+    b_trav = g.V().has("tenant_id", tenant_id).has("external_id", to_external_id)
+    if from_vtype:
+        a_trav = a_trav.hasLabel(str(from_vtype))
+    if to_vtype:
+        b_trav = b_trav.hasLabel(str(to_vtype))
+    a = a_trav.limit(2).toList()
+    b = b_trav.limit(2).toList()
+    if len(a) > 1 or len(b) > 1:
+        raise ValueError("ambiguous endpoint: specify from_vtype/to_vtype")
     if not a or not b:
         log.warning(
             "JanusGraph create_link: missing endpoint tenant=%s from=%s to=%s",
@@ -245,7 +304,13 @@ def _create_link_sync(
         la, lb = "Custom", "Custom"
     validate_typed_edge_or_raise(tenant_id, rel, [la], [lb])
 
-    rel_props = _link_properties_with_observed_at(properties)
+    rel_props = _link_properties_with_observed_at(
+        {
+            k: v
+            for k, v in (properties or {}).items()
+            if k not in ("from_vtype", "to_vtype", "from_entity_type", "to_entity_type")
+        }
+    )
     trav = g.V(a[0]).addE(rel).to(__.V(b[0]))
     for pk, pv in rel_props.items():
         if isinstance(pk, str) and _SAFE_IDENTIFIER.match(pk) and pv is not None:
@@ -359,7 +424,18 @@ def _walk_incident_layers(
 def _query_subgraph_sync(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
     g = get_traversal_source()
     depth = max(1, min(int(depth), 5))
-    root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    root_list = (
+        g.V()
+        .hasLabel(USER_VTYPE)
+        .has("tenant_id", tenant_id)
+        .has("external_id", entity_id)
+        .limit(1)
+        .toList()
+    )
+    if not root_list:
+        # Legacy single-vertex id (Person/Account) — still do not merge across labels.
+        hits = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(2).toList()
+        root_list = hits[:1] if len(hits) == 1 else []
     if not root_list:
         return {"nodes": [], "edges": []}
     nodes_out, edges_out = _walk_incident_layers(g, root_list[0], depth)
@@ -373,7 +449,17 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
 def _query_entity_deep_context_sync(tenant_id: str, entity_id: str) -> dict[str, Any] | None:
     """Collect 2-hop neighborhood maps; return ``None`` when the root vertex is absent."""
     g = get_traversal_source()
-    root_list = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+    root_list = (
+        g.V()
+        .hasLabel(USER_VTYPE)
+        .has("tenant_id", tenant_id)
+        .has("external_id", entity_id)
+        .limit(1)
+        .toList()
+    )
+    if not root_list:
+        hits = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(2).toList()
+        root_list = hits[:1] if len(hits) == 1 else []
     if not root_list:
         return None
     nodes_out, _edges = _walk_incident_layers(g, root_list[0], 2)

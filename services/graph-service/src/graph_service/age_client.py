@@ -12,14 +12,15 @@ from .entity_risk_score import (
     link_props_for_match,
 )
 from .hetero_schema import validate_typed_edge_or_raise
+from graph_contract import UnsignedGraphToken, require_etype, require_vtype
 
 _pool: asyncpg.Pool | None = None
 
 ALLOWED_LABELS = frozenset(
-    {"Person", "Account", "Device", "Payment", "Document", "Decision", "Custom"}
+    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
 )
 ALLOWED_RELS = frozenset(
-    {"USED", "SHARED_WITH", "REFERRED", "KYC_VERIFIED_BY", "OWNS", "CUSTOM", "RELATED"}
+    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
 )
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -28,13 +29,13 @@ _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 def _sanitize_label(label: str) -> str:
     """Reject labels that could contain Cypher injection."""
     if not _SAFE_IDENTIFIER.match(label):
-        return "Custom"
+        raise UnsignedGraphToken("vtype", label)
     return label
 
 
 def _sanitize_rel(rel: str) -> str:
     if not _SAFE_IDENTIFIER.match(rel):
-        return "RELATED"
+        raise UnsignedGraphToken("etype", rel)
     return rel
 
 
@@ -80,8 +81,8 @@ async def upsert_entity(
     tags: list[str] | None = None,
 ) -> str:
     pool = await get_pool()
-    tenant_labels = get_allowed_labels(tenant_id)
-    label = entity_type if entity_type in (ALLOWED_LABELS | tenant_labels) else "Custom"
+    get_allowed_labels(tenant_id)
+    label = require_vtype(tenant_id, entity_type)
     label = _sanitize_label(label)
     props = {**properties, "tenant_id": tenant_id, "external_id": external_id}
     if tags is not None:
@@ -169,26 +170,40 @@ async def create_link(
     properties: dict[str, Any],
 ) -> None:
     pool = await get_pool()
-    rel = relationship.upper().replace(" ", "_")
-    tenant_rels = get_allowed_rels(tenant_id)
-    if rel not in (ALLOWED_RELS | tenant_rels):
-        rel = "RELATED"
+    get_allowed_rels(tenant_id)
+    rel = require_etype(tenant_id, relationship)
     rel = _sanitize_rel(rel)
-    create_props = link_props_for_create(properties)
-    match_props = link_props_for_match(properties)
+    from_vtype = (properties or {}).get("from_vtype") or (properties or {}).get("from_entity_type")
+    to_vtype = (properties or {}).get("to_vtype") or (properties or {}).get("to_entity_type")
 
-    q_meta = """
+    def _endpoint(alias: str, id_param: str, vtype: Any) -> str:
+        if vtype:
+            lab = _sanitize_label(require_vtype(tenant_id, str(vtype)))
+            return f"({alias}:{lab} {{tenant_id: $tenant_id, external_id: ${id_param}}})"
+        return f"({alias} {{tenant_id: $tenant_id, external_id: ${id_param}}})"
+
+    a_pat = _endpoint("a", "from_id", from_vtype)
+    b_pat = _endpoint("b", "to_id", to_vtype)
+    edge_props = {
+        k: v
+        for k, v in (properties or {}).items()
+        if k not in ("from_vtype", "to_vtype", "from_entity_type", "to_entity_type")
+    }
+    create_props = link_props_for_create(edge_props)
+    match_props = link_props_for_match(edge_props)
+
+    q_meta = f"""
     SELECT CAST(CAST(la AS VARCHAR) AS JSON) as la, CAST(CAST(lb AS VARCHAR) AS JSON) as lb FROM cypher('tarka', $$
-        MATCH (a {tenant_id: $tenant_id, external_id: $from_id})
-        MATCH (b {tenant_id: $tenant_id, external_id: $to_id})
+        MATCH {a_pat}
+        MATCH {b_pat}
         RETURN labels(a), labels(b)
     $$, %s) as (la agtype, lb agtype);
     """
 
     q = f"""
     SELECT * FROM cypher('tarka', $$
-        MATCH (a {{tenant_id: $tenant_id, external_id: $from_id}})
-        MATCH (b {{tenant_id: $tenant_id, external_id: $to_id}})
+        MATCH {a_pat}
+        MATCH {b_pat}
         MERGE (a)-[r:{rel}]->(b)
         ON CREATE SET r += $create_props
         ON MATCH SET r += $match_props

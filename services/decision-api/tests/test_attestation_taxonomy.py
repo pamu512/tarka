@@ -29,6 +29,7 @@ def test_device_context_in_validator_normalizes():
         tenant_id="t1",
         event_type=EventType.login,
         entity_id="e1",
+        role="member",
         payload={},
         device_context=DeviceContextIn(
             device_id="d1",

@@ -55,6 +55,9 @@ def entity_not_found_payload(
         "relation_count": 0,
         "relation_growth_1h": 0,
         "relation_growth_24h": 0,
+        "named_edges": [],
+        "multi_id_user_ids": [],
+        "roles": [],
     }
 
 
@@ -183,6 +186,9 @@ def score_entity_risk(
         "relation_growth_1h": int(relation_growth_1h),
         "relation_growth_24h": int(relation_growth_24h),
         "primary_label": str(primary_label or ""),
+        "named_edges": [],
+        "multi_id_user_ids": [],
+        "roles": [],
     }
     if freshness:
         out["graph_data_as_of"] = freshness
@@ -211,7 +217,7 @@ SEARCH_PROP_KEYS = (
     "card_id",
 )
 IDENTIFIER_LABELS = frozenset({"Email", "Device", "IP", "Phone", "Address", "Card"})
-OWNER_LABELS = frozenset({"Person", "Account", "User"})
+OWNER_LABELS = frozenset({"Person", "Account", "User", "user"})
 SEARCH_OWNER_FANOUT = 10
 
 

@@ -101,10 +101,31 @@ class AgentContextIn(BaseModel):
     integrity: IntegrityIn | None = None
 
 
+class EvaluatePartyIn(BaseModel):
+    """Other users on the same event. Primary score subject stays EvaluateRequest.entity_id."""
+
+    role: str
+    entity_id: str | None = None
+    user_id: str | None = None
+
+    @model_validator(mode="after")
+    def _need_id(self) -> EvaluatePartyIn:
+        eid = (self.entity_id or "").strip()
+        uid = (self.user_id or "").strip()
+        if not eid and not uid:
+            raise ValueError("entity_id or user_id is required")
+        return self
+
+    def resolved_user_id(self) -> str:
+        return (self.entity_id or self.user_id or "").strip()
+
+
 class EvaluateRequest(BaseModel):
     tenant_id: str
     event_type: EventType
     entity_id: str
+    role: str
+    parties: list[EvaluatePartyIn] = Field(default_factory=list)
     session_id: str | None = None
     region: str = "global"
     payload: dict[str, Any] = Field(default_factory=dict)
@@ -157,6 +178,9 @@ class InferenceContext(BaseModel):
     )
     graph_risk_score: float = 0.0
     graph_risk_reasons: list[str] = Field(default_factory=list)
+    named_edges: list[dict[str, Any]] = Field(default_factory=list)
+    multi_id_user_ids: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
     external_signal_score: float = 0.0
     external_signal_providers: list[str] = Field(default_factory=list)
     policy_experiment_id: str | None = None

@@ -320,7 +320,19 @@ async def compute_entity_risk(
 
     def sync() -> dict:
         g = get_traversal_source()
-        vl = g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(1).toList()
+        vl = (
+            g.V()
+            .hasLabel("user")
+            .has("tenant_id", tenant_id)
+            .has("external_id", entity_id)
+            .limit(1)
+            .toList()
+        )
+        if not vl:
+            hits = (
+                g.V().has("tenant_id", tenant_id).has("external_id", entity_id).limit(2).toList()
+            )
+            vl = hits[:1] if len(hits) == 1 else []
         if not vl:
             return entity_not_found_payload(
                 entity_id, checkpoint, profile.get("_profile_name"), hop_cap

@@ -105,6 +105,7 @@ async def _evaluate(client, mock_session, *, headers=None, payload=None):
         "tenant_id": "t1",
         "event_type": "payment",
         "entity_id": "u1",
+        "role": "member",
         "payload": {"amount": 100},
     }
     with (

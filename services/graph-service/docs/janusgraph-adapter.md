@@ -14,22 +14,22 @@ The graph service exposes a **single** REST contract (`/v1/entities`, `/v1/links
 
 No code changes are required in downstream services: keep `GRAPH_SERVICE_URL` pointed at this service.
 
-## Ontology (unchanged)
+## Ontology (contract v1.2)
 
-Vertices use labels from the allow-list (`Person`, `Account`, `Device`, `Payment`, `Document`, `Custom`) plus tenant-specific types from the schema store. Every vertex has `tenant_id` and `external_id`.
+Identity is `(tenant_id, vtype, id)`. Vertex `user` is one id. `user:abc` and `device:abc` are different vertices — never unique-across-labels merge.
 
-Edges use relationship names (`USED`, `SHARED_WITH`, …) or tenant-specific names from schema; unknown names sanitize to `RELATED`.
+Core vtypes: `user` plus bridges `device`, `ip`, `phone`, `payment`, `place`, `promo`, `order`. Tenants may register more. `role` is a registered string property on user (`roles[]`). Unsigned vtype/etype/role is refused (HTTP 422), not rewritten to `RELATED` or `Custom`.
 
 On JanusGraph, **tags** are stored as a **JSON array string** on a single property `tags` (Neo4j may use a native list); the HTTP API still returns `tags` as a JSON list.
 
-Entity upserts return `graph_id`: Neo4j returns `elementId`; JanusGraph returns a stable synthetic id `jvg:{tenant_id}:{external_id}`.
+Entity upserts return `graph_id`: Neo4j returns `elementId`; JanusGraph returns `jvg:{tenant_id}:{vtype}:{id}`.
 
 ## JanusGraph / Gremlin Server expectations
 
 1. Run **Gremlin Server** reachable at `JANUSGRAPH_GREMLIN_URL` (WebSocket).
 2. Bind a **global traversal source** (typically `g`) matching `JANUSGRAPH_TRAVERSAL_SOURCE`.
 3. **Indexes (created on first graph-service connect, and the same Groovy is mounted in the Cassandra demo):**
-   - Unique composite `byTenantExternal` on `(tenant_id, external_id)`. Lookups stay `has("tenant_id").has("external_id")`. REGISTERED/INSTALLED does not block HTTP (unique indexes will not ENABLE while duplicates exist).
+   - Composite identity on `(tenant_id, label, external_id)` — lookups are `hasLabel(vtype).has("tenant_id").has("external_id")`. A leftover unique index on `(tenant_id, external_id)` only is incorrect and must not be used.
    - Mixed index `vertexSearch` on backend `search` (demo Lucene: `index.search.backend = lucene`): `tenant_id` STRING, allowlisted search keys TEXTSTRING (`external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`).
 4. **Search:** JanusGraph is case-insensitive **prefix** (`textContainsPrefix` + Python `startswith` re-check). Neo4j/AGE remain CONTAINS. If `vertexSearch` is not ENABLED, search scans at most `JANUSGRAPH_ANALYTICS_VERTEX_CAP` vertices and sets `truncated: true` when that cap is hit.
 5. **GRAPH_INGEST** stamps `tenant_id` from `metadata.tenant_id` and `external_id` equal to the native key (`device_id`, `email`, …). Missing tenant → no Gremlin write (`reason=no_tenant`). Vertices that still lack `tenant_id`/`external_id` miss typeahead and cannot seed subgraph.

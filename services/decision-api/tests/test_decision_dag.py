@@ -83,6 +83,7 @@ def _evaluate_payload() -> dict:
         "tenant_id": "tenant-dag-gate",
         "event_type": "login",
         "entity_id": "entity-1",
+        "role": "member",
         "payload": {},
     }
 

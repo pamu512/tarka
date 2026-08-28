@@ -235,6 +235,7 @@ async def test_slow_rust_ffi_returns_200_rule_score_under_p99_ceiling(
         "tenant_id": "lat_tenant",
         "event_type": "payment",
         "entity_id": "lat_entity",
+        "role": "member",
         "payload": {"amount": 10.0},
     }
     t0 = time.perf_counter()
@@ -288,6 +289,7 @@ async def test_redis_cluster_drop_evaluate_degrades_without_500(
         "tenant_id": "redis_drop",
         "event_type": "payment",
         "entity_id": "e1",
+        "role": "member",
         "payload": {},
     }
     r = await asyncio.wait_for(
@@ -346,6 +348,7 @@ async def test_ml_upstream_malformed_json_rules_only_score(
         "tenant_id": "ml_bad_json",
         "event_type": "payment",
         "entity_id": "e2",
+        "role": "member",
         "payload": {},
     }
     r = await asyncio.wait_for(
