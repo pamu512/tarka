@@ -28,7 +28,8 @@ ENV PYTHONPATH=/app/services/rule_engine:/app/services:/app/packages/shared-core
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN apk add --no-cache libstdc++ \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache libstdc++ \
     && addgroup -g 10001 -S tarka \
     && adduser -S -D -H -u 10001 -G tarka -s /sbin/nologin tarka
 
