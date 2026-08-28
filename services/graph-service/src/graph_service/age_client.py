@@ -16,12 +16,8 @@ from graph_contract import UnsignedGraphToken, require_etype, require_vtype
 
 _pool: asyncpg.Pool | None = None
 
-ALLOWED_LABELS = frozenset(
-    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
-)
-ALLOWED_RELS = frozenset(
-    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
-)
+ALLOWED_LABELS = frozenset({"user", "device", "ip", "phone", "payment", "place", "promo", "order"})
+ALLOWED_RELS = frozenset({"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"})
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 

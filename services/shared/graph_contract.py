@@ -392,7 +392,9 @@ class MemoryGraph:
             raise ValueError(f"ambiguous endpoint {entity_id}: specify vtype")
         return hits[0]
 
-    def subgraph(self, entity_id: str, *, vtype: str = USER_VTYPE, depth: int = 2) -> dict[str, Any]:
+    def subgraph(
+        self, entity_id: str, *, vtype: str = USER_VTYPE, depth: int = 2
+    ) -> dict[str, Any]:
         root = self.get(vtype, entity_id)
         if root is None:
             return {"nodes": [], "edges": []}

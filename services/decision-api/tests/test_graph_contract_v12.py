@@ -32,9 +32,7 @@ def _bind():
 
 def test_evaluate_request_requires_role():
     with pytest.raises(ValidationError):
-        EvaluateRequest(
-            tenant_id="t1", event_type="login", entity_id="u1", payload={}
-        )
+        EvaluateRequest(tenant_id="t1", event_type="login", entity_id="u1", payload={})
     r = EvaluateRequest(
         tenant_id="t1",
         event_type="login",
@@ -133,6 +131,8 @@ async def test_evaluate_consumes_named_edges_when_graph_url_set(monkeypatch):
         "scored": True,
     }
 
+    monkeypatch.setenv("API_KEYS", "test-key")
+    monkeypatch.delenv("ALLOW_INSECURE_NO_AUTH", raising=False)
     monkeypatch.setattr(enrichment.settings, "graph_service_url", "http://graph.test")
     monkeypatch.setenv("GRAPH_SERVICE_URL", "http://graph.test")
     from decision_api.config import settings as _cfg
@@ -201,7 +201,10 @@ async def test_evaluate_consumes_named_edges_when_graph_url_set(monkeypatch):
                                                 "entity_id": "alice",
                                                 "role": "member",
                                                 "parties": [
-                                                    {"entity_id": "bob", "role": "member"}
+                                                    {
+                                                        "entity_id": "bob",
+                                                        "role": "member",
+                                                    }
                                                 ],
                                                 "payload": {"amount": 10},
                                             },

@@ -22,12 +22,8 @@ from graph_contract import (
 
 _driver: AsyncDriver | None = None
 
-ALLOWED_LABELS = frozenset(
-    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
-)
-ALLOWED_RELS = frozenset(
-    {"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"}
-)
+ALLOWED_LABELS = frozenset({"user", "device", "ip", "phone", "payment", "place", "promo", "order"})
+ALLOWED_RELS = frozenset({"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"})
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
@@ -88,9 +84,7 @@ async def upsert_entity(
     RETURN elementId(n) AS gid
     """
     async with driver.session() as session:
-        existing = await session.run(
-            q_exist, tenant_id=tenant_id, external_id=external_id
-        )
+        existing = await session.run(q_exist, tenant_id=tenant_id, external_id=external_id)
         erec = await existing.single()
         old_roles = list(erec["roles"] or []) if erec and erec["roles"] else []
         props["roles"] = merge_roles(old_roles, incoming_roles)
