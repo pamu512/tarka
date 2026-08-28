@@ -28,7 +28,9 @@ def snapshot_to_party_graph(snapshot: Mapping[str, Any] | None) -> dict[str, Any
         nid = str(v.get("id") or "").strip()
         if not nid:
             continue
-        nodes.append({"id": nid, "role": str(v.get("role") or v.get("kind") or "unknown")})
+        nodes.append(
+            {"id": nid, "role": str(v.get("role") or v.get("kind") or "unknown")}
+        )
     edges = []
     for e in snap.get("edges") or []:
         if not isinstance(e, dict):
@@ -242,7 +244,9 @@ def train_and_gate(
     holdout = order[:cut]
     train = order[cut:] or order[:cut]
     weights, bias = train_mp_logreg(train, seed=seed)
-    scores = [score_mp_logreg(r.get("subgraph_snapshot"), weights, bias) for r in holdout]
+    scores = [
+        score_mp_logreg(r.get("subgraph_snapshot"), weights, bias) for r in holdout
+    ]
     gate = evaluate_holdout_gate(holdout, scores)
     gate["weights"] = weights
     gate["bias"] = bias

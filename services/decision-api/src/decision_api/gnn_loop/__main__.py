@@ -30,7 +30,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "export":
         rows = export_labeled_rows(args.tenant_id, load_receipts(args.tenant_id))
         write_export_jsonl(rows, args.out)
-        print(json.dumps({"rows": len(rows), "trainable": sum(1 for r in rows if r["trainable"])}))
+        print(
+            json.dumps(
+                {"rows": len(rows), "trainable": sum(1 for r in rows if r["trainable"])}
+            )
+        )
         return 0
     if args.cmd == "train":
         rows = []
@@ -40,14 +44,29 @@ def main(argv: list[str] | None = None) -> int:
                     rows.append(json.loads(line))
         gate = train_and_gate(rows)
         write_gate_artifact(args.gate_out, gate)
-        print(json.dumps({k: gate[k] for k in ("serve_allowed", "reason", "model_auc", "heuristic_auc")}))
-        return 0 if not gate.get("serve_allowed") or gate.get("serve_allowed") is True else 1
+        print(
+            json.dumps(
+                {
+                    k: gate[k]
+                    for k in ("serve_allowed", "reason", "model_auc", "heuristic_auc")
+                }
+            )
+        )
+        return (
+            0
+            if not gate.get("serve_allowed") or gate.get("serve_allowed") is True
+            else 1
+        )
     if args.cmd == "serve":
         import uvicorn
 
         from decision_api.gnn_loop.serve import build_app
 
-        uvicorn.run(build_app(), host="0.0.0.0", port=int(__import__("os").environ.get("PORT", "8091")))
+        uvicorn.run(
+            build_app(),
+            host="0.0.0.0",
+            port=int(__import__("os").environ.get("PORT", "8091")),
+        )
         return 0
     return 2
 
