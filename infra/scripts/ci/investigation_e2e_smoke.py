@@ -55,6 +55,7 @@ def main() -> int:
         "event_type": "payment_auth",
         "entity_id": entity_id,
         "tenant_id": tenant,
+        "role": "member",
         "payload": {"amount": 199.95, "currency": "USD", "timestamp": now},
         "metadata": {"source": "investigation_e2e_smoke"},
     }

@@ -160,6 +160,7 @@ def smoke_evaluate() -> None:
             "tenant_id": "ci_stack",
             "event_type": "login",
             "entity_id": "ci-smoke-entity",
+            "role": "member",
             "payload": {"source": "full_stack_smoke"},
         }
     ).encode()
