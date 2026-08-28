@@ -34,7 +34,9 @@ def _y_for_receipt(
     records: Mapping[str, Any],
 ) -> str:
     by_t = records.get("by_trace") if isinstance(records.get("by_trace"), dict) else {}
-    by_e = records.get("by_entity") if isinstance(records.get("by_entity"), dict) else {}
+    by_e = (
+        records.get("by_entity") if isinstance(records.get("by_entity"), dict) else {}
+    )
     tid = str(receipt.get("trace_id") or "").strip()
     eid = str(receipt.get("entity_id") or "").strip()
     if tid and str(by_t.get(tid) or "") in {"0", "1"}:
@@ -48,8 +50,16 @@ def _why_for_receipt(
     receipt: Mapping[str, Any],
     records: Mapping[str, Any],
 ) -> str:
-    why_t = records.get("why_by_trace") if isinstance(records.get("why_by_trace"), dict) else {}
-    why_e = records.get("why_by_entity") if isinstance(records.get("why_by_entity"), dict) else {}
+    why_t = (
+        records.get("why_by_trace")
+        if isinstance(records.get("why_by_trace"), dict)
+        else {}
+    )
+    why_e = (
+        records.get("why_by_entity")
+        if isinstance(records.get("why_by_entity"), dict)
+        else {}
+    )
     tid = str(receipt.get("trace_id") or "").strip()
     eid = str(receipt.get("entity_id") or "").strip()
     if tid and str(why_t.get(tid) or "").strip():
@@ -122,7 +132,9 @@ def export_labeled_rows(
         rows.append(
             {
                 "trace_id": str(receipt.get("trace_id") or snap.get("trace_id") or ""),
-                "entity_id": str(receipt.get("entity_id") or snap.get("entity_id") or ""),
+                "entity_id": str(
+                    receipt.get("entity_id") or snap.get("entity_id") or ""
+                ),
                 "subgraph_snapshot": snap,
                 "y_label": y,
                 "why": _why_for_receipt(receipt, store),

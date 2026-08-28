@@ -43,10 +43,14 @@ async def score_graph_risk(
             bias = float(gate.get("bias") or 0.0)
         except (TypeError, ValueError):
             bias = 0.0
-        snap = subgraph if isinstance(subgraph, dict) else {
-            "vertices": [{"id": entity_id, "kind": "user", "role": "user"}],
-            "edges": [],
-        }
+        snap = (
+            subgraph
+            if isinstance(subgraph, dict)
+            else {
+                "vertices": [{"id": entity_id, "kind": "user", "role": "user"}],
+                "edges": [],
+            }
+        )
         score = score_mp_logreg(snap, [float(w) for w in weights], bias)
         score = max(0.0, min(100.0, float(score)))
         return {

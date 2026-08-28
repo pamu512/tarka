@@ -104,7 +104,9 @@ def test_unlabeled_rows_dropped(tmp_path, monkeypatch):
             "entity_id": "buyer-b",
         },
     ]
-    merge_y_labels("acme", by_trace={"t-labeled": "1"}, why_by_trace={"t-labeled": "mule"})
+    merge_y_labels(
+        "acme", by_trace={"t-labeled": "1"}, why_by_trace={"t-labeled": "mule"}
+    )
     rows = export_labeled_rows("acme", receipts)
     assert [r["trace_id"] for r in rows] == ["t-labeled"]
     assert rows[0]["y_label"] == "1"
@@ -163,7 +165,9 @@ def test_holdout_gate_blocks_serve_when_heuristic_wins(tmp_path):
 
 def test_edgeless_receipt_is_not_trainable(tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
-    merge_y_labels("acme", by_trace={"t-empty": "1"}, why_by_trace={"t-empty": "override"})
+    merge_y_labels(
+        "acme", by_trace={"t-empty": "1"}, why_by_trace={"t-empty": "override"}
+    )
     receipt = {
         "status": "graph:ok",
         "trace_id": "t-empty",

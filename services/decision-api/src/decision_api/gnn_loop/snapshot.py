@@ -84,7 +84,9 @@ def _kind_for_node(node: dict[str, Any]) -> str | None:
     props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
     if role in _PERSON_ROLES or any(lab in _USER_LABELS for lab in labels):
         return "user"
-    if role in _BRIDGE_ROLES or any(lab.replace("-", "_") in _BRIDGE_LABELS for lab in labels):
+    if role in _BRIDGE_ROLES or any(
+        lab.replace("-", "_") in _BRIDGE_LABELS for lab in labels
+    ):
         return "bridge"
     if str(props.get("type") or "").strip().lower() == "session":
         return "bridge"
@@ -97,10 +99,7 @@ def _kind_for_node(node: dict[str, Any]) -> str | None:
 def _node_id(node: dict[str, Any]) -> str:
     props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
     return str(
-        node.get("id")
-        or node.get("external_id")
-        or props.get("external_id")
-        or ""
+        node.get("id") or node.get("external_id") or props.get("external_id") or ""
     ).strip()
 
 
@@ -315,11 +314,15 @@ async def receipt_for_evaluate(
             user_id=user_id,
             role=resolved_role,
             written_subgraph=written,
-            party_graph=metadata.get("party_graph") if isinstance(metadata, dict) else None,
+            party_graph=metadata.get("party_graph")
+            if isinstance(metadata, dict)
+            else None,
         )
     except Exception:
         return _blank_receipt(
-            status="graph:missing" if not (graph_service_url or "").strip() else "graph:unavailable",
+            status="graph:missing"
+            if not (graph_service_url or "").strip()
+            else "graph:unavailable",
             trace_id=trace_id,
             entity_id=entity_id,
             user_id=user_id,
