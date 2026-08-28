@@ -1,6 +1,7 @@
 {
   "tenant_id": "demo",
   "entity_id": "golden-evaluate-user",
+  "role": "member",
   "event_type": "payment",
   "session_id": "sess-golden-v1",
   "payload": {

@@ -1359,7 +1359,7 @@ components:
           nullable: true
     EvaluateRequest:
       type: object
-      required: [tenant_id, event_type, entity_id, payload]
+      required: [tenant_id, event_type, entity_id, role, payload]
       properties:
         tenant_id:
           type: string
@@ -1369,6 +1369,20 @@ components:
           enum: [login, payment, signup, device, session, custom]
         entity_id:
           type: string
+          description: Primary user id scored by the pack. user:abc and device:abc are different vertices.
+        role:
+          type: string
+          description: Registered tenant role string on the primary user (not a vtype). Unsigned role → 422.
+        parties:
+          type: array
+          description: Other users on the same event. Each item needs entity_id or user_id plus a registered role.
+          items:
+            type: object
+            required: [role]
+            properties:
+              entity_id: { type: string }
+              user_id: { type: string }
+              role: { type: string }
         session_id:
           type: string
           nullable: true
@@ -1676,7 +1690,22 @@ components:
           type: array
           items:
             type: string
-          description: Top graph-service risk factors used in explainability and tagging.
+        named_edges:
+          type: array
+          description: Named graph edges consumed from graph-service (empty when graph hop is off).
+          items:
+            type: object
+            additionalProperties: true
+        multi_id_user_ids:
+          type: array
+          items:
+            type: string
+          description: Other user ids that share a bridge with the primary user.
+        roles:
+          type: array
+          items:
+            type: string
+          description: roles[] on the primary user vertex.
         external_signal_score:
           type: number
           format: float

@@ -165,6 +165,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "login",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {},
                         },
                     )
@@ -214,6 +215,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "payment",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {"amount": 100},
                             "device_context": {
                                 "device_id": "dev1",
@@ -270,6 +272,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "payment",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {"amount": 10},
                             "metadata": {"correlation_id": "corr-xyz"},
                             "agent_context": ac,
@@ -333,6 +336,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "payment",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {"amount": 500},
                         },
                     )
@@ -386,6 +390,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "payment",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {"amount": 500},
                         },
                     )
@@ -414,6 +419,7 @@ class TestEvaluateDecision:
                 "tenant_id": "t1",
                 "event_type": "login",
                 "entity_id": "u1",
+                "role": "member",
                 "payload": {},
             },
         )
@@ -456,6 +462,7 @@ class TestEvaluateDecision:
                             "tenant_id": "t1",
                             "event_type": "login",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {},
                         },
                     )
@@ -653,6 +660,7 @@ class TestVerticalPacks:
                             "tenant_id": "t1",
                             "event_type": "login",
                             "entity_id": "u1",
+                            "role": "member",
                             "payload": {},
                         },
                     )

@@ -80,6 +80,7 @@ def main() -> int:
         "tenant_id": "demo",
         "entity_id": "decide-to-act-smoke",
         "event_type": "payment",
+        "role": "member",
         "payload": {"amount": 42.0, "currency": "USD", "channel": "card_not_present"},
     }
     st, out = _request(

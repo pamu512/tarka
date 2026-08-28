@@ -14,7 +14,17 @@ VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session"
 # Registry / schema gate (infra/scripts/ci/schema_registry_compat.py parses these as frozenset(...) assignments).
 REGISTRY_SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1"})
 _REGISTRY_ALLOWED_TOP_LEVEL_KEYS = frozenset(
-    {"tenant_id", "event_type", "entity_id", "session_id", "payload", "device_context", "metadata"}
+    {
+        "tenant_id",
+        "event_type",
+        "entity_id",
+        "role",
+        "parties",
+        "session_id",
+        "payload",
+        "device_context",
+        "metadata",
+    }
 )
 
 # Epic X.2: optional envelope-level lineage (v1 envelope root; merged into event.metadata)

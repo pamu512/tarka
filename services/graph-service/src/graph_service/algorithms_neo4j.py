@@ -395,7 +395,13 @@ _HIGH_RISK_TAGS = frozenset(
 
 def entity_risk_cypher(hop_depth: int) -> str:
     return f"""
-    MATCH (n {{tenant_id: $tenant_id, external_id: $entity_id}})
+    OPTIONAL MATCH (u:user {{tenant_id: $tenant_id, external_id: $entity_id}})
+    WITH u
+    OPTIONAL MATCH (x {{tenant_id: $tenant_id, external_id: $entity_id}})
+    WHERE u IS NULL
+    WITH u, collect(DISTINCT x) AS hits
+    WITH coalesce(u, CASE WHEN size(hits) = 1 THEN hits[0] ELSE null END) AS n
+    WHERE n IS NOT NULL
 
     OPTIONAL MATCH (n)-[r]-(neighbor)
     WHERE neighbor.tenant_id = $tenant_id

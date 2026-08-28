@@ -146,6 +146,8 @@ async def fetch_graph_risk_wrapped(
         degrade_tags.append("graph:disabled_by_tenant")
         return None
     if tag_hop_unconfigured(degrade_tags, "graph"):
+        if "graph:missing" not in degrade_tags:
+            degrade_tags.append("graph:missing")
         return None
     try:
         data = await rt.circuit_graph.call(

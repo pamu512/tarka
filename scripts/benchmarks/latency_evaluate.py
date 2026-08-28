@@ -22,6 +22,7 @@ DEFAULT_BODY = {
     "tenant_id": "bench",
     "event_type": "payment",
     "entity_id": "bench-entity",
+    "role": "member",
     "payload": {
         "amount": 2500,
         "event_count_5m": 3,

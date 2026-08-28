@@ -11,6 +11,24 @@
       "enum": ["login", "payment", "signup", "device", "session", "custom"]
     },
     "entity_id": { "type": "string" },
+    "role": {
+      "type": "string",
+      "description": "Evaluate hop: registered tenant role on the primary user. Required by EvaluateRequest."
+    },
+    "parties": {
+      "type": "array",
+      "description": "Evaluate hop: other users on the same event.",
+      "items": {
+        "type": "object",
+        "required": ["role"],
+        "properties": {
+          "entity_id": { "type": "string" },
+          "user_id": { "type": "string" },
+          "role": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
     "session_id": { "type": ["string", "null"] },
     "payload": { "type": "object", "additionalProperties": true },
     "device_context": { "type": ["object", "null"], "additionalProperties": true },

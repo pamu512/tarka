@@ -32,3 +32,6 @@ class EntityRiskResponse(BaseModel):
     relation_count: int = Field(default=0, ge=0)
     relation_growth_1h: int = Field(default=0, ge=0)
     relation_growth_24h: int = Field(default=0, ge=0)
+    named_edges: list[dict[str, Any]] = Field(default_factory=list)
+    multi_id_user_ids: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)

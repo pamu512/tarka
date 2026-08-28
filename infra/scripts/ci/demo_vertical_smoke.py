@@ -106,6 +106,7 @@ def main() -> int:
         "tenant_id": "demo-vertical",
         "entity_id": "ent-demo-1",
         "event_type": "login",
+        "role": "member",
         "payload": {"amount": 0, "currency": "USD"},
     }
     st, out = _post_json(f"{d_base}/v1/decisions/evaluate", ev_body, api_key=key)

@@ -13,7 +13,11 @@ from pydantic import ValidationError
 class TestEvaluateRequest:
     def test_minimal_valid(self):
         r = EvaluateRequest(
-            tenant_id="t1", event_type="login", entity_id="u1", payload={}
+            tenant_id="t1",
+            event_type="login",
+            entity_id="u1",
+            role="member",
+            payload={},
         )
         assert r.tenant_id == "t1"
         assert r.event_type == EventType.login
@@ -24,6 +28,7 @@ class TestEvaluateRequest:
             tenant_id="t1",
             event_type="payment",
             entity_id="u1",
+            role="member",
             payload={"amount": 100},
             device_context={
                 "device_id": "abc",
@@ -38,7 +43,11 @@ class TestEvaluateRequest:
     def test_invalid_event_type(self):
         with pytest.raises(ValidationError):
             EvaluateRequest(
-                tenant_id="t1", event_type="invalid_type", entity_id="u1", payload={}
+                tenant_id="t1",
+                event_type="invalid_type",
+                entity_id="u1",
+                role="member",
+                payload={},
             )
 
     def test_missing_required(self):
@@ -47,7 +56,9 @@ class TestEvaluateRequest:
 
     def test_all_event_types(self):
         for et in ("login", "payment", "signup", "device", "session", "custom"):
-            r = EvaluateRequest(tenant_id="t", event_type=et, entity_id="e", payload={})
+            r = EvaluateRequest(
+                tenant_id="t", event_type=et, entity_id="e", role="member", payload={}
+            )
             assert r.event_type.value == et
 
     def test_with_agent_context(self):
@@ -55,6 +66,7 @@ class TestEvaluateRequest:
             tenant_id="t1",
             event_type="payment",
             entity_id="u1",
+            role="member",
             payload={"amount": 1},
             agent_context={
                 "agent_session_id": "sess-a",

@@ -8,13 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from graph_contract import BRIDGE_VTYPES
+
 SCHEMA_ID = "tarka.party_graph_contract/v1"
 METHOD = "graph_quality_v1"
 
-_PERSON = frozenset(
-    {"buyer", "seller", "courier", "driver", "rider", "diner", "merchant", "worker"}
-)
-_BRIDGE = frozenset({"device", "place", "promo", "payment_instrument"})
+# Host-supplied roles are not a second ontology. Any non-empty role that is not a
+# bridge vtype counts as a person-role. Core does not hardcode diner/driver/merchant.
+
+_BRIDGE = frozenset({*BRIDGE_VTYPES, "payment_instrument"})
 
 
 def _extract_graph(
@@ -77,8 +79,8 @@ def assess_party_graph_quality(
             # endpoints may be implied — count soft
             dangling += 1
 
-    person_roles = roles & _PERSON
     bridge_roles = roles & _BRIDGE
+    person_roles = {r for r in roles if r and r not in _BRIDGE}
     n_nodes = len(node_ids)
     n_edges = len(edges_raw)
 
