@@ -90,38 +90,147 @@ def test_sanitize_label_refuses_unknown():
     assert refuse_label("t1", "user") == "user"
 
 
-def test_janus_upsert_identity_includes_vtype(monkeypatch):
+def test_janus_upsert_identity_includes_vtype():
     """Lookup filter must include label so user:abc ≠ device:abc."""
     from graph_service import janusgraph_store as store
 
     assert store.vertex_lookup_uses_label() is True
     assert store.janus_graph_id_for("t", "user", "abc") == "jvg:t:user:abc"
     assert store.janus_graph_id_for("t", "device", "abc") == "jvg:t:device:abc"
+    assert store.janus_graph_id_for("t", "user", "abc") != store.janus_graph_id_for(
+        "t", "device", "abc"
+    )
 
 
-def test_entity_risk_cypher_prefers_user_label():
+class _Rec:
+    def __init__(self, data: dict | None) -> None:
+        self._data = data
+
+    def __getitem__(self, key):
+        if self._data is None:
+            raise KeyError(key)
+        return self._data[key]
+
+    def __bool__(self) -> bool:
+        return self._data is not None
+
+
+class _Result:
+    def __init__(self, rec: dict | None) -> None:
+        self._rec = _Rec(rec)
+
+    async def single(self):
+        return self._rec if self._rec else None
+
+
+class _Session:
+    def __init__(self, *, exist_roles: list[str] | None = None, gid: str = "gid-1") -> None:
+        self.exist_roles = exist_roles
+        self.gid = gid
+        self.calls: list[tuple[str, dict]] = []
+
+    async def run(self, cypher, **params):
+        self.calls.append((cypher, params))
+        if "RETURN n.roles" in cypher:
+            if self.exist_roles is None:
+                return _Result(None)
+            return _Result({"roles": list(self.exist_roles)})
+        if "RETURN elementId" in cypher or "RETURN node_list" in cypher:
+            return _Result({"gid": self.gid, "node_list": [], "all_rels": []})
+        return _Result(None)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_a):
+        return False
+
+
+class _Driver:
+    def __init__(self, sessions: list[_Session]) -> None:
+        self._sessions = list(sessions)
+
+    def session(self):
+        return self._sessions.pop(0)
+
+
+@pytest.mark.asyncio
+async def test_neo4j_upsert_user_and_device_same_id_are_distinct(monkeypatch):
+    """Call the store: user:abc and device:abc MERGE as different labeled vertices."""
+    from unittest.mock import AsyncMock
+
+    from graph_service import neo4j_client
+
+    s_user, s_dev = _Session(gid="u"), _Session(gid="d")
+    monkeypatch.setattr(
+        neo4j_client, "get_driver", AsyncMock(return_value=_Driver([s_user, s_dev]))
+    )
+    uid = await neo4j_client.upsert_entity("t1", "user", "abc", {"role": "member"})
+    did = await neo4j_client.upsert_entity("t1", "device", "abc", {})
+    assert uid != did
+    user_merge = [q for q, _p in s_user.calls if "MERGE" in q]
+    device_merge = [q for q, _p in s_dev.calls if "MERGE" in q]
+    assert user_merge and "MERGE (n:user" in user_merge[0]
+    assert device_merge and "MERGE (n:device" in device_merge[0]
+    assert user_merge[0] != device_merge[0]
+
+
+@pytest.mark.asyncio
+async def test_neo4j_upsert_two_roles_one_vertex(monkeypatch):
+    """Same user_id upserted twice keeps one vertex and merges roles[]."""
+    from unittest.mock import AsyncMock
+
+    from graph_service import neo4j_client
+
+    first = _Session(exist_roles=None, gid="same")
+    second = _Session(exist_roles=["cashier"], gid="same")
+    monkeypatch.setattr(
+        neo4j_client, "get_driver", AsyncMock(return_value=_Driver([first, second]))
+    )
+    a = await neo4j_client.upsert_entity("t1", "user", "u1", {"role": "cashier"})
+    b = await neo4j_client.upsert_entity("t1", "user", "u1", {"role": "dispatcher"})
+    assert a == b == "same"
+    merge_params = [p for q, p in second.calls if "MERGE" in q]
+    assert merge_params
+    roles = merge_params[0]["properties"]["roles"]
+    assert set(roles) == {"cashier", "dispatcher"}
+
+
+@pytest.mark.asyncio
+async def test_neo4j_store_refuses_unsigned_vtype_and_related(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from graph_service import neo4j_client
+
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver([_Session()])))
+    with pytest.raises(gc.UnsignedGraphToken, match="vtype"):
+        await neo4j_client.upsert_entity("t1", "spaceship", "x", {})
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver([_Session()])))
+    with pytest.raises(gc.UnsignedGraphToken, match="etype"):
+        await neo4j_client.create_link("t1", "a", "b", "RELATED", {})
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver([_Session()])))
+    with pytest.raises(gc.UnsignedGraphToken, match="etype"):
+        await neo4j_client.create_link("t1", "a", "b", "NOT_A_REAL_EDGE", {})
+
+
+@pytest.mark.asyncio
+async def test_neo4j_subgraph_and_risk_cypher_prefer_user_root(monkeypatch):
+    """Evaluate hop roots on user when user:id and device:id both exist."""
+    from unittest.mock import AsyncMock
+
+    from graph_service import neo4j_client
     from graph_service.algorithms_neo4j import entity_risk_cypher
 
-    src = entity_risk_cypher(2)
-    assert "OPTIONAL MATCH (u:user" in src
-    assert "size(hits) = 1" in src
-
-
-def test_neo4j_upsert_merge_is_label_scoped():
-    import inspect
-
-    from graph_service import neo4j_client
-
-    src = inspect.getsource(neo4j_client.upsert_entity)
-    assert "MERGE (n:{label}" in src
-    assert "tenant_id: $tenant_id, external_id: $external_id" in src
-
-
-def test_neo4j_subgraph_prefers_user():
-    import inspect
-
-    from graph_service import neo4j_client
-
-    src = inspect.getsource(neo4j_client.query_subgraph)
-    assert "OPTIONAL MATCH (u:user" in src
-    assert "size(hits) = 1" in src
+    sess = _Session()
+    monkeypatch.setattr(neo4j_client, "get_driver", AsyncMock(return_value=_Driver([sess])))
+    out = await neo4j_client.query_subgraph("t1", "abc", 2)
+    assert out["nodes"] == []
+    assert out["edges"] == []
+    assert sess.calls, "query_subgraph must hit the store"
+    q = sess.calls[0][0]
+    # Runtime query (not source grep): bind user first; unique fallback only.
+    assert ":user" in q
+    assert "size(hits) = 1" in q
+    risk_q = entity_risk_cypher(2)
+    assert ":user" in risk_q
+    assert "size(hits) = 1" in risk_q
