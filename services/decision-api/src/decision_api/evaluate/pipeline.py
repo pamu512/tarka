@@ -1313,6 +1313,30 @@ async def run_evaluate_decision(
         if location_cohort_evidence is not None:
             snap_extra["location_cohort_evidence"] = location_cohort_evidence
 
+        try:
+            from decision_api.gnn_loop.receipts import append_receipt
+            from decision_api.gnn_loop.snapshot import receipt_for_evaluate
+
+            _uid = ""
+            if isinstance(body.payload, dict):
+                _uid = str(body.payload.get("user_id") or "").strip()
+            gnn_receipt = await receipt_for_evaluate(
+                http,
+                graph_service_url=settings.graph_service_url,
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                user_id=_uid or body.entity_id,
+                role="",
+                trace_id=str(trace_id),
+                payload=body.payload if isinstance(body.payload, dict) else None,
+                metadata=body.metadata if isinstance(body.metadata, dict) else None,
+            )
+            snap_extra["subgraph_snapshot"] = gnn_receipt
+            append_receipt(body.tenant_id, gnn_receipt)
+        except Exception:
+            # ponytail: snapshot/export must never raise into evaluate; metric later
+            pass
+
         audit = AuditRecord(
             trace_id=trace_id,
             tenant_id=body.tenant_id,

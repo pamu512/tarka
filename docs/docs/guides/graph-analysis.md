@@ -2,6 +2,8 @@
 
 The Graph Service builds an entity graph that connects accounts, devices, sessions, payments, and other entities through their relationships. This guide shows how to use graph analytics endpoints and Cypher queries to detect fraud rings, propagate risk, and investigate suspicious clusters.
 
+Offline GNN training is a separate label/holdout loop — see [gnn-label-loop.md](gnn-label-loop.md). It is off unless holdout beats `heuristic_v1`. Do not set `GRAPH_GNN_BETA_URL` in compose defaults.
+
 ---
 
 ## Entity Resolution
