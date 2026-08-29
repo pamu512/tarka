@@ -145,9 +145,21 @@ def export_labeled_rows(
         )
     seen = {str(r.get("trace_id") or "") for r in rows}
     by_t = store.get("by_trace") if isinstance(store.get("by_trace"), dict) else {}
+    late_t = (
+        store.get("chargeback_class_by_trace")
+        if isinstance(store.get("chargeback_class_by_trace"), dict)
+        else {}
+    )
+    late_d = (
+        store.get("dispute_outcome_by_trace")
+        if isinstance(store.get("dispute_outcome_by_trace"), dict)
+        else {}
+    )
     for tid, y in by_t.items():
         key = str(tid).strip()
         if not key or key in seen or str(y) not in {"0", "1"}:
+            continue
+        if not (late_t.get(key) or late_d.get(key)):
             continue
         dummy = {"trace_id": key}
         dispute, cls = _late_fields(dummy, store)
