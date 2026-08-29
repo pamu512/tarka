@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from graph_contract import (
-    consume_graph_answers,
-    pack_why_from_graph_answers,
-    require_role,
-)
+from graph_contract import require_role
+from graph_pack_atoms import hop_view_from_graph_meta, pack_why_from_hop
 
 
 def validate_evaluate_roles(
@@ -26,5 +23,19 @@ def validate_evaluate_roles(
     return primary
 
 
-def graph_pack_why(graph_meta: dict[str, Any] | None) -> dict[str, Any]:
-    return {"graph": pack_why_from_graph_answers(consume_graph_answers(graph_meta))}
+def graph_pack_why(
+    graph_meta: dict[str, Any] | None,
+    *,
+    graph_url: str = "",
+    degrade_tags: list[str] | None = None,
+    tenant_id: str = "",
+    subject_id: str = "",
+) -> dict[str, Any]:
+    hop = hop_view_from_graph_meta(
+        graph_meta,
+        graph_url=graph_url,
+        degrade_tags=degrade_tags,
+        tenant_id=tenant_id,
+        subject_id=subject_id,
+    )
+    return {"graph": pack_why_from_hop(hop)}
