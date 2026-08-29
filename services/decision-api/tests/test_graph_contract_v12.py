@@ -68,6 +68,23 @@ def test_unsigned_role_raises_when_registry_locked():
         )
 
 
+def test_pack_why_empty_url_is_graph_missing():
+    from decision_api.graph_hop_contract import graph_pack_why
+
+    why = graph_pack_why(
+        {
+            "named_edges": [{"from_id": "u1", "to_id": "d1", "type": "USES_DEVICE"}],
+            "multi_id_user_ids": ["u2"],
+        },
+        graph_url="",
+        tenant_id="t1",
+        subject_id="u1",
+    )
+    assert why["graph"]["status"] == "graph:missing"
+    assert why["graph"]["named_edges"] == []
+    assert why["graph"]["invented_edges"] is False
+
+
 def test_inference_includes_named_edges_from_graph_meta():
     ctx = build_inference_context(
         signal_tags=[],
