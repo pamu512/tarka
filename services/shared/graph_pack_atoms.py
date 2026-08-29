@@ -40,11 +40,8 @@ PACK_HOP_ETYPES = frozenset(
 
 GRAPH_V1_ATOMS = frozenset({"has_etype", "has_multi_id", "sibling_prior_flag"})
 _SAFE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
-_ROLE_SAFE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 _MISSING = frozenset({"graph:missing", "graph:unavailable", "graph:empty"})
-_POSITIVE_FLAGS = frozenset(
-    {"1", "true", "flag", "flagged", "fraud", "block", "blocked"}
-)
+_POSITIVE_FLAGS = frozenset({"1", "true", "flag", "flagged", "fraud", "block", "blocked"})
 
 
 def _norm_etype(raw: str) -> str:
@@ -194,13 +191,12 @@ def hop_view_from_graph_meta(
     subject_id: str = "",
 ) -> dict[str, Any]:
     if _is_missing(graph_url=graph_url, degrade_tags=degrade_tags):
-        return _blank_hop(
-            status="graph:missing", tenant_id=tenant_id, subject_id=subject_id
-        )
+        return _blank_hop(status="graph:missing", tenant_id=tenant_id, subject_id=subject_id)
     if not isinstance(graph_meta, dict):
-        return _blank_hop(
-            status="graph:empty", tenant_id=tenant_id, subject_id=subject_id
-        )
+        return _blank_hop(status="graph:empty", tenant_id=tenant_id, subject_id=subject_id)
+    meta_status = str(graph_meta.get("status") or "")
+    if meta_status in _MISSING:
+        return _blank_hop(status=meta_status, tenant_id=tenant_id, subject_id=subject_id)
     answers = consume_graph_answers(graph_meta)
     flags = sibling_flags_from_payload(
         graph_meta,
@@ -221,14 +217,47 @@ def hop_view_from_graph_meta(
     }
 
 
-def _snapshot_blob(snapshot: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not isinstance(snapshot, dict):
-        return None
-    for key in ("subgraph_snapshot", "graph_receipt", "gnn_receipt"):
-        inner = snapshot.get(key)
-        if isinstance(inner, dict):
-            return inner
-    return snapshot
+def _as_stored_hop(
+    raw: dict[str, Any],
+    *,
+    tenant_id: str,
+    subject_id: str,
+) -> dict[str, Any] | None:
+    status = str(raw.get("status") or "")
+    if status in _MISSING:
+        return _blank_hop(
+            status=status or "graph:missing", tenant_id=tenant_id, subject_id=subject_id
+        )
+    if raw.get("schema_id") == SCHEMA_ID or "signed_etypes" in raw or "sibling_flags" in raw:
+        answers = consume_graph_answers(raw)
+        flags = raw.get("sibling_flags")
+        if not isinstance(flags, dict):
+            flags = sibling_flags_from_payload(
+                raw,
+                multi_id_user_ids=list(answers["multi_id_user_ids"]),
+                subject_id=subject_id,
+            )
+        signed = raw.get("signed_etypes")
+        return {
+            "schema_id": SCHEMA_ID,
+            "status": status or "graph:ok",
+            "tenant_id": str(tenant_id or raw.get("tenant_id") or ""),
+            "subject_id": str(subject_id or raw.get("subject_id") or ""),
+            "named_edges": list(answers["named_edges"]),
+            "multi_id_user_ids": list(answers["multi_id_user_ids"]),
+            "roles": list(answers["roles"]),
+            "sibling_flags": dict(flags) if isinstance(flags, dict) else {},
+            "signed_etypes": [str(x) for x in signed] if isinstance(signed, list) else [],
+            "invented_edges": False,
+        }
+    if raw.get("named_edges") is not None or raw.get("multi_id_user_ids") is not None:
+        return hop_view_from_graph_meta(
+            raw,
+            graph_url="snapshot",
+            tenant_id=tenant_id,
+            subject_id=subject_id,
+        )
+    return None
 
 
 def hop_view_from_snapshot(
@@ -237,64 +266,32 @@ def hop_view_from_snapshot(
     tenant_id: str = "",
     subject_id: str = "",
 ) -> dict[str, Any]:
-    """Replay atoms from a stored snapshot. Never fetches or invents neighbors."""
+    """Replay atoms from a stored hop. Never fetches or invents neighbors."""
     if not isinstance(snapshot, dict):
-        return _blank_hop(
-            status="graph:missing", tenant_id=tenant_id, subject_id=subject_id
-        )
-    receipt = _snapshot_blob(snapshot)
-    if isinstance(receipt, dict) and str(receipt.get("status") or "") in _MISSING:
-        return _blank_hop(
-            status=str(receipt.get("status") or "graph:missing"),
-            tenant_id=tenant_id or str(receipt.get("tenant_id") or ""),
-            subject_id=subject_id or str(receipt.get("entity_id") or ""),
-        )
-
-    why = snapshot.get("pack_why")
-    graph_why = why.get("graph") if isinstance(why, dict) else None
-    inf = snapshot.get("inference_context")
-    sources: list[dict[str, Any]] = []
-    if isinstance(receipt, dict):
-        sources.append(receipt)
-    if isinstance(graph_why, dict):
-        sources.append(graph_why)
-    if isinstance(inf, dict):
-        sources.append(inf)
-
-    merged: dict[str, Any] = {}
-    for src in sources:
-        for key in (
-            "named_edges",
-            "multi_id_user_ids",
-            "roles",
-            "sibling_y_labels",
-            "y_labels",
-            "flagged_user_ids",
-            "vertices",
-            "nodes",
-            "edges",
-        ):
-            if key not in merged and src.get(key) not in (None, [], {}):
-                merged[key] = src[key]
-        if "named_edges" not in merged and isinstance(src.get("edges"), list):
-            merged["named_edges"] = src["edges"]
-
-    if not merged:
-        return _blank_hop(
-            status="graph:empty", tenant_id=tenant_id, subject_id=subject_id
-        )
-    tid = tenant_id or str(
-        (receipt or {}).get("tenant_id") or snapshot.get("tenant_id") or ""
-    )
-    sid = subject_id or str(
-        (receipt or {}).get("entity_id") or snapshot.get("entity_id") or ""
-    )
-    return hop_view_from_graph_meta(
-        merged,
-        graph_url="snapshot",
-        tenant_id=tid,
-        subject_id=sid,
-    )
+        return _blank_hop(status="graph:missing", tenant_id=tenant_id, subject_id=subject_id)
+    tid = str(tenant_id or snapshot.get("tenant_id") or "")
+    sid = str(subject_id or snapshot.get("entity_id") or snapshot.get("subject_id") or "")
+    why = snapshot.get("pack_why") if isinstance(snapshot.get("pack_why"), dict) else {}
+    candidates: list[Any] = [
+        snapshot.get(HOP_FEATURE_KEY),
+        snapshot.get("graph_hop_v1"),
+        why.get("graph") if isinstance(why, dict) else None,
+        snapshot.get("subgraph_snapshot"),
+        snapshot.get("inference_context"),
+    ]
+    for raw in candidates:
+        if not isinstance(raw, dict):
+            continue
+        if str(raw.get("status") or "") in _MISSING:
+            return _blank_hop(
+                status=str(raw.get("status") or "graph:missing"),
+                tenant_id=tid or str(raw.get("tenant_id") or ""),
+                subject_id=sid or str(raw.get("entity_id") or ""),
+            )
+        hop = _as_stored_hop(raw, tenant_id=tid, subject_id=sid)
+        if hop is not None:
+            return hop
+    return _blank_hop(status="graph:empty", tenant_id=tid, subject_id=sid)
 
 
 def hop_is_present(hop: dict[str, Any] | None) -> bool:
@@ -366,8 +363,14 @@ def attach_hop_to_features(features: dict[str, Any], hop: dict[str, Any]) -> dic
 
 
 def pack_why_from_hop(hop: dict[str, Any] | None) -> dict[str, Any]:
-    a = hop if isinstance(hop, dict) else _blank_hop(status="graph:missing", tenant_id="", subject_id="")
+    a = (
+        hop
+        if isinstance(hop, dict)
+        else _blank_hop(status="graph:missing", tenant_id="", subject_id="")
+    )
     why = pack_why_from_graph_answers(a)
     why["status"] = str(a.get("status") or "graph:missing")
     why["schema_id"] = SCHEMA_ID
+    why["sibling_flags"] = dict(a.get("sibling_flags") or {})
+    why["signed_etypes"] = list(a.get("signed_etypes") or [])
     return why

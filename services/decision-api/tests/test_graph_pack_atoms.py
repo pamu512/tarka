@@ -176,19 +176,14 @@ def test_unsigned_etype_in_pack_does_not_fire():
 def test_replay_from_snapshot_matches_live_ast():
     live_blob = _hop_blob()
     live_feats = _features_from_hop(live_blob, graph_url="http://graph.test")
+    live_hop = hop_view_from_graph_meta(
+        live_blob,
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
     replayed = hop_view_from_snapshot(
-        {
-            "subgraph_snapshot": {
-                "status": "graph:ok",
-                "tenant_id": "t1",
-                "entity_id": "alice",
-                "vertices": live_blob["vertices"],
-                "edges": live_blob["edges"],
-                "named_edges": live_blob["named_edges"],
-                "multi_id_user_ids": live_blob["multi_id_user_ids"],
-                "sibling_y_labels": live_blob["sibling_y_labels"],
-            }
-        },
+        {"graph_hop_v1": live_hop},
         tenant_id="t1",
         subject_id="alice",
     )
