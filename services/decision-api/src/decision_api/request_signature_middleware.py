@@ -12,6 +12,8 @@ ensure_services_shared_on_path()
 
 from tarka_request_signature import verify_signature  # noqa: E402
 
+SIGNED_PATH_PREFIXES = ("/v1/decisions/evaluate", "/v1/webhooks/late-label")
+
 
 class RequestSignatureMiddleware(BaseHTTPMiddleware):
     """When ``secret`` is set, require valid ``X-Tarka-*`` headers on configured paths."""
@@ -21,7 +23,7 @@ class RequestSignatureMiddleware(BaseHTTPMiddleware):
         app,
         *,
         secret: str,
-        path_prefixes: tuple[str, ...] = ("/v1/decisions/evaluate",),
+        path_prefixes: tuple[str, ...] = SIGNED_PATH_PREFIXES,
         max_skew_seconds: int = 300,
     ) -> None:
         super().__init__(app)
