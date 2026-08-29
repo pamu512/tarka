@@ -66,17 +66,20 @@ def bind_late_label(
     token = normalize_outcome(outcome)
     y = y_label_for_outcome(token)
     receipt = find_receipt(tenant, join)
+    store_key = (
+        str(receipt.get("trace_id") or "").strip() if isinstance(receipt, dict) else ""
+    ) or join
     merge_y_labels(
         tenant,
-        by_trace={join: y},
-        dispute_outcome_by_trace={join: token},
-        chargeback_class_by_trace={join: token},
+        by_trace={store_key: y},
+        dispute_outcome_by_trace={store_key: token},
+        chargeback_class_by_trace={store_key: token},
     )
     return {
         "ok": True,
         "schema_id": SCHEMA_ID,
         "tenant_id": tenant,
-        "trace_id": join,
+        "trace_id": store_key,
         "dispute_outcome": token,
         "chargeback_class": token,
         "y_label": y,

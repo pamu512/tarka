@@ -175,6 +175,34 @@ async def test_fraud_and_friendly_both_persist(client, tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_evaluation_token_binds_to_receipt_trace_id(
+    client, tmp_path, monkeypatch
+):
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    append_receipt("acme", _snap(suffix="tok"))
+    r = await _post(
+        client,
+        {
+            "tenant_id": "acme",
+            "evaluation_token": "t-tok",
+            "dispute": {"outcome": "SERVICE"},
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["snapshot_bound"] is True
+    assert body["trace_id"] == "t-tok"
+    assert body["y_label"] == "0"
+    assert body["chargeback_class"] == "SERVICE"
+    rows = export_labeled_rows("acme", load_receipts("acme"))
+    assert len(rows) == 1
+    assert rows[0]["trace_id"] == "t-tok"
+    assert rows[0]["y_label"] == "0"
+    assert rows[0]["trainable"] is True
+    assert rows[0]["subgraph_snapshot"]["edges"][0]["type"] == "USED"
+
+
+@pytest.mark.asyncio
 async def test_export_sees_joined_y_label(client, tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
     append_receipt("acme", _snap(suffix="join"))
