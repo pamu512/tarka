@@ -467,11 +467,14 @@ fn eval_graph_v1(
             if want.is_empty() || want == "RELATED" || !etype_token_ok(&want) {
                 return false;
             }
-            let signed = hop.get("signed_etypes").and_then(|v| v.as_array());
-            if let Some(allowed) = signed {
-                if !allowed.iter().any(|x| x.as_str().is_some_and(|s| s == want)) {
-                    return false;
-                }
+            let Some(allowed) = hop.get("signed_etypes").and_then(|v| v.as_array()) else {
+                return false;
+            };
+            if !allowed
+                .iter()
+                .any(|x| x.as_str().is_some_and(|s| s == want))
+            {
+                return false;
             }
             hop.get("named_edges")
                 .and_then(|v| v.as_array())
@@ -533,7 +536,8 @@ mod tests {
                     {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}
                 ],
                 "multi_id_user_ids": ["bob"],
-                "sibling_flags": {"bob": "1"}
+                "sibling_flags": {"bob": "1"},
+                "signed_etypes": ["USES_DEVICE", "USED", "SEEN_AT", "PARTY_WITH"]
             }
         })
         .as_object()
@@ -574,6 +578,28 @@ mod tests {
         .cloned()
         .unwrap();
         assert!(!eval_ast(&ast, &missing));
+    }
+
+    #[test]
+    fn graph_v1_unsigned_etype_misses_without_signed_set() {
+        let ast = parse_ast_strict_in_rule(
+            &json!({"type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE"}),
+            "when_ast",
+            "r1",
+        )
+        .unwrap();
+        let hop = json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}
+                ]
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&ast, &hop));
     }
 
     #[test]

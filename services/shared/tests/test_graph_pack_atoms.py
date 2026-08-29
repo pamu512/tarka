@@ -16,6 +16,7 @@ from graph_pack_atoms import (
     eval_graph_v1,
     hop_view_from_graph_meta,
     hop_view_from_snapshot,
+    pack_why_from_hop,
     require_pack_etype,
 )
 
@@ -144,26 +145,14 @@ def test_replay_from_snapshot_matches_live_hop():
         subject_id="alice",
     )
     snapshot = {
+        "graph_hop_v1": live,
+        "pack_why": {"graph": pack_why_from_hop(live)},
         "subgraph_snapshot": {
             "status": "graph:ok",
             "tenant_id": "t1",
             "entity_id": "alice",
-            "user_id": "alice",
-            "role": "member",
             "vertices": live_blob["vertices"],
             "edges": live_blob["edges"],
-            "named_edges": live_blob["named_edges"],
-            "multi_id_user_ids": live_blob["multi_id_user_ids"],
-            "sibling_y_labels": live_blob["sibling_y_labels"],
-        },
-        "pack_why": {
-            "graph": {
-                "named_edges": live_blob["named_edges"],
-                "multi_id_user_ids": live_blob["multi_id_user_ids"],
-                "roles": live_blob["roles"],
-                "invented_edges": False,
-                "status": "graph:ok",
-            }
         },
     }
     replayed = hop_view_from_snapshot(snapshot, tenant_id="t1", subject_id="alice")
@@ -177,6 +166,24 @@ def test_replay_from_snapshot_matches_live_hop():
             atom, replayed, etype=etype, tenant_id="t1"
         )
         assert eval_graph_v1(atom, live, etype=etype, tenant_id="t1") is True
+
+
+def test_replay_does_not_derive_named_edges_from_gnn_edges():
+    snap = hop_view_from_snapshot(
+        {
+            "subgraph_snapshot": {
+                "status": "graph:ok",
+                "vertices": [{"id": "alice", "vtype": "user"}],
+                "edges": [
+                    {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"},
+                ],
+            }
+        },
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert snap["named_edges"] == []
+    assert eval_graph_v1("has_etype", snap, etype="USES_DEVICE", tenant_id="t1") is False
 
 
 def test_replay_does_not_invent_when_snapshot_is_graph_missing():
