@@ -49,6 +49,11 @@ pub enum AstNode {
         plugin_id: String,
         output_key: String,
     },
+    GraphV1 {
+        atom: String,
+        etype: Option<String>,
+        role: Option<String>,
+    },
     And {
         children: Vec<AstNode>,
     },
@@ -96,7 +101,7 @@ impl AstParseCtx {
 
 fn ast_depth(n: &AstNode) -> usize {
     match n {
-        AstNode::Condition { .. } | AstNode::CustomSignal { .. } => 1,
+        AstNode::Condition { .. } | AstNode::CustomSignal { .. } | AstNode::GraphV1 { .. } => 1,
         AstNode::And { children } | AstNode::Or { children } => {
             1 + children.iter().map(ast_depth).max().unwrap_or(0)
         }
@@ -105,7 +110,7 @@ fn ast_depth(n: &AstNode) -> usize {
 
 fn ast_count(n: &AstNode) -> usize {
     match n {
-        AstNode::Condition { .. } | AstNode::CustomSignal { .. } => 1,
+        AstNode::Condition { .. } | AstNode::CustomSignal { .. } | AstNode::GraphV1 { .. } => 1,
         AstNode::And { children } | AstNode::Or { children } => {
             1 + children.iter().map(ast_count).sum::<usize>()
         }
@@ -147,6 +152,24 @@ fn composite_allowed_keys() -> HashSet<&'static str> {
 
 fn custom_signal_allowed_keys() -> HashSet<&'static str> {
     HashSet::from(["type", "plugin_id", "params", "output_key"])
+}
+
+fn graph_v1_allowed_keys() -> HashSet<&'static str> {
+    HashSet::from(["type", "atom", "etype", "role"])
+}
+
+fn norm_etype(raw: &str) -> String {
+    raw.trim().to_ascii_uppercase().replace([' ', '-'], "_")
+}
+
+fn etype_token_ok(token: &str) -> bool {
+    let mut chars = token.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() => {
+            token.len() <= 64 && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        }
+        _ => false,
+    }
 }
 
 fn build_safe_regex_pattern(pattern: &str) -> String {
@@ -247,6 +270,64 @@ fn parse_ast_strict_ctx(
             enforce_limits(&node, path, ctx, Some(node_index))?;
             Ok(node)
         }
+        "graph_v1" => {
+            for k in obj.keys() {
+                if !graph_v1_allowed_keys().contains(k.as_str()) {
+                    return Err(ctx.err(
+                        "ast_extra_key",
+                        format!("unexpected key on graph_v1 node: {k}"),
+                        format!("{path}.{k}"),
+                        Some(node_index),
+                    ));
+                }
+            }
+            let atom = obj
+                .get("atom")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            if !matches!(
+                atom.as_str(),
+                "has_etype" | "has_multi_id" | "sibling_prior_flag"
+            ) {
+                return Err(ctx.err(
+                    "ast_invalid_graph_v1",
+                    format!("unknown graph_v1 atom: {atom}"),
+                    format!("{path}.atom"),
+                    Some(node_index),
+                ));
+            }
+            let etype = obj
+                .get("etype")
+                .and_then(|x| x.as_str())
+                .map(|s| s.to_string());
+            if atom == "has_etype" {
+                let raw = etype.as_deref().unwrap_or("");
+                let token = norm_etype(raw);
+                if raw.is_empty() || !etype_token_ok(&token) || token == "RELATED" {
+                    return Err(ctx.err(
+                        "ast_unsigned_etype",
+                        format!("unsigned etype: {raw}"),
+                        format!("{path}.etype"),
+                        Some(node_index),
+                    ));
+                }
+            } else if etype.as_ref().is_some_and(|s| !s.is_empty()) {
+                return Err(ctx.err(
+                    "ast_invalid_graph_v1",
+                    "etype is only valid on graph_v1.has_etype",
+                    format!("{path}.etype"),
+                    Some(node_index),
+                ));
+            }
+            let role = obj
+                .get("role")
+                .and_then(|x| x.as_str())
+                .map(|s| s.to_string());
+            let node = AstNode::GraphV1 { atom, etype, role };
+            enforce_limits(&node, path, ctx, Some(node_index))?;
+            Ok(node)
+        }
         "custom_signal" => {
             for k in obj.keys() {
                 if !custom_signal_allowed_keys().contains(k.as_str()) {
@@ -333,8 +414,91 @@ fn parse_ast_strict_ctx(
 
 use serde_json::Map;
 
+fn hop_status_missing(status: &str) -> bool {
+    matches!(
+        status,
+        "graph:missing" | "graph:unavailable" | "graph:empty" | ""
+    )
+}
+
+fn positive_flag(v: &Value) -> bool {
+    match v {
+        Value::Bool(true) => true,
+        Value::Number(n) => n.as_i64() == Some(1) || n.as_u64() == Some(1),
+        Value::String(s) => matches!(
+            s.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "flag" | "flagged" | "fraud" | "block" | "blocked"
+        ),
+        _ => false,
+    }
+}
+
+fn eval_graph_v1(
+    features: &Map<String, Value>,
+    atom: &str,
+    etype: &Option<String>,
+    role: &Option<String>,
+) -> bool {
+    let hop = match features.get("_graph_hop_v1").and_then(|v| v.as_object()) {
+        Some(h) => h,
+        None => return false,
+    };
+    let status = hop.get("status").and_then(|v| v.as_str()).unwrap_or("");
+    if hop_status_missing(status) {
+        return false;
+    }
+    if let Some(want_role) = role.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let got = hop
+            .get("roles")
+            .and_then(|v| v.as_array())
+            .is_some_and(|roles| {
+                roles.iter().any(|r| {
+                    r.as_str()
+                        .is_some_and(|s| s.trim().eq_ignore_ascii_case(want_role))
+                })
+            });
+        if !got {
+            return false;
+        }
+    }
+    match atom {
+        "has_etype" => {
+            let want = norm_etype(etype.as_deref().unwrap_or(""));
+            if want.is_empty() || want == "RELATED" || !etype_token_ok(&want) {
+                return false;
+            }
+            let signed = hop.get("signed_etypes").and_then(|v| v.as_array());
+            if let Some(allowed) = signed {
+                if !allowed.iter().any(|x| x.as_str().is_some_and(|s| s == want)) {
+                    return false;
+                }
+            }
+            hop.get("named_edges")
+                .and_then(|v| v.as_array())
+                .is_some_and(|edges| {
+                    edges.iter().any(|e| {
+                        e.get("type")
+                            .or_else(|| e.get("etype"))
+                            .and_then(|t| t.as_str())
+                            .is_some_and(|t| norm_etype(t) == want)
+                    })
+                })
+        }
+        "has_multi_id" => hop
+            .get("multi_id_user_ids")
+            .and_then(|v| v.as_array())
+            .is_some_and(|ids| ids.iter().any(|x| x.as_str().is_some_and(|s| !s.is_empty()))),
+        "sibling_prior_flag" => hop
+            .get("sibling_flags")
+            .and_then(|v| v.as_object())
+            .is_some_and(|flags| flags.values().any(positive_flag)),
+        _ => false,
+    }
+}
+
 pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
     match node {
+        AstNode::GraphV1 { atom, etype, role } => eval_graph_v1(features, atom, etype, role),
         AstNode::CustomSignal { output_key, .. } => !output_key.is_empty()
             && features.contains_key(output_key),
         AstNode::Condition {
@@ -353,5 +517,73 @@ pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
         }
         AstNode::And { children } => children.iter().all(|c| eval_ast(c, features)),
         AstNode::Or { children } => children.iter().any(|c| eval_ast(c, features)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn hop_features() -> Map<String, Value> {
+        json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}
+                ],
+                "multi_id_user_ids": ["bob"],
+                "sibling_flags": {"bob": "1"}
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap()
+    }
+
+    #[test]
+    fn graph_v1_shared_device_and_flagged_sibling() {
+        let ast = parse_ast_strict_in_rule(
+            &json!({
+                "type": "and",
+                "children": [
+                    {"type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE"},
+                    {"type": "graph_v1", "atom": "has_multi_id"},
+                    {"type": "graph_v1", "atom": "sibling_prior_flag"}
+                ]
+            }),
+            "when_ast",
+            "r1",
+        )
+        .unwrap();
+        assert!(eval_ast(&ast, &hop_features()));
+    }
+
+    #[test]
+    fn graph_v1_missing_hop_does_not_fire() {
+        let ast = parse_ast_strict_in_rule(
+            &json!({"type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE"}),
+            "when_ast",
+            "r1",
+        )
+        .unwrap();
+        let missing = json!({
+            "_graph_hop_v1": {"status": "graph:missing", "named_edges": [], "multi_id_user_ids": []}
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&ast, &missing));
+    }
+
+    #[test]
+    fn graph_v1_refuses_related_etype() {
+        let err = parse_ast_strict_in_rule(
+            &json!({"type": "graph_v1", "atom": "has_etype", "etype": "RELATED"}),
+            "when_ast",
+            "r1",
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "ast_unsigned_etype");
     }
 }
