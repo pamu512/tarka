@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json as _json
+from typing import Annotated, Any, Literal, Self
 
-from typing import Annotated, Any, Literal, Self, Union
-
+from graph_pack_atoms import GRAPH_V1_ATOMS, refuse_pack_etype_token
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Keep in sync with ``json_rules`` field/value caps for condition leaves.
@@ -52,6 +52,38 @@ class JsonAstCondition(BaseModel):
         return self
 
 
+class JsonAstGraphV1(BaseModel):
+    """Versioned hop predicate. Consumes ``_graph_hop_v1`` on the feature map."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["graph_v1"] = "graph_v1"
+    atom: Literal["has_etype", "has_multi_id", "sibling_prior_flag"]
+    etype: str | None = None
+    role: str | None = None
+
+    @model_validator(mode="after")
+    def _signed_tokens(self) -> Self:
+        if self.atom not in GRAPH_V1_ATOMS:
+            raise ValueError(f"unknown graph_v1 atom: {self.atom}")
+        if self.atom == "has_etype":
+            if not (self.etype or "").strip():
+                raise ValueError("graph_v1.has_etype requires etype")
+            refuse_pack_etype_token(self.etype or "")
+        elif self.etype:
+            raise ValueError("etype is only valid on graph_v1.has_etype")
+        if self.role is not None:
+            token = str(self.role).strip()
+            if not token:
+                raise ValueError("graph_v1.role must be non-empty when set")
+            # Format only — tenant lock is evaluated against the hop, not coerced.
+            if not token[0].isalpha() or not all(
+                ch.isalnum() or ch in "_-" for ch in token
+            ):
+                raise ValueError(f"unsigned role: {self.role}")
+        return self
+
+
 class JsonAstCustomSignal(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -89,7 +121,7 @@ class JsonAstOr(BaseModel):
 
 
 JsonAstNode = Annotated[
-    Union[JsonAstCondition, JsonAstCustomSignal, JsonAstAnd, JsonAstOr],
+    JsonAstCondition | JsonAstCustomSignal | JsonAstGraphV1 | JsonAstAnd | JsonAstOr,
     Field(discriminator="type"),
 ]
 
@@ -99,23 +131,35 @@ JsonAstOr.model_rebuild()
 
 
 def ast_max_depth(
-    node: JsonAstCondition | JsonAstAnd | JsonAstOr | JsonAstCustomSignal,
+    node: JsonAstCondition
+    | JsonAstAnd
+    | JsonAstOr
+    | JsonAstCustomSignal
+    | JsonAstGraphV1,
 ) -> int:
-    if isinstance(node, (JsonAstCondition, JsonAstCustomSignal)):
+    if isinstance(node, (JsonAstCondition, JsonAstCustomSignal, JsonAstGraphV1)):
         return 1
     return 1 + max((ast_max_depth(ch) for ch in node.children), default=0)
 
 
 def ast_node_count(
-    node: JsonAstCondition | JsonAstAnd | JsonAstOr | JsonAstCustomSignal,
+    node: JsonAstCondition
+    | JsonAstAnd
+    | JsonAstOr
+    | JsonAstCustomSignal
+    | JsonAstGraphV1,
 ) -> int:
-    if isinstance(node, (JsonAstCondition, JsonAstCustomSignal)):
+    if isinstance(node, (JsonAstCondition, JsonAstCustomSignal, JsonAstGraphV1)):
         return 1
     return 1 + sum(ast_node_count(ch) for ch in node.children)
 
 
 def enforce_ast_limits(
-    node: JsonAstCondition | JsonAstAnd | JsonAstOr | JsonAstCustomSignal,
+    node: JsonAstCondition
+    | JsonAstAnd
+    | JsonAstOr
+    | JsonAstCustomSignal
+    | JsonAstGraphV1,
 ) -> None:
     d = ast_max_depth(node)
     if d > MAX_AST_DEPTH:

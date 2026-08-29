@@ -811,6 +811,19 @@ async def run_evaluate_decision(
             supplemental_tags_for_integrity(_plat_kw["platform"], signal_tags)
         )
 
+        from graph_pack_atoms import attach_hop_to_features, hop_view_from_graph_meta
+
+        attach_hop_to_features(
+            features,
+            hop_view_from_graph_meta(
+                graph_risk if isinstance(graph_risk, dict) else None,
+                graph_url=settings.graph_service_url,
+                degrade_tags=degrade_tags,
+                tenant_id=body.tenant_id,
+                subject_id=body.entity_id,
+            ),
+        )
+
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
         rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
             features,
@@ -1251,7 +1264,11 @@ async def run_evaluate_decision(
         if graph_decision_explanation is not None:
             snap_extra["graph_decision_explanation"] = graph_decision_explanation
         snap_extra["pack_why"] = graph_pack_why(
-            graph_risk if isinstance(graph_risk, dict) else None
+            graph_risk if isinstance(graph_risk, dict) else None,
+            graph_url=settings.graph_service_url,
+            degrade_tags=degrade_tags,
+            tenant_id=body.tenant_id,
+            subject_id=body.entity_id,
         )
         snap_extra["role"] = body.role
         if body.parties:

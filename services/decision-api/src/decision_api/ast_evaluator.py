@@ -4,19 +4,33 @@ from __future__ import annotations
 
 from typing import Any
 
+from graph_pack_atoms import eval_graph_v1_from_features
+
 from decision_api.ast_models import (
     JsonAstAnd,
     JsonAstCondition,
     JsonAstCustomSignal,
+    JsonAstGraphV1,
     JsonAstOr,
 )
 from decision_api.json_rules import _match_condition
 
 
 def evaluate_json_ast(
-    node: JsonAstCondition | JsonAstAnd | JsonAstOr | JsonAstCustomSignal,
+    node: JsonAstCondition
+    | JsonAstAnd
+    | JsonAstOr
+    | JsonAstCustomSignal
+    | JsonAstGraphV1,
     features: dict[str, Any],
 ) -> bool:
+    if isinstance(node, JsonAstGraphV1):
+        return eval_graph_v1_from_features(
+            features,
+            atom=node.atom,
+            etype=node.etype,
+            role=node.role,
+        )
     if isinstance(node, JsonAstCustomSignal):
         # Values are injected upstream (Python merge). Identity only after the
         # output_key is present — a lone unresolved custom_signal must not match.
