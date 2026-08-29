@@ -46,7 +46,9 @@ def _install(pack: dict) -> None:
     jr._cached_packs = [pack]
 
 
-def _hop_blob(*, multi_id: bool = True, sibling: bool = False, etype: str = "USES_DEVICE") -> dict:
+def _hop_blob(
+    *, multi_id: bool = True, sibling: bool = False, etype: str = "USES_DEVICE"
+) -> dict:
     named = [{"from_id": "alice", "to_id": "dev-1", "type": etype}]
     if multi_id:
         named.append({"from_id": "bob", "to_id": "dev-1", "type": etype})
@@ -122,7 +124,9 @@ def test_observe_load_does_not_activate_pack(tmp_path, monkeypatch):
 def test_uses_device_plus_multi_id_flags():
     _install(_pack())
     hits, tags, _, files = _eval(
-        _features(_hop_blob(multi_id=True, sibling=False), graph_url="http://graph.test")
+        _features(
+            _hop_blob(multi_id=True, sibling=False), graph_url="http://graph.test"
+        )
     )
     assert "uses_device_multi_or_sibling" in hits
     assert "FLAG" in tags
@@ -138,7 +142,8 @@ def test_uses_device_plus_multi_id_flags():
     assert "has_etype:USES_DEVICE" in why["named"]
     assert "has_multi_id" in why["named"]
     assert any(
-        x.get("atom") == "has_etype" and x.get("etype") == "USES_DEVICE" for x in why["fired"]
+        x.get("atom") == "has_etype" and x.get("etype") == "USES_DEVICE"
+        for x in why["fired"]
     )
 
 
@@ -154,7 +159,9 @@ def test_empty_url_and_graph_missing_do_not_fire():
     assert why["named"] == "graph:missing"
     assert why["fired"] == []
 
-    tagged = _features(_hop_blob(), graph_url="http://graph.test", degrade_tags=["graph:missing"])
+    tagged = _features(
+        _hop_blob(), graph_url="http://graph.test", degrade_tags=["graph:missing"]
+    )
     hits2, tags2, delta2, _ = _eval(tagged)
     assert hits2 == []
     assert "FLAG" not in tags2

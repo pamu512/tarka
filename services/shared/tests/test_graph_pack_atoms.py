@@ -266,4 +266,6 @@ def test_pack_why_names_atom_etype_or_graph_missing():
     )
     why = pack_why_from_hop(live)
     assert why["named"] == "has_etype:USES_DEVICE+has_multi_id+sibling_prior_flag"
-    assert any(x.get("atom") == "has_etype" and x.get("etype") == "USES_DEVICE" for x in why["fired"])
+    assert any(
+        x.get("atom") == "has_etype" and x.get("etype") == "USES_DEVICE" for x in why["fired"]
+    )
