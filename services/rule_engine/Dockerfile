@@ -9,7 +9,8 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN apk add --no-cache build-base
+RUN apk upgrade --no-cache \
+    && apk add --no-cache build-base
 
 COPY packages/deploy-settings /packages/deploy-settings
 COPY services/rule_engine/pyproject.toml services/rule_engine/README.md ./services/rule_engine/

@@ -504,6 +504,9 @@ class YLabelMergeItem(BaseModel):
     trace_id: str = Field(min_length=1, max_length=128)
     y_label: str = Field(min_length=1, max_length=16)
     source: str | None = Field(default=None, max_length=64)
+    why: str | None = Field(default=None, max_length=2000)
+    dispute_outcome: str | None = Field(default=None, max_length=256)
+    chargeback_class: str | None = Field(default=None, max_length=16)
 
 
 class YLabelMergeBody(BaseModel):
@@ -520,6 +523,9 @@ async def merge_y_labels_endpoint(
     """Merge trace-level y_labels into durable store (dispute / disposition feeds)."""
     _enforce_tenant(request, body.tenant_id)
     by_trace: dict[str, str] = {}
+    why_by_trace: dict[str, str] = {}
+    dispute_by_trace: dict[str, str] = {}
+    chargeback_by_trace: dict[str, str] = {}
     skipped = 0
     sources: dict[str, int] = {}
     for item in body.labels:
@@ -531,11 +537,23 @@ async def merge_y_labels_endpoint(
             skipped += 1
             continue
         by_trace[tid] = y
+        if item.why and str(item.why).strip():
+            why_by_trace[tid] = str(item.why).strip()
+        if item.dispute_outcome and str(item.dispute_outcome).strip():
+            dispute_by_trace[tid] = str(item.dispute_outcome).strip()
+        if item.chargeback_class and str(item.chargeback_class).strip():
+            chargeback_by_trace[tid] = str(item.chargeback_class).strip().upper()
         src = (item.source or "unknown").strip() or "unknown"
         sources[src] = sources.get(src, 0) + 1
     if not by_trace:
         raise HTTPException(status_code=400, detail="no valid labels to merge")
-    store_meta = merge_y_labels(body.tenant_id, by_trace=by_trace)
+    store_meta = merge_y_labels(
+        body.tenant_id,
+        by_trace=by_trace,
+        why_by_trace=why_by_trace or None,
+        dispute_outcome_by_trace=dispute_by_trace or None,
+        chargeback_class_by_trace=chargeback_by_trace or None,
+    )
     return {
         "ok": True,
         "schema_id": "tarka.y_labels_merge/v1",

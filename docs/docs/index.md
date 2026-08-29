@@ -13,6 +13,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Quickstart](quickstart.md) | Lite compose → first decision |
 | [Architecture](architecture.md) | Services and stores |
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
+| [GNN label loop](guides/gnn-label-loop.md) | Offline snapshot/export/holdout; serve off unless heuristic_v1 loses |
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, honesty knobs, desk-strict |
 | [STUB_REGISTER](../STUB_REGISTER.md) | Honesty ledger (no Potemkin APIs) |

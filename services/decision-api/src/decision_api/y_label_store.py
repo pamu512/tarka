@@ -64,25 +64,53 @@ def _path(tenant_id: str) -> Path:
     return target
 
 
-def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
+def _str_map(raw: Any) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): str(v) for k, v in raw.items() if str(k).strip() and str(v)}
+
+
+def _empty_records() -> dict[str, dict[str, str]]:
+    return {
+        "by_trace": {},
+        "by_entity": {},
+        "why_by_trace": {},
+        "why_by_entity": {},
+        "dispute_outcome_by_trace": {},
+        "chargeback_class_by_trace": {},
+    }
+
+
+def load_label_records(tenant_id: str) -> dict[str, dict[str, str]]:
+    """Full store including override why and late chargeback fields."""
+    empty = _empty_records()
     try:
         path = _path(tenant_id)
     except ValueError:
-        return {"by_trace": {}, "by_entity": {}}
+        return empty
     if not path.is_file():
-        return {"by_trace": {}, "by_entity": {}}
+        return empty
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"by_trace": {}, "by_entity": {}}
+        return empty
     if not isinstance(raw, dict):
-        return {"by_trace": {}, "by_entity": {}}
+        return empty
     by_t = raw.get("by_trace") if isinstance(raw.get("by_trace"), dict) else {}
     by_e = raw.get("by_entity") if isinstance(raw.get("by_entity"), dict) else {}
     return {
         "by_trace": {str(k): str(v) for k, v in by_t.items() if str(v) in {"0", "1"}},
         "by_entity": {str(k): str(v) for k, v in by_e.items() if str(v) in {"0", "1"}},
+        "why_by_trace": _str_map(raw.get("why_by_trace")),
+        "why_by_entity": _str_map(raw.get("why_by_entity")),
+        "dispute_outcome_by_trace": _str_map(raw.get("dispute_outcome_by_trace")),
+        "chargeback_class_by_trace": _str_map(raw.get("chargeback_class_by_trace")),
     }
+
+
+def load_y_labels(tenant_id: str) -> dict[str, dict[str, str]]:
+    rec = load_label_records(tenant_id)
+    return {"by_trace": rec["by_trace"], "by_entity": rec["by_entity"]}
 
 
 def merge_y_labels(
@@ -90,12 +118,20 @@ def merge_y_labels(
     *,
     by_trace: dict[str, str] | None = None,
     by_entity: dict[str, str] | None = None,
+    why_by_trace: dict[str, str] | None = None,
+    why_by_entity: dict[str, str] | None = None,
+    dispute_outcome_by_trace: dict[str, str] | None = None,
+    chargeback_class_by_trace: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Merge 0/1 maps into durable store. Returns store snapshot + counts."""
+    """Merge 0/1 maps plus optional why / late chargeback fields."""
     with _lock:
-        cur = load_y_labels(tenant_id)
+        cur = load_label_records(tenant_id)
         t_map = dict(cur["by_trace"])
         e_map = dict(cur["by_entity"])
+        why_t = dict(cur["why_by_trace"])
+        why_e = dict(cur["why_by_entity"])
+        disp_t = dict(cur["dispute_outcome_by_trace"])
+        cls_t = dict(cur["chargeback_class_by_trace"])
         added = 0
         for k, v in (by_trace or {}).items():
             key = str(k).strip()
@@ -108,7 +144,34 @@ def merge_y_labels(
             key = str(k).strip()
             if key and v in {"0", "1"}:
                 e_map[key] = v
-        payload = {"by_trace": t_map, "by_entity": e_map}
+        for k, v in (why_by_trace or {}).items():
+            key = str(k).strip()
+            text = str(v).strip()
+            if key and text:
+                why_t[key] = text[:2000]
+        for k, v in (why_by_entity or {}).items():
+            key = str(k).strip()
+            text = str(v).strip()
+            if key and text:
+                why_e[key] = text[:2000]
+        for k, v in (dispute_outcome_by_trace or {}).items():
+            key = str(k).strip()
+            text = str(v).strip()
+            if key and text:
+                disp_t[key] = text[:256]
+        for k, v in (chargeback_class_by_trace or {}).items():
+            key = str(k).strip()
+            token = str(v).strip().upper()
+            if key and token in {"FRAUD", "FRIENDLY", "SERVICE", "UNKNOWN"}:
+                cls_t[key] = token
+        payload = {
+            "by_trace": t_map,
+            "by_entity": e_map,
+            "why_by_trace": why_t,
+            "why_by_entity": why_e,
+            "dispute_outcome_by_trace": disp_t,
+            "chargeback_class_by_trace": cls_t,
+        }
         path = _path(tenant_id)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         return {
@@ -118,4 +181,8 @@ def merge_y_labels(
             "updated": added,
             "by_trace": t_map,
             "by_entity": e_map,
+            "why_by_trace": why_t,
+            "why_by_entity": why_e,
+            "dispute_outcome_by_trace": disp_t,
+            "chargeback_class_by_trace": cls_t,
         }
