@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "name": "graph_v1_uses_device_v1",
+  "mode": "shadow",
+  "description": "FLAG when the as-of hop has signed USES_DEVICE and (has_multi_id or sibling_prior_flag). Missing hop does not fire. Observe by default — flip mode to active after review.",
+  "rules": [
+    {
+      "id": "uses_device_multi_or_sibling",
+      "when_ast": {
+        "type": "and",
+        "children": [
+          { "type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE" },
+          {
+            "type": "or",
+            "children": [
+              { "type": "graph_v1", "atom": "has_multi_id" },
+              { "type": "graph_v1", "atom": "sibling_prior_flag" }
+            ]
+          }
+        ]
+      },
+      "tags": ["FLAG", "graph:has_etype:USES_DEVICE"],
+      "score_delta": 18,
+      "description": "Signed USES_DEVICE hop plus multi-id or sibling prior FLAG"
+    }
+  ],
+  "tag_rules": []
+}

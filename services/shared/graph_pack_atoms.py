@@ -150,9 +150,10 @@ def sibling_flags_from_payload(
             flags[nid] = val
 
     multi = {str(x).strip() for x in multi_id_user_ids if str(x).strip()}
-    if not multi:
-        return {}
-    return {uid: flags[uid] for uid in multi if uid in flags}
+    if multi:
+        return {uid: flags[uid] for uid in multi if uid in flags}
+    # ponytail: empty multi-id still lifts hop-local FLAG/y_label so sibling_prior_flag can fire alone.
+    return flags
 
 
 def _is_missing(
@@ -362,6 +363,42 @@ def attach_hop_to_features(features: dict[str, Any], hop: dict[str, Any]) -> dic
     return features
 
 
+def fired_graph_v1_atoms(
+    hop: dict[str, Any] | None, *, tenant_id: str = ""
+) -> list[dict[str, str]]:
+    """Atoms that are true on this hop. Empty when the hop is missing."""
+    if not hop_is_present(hop):
+        return []
+    assert hop is not None
+    tid = str(tenant_id or hop.get("tenant_id") or "")
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for edge in hop.get("named_edges") or []:
+        if not isinstance(edge, dict):
+            continue
+        et = _norm_etype(str(edge.get("type") or edge.get("etype") or ""))
+        if not et or et in seen:
+            continue
+        if eval_graph_v1("has_etype", hop, etype=et, tenant_id=tid):
+            seen.add(et)
+            out.append({"atom": "has_etype", "etype": et})
+    if eval_graph_v1("has_multi_id", hop, tenant_id=tid):
+        out.append({"atom": "has_multi_id"})
+    if eval_graph_v1("sibling_prior_flag", hop, tenant_id=tid):
+        out.append({"atom": "sibling_prior_flag"})
+    return out
+
+
+def named_from_hop(hop: dict[str, Any] | None, *, tenant_id: str = "") -> str:
+    if not hop_is_present(hop):
+        return "graph:missing"
+    parts: list[str] = []
+    for item in fired_graph_v1_atoms(hop, tenant_id=tenant_id):
+        etype = item.get("etype")
+        parts.append(f"{item['atom']}:{etype}" if etype else item["atom"])
+    return "+".join(parts) if parts else str((hop or {}).get("status") or "graph:ok")
+
+
 def pack_why_from_hop(hop: dict[str, Any] | None) -> dict[str, Any]:
     a = (
         hop
@@ -373,4 +410,6 @@ def pack_why_from_hop(hop: dict[str, Any] | None) -> dict[str, Any]:
     why["schema_id"] = SCHEMA_ID
     why["sibling_flags"] = dict(a.get("sibling_flags") or {})
     why["signed_etypes"] = list(a.get("signed_etypes") or [])
+    why["fired"] = fired_graph_v1_atoms(a)
+    why["named"] = named_from_hop(a)
     return why
