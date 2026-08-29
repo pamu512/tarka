@@ -658,10 +658,14 @@ mod tests {
     }
 
     #[test]
-    fn shipped_pack_replay_matches_live() {
+    fn shipped_pack_replay_reads_stored_hop_fields() {
         let ast = shipped_uses_device_ast();
         let live = hop_features();
-        let replay = live.clone();
+        let stored = live.get("_graph_hop_v1").cloned().unwrap();
+        let replay = json!({ "_graph_hop_v1": stored })
+            .as_object()
+            .cloned()
+            .unwrap();
         assert_eq!(eval_ast(&ast, &live), eval_ast(&ast, &replay));
         assert!(eval_ast(&ast, &live));
     }
