@@ -1043,11 +1043,15 @@ setup_auth(app)
 setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "1000")))
 
 if settings.request_signature_secret:
-    from decision_api.request_signature_middleware import RequestSignatureMiddleware
+    from decision_api.request_signature_middleware import (
+        SIGNED_PATH_PREFIXES,
+        RequestSignatureMiddleware,
+    )
 
     app.add_middleware(
         RequestSignatureMiddleware,
         secret=settings.request_signature_secret,
+        path_prefixes=SIGNED_PATH_PREFIXES,
         max_skew_seconds=settings.request_signature_max_skew_seconds,
     )
 
@@ -1085,6 +1089,7 @@ from decision_api.simulation_api import router as simulation_router  # noqa: E40
 from decision_api.vendor_marketplace_api import router as vendor_marketplace_router  # noqa: E402
 from decision_api.marketplace_kyb_api import router as marketplace_kyb_router  # noqa: E402
 from decision_api.chargeback_alert_api import router as chargeback_alert_router  # noqa: E402
+from decision_api.late_label_api import router as late_label_router  # noqa: E402
 from decision_api.trend_agent_api import router as trend_agent_router  # noqa: E402
 from decision_api.sandbox_bootstrap import (  # noqa: E402
     maybe_hydrate_sandbox_plg_pack,
@@ -1119,6 +1124,7 @@ app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)
 app.include_router(marketplace_kyb_router)
 app.include_router(chargeback_alert_router)
+app.include_router(late_label_router)
 app.include_router(trend_agent_router)
 app.include_router(sandbox_bootstrap_router)
 app.include_router(micro_dev_onboarding_router)
@@ -1724,6 +1730,7 @@ def _integrity_ingress_ops_block() -> dict[str, Any]:
     from decision_api.challenge_orchestrator import challenge_webhook_configured
     from decision_api.enforcement import enforcement_webhook_configured
     from decision_api.integrity_policy import integrity_ingress_status
+    from decision_api.request_signature_middleware import SIGNED_PATH_PREFIXES
 
     replay_ttl = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     return integrity_ingress_status(
@@ -1735,6 +1742,7 @@ def _integrity_ingress_ops_block() -> dict[str, Any]:
         challenge_webhook_configured=challenge_webhook_configured(),
         enforcement_webhook_configured=enforcement_webhook_configured(),
         replay_payload_ttl_seconds=replay_ttl,
+        request_signature_path_prefixes=SIGNED_PATH_PREFIXES,
     )
 
 

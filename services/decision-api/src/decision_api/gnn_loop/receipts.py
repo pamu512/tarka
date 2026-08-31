@@ -35,6 +35,20 @@ def append_receipt(tenant_id: str, receipt: dict[str, Any]) -> None:
             fh.write("\n")
 
 
+def find_receipt(tenant_id: str, join_key: str) -> dict[str, Any] | None:
+    """Last receipt whose ``trace_id`` or ``evaluation_token`` matches ``join_key``."""
+    key = (join_key or "").strip()
+    if not key:
+        return None
+    found: dict[str, Any] | None = None
+    for row in load_receipts(tenant_id):
+        if str(row.get("trace_id") or "").strip() == key:
+            found = row
+        elif str(row.get("evaluation_token") or "").strip() == key:
+            found = row
+    return found
+
+
 def load_receipts(tenant_id: str) -> list[dict[str, Any]]:
     try:
         path = _receipt_path(tenant_id)
