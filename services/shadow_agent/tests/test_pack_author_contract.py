@@ -48,6 +48,7 @@ def test_contract_text_loads():
     text = load_contract_text()
     assert "AI Pack-Author Contract" in text
     assert "shadow" in text
+    assert "leftover helpfulness" in text
 
 
 # --- valid pack passes ---

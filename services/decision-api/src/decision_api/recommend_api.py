@@ -79,6 +79,39 @@ async def analyze(
         min_confidence=body.min_confidence,
     )
 
+    from decision_api.brain_wire import brain_wire_verdict
+    from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+
+    gates = await compute_desk_and_leftover_gates(body.tenant_id, None, session=session)
+    leftover_g = gates.get("leftover_promote_gate") if isinstance(gates, dict) else {}
+    leftover_g = leftover_g if isinstance(leftover_g, dict) else {}
+    helpfulness = leftover_g.get("helpfulness")
+    if not isinstance(helpfulness, dict):
+        helpfulness = leftover_g
+    precision = (
+        gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    )
+    try:
+        fp_cap = float(helpfulness.get("fp_rate_cap") or 0.4)
+    except (TypeError, ValueError):
+        fp_cap = 0.4
+    rec_ids = [
+        str(r.rule_id or "").strip()
+        for r in recommendations
+        if str(r.rule_id or "").strip()
+    ]
+    verdict = brain_wire_verdict(
+        helpfulness, precision, proposed_rule_ids=rec_ids, fp_cap=fp_cap
+    )
+    keep = {str(x) for x in (verdict.get("keep_rule_ids") or [])}
+    drop_reason = str(verdict.get("reason") or "rule_fp_over_cap")
+    dropped = [
+        {"rule_id": rid, "reason": drop_reason} for rid in rec_ids if rid not in keep
+    ]
+    recommendations = [
+        r for r in recommendations if str(r.rule_id or "").strip() in keep
+    ]
+
     total = len(records)
     fraud_count = sum(1 for r in records if r["decision"] in ("deny", "review"))
 
@@ -88,6 +121,7 @@ async def analyze(
         "fraud_rate": round(fraud_count / max(total, 1), 4),
         "insights": [i.model_dump() for i in insights[:20]],
         "recommendations": [r.model_dump() for r in recommendations],
+        "dropped": dropped,
     }
 
 

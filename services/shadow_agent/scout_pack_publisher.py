@@ -17,9 +17,173 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 logger = logging.getLogger(__name__)
+
+try:
+    from decision_api.brain_wire import brain_wire_verdict
+except ImportError:  # ponytail: one copy; upgrade is a shared wheel
+
+    def brain_wire_verdict(
+        helpfulness: Mapping[str, Any] | None,
+        precision: Mapping[str, Any] | None,
+        *,
+        proposed_rule_ids: Sequence[str],
+        fp_cap: float,
+    ) -> dict[str, Any]:
+        h = helpfulness if isinstance(helpfulness, Mapping) else {}
+        blockers = {str(b) for b in (h.get("blockers") or []) if b}
+        drop = next(
+            (
+                b
+                for b in ("leftover_extras_fp_over_cap", "leftover_extras_no_lift")
+                if b in blockers
+            ),
+            None,
+        )
+        if drop:
+            return {
+                "publish_allowed": False,
+                "reason": drop,
+                "keep_rule_ids": [],
+                "stamp_underpowered": False,
+                "should_kill": True,
+            }
+        keep: list[str] = []
+        rules = {
+            str(r.get("rule_id") or ""): r
+            for r in ((precision or {}).get("rules") or [])
+            if isinstance(r, Mapping)
+        }
+        for rid in proposed_rule_ids:
+            token = str(rid or "").strip()
+            if not token:
+                continue
+            row = rules.get(token) or {}
+            if bool(row.get("enough_support")) and float(row.get("fp_rate") or 0) > fp_cap:
+                continue
+            keep.append(token)
+        if proposed_rule_ids and not keep:
+            return {
+                "publish_allowed": False,
+                "reason": "rule_fp_over_cap",
+                "keep_rule_ids": [],
+                "stamp_underpowered": False,
+                "should_kill": False,
+            }
+        return {
+            "publish_allowed": True,
+            "reason": None,
+            "keep_rule_ids": keep,
+            "stamp_underpowered": bool(h.get("underpowered")),
+            "should_kill": False,
+        }
+
+
+def _attach_decision_api_headers(req: Any, actor: str) -> None:
+    """Governance + actor, plus optional API key / internal token."""
+    governance_secret = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
+    if governance_secret:
+        req.add_header("X-Rule-Governance-Secret", governance_secret)
+    req.add_header("X-Actor", actor)
+    api_key = (
+        os.environ.get("DECISION_API_KEY")
+        or os.environ.get("X_API_KEY")
+        or (os.environ.get("API_KEYS") or "").split(",")[0]
+        or ""
+    ).strip()
+    if api_key:
+        req.add_header("X-API-Key", api_key)
+    internal = (
+        os.environ.get("CASE_INTERNAL_TOKEN") or os.environ.get("DECISION_INTERNAL_TOKEN") or ""
+    ).strip()
+    if internal:
+        req.add_header("X-Internal-Token", internal)
+
+
+async def leftover_gate_payload(
+    tenant_id: str,
+    *,
+    decision_api_url: str | None = None,
+    actor: str = "scout_coordinated_burst",
+) -> dict[str, Any] | None:
+    """GET leftover helpfulness. Non-2xx / exception → None (fail closed)."""
+    import urllib.parse
+    import urllib.request
+
+    tid = (tenant_id or "").strip()
+    if not tid:
+        return None
+    base = (
+        decision_api_url
+        or os.environ.get("DECISION_API_URL", "").strip()
+        or "http://decision-api:8001"
+    )
+    url = f"{base.rstrip('/')}/v1/calibration/shadow-promote-gate?{urllib.parse.urlencode({'tenant_id': tid})}"
+    req = urllib.request.Request(url, method="GET")
+    _attach_decision_api_headers(req, actor)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = json.loads(resp.read())
+    except Exception:
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def _leftover_verdict_for_pack(pack: dict[str, Any], gate: Mapping[str, Any]) -> dict[str, Any]:
+    leftover_g = gate.get("leftover_promote_gate") if isinstance(gate, Mapping) else {}
+    leftover_g = leftover_g if isinstance(leftover_g, Mapping) else {}
+    helpfulness = leftover_g.get("helpfulness")
+    if not isinstance(helpfulness, Mapping):
+        helpfulness = leftover_g
+    precision = gate.get("rule_precision_after_labels") if isinstance(gate, Mapping) else {}
+    try:
+        fp_cap = float(helpfulness.get("fp_rate_cap") or 0.4)
+    except (TypeError, ValueError):
+        fp_cap = 0.4
+    ids = [
+        str(r.get("id") or "").strip()
+        for r in (pack.get("rules") or [])
+        if isinstance(r, dict) and str(r.get("id") or "").strip()
+    ]
+    verdict = brain_wire_verdict(helpfulness, precision, proposed_rule_ids=ids, fp_cap=fp_cap)
+    if verdict.get("stamp_underpowered"):
+        ev = pack.get("evidence")
+        if not isinstance(ev, dict):
+            ev = {}
+            pack["evidence"] = ev
+        ev["leftover_helpfulness"] = {
+            "labeled_extras": helpfulness.get("labeled_extras"),
+            "extra_tp": helpfulness.get("extra_tp"),
+            "extra_fp": helpfulness.get("extra_fp"),
+            "hint": "helpfulness_underpowered",
+        }
+    return verdict
+
+
+def _apply_keep_rule_ids(pack: dict[str, Any], verdict: Mapping[str, Any]) -> bool:
+    """Strip pack rules to keep_rule_ids. False if the pack is empty after strip."""
+    proposed = [
+        r
+        for r in (pack.get("rules") or [])
+        if isinstance(r, dict) and str(r.get("id") or "").strip()
+    ]
+    if not proposed:
+        return True
+    keep = {str(x) for x in (verdict.get("keep_rule_ids") or [])}
+    pack["rules"] = [r for r in proposed if str(r.get("id") or "").strip() in keep]
+    return bool(pack["rules"])
+
+
+def _tenant_id(*sources: Mapping[str, Any] | None) -> str:
+    for src in sources:
+        if not isinstance(src, Mapping):
+            continue
+        tid = str(src.get("tenant_id") or "").strip()
+        if tid:
+            return tid
+    return ""
 
 
 def _llm_backend_configured() -> bool:
@@ -69,6 +233,7 @@ async def build_scout_pack(
         # Carry over scout_report_id for provenance
         pack.setdefault("scout_report_id", report.get("report_id"))
         pack.setdefault("created_at", datetime.now(timezone.utc).isoformat())
+        _stamp_fingerprint_evidence(pack, report)
         return pack
 
     return scout_report_to_shadow_pack(report)
@@ -84,7 +249,6 @@ async def publish_scout_pack(
     Returns ``{"published": True, "pack": {...}, "response": {...}}`` on success,
     ``{"published": False, "reason": "..."}`` when dropped.
     """
-    import urllib.request
     import urllib.error
 
     llm_client = None
@@ -108,32 +272,31 @@ async def publish_scout_pack(
     if pack is None:
         return {"published": False, "reason": "pack_rejected_by_validation"}
 
-    base = (
-        decision_api_url
-        or os.environ.get("DECISION_API_URL", "").strip()
-        or "http://decision-api:8001"
-    )
-    url = f"{base.rstrip('/')}/v1/rules/scout-pack"
-    body = json.dumps(pack).encode("utf-8")
+    tid = _tenant_id(report)
+    if not tid:
+        return {"published": False, "reason": "leftover_helpfulness_no_tenant"}
 
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    governance_secret = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
-    if governance_secret:
-        req.add_header("X-Rule-Governance-Secret", governance_secret)
-    req.add_header("X-Actor", authored_by or "scout_coordinated_burst")
+    actor = authored_by or "scout_coordinated_burst"
+    gate = await leftover_gate_payload(tid, decision_api_url=decision_api_url, actor=actor)
+    if gate is None:
+        return {"published": False, "reason": "leftover_helpfulness_unavailable"}
+
+    verdict = _leftover_verdict_for_pack(pack, gate)
+    if not verdict.get("publish_allowed"):
+        return {
+            "published": False,
+            "reason": str(verdict.get("reason") or "leftover_helpfulness_refused"),
+        }
+    if not _apply_keep_rule_ids(pack, verdict):
+        return {
+            "published": False,
+            "reason": str(verdict.get("reason") or "rule_fp_over_cap"),
+        }
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return {
-                "published": True,
-                "pack": pack,
-                "response": json.loads(resp.read()),
-            }
+        pack["tenant_id"] = tid
+        resp = _post_pack(pack, decision_api_url=decision_api_url, actor=actor)
+        return {"published": True, "pack": pack, "response": resp}
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:512]
         logger.error("scout_pack_publish_failed status=%s detail=%s", exc.code, detail)
@@ -206,11 +369,41 @@ async def publish_scout_burst_packs(
                 )
                 continue
 
+            tid = _tenant_id(report, scan_payload)
+            if not tid:
+                dropped.append({"fingerprint": fk, "reason": "leftover_helpfulness_no_tenant"})
+                continue
+
+            actor = authored_by or "scout_coordinated_burst"
+            gate = await leftover_gate_payload(tid, decision_api_url=decision_api_url, actor=actor)
+            if gate is None:
+                dropped.append({"fingerprint": fk, "reason": "leftover_helpfulness_unavailable"})
+                continue
+
+            verdict = _leftover_verdict_for_pack(pack, gate)
+            if not verdict.get("publish_allowed"):
+                dropped.append(
+                    {
+                        "fingerprint": fk,
+                        "reason": str(verdict.get("reason") or "leftover_helpfulness_refused"),
+                    }
+                )
+                continue
+            if not _apply_keep_rule_ids(pack, verdict):
+                dropped.append(
+                    {
+                        "fingerprint": fk,
+                        "reason": str(verdict.get("reason") or "rule_fp_over_cap"),
+                    }
+                )
+                continue
+
             try:
+                pack["tenant_id"] = tid
                 resp = _post_pack(
                     pack,
                     decision_api_url=decision_api_url,
-                    actor=authored_by or "scout_coordinated_burst",
+                    actor=actor,
                 )
                 _published_fingerprints.add(fk)
                 published.append(
@@ -258,13 +451,27 @@ def _post_pack(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    governance_secret = os.environ.get("RULE_GOVERNANCE_SECRET", "").strip()
-    if governance_secret:
-        req.add_header("X-Rule-Governance-Secret", governance_secret)
-    req.add_header("X-Actor", actor)
+    _attach_decision_api_headers(req, actor)
 
     with urllib.request.urlopen(req, timeout=10) as resp:
         return json.loads(resp.read())
+
+
+def _stamp_fingerprint_evidence(pack: dict[str, Any], report: Mapping[str, Any]) -> None:
+    """Durable kill key must match publisher _fingerprint_key after restart."""
+    ev = pack.get("evidence")
+    if not isinstance(ev, dict):
+        ev = {}
+        pack["evidence"] = ev
+    kind = report.get("fingerprint_kind")
+    value = report.get("fingerprint_value")
+    if kind:
+        ev["fingerprint_kind"] = kind
+    if value is not None and str(value) != "":
+        ev["fingerprint_value"] = value
+    tid = str(report.get("tenant_id") or "").strip()
+    if tid and not str(pack.get("tenant_id") or "").strip():
+        pack["tenant_id"] = tid
 
 
 def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
@@ -284,6 +491,13 @@ def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
     rule = dict(suggested_rule)
     rule.setdefault("id", f"scout_{fp_kind}_{uuid.uuid4().hex[:8]}")
 
+    evidence: dict[str, Any] = {}
+    raw_ev = report.get("evidence")
+    if isinstance(raw_ev, dict):
+        evidence.update(raw_ev)
+    evidence["fingerprint_kind"] = report.get("fingerprint_kind")
+    evidence["fingerprint_value"] = report.get("fingerprint_value")
+
     pack: dict[str, Any] = {
         "version": 1,
         "name": f"Scout: {fp_kind} {fp_value}".strip(),
@@ -297,6 +511,8 @@ def scout_report_to_shadow_pack(report: dict[str, Any]) -> dict[str, Any]:
         "is_ai_authored": True,
         "scout_report_id": report_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "tenant_id": report.get("tenant_id"),
+        "evidence": evidence,
     }
 
     from pack_author_contract import validate_ai_authored_pack
