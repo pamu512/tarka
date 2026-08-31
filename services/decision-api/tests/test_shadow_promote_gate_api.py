@@ -69,6 +69,11 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
     assert (
         body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"
     )
+    assert "rule_precision_after_labels" in body
+    assert (
+        body["rule_precision_after_labels"]["schema_id"]
+        == "tarka.rule_precision_after_labels/v1"
+    )
 
 
 @pytest.mark.asyncio
@@ -156,30 +161,37 @@ async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
 async def test_shadow_promote_gate_get_does_not_auto_promote(
     challenge_client, monkeypatch
 ):
-    called: list[str] = []
+    writes: list[str] = []
 
-    def _spy(name: str):
-        async def _inner(*a, **k):
-            called.append(name)
-            raise AssertionError(f"GET must not call {name}")
+    def _record(name: str):
+        async def _inner(*_a, **_k):
+            writes.append(name)
 
         return _inner
 
     monkeypatch.setattr(
-        "decision_api.calibration_api._tick_auto_promote", _spy("_tick_auto_promote")
+        "decision_api.leftover_promote_gate.maybe_auto_promote",
+        _record("maybe_auto_promote"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "decision_api.calibration_api._tick_auto_promote",
+        _record("_tick_auto_promote"),
     )
     monkeypatch.setattr(
         "decision_api.shadow_auto_promote.maybe_auto_promote_shadow",
-        _spy("maybe_auto_promote_shadow"),
+        _record("maybe_auto_promote_shadow"),
     )
     monkeypatch.setattr(
         "decision_api.live_rule_slip.maybe_park_live_rule_slip",
-        _spy("maybe_park_live_rule_slip"),
+        _record("maybe_park_live_rule_slip"),
     )
     monkeypatch.setattr(
         "decision_api.brain_wire.maybe_kill_leftover_fp_shadows",
-        _spy("maybe_kill_leftover_fp_shadows"),
+        _record("maybe_kill_leftover_fp_shadows"),
     )
-    r = await challenge_client.get("/v1/calibration/shadow-promote-gate")
+    r = await challenge_client.get(
+        "/v1/calibration/shadow-promote-gate", params={"tenant_id": "acme"}
+    )
     assert r.status_code == 200, r.text
-    assert called == []
+    assert writes == []

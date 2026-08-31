@@ -275,32 +275,30 @@ async def test_age_create_link_sends_on_create_not_blind_set(monkeypatch):
     queries: list[str] = []
 
     class _Conn:
-        async def fetchrow(self, stmt, *a):
+        async def fetchrow(self, stmt, *_a):
             queries.append(stmt)
             return None
 
-        async def execute(self, stmt, *a):
+        async def execute(self, stmt, *_a):
             queries.append(stmt)
 
-    class _CM:
+    class _Pool:
+        def acquire(self):
+            return self
+
         async def __aenter__(self):
             return _Conn()
 
         async def __aexit__(self, *_a):
             return False
 
-    async def _pool():
-        return object()
-
-    monkeypatch.setattr(age_client, "get_pool", _pool)
-    monkeypatch.setattr(age_client, "get_allowed_rels", lambda tid: None)
-    monkeypatch.setattr(age_client, "require_etype", lambda tid, r: r)
-    monkeypatch.setattr(age_client, "_acquire", lambda: _CM())
+    monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
     await age_client.create_link("acme", "a", "b", "USED", {})
     joined = "\n".join(queries)
     assert "CREATE (a)-[r:USED]->(b)" in joined
-    assert "$$, %s)" not in joined
+    assert "MATCH (a)-[r:USED]->(b)" in joined
     assert "SET r += $rel_props" not in joined
+    assert "ON CREATE SET" not in joined
 
 
 @pytest.mark.asyncio

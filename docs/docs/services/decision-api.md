@@ -2,6 +2,8 @@
 
 Canonical evaluate service. Rust JSON packs (`tarka_rule_engine` via `tarka-core`) own allow / deny / flag / review. The Python HTTP macroservice (`decision_api.main`) mounts the Rust evaluation pipeline behind FastAPI routes.
 
+Observe (not evaluate): leftover promote + live-rule slip on `GET /v1/calibration/shadow-promote-gate`. Tick may park a host shadow (`authored_by=slip_critic`, `is_ai_authored=false`). GET does not write. Promote does not strip a live `rule_id`.
+
 **Port:** 8000  
 **Framework:** Python / FastAPI (HTTP layer); Rust / `tarka-core` (evaluation engine)
 

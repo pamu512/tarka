@@ -421,7 +421,11 @@ if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
     setup_observability(app, "case-api")
     setup_tracing(app, "case-api")
 setup_auth(app)
-setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
+setup_rate_limiter(
+    app,
+    rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")),
+    burst=int(os.environ.get("RATE_LIMIT_BURST", "60")),
+)
 _cors_origins = (
     [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     if settings.cors_origins

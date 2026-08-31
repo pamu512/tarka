@@ -50,19 +50,21 @@ def test_sort_dedupe_person_wins_device():
 
 
 @pytest.mark.asyncio
-async def test_age_search_uses_sql_prefix_not_scan(monkeypatch):
+async def test_search_entities_uses_prefix_not_scan(monkeypatch):
     from graph_service import age_client
 
-    hits = ([{"entity_id": "user-441", "key_kind": "email"}], False)
+    async def _prefix(*_a, **_k):
+        return ([{"entity_id": "user-441"}], True)
 
-    async def _prefix(tenant_id, q, label=None, limit=20):
-        assert tenant_id == "acme"
-        assert q == "ali"
-        return hits
+    scanned: list[int] = []
 
-    async def _scan(*a, **k):
-        raise AssertionError("scan fallback must not run when prefix works")
+    async def _scan(*_a, **_k):
+        scanned.append(1)
+        return [], False
 
     monkeypatch.setattr("graph_service.search_keys.search_prefix", _prefix)
     monkeypatch.setattr(age_client, "_search_entities_scan_fallback", _scan)
-    assert await age_client.search_entities("acme", "ali") == hits
+    rows, ok = await age_client.search_entities("demo", "alice")
+    assert ok is True
+    assert rows == [{"entity_id": "user-441"}]
+    assert scanned == []

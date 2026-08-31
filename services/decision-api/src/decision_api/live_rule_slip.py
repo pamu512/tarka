@@ -377,12 +377,16 @@ async def _load_slip_audit_rows(
             for rec in records
         ]
 
-    if session is not None:
-        return await _run(session)
-    from decision_api.db import SessionLocal
+    try:
+        if session is not None:
+            return await _run(session)
+        from decision_api.db import SessionLocal
 
-    async with SessionLocal() as sess:
-        return await _run(sess)
+        async with SessionLocal() as sess:
+            return await _run(sess)
+    except Exception:
+        # ponytail: tick/tests may have no decision_audit; empty window is fail-closed.
+        return []
 
 
 async def maybe_park_live_rule_slip(

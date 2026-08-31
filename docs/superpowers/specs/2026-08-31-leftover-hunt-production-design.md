@@ -1,7 +1,7 @@
 # Leftover station + Hunt production bar (A+B)
 
 **Date:** 2026-08-31  
-**Status:** Approved. Implementation plan: `docs/superpowers/plans/2026-08-31-leftover-hunt-production.md`.  
+**Status:** Shipped on `master`. Plan: `docs/superpowers/plans/2026-08-31-leftover-hunt-production.md` (do not re-execute as greenfield).  
 **Related:** [graph investigation workspace](./2026-08-13-graph-investigation-workspace-design.md), [graph property search](./2026-08-13-graph-property-search-design.md), VISION.md, `frontend/src/config/leanNav.ts`
 
 ## Goal
@@ -17,7 +17,7 @@ Work **arrives** on a thin Leftovers list. Work **happens** on Hunt (`/graph`). 
 | Production | Checklist in this spec. If a must-be-true row is missing, that dimension is not 4 / 3.8. |
 | Demo | Same numbers only when every **Demo witness** in this spec is exercised. Seed theater without those witnesses is 3. |
 
-Do not quote Sift / Marble 4.x because the 5-min worked.
+Do not quote a vendor 4.x because the 5-min worked.
 
 ## Philosophy (unchanged)
 
@@ -27,21 +27,19 @@ Do not quote Sift / Marble 4.x because the 5-min worked.
 - Home stays `/graph` when graph is on. `/cases` stays hidden in lean nav.
 - Not a CRM. Not a Tarka consortium. Not AGE variable-length Cypher.
 
-## What already exists
+## In the tree
 
-- Hunt home `/graph`; `GraphContextPanel` Story shows latest evaluate on first paint; Hold stays on Hunt; Login filtered; 8-instrument fan-out (`HUNT_HIERARCHY_EXPAND_CAP`).
-- Hold `POST /v1/entities/{id}/act` mints or reuses an open case, label `act:hold`, writes `last_act` on Person.
-- Evaluate can mint deny/review cases when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **false**).
-- `last_outcome` is stamped on evaluate objects. Shown as a canvas toast only. Missing is treated as unscored in search rank today (`risk_score` NULLS LAST), not as an explicit **unknown**.
+- `GET /v1/leftovers`, claim, `claimed_by` / `claimed_at`, `last_outcome`. Desk `/leftovers` (lean, graph on). `/cases` hidden in lean.
+- Hold `POST /v1/entities/{id}/act` mints or reuses an open leftover, label `act:hold`, writes `last_act` on Person. Resolve writes `y_label`.
+- Evaluate can mint deny/review leftovers when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **false**).
+- Hunt home `/graph`; Story + Hold on the Person pane.
 - AGE search is `MATCH (n) WHERE tenant_id = …` then Python filter. AGE Cypher does not use property indexes (apache/age#2348).
-- `graph.latestEvaluate` exists on the client and is unused by the pane.
-- Case has `assigned_team`, `default_owner`, SLA helpers. No `claimed_by`. No leftover list API. `/cases` is a ~1185-line CRM.
 
 ## Non-goals
 
 - Unhide fat `/cases` or port CaseDetail onto the pane.
-- Next-unassigned auto-serve, multi-inbox routing, snooze, QA sampling (caps leftover at 3.8, not Unit21 4.5).
-- Bulk-decision on every neighbor, consortium who-else (caps Hunt at 4.0, not Sift 4.2).
+- Next-unassigned auto-serve, multi-inbox routing, snooze, QA sampling (caps leftover at 3.8).
+- Bulk-decision on every neighbor, consortium who-else (caps Hunt at 4.0).
 - AGE `[*1..n]` / GIN-on-properties as the search fix.
 - Turning `CASE_CREATE_ON_DENY_REVIEW` on for lite by default. The **path** must work and be tested; lite env may stay off.
 - FinCEN ungating, no-code builder, Tarka-branded model.

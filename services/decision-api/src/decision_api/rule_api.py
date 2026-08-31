@@ -924,14 +924,16 @@ async def create_scout_pack(
             "rule_count": len(body.rules),
         },
     )
-    try:
-        from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
+    tid = (body.tenant_id or "").strip()
+    if tid:
+        try:
+            from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
 
-        await maybe_auto_promote_shadow(tid)
-        await maybe_park_live_rule_slip(tid)
-        await maybe_kill_leftover_fp_shadows(tid)
-    except Exception:
-        logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
+            await maybe_auto_promote_shadow(tid)
+            await maybe_park_live_rule_slip(tid)
+            await maybe_kill_leftover_fp_shadows(tid)
+        except Exception:
+            logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
     return {"file": fpath.name, "pack": pack, "mode": "shadow"}
 
 

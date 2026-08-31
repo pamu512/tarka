@@ -289,22 +289,6 @@ def _patch_desk_science_green(monkeypatch):
     )
 
 
-def _patch_tick_siblings(monkeypatch):
-    async def _gates(tid, draft_id, session=None):
-        return {
-            "leftover_promote_gate": {"blockers": [], "promote_allowed": True},
-            "desk_promote_gate": {"blockers": [], "promote_allowed": True},
-        }
-
-    async def _no_park(*a, **k):
-        return []
-
-    monkeypatch.setattr(
-        "decision_api.leftover_promote_gate.compute_desk_and_leftover_gates", _gates
-    )
-    monkeypatch.setattr("decision_api.rule_api.maybe_park_live_rule_slip", _no_park)
-
-
 @pytest.fixture
 async def desk_client(tmp_path, monkeypatch):
     rules_dir = tmp_path / "rules"
@@ -404,7 +388,6 @@ async def test_promote_409_when_leftover_blocked_200_when_green(
 async def test_tick_noop_without_provision(desk_client, tmp_path, monkeypatch):
     _patch_leftover_fetch(monkeypatch, [])
     _patch_desk_science_green(monkeypatch)
-    _patch_tick_siblings(monkeypatch)
     r = await desk_client.post(
         "/v1/rules/shadow-packs/auto-promote-tick",
         params={"tenant_id": "t1"},
@@ -446,7 +429,6 @@ async def test_tick_promotes_ai_shadow_when_provisioned_and_green(
     )
     _patch_leftover_fetch(monkeypatch, [])
     _patch_desk_science_green(monkeypatch)
-    _patch_tick_siblings(monkeypatch)
 
     r = await desk_client.post(
         "/v1/rules/shadow-packs/auto-promote-tick",

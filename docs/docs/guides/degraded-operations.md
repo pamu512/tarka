@@ -1,6 +1,10 @@
 # Degraded Operations Runbook
 
 This runbook defines how Investigation (Advise) surfaces behave when upstreams or LLM configuration are degraded.
+
+**Leftovers / Hunt acts:** if case-api is down or `GET /v1/leftovers` is not 200, hide `/leftovers`, disable Hold, and fail-close Observe Promote (`leftover_queue_unavailable`). Do not show an empty leftover queue. Graph outage is a Hunt outage page, not an empty Person. Evaluate still fail-soft.
+
+---
 ## Copilot degraded modes
 
 `POST /v1/chat` now includes:

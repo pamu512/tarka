@@ -1,5 +1,7 @@
 # Live-rule slip Implementation Plan
 
+> **Shipped on `master` (2026-08-31).** Do not re-execute as greenfield. Historical TDD record.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ping a live `rule_id` on Observe when fire-rate or hit-mix shifts, and park a host shadow pack only when exactly one of H1 (retire) or H2 (successor) has support.

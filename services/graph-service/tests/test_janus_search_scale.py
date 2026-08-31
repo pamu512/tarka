@@ -112,7 +112,6 @@ async def test_age_search_uses_tenant_literal_not_params(monkeypatch):
             return False
 
     monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
-    monkeypatch.setattr(age_client, "_acquire", lambda: _Pool())
     rows, _trunc = await age_client._search_entities_scan_fallback("acme", "ali")
     assert rows == []
     stmt = " ".join(str(s) for s in captured.get("stmts") or [])

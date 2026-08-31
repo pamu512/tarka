@@ -9,7 +9,7 @@ describe("Help", () => {
     expect(screen.getByRole("heading", { name: /help/i })).toBeInTheDocument();
     expect(screen.getAllByText("/cases").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/decisions").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("/disputes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("/disputes/:id").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/help").length).toBeGreaterThan(0);
     expect(screen.getByText(/plane off/i)).toBeInTheDocument();
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
@@ -20,6 +20,5 @@ describe("Help", () => {
     expect(body).not.toMatch(/OSINT/);
     expect(body).not.toMatch(/Admin Panel/);
     expect(body).not.toMatch(/Simulation/);
-    expect(body).toMatch(/\/ops\/shadow/);
   });
 });

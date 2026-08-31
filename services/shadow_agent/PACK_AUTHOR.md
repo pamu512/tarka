@@ -99,6 +99,8 @@ Amount / payment:
 
 Host create/edit (`POST /v1/rules`, `PUT /v1/rules/{file}`) also persist `mode=shadow` even for human packs. Live is Promote, provisioned auto-promote, or force-live. Omitted `mode` on disk still loads as active (fixtures only).
 
+Host create/edit (`POST /v1/rules`, `PUT /v1/rules/{file}`) also persist `mode=shadow` even for human packs. Live is Promote, provisioned auto-promote, or force-live. Omitted `mode` on disk still loads as active (fixtures only).
+
 ## Evidence requirement
 
 The `evidence` field (or per-rule `metadata`) should cite concrete backing:

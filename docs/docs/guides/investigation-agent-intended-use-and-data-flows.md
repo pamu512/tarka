@@ -40,7 +40,7 @@ The following are **out of scope** for reliance on the copilot output **without 
 
 ## 4. Regional governance builds (US / EU+UK / Global)
 
-Deployments may set **`AI_GOVERNANCE_PROFILE`** to `us`, `eu_uk`, or `global` (see [AI governance regional builds](../honesty.md)). Effects include:
+Deployments may set **`AI_GOVERNANCE_PROFILE`** to `us`, `eu_uk`, or `global`. Effects include:
 
 - **System prompt appendices** (regional expectations for oversight, documentation, minimization themes).
 - **Composable defaults** (e.g. batch TTL, optional injection policy) via profile env snippets and Helm values.
@@ -127,6 +127,5 @@ Structured logs may include **operational identifiers** (tenant, analyst, case i
 - [Investigation Copilot — integration contract](investigation-agent-integration-contract.md) — `GET /v1/integration`, tool families, `profile_id`
 - [Investigation Agent Project](../services/investigation-agent.md) — capabilities and OSS limitations
 - [Investigation Copilot — LLM data flow](investigation-agent-llm-data-flow.md) — subprocessor-oriented detail
-- [AI governance regional builds](../honesty.md) — US / EU+UK / Global profiles
 - [Investigation Copilot — assurance modes](investigation-agent-assurance-modes.md) — strict refusal, derived facts, review API
 - [Security scanning](security-scanning.md) · [SECURITY.md](../../../SECURITY.md)

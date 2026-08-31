@@ -1,5 +1,7 @@
 # Leftover station + Hunt production bar Implementation Plan
 
+> **Shipped on `master`.** Do not re-execute as greenfield. Historical TDD record.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship production leftover ops at 3.8 and production Hunt at 4.0 so the demo inherits those numbers only when it walks the same path.

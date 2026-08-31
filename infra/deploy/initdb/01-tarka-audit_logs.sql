@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS ix_audit_logs_entity_id ON audit_logs (entity_id);
 
--- Time-window scans (e.g. copilot_batch rolling aggregates) must prune by ``created_at``.
+-- Time-window scans must prune by ``created_at``.
 CREATE INDEX IF NOT EXISTS ix_audit_logs_created_at ON audit_logs (created_at);
 
 COMMENT ON TABLE audit_logs IS 'Append-only audit records for Core v2 decisions.';

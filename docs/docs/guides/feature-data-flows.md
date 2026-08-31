@@ -3,7 +3,7 @@
 How product features move data, who **decides**, and how outcomes affect downstream systems.
 
 **Authority invariant:** `decision-api` (Rust JSON packs via `tarka_rule_engine`) owns allow / deny / flag / review actions. Advise (Shadow agent), investigation, and trend **advise**, escalate, draft, and cite — they never silently clear FLAG→ALLOW or auto-promote WASM.
-Related: [repo-productionization-runbook](repo-productionization-runbook.md) · [SYSTEM_DESIGN](../../SYSTEM_DESIGN.md) · [STUB_REGISTER](../../STUB_REGISTER.md) · architecture canvas (IDE).
+Related: [repo-productionization-runbook](repo-productionization-runbook.md) · architecture canvas (IDE).
 
 ---
 
@@ -85,11 +85,17 @@ Compose: `infra/deploy/docker-compose.v2-ingest.yml`.
 
 ---
 
-## 3. Cases, brief, SAR
+## 3. Leftovers, Hunt, brief, SAR
+
+Work **arrives** on `GET /v1/leftovers` (desk `/leftovers`). Work **happens** on Hunt (`/graph`). Hold / release / resolve are Person acts (`POST /v1/entities/{id}/act`). Fat `/cases` stays hidden in lean; CaseDetail is SAR / dispute / QA.
+
+A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint only when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **off**).
+
+Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. One leftover cannot Promote.
 
 ```mermaid
 flowchart TD
-  Case[case-api_Postgres]
+  Case[case-api_leftovers]
   Brief[case_brief_hook]
   Comment[system_CaseComment]
   SAR[validate_pre_filing]
@@ -104,7 +110,9 @@ flowchart TD
 
 | Feature | Flow | Decision coupling |
 |---------|------|-------------------|
-| Case open | Evaluate / ops → case-api | Usually follows `review` / high risk |
+| Leftover open | Evaluate mint (deny/review) or Hunt Hold | `origin:evaluate` / `act:hold` |
+| Hunt act | Hold / release / resolve on the Person | `last_act` + leftover claim; resolve writes `y_label` |
+| Case open | Evaluate / ops → case-api | Residual; not the lean home |
 | Case brief | Hook → markdown comment | Rejects `llm_used=true` |
 | SAR | Depth-floor XML parse + TIN/report_id | Filing blocked on validation errors |
 | Transport | NATS worker | No host ⇒ no fake SFTP success |
