@@ -63,7 +63,7 @@ The demo beat is **"AI wrote this rule"** into Observe / canary — not a captio
 
 **Production default** is a Linux VM + Compose desk: rules + audit on metal you control. See [SRE Compose profiles](docs/docs/operations/sre-compose-profiles.md).
 
-**Graph (Janus)** is topological memory when wired — capable in repo, optional, not a day-1 requirement, not the minimum stack.
+**Graph is required for the desk.** Day-1 is Tarka’s Apache AGE on the same Postgres, or a graph the operator wires in (`GRAPH_SERVICE_URL` + `GRAPH_BACKEND`: AGE / Janus / Neo4j). Empty graph URL is an evaluate-only fallback (home `/decisions`), not the product. Evaluate still fail-soft: it never waits on graph.
 
 **Advise (LLM)** is optional forensics / copilot, BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM. In-tenant / VPC preferred; public internet APIs are not the enterprise default.
 

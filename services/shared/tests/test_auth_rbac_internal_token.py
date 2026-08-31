@@ -58,6 +58,24 @@ def test_no_internal_token_anonymous_viewer(monkeypatch):
     assert r.status_code == 403
 
 
+def test_insecure_desk_can_hold(monkeypatch):
+    from auth_rbac import require_role_or_insecure_desk
+
+    monkeypatch.setenv("CASE_INTERNAL_TOKEN", "s2s-secret")
+    app = FastAPI()
+    setup_auth(app)
+
+    @app.post("/hold", dependencies=[Depends(require_role_or_insecure_desk("analyst"))])
+    async def hold(request: Request):
+        user = request.state.auth_user
+        return {"user_id": user.user_id, "auth_type": user.auth_type}
+
+    with TestClient(app) as c:
+        r = c.post("/hold")
+    assert r.status_code == 200, r.text
+    assert r.json()["auth_type"] == "none"
+
+
 def test_viewer_still_works_without_token(monkeypatch):
     app = _app(monkeypatch, "s2s-secret")
     with TestClient(app) as c:

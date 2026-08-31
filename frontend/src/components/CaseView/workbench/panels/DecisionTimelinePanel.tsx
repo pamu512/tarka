@@ -98,7 +98,7 @@ export function DecisionTimelinePanel({
         </h4>
         <p className="text-xs text-gray-500">
           {message
-            ? `No decisions recorded (${message}). Enable DECISION_GRAPH_ENABLED + graph profile.`
+            ? `No decisions recorded (${message}). Graph write failed or graph-service is down.`
             : "No decisions recorded for this case yet."}
         </p>
         <p className="text-[10px] text-gray-600 mt-2">

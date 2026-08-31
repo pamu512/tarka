@@ -75,6 +75,24 @@ def test_shared_device_and_flagged_sibling_fires():
     assert eval_graph_v1("sibling_prior_flag", hop, tenant_id="t1") is True
 
 
+def test_hunt_used_device_write_satisfies_uses_device_atom():
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": [
+                {"from_external_id": "alice", "to_external_id": "dev-1", "relationship": "USED_DEVICE"},
+            ],
+            "vertices": [
+                {"id": "alice", "labels": ["Person"]},
+                {"id": "dev-1", "labels": ["Device"]},
+            ],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="USES_DEVICE", tenant_id="t1") is True
+
+
 def test_empty_url_does_not_fire_and_says_graph_missing():
     hop = hop_view_from_graph_meta(
         _shared_device_hop(),

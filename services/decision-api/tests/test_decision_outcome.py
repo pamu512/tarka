@@ -4,9 +4,11 @@ from decision_api.decision_outcome import (
     DecisionOutcomeContext,
     force_deny_from_degrade_tags,
     schedule_decision_outcomes,
+    try_record_evaluate_decision_graph,
     wrap_outcome_task,
 )
 from decision_api.degraded_decision_metrics import record_degraded_decision_metrics
+from decision_api.evaluate.score import signal_availability_notes_from_tags
 
 
 class _Bg:
@@ -15,6 +17,36 @@ class _Bg:
 
     def add_task(self, fn, *args, **kwargs):
         self.tasks.append((fn, args, kwargs))
+
+
+def test_try_record_evaluate_decision_graph_failsoft(monkeypatch):
+    import tarka_shared.decision_graph_client as client
+
+    ctx = DecisionOutcomeContext(
+        trace_id="tr",
+        tenant_id="ten",
+        entity_id="e",
+        event_type="login",
+        decision="review",
+        score=70.0,
+        tags=[],
+        device_context={"device_id": "dev-1"},
+    )
+    monkeypatch.setattr(client, "graph_write_url_configured", lambda: False)
+    assert try_record_evaluate_decision_graph(ctx) is True
+    monkeypatch.setattr(client, "graph_write_url_configured", lambda: True)
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: None)
+    assert try_record_evaluate_decision_graph(ctx) is False
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: "dec_1")
+    assert try_record_evaluate_decision_graph(ctx) is True
+    ctx.shadow_request = True
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: None)
+    assert try_record_evaluate_decision_graph(ctx) is True
+
+
+def test_graph_write_failed_signal_note():
+    notes = signal_availability_notes_from_tags(["graph:write_failed"])
+    assert notes and "still decided" in notes[0].lower()
 
 
 def test_force_deny_from_catalog_and_graph_tags():

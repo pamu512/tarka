@@ -1128,10 +1128,12 @@ def _http(request: Request) -> httpx.AsyncClient:
     return request.app.state.http
 
 
-def _external_nats_connected(broker: Any) -> bool:
+def _external_nats_connected(broker: Any) -> bool | None:
     from tarka_core.messaging import NatsBroker
 
-    return isinstance(broker, NatsBroker) and broker.has_active_connection
+    if not isinstance(broker, NatsBroker):
+        return None
+    return broker.has_active_connection
 
 
 # ---------- health ----------
@@ -2208,14 +2210,17 @@ async def _graph_upsert(
         return
     base = settings.graph_service_url.rstrip("/")
 
-    # Upsert Account node with tags
     await http.post(
         f"{base}/v1/entities",
         json={
             "tenant_id": body.tenant_id,
-            "entity_type": "Account",
+            "entity_type": "Person",
             "external_id": body.entity_id,
-            "properties": {"last_event": body.event_type.value, "trace_id": trace_id},
+            "properties": {
+                "last_event": body.event_type.value,
+                "last_trace_id": trace_id,
+                "trace_ids": [trace_id],
+            },
             "tags": merged_tags,
         },
         headers=_upstream_headers(),
@@ -2243,14 +2248,13 @@ async def _graph_upsert(
             },
             headers=_upstream_headers(),
         )
-        # Link Account -> Device
         await http.post(
             f"{base}/v1/links",
             json={
                 "tenant_id": body.tenant_id,
                 "from_external_id": body.entity_id,
                 "to_external_id": dc.device_id,
-                "relationship": "USED",
+                "relationship": "USED_DEVICE",
                 "properties": {
                     "trace_id": trace_id,
                     "event_type": body.event_type.value,

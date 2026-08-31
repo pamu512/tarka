@@ -2,11 +2,13 @@
  * Production default: lean analyst surface (evaluate-only / thin desk).
  * Sales / full brochure demo: build with `VITE_LEAN_NAV=false`.
  *
- * Empty plane URL = plane off (modular USP). Do not show Graph / Advise
- * chrome when the corresponding frontend URL is unset.
+ * Empty Advise / signals URL = plane off (modular). Graph is required for the
+ * desk: Tarka AGE (lite) or a graph the operator wires in. Empty
+ * VITE_GRAPH_SERVICE_URL is not the product default — home falls back to
+ * /decisions and Hunt is hidden.
  *
  * - Production image (frontend/Dockerfile): `ARG VITE_LEAN_NAV=true` — brochure
- *   routes are not registered; deep links to unknown paths redirect to `/decisions`.
+ *   routes are not registered; deep links to unknown paths redirect to home.
  * - Demo: `docker compose … --build-arg VITE_LEAN_NAV=false` or merge
  *   `infra/deploy/docker-compose.demo-vertical.yml` (sets the build arg).
  */
@@ -81,11 +83,10 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/help",
 ]);
 
-/** Evaluate-only / thin desk home — decision stream, not the residual cases inbox. */
+/** Hunt when graph is wired. Receipts only if graph URL is empty. */
 export function leanHomePath(): string {
   if (!LEAN_NAV) return "/command-center";
-  if (LEAN_NAV_PATHS.has("/decisions")) return "/decisions";
-  return "/rules";
+  return isPlaneEnabled("graph") ? "/graph" : "/decisions";
 }
 
 /** True when this path is part of the production lean surface (or a case/dispute deep link). */
@@ -96,12 +97,17 @@ export function isProductionSurfacePath(path: string): boolean {
   if (path.startsWith("/cases/")) return true;
   if (path.startsWith("/disputes/")) return true;
   if (path === "/decisions" || path.startsWith("/decisions/")) return true;
+  if (path === "/graph" || path.startsWith("/graph/")) return true;
   return false;
 }
 
 /** Sidebar / command-palette visibility. Empty plane URL hides the item (no "coming soon"). */
 export function isNavItemVisible(path: string): boolean {
   if (LEAN_NAV && !isProductionSurfacePath(path)) return false;
+  // Leftover Hold still deep-links to /cases/:id. The queue is not the job.
+  if (LEAN_NAV && path === "/cases") return false;
+  // Brochure fund-flow page. Lean desk is Hunt; this route redirects to /graph.
+  if (LEAN_NAV && path === "/graph/mule-path") return false;
   const plane = planeForPath(path);
   if (plane && !isPlaneEnabled(plane)) return false;
   return true;

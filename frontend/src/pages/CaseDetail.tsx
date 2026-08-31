@@ -867,6 +867,16 @@ function CaseDetailWorkbench() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2 min-w-0 flex-1">
           <PageTitle module="cases">{caseData.title}</PageTitle>
+          {caseData.entity_id ? (
+            <Link
+              to={`/graph?entity_id=${encodeURIComponent(caseData.entity_id)}&tenant_id=${encodeURIComponent(caseData.tenant_id)}`}
+              data-testid="hunt-this-object"
+              className="inline-flex text-sm text-brand-400 hover:text-brand-300"
+            >
+              Hunt this object
+              <span className="ml-1.5 font-mono text-gray-500">{caseData.entity_id}</span>
+            </Link>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-400 font-mono">{caseData.id}</span>
             <StatusBadge status={caseData.status} />
@@ -2052,17 +2062,9 @@ function GraphTab({
             : n.id.length > 20
               ? n.id.slice(0, 20) + "\u2026"
               : n.id;
-        const titleBase =
-          primaryLabel === DEVICE_CLUSTER_GRAPH_LABEL &&
-          typeof n.properties?.device_hash === "string" &&
-          typeof n.properties?.cluster_member_ids === "string"
-            ? `${primaryLabel}\ndevice_hash: ${n.properties.device_hash}\nmembers: ${n.properties.cluster_member_ids}`
-            : `${primaryLabel}: ${n.id}`;
-        const title = note ? `${titleBase}\n\nAnnotation:\n${note}` : titleBase;
         return {
           id: n.id,
           label: shortLabel,
-          title,
           color: {
             background: baseBg,
             border: ring ? "#f59e0b" : baseBg,
@@ -2251,7 +2253,7 @@ function GraphTab({
             {!emptyGraph ? (
               <div
                 ref={containerRef}
-                className="flex-1 bg-surface-900 border border-surface-700 rounded-xl min-h-[320px]"
+                className="relative overflow-hidden flex-1 bg-surface-900 border border-surface-700 rounded-xl min-h-[320px]"
                 style={{ height: 420 }}
                 aria-label="Entity relationship graph"
               />
@@ -2274,13 +2276,16 @@ function GraphTab({
               </ul>
             </details>
           ) : null}
-          <GraphContextPanel
-            open={Boolean(selectedNode)}
-            onClose={() => setSelectedNode(null)}
-            tenantId={tenantId}
-            entityId={selectedNode}
-            nodeHint={selectedNodeData ?? undefined}
-          />
+          {selectedNode ? (
+            <GraphContextPanel
+              embedded
+              open
+              onClose={() => setSelectedNode(null)}
+              tenantId={tenantId}
+              entityId={selectedNode}
+              nodeHint={selectedNodeData ?? undefined}
+            />
+          ) : null}
           {showRawDevTables ? (
             <details open className="rounded-xl border border-surface-700 bg-surface-900/40 p-4">
               <summary className="cursor-pointer text-sm font-medium text-gray-300">

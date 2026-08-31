@@ -85,12 +85,10 @@ export interface GraphEntityDeepContext {
 }
 
 /**
- * Fetches deep entity context; returns ``null`` on HTTP 404 (entity absent in graph DB).
+ * Graph object reads. Returns ``null`` on HTTP 404 (entity absent).
  * Uses ``fetch`` so 404 is not treated as a generic request failure when mocks are off.
  */
-async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): Promise<GraphEntityDeepContext | null> {
-  const q = new URLSearchParams({ tenant_id: tenantId });
-  const url = `/api/graph/v1/entities/${encodeURIComponent(entityId)}/deep-context?${q}`;
+async function fetchGraphJsonOr404<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, {
       headers: { "Content-Type": "application/json" },
@@ -106,23 +104,32 @@ async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): 
         if (mock !== null) {
           const m = mock as { not_found?: boolean };
           if (m.not_found) return null;
-          return mock as GraphEntityDeepContext;
+          return mock as T;
         }
       }
       throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
     }
-    return JSON.parse(text) as GraphEntityDeepContext;
+    return JSON.parse(text) as T;
   } catch (err) {
     if (allowMocksForRequest(url)) {
       const mock = await loadMockResponse(url);
       if (mock !== null) {
         const m = mock as { not_found?: boolean };
         if (m.not_found) return null;
-        return mock as GraphEntityDeepContext;
+        return mock as T;
       }
     }
     throw normalizeNetworkFetchError(err);
   }
+}
+
+function graphEntityUrl(entityId: string, tenantId: string, suffix = ""): string {
+  const q = new URLSearchParams({ tenant_id: tenantId });
+  return `/api/graph/v1/entities/${encodeURIComponent(entityId)}${suffix}?${q}`;
+}
+
+async function fetchGraphEntityDeepContext(entityId: string, tenantId: string): Promise<GraphEntityDeepContext | null> {
+  return fetchGraphJsonOr404<GraphEntityDeepContext>(graphEntityUrl(entityId, tenantId, "/deep-context"));
 }
 
 async function loadMockResponse(url: string, init?: RequestInit): Promise<unknown | null> {
@@ -640,6 +647,15 @@ export interface GraphEdge {
   type: string;
   properties?: Record<string, unknown>;
 }
+
+export type GraphObjectAttention = {
+  entity_id: string;
+  entity_type: string;
+  importance: number;
+  reasons: string[];
+  attend_hunt?: boolean;
+  attend_pack?: boolean;
+};
 
 export type MulePathHop = {
   role: "origin" | "mule" | "payout" | string;
@@ -2396,6 +2412,24 @@ export const cases = {
     });
   },
 
+  actOnEntity(body: { tenant_id: string; entity_id: string; action?: "hold"; trace_id?: string }) {
+    return request<{
+      entity_id: string;
+      action: string;
+      outcome: string;
+      case_id: string;
+      created_leftover: boolean;
+      trace_id: string;
+    }>(`/api/cases/v1/entities/${encodeURIComponent(body.entity_id)}/act`, {
+      method: "POST",
+      body: JSON.stringify({
+        tenant_id: body.tenant_id,
+        action: body.action || "hold",
+        trace_id: body.trace_id,
+      }),
+    });
+  },
+
   update(
     caseId: string,
     tenantId: string,
@@ -2807,6 +2841,56 @@ export const graph = {
   /** Deep neighborhood context; ``null`` when the graph DB has no vertex for this entity (404). */
   entityDeepContext(entityId: string, tenantId: string) {
     return fetchGraphEntityDeepContext(entityId, tenantId);
+  },
+
+  getEntity(entityId: string, tenantId: string) {
+    return fetchGraphJsonOr404<GraphNode>(graphEntityUrl(entityId, tenantId));
+  },
+
+  entityLinks(entityId: string, tenantId: string) {
+    return fetchGraphJsonOr404<{
+      entity_id: string;
+      nodes: GraphNode[];
+      edges: GraphEdge[];
+      attention?: GraphObjectAttention[];
+    }>(graphEntityUrl(entityId, tenantId, "/links"));
+  },
+
+  entityHistory(entityId: string, tenantId: string) {
+    return fetchGraphJsonOr404<{
+      entity_id: string;
+      last_trace_id?: string | null;
+      trace_ids: string[];
+      properties: Record<string, unknown>;
+    }>(graphEntityUrl(entityId, tenantId, "/history"));
+  },
+
+  latestEvaluate(entityId: string, tenantId: string) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      entity_external_id: entityId,
+      kind: "evaluate",
+    });
+    return fetchGraphJsonOr404<{
+      outcome?: string;
+      reasoning?: string;
+      rule_ids?: string[];
+      trace_id?: string | null;
+    }>(`/api/graph/v1/decisions/latest?${q}`);
+  },
+
+  latestDisposition(entityId: string, tenantId: string) {
+    const q = new URLSearchParams({
+      tenant_id: tenantId,
+      entity_external_id: entityId,
+      kind: "human_disposition",
+    });
+    return fetchGraphJsonOr404<{
+      outcome?: string;
+      created_at?: string;
+      case_id?: string | null;
+      reasoning?: string;
+    }>(`/api/graph/v1/decisions/latest?${q}`);
   },
 
   pathExplain(params: {

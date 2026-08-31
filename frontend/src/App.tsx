@@ -96,6 +96,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
+      { to: "/graph", label: "Hunt", module: "graph" },
       { to: "/decisions", label: "Decisions", module: "dashboard" },
       { to: "/command-center", label: "Command Center", module: "dashboard" },
       { to: "/dashboard", label: "Classic dashboard", module: "dashboard" },
@@ -109,7 +110,6 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
   {
     label: "Investigation",
     items: [
-      { to: "/graph", label: "Graph", module: "graph" },
       { to: "/graph/mule-path", label: "Mule path", module: "graph" },
       { to: "/investigation", label: "Investigation Copilot", module: "investigation" },
       { to: "/investigation/dag-trace", label: "DAG trace", module: "investigation" },

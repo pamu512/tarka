@@ -92,13 +92,13 @@ async def test_neo4j_search_sends_contains_and_tenant(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_age_search_sends_contains_and_tenant(monkeypatch):
+async def test_age_search_uses_tenant_literal_not_params(monkeypatch):
     captured: dict[str, object] = {}
 
     class _Conn:
-        async def fetch(self, stmt, params):
-            captured["stmt"] = stmt
-            captured["params"] = params
+        async def fetch(self, stmt, *args):
+            captured.setdefault("stmts", []).append(stmt)
+            captured.setdefault("args", []).append(args)
             return []
 
     class _Pool:
@@ -114,9 +114,9 @@ async def test_age_search_sends_contains_and_tenant(monkeypatch):
     monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
     rows, _trunc = await age_client.search_entities("acme", "ali")
     assert rows == []
-    stmt = str(captured["stmt"])
-    assert "CONTAINS" in stmt or "contains" in stmt.lower()
-    assert "$tenant_id" in stmt
-    assert captured["params"]  # json blob with tenant + q
-    assert "acme" in str(captured["params"])
-    assert "ali" in str(captured["params"])
+    stmt = " ".join(str(s) for s in captured.get("stmts") or [])
+    assert '"acme"' in stmt
+    assert "$tenant_id" not in stmt
+    assert "$q" not in stmt
+    assert "ali" not in stmt
+    assert all(not args for args in captured.get("args") or [])

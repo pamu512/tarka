@@ -5,7 +5,39 @@ from typing import Any
 
 from .config import settings
 
-"""Dispatch graph persistence to Neo4j or JanusGraph based on GRAPH_BACKEND (no HTTP API changes)."""
+"""Dispatch graph persistence to Neo4j, JanusGraph, or AGE based on GRAPH_BACKEND (no HTTP API changes)."""
+
+_TRACE_ID_CAP = 32
+
+
+def merge_stored_trace_ids(existing_raw: Any, incoming: Any) -> list[str]:
+    """Accumulate evaluate traces on an object. Last 32 unique ids; incoming order wins tail."""
+
+    def _as_list(raw: Any) -> list[str]:
+        if raw is None:
+            return []
+        parsed: Any = raw
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                s = raw.strip()
+                return [s] if s else []
+        if isinstance(parsed, list):
+            out: list[str] = []
+            for item in parsed:
+                s = str(item).strip()
+                if s and s not in out:
+                    out.append(s)
+            return out
+        s = str(parsed).strip()
+        return [s] if s else []
+
+    merged: list[str] = []
+    for item in _as_list(existing_raw) + _as_list(incoming):
+        if item not in merged:
+            merged.append(item)
+    return merged[-_TRACE_ID_CAP:]
 
 
 def parse_p90_degree_by_label(raw: Any, label: str) -> int | None:
@@ -155,6 +187,11 @@ async def close_graph_backend() -> None:
         from .janusgraph_gremlin import close_janus_connection
 
         close_janus_connection()
+        return
+    if settings.graph_backend == "age":
+        from .age_client import close_driver as close_age
+
+        await close_age()
         return
     from .neo4j_client import close_driver
 

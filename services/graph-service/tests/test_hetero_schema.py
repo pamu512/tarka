@@ -5,6 +5,25 @@ from graph_service.custom_schema import TenantSchema, invalidate_cache, save_ten
 from graph_service.hetero_schema import validate_typed_edge_or_raise
 
 
+def test_default_schema_includes_evaluate_object_types():
+    schema = TenantSchema("demo")
+    assert {
+        "Person",
+        "Device",
+        "Account",
+        "Payment",
+        "Login",
+        "Session",
+        "Ip",
+        "Decision",
+        "Document",
+        "LicensePlate",
+    } <= set(schema.entity_types)
+    assert {"USED_DEVICE", "USED_SESSION", "USED_IP", "MADE_PAYMENT", "PERFORMED_LOGIN", "RESULTED_IN"} <= set(
+        schema.relationship_types
+    )
+
+
 def test_validate_skips_when_no_typed_edges_configured():
     validate_typed_edge_or_raise(
         "tenant_without_typed_edges_file_xyz", "USED", ["Account"], ["Device"]

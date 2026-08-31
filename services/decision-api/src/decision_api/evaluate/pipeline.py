@@ -29,6 +29,7 @@ from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
 from decision_api.eval_steps import run_evaluation_step
 from decision_api.evaluate.score import (
+    _SIGNAL_UNAVAILABLE_AUDIT,
     blend_scores as _blend_scores,
     compute_fallback_reason as _compute_fallback_reason,
     decision_runtime_status as _decision_runtime_status,
@@ -36,7 +37,7 @@ from decision_api.evaluate.score import (
     signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
-from decision_api.graph_intel import graph_score_delta, graph_tags_from_risk
+from decision_api.graph_intel import attend_score_delta, attend_tags
 from decision_api.inference_build import (
     build_inference_context,
     derive_recommended_action,
@@ -482,6 +483,7 @@ async def run_evaluate_decision(
                 graph_checkpoint = str(graph_routing["graph_checkpoint"])
 
         graph_risk = None
+        attend_rows: list[dict[str, Any]] = []
         graph_trace = {
             "step": "graph_risk",
             "status": "skipped",
@@ -505,9 +507,40 @@ async def run_evaluate_decision(
                     on_failure="SKIP",
                     fallback=None,
                 )
-                if graph_risk:
-                    graph_delta = graph_score_delta(graph_risk.get("risk_score"))
-                    signal_tags.extend(graph_tags_from_risk(graph_risk))
+                try:
+                    from tarka_shared.decision_graph_payload import evaluate_related_object_refs
+                    from decision_api.evaluate.enrichment import fetch_object_attention_wrapped
+
+                    refs = evaluate_related_object_refs(
+                        trace_id=str(trace_id),
+                        entity_id=body.entity_id,
+                        event_type=body.event_type.value,
+                        payload=body.payload if isinstance(body.payload, dict) else {},
+                        device_context=body.device_context.model_dump()
+                        if body.device_context
+                        else None,
+                        session_id=body.session_id,
+                    )
+                    attend_rows, _attend_trace = await run_evaluation_step(
+                        "object_attention",
+                        lambda: fetch_object_attention_wrapped(
+                            http,
+                            body.tenant_id,
+                            refs,
+                            degrade_tags,
+                            tenant_flags,
+                        ),
+                        timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
+                        max_attempts=settings.eval_step_graph_risk_max_attempts,
+                        on_failure="SKIP",
+                        fallback=[],
+                    )
+                    if not isinstance(attend_rows, list):
+                        attend_rows = []
+                except ImportError:
+                    attend_rows = []
+                graph_delta = attend_score_delta(attend_rows)
+                signal_tags.extend(attend_tags(attend_rows))
         else:
             graph_trace = {
                 "step": "graph_risk",
@@ -938,7 +971,7 @@ async def run_evaluate_decision(
             derive_contextual_tags(
                 features=features,
                 signal_tags=signal_tags,
-                graph_risk=graph_risk if isinstance(graph_risk, dict) else None,
+                graph_risk=None,
                 external_signal_meta=external_signal_meta
                 if isinstance(external_signal_meta, dict)
                 else None,
@@ -1228,6 +1261,36 @@ async def run_evaluate_decision(
 
         fb_reason = _compute_fallback_reason(degrade_tags, step_trace)
         signal_notes = _signal_availability_notes_from_tags(degrade_tags)
+        if not shadow_request:
+            from decision_api.decision_outcome import (
+                DecisionOutcomeContext,
+                try_record_evaluate_decision_graph,
+            )
+
+            _graph_ctx = DecisionOutcomeContext(
+                trace_id=str(trace_id),
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                event_type=body.event_type.value,
+                decision=decision,
+                score=final_score,
+                tags=merged_tags,
+                rule_hits=combined_rule_hits,
+                payload=body.payload if isinstance(body.payload, dict) else {},
+                metadata=body.metadata if isinstance(body.metadata, dict) else None,
+                fallback_reason=fb_reason,
+                device_context=body.device_context.model_dump() if body.device_context else None,
+                session_id=body.session_id,
+                shadow_request=shadow_request,
+            )
+            if (settings.graph_service_url or "").strip() and not try_record_evaluate_decision_graph(
+                _graph_ctx
+            ):
+                if "graph:write_failed" not in merged_tags:
+                    merged_tags.append("graph:write_failed")
+                _gnote = _SIGNAL_UNAVAILABLE_AUDIT.get("graph:write_failed")
+                if _gnote and _gnote not in signal_notes:
+                    signal_notes.append(_gnote)
         runtime_decision_status = _decision_runtime_status(degrade_tags, signal_notes)
         snap_extra: dict[str, Any] = {
             **stored_snapshot,
@@ -1325,6 +1388,8 @@ async def run_evaluate_decision(
         )
         if relatedness_evidence is not None:
             snap_extra["relatedness_evidence"] = relatedness_evidence
+        if attend_rows:
+            snap_extra["object_attention"] = attend_rows
         location_cohort_evidence = build_location_cohort_evidence(**_rel_kw)
         if location_cohort_evidence is not None:
             snap_extra["location_cohort_evidence"] = location_cohort_evidence
@@ -1452,6 +1517,8 @@ async def run_evaluate_decision(
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 payload=body.payload if isinstance(body.payload, dict) else {},
                 metadata=body.metadata if isinstance(body.metadata, dict) else None,
+                device_context=body.device_context.model_dump() if body.device_context else None,
+                session_id=body.session_id,
                 recommended_action=recommended_action,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
                 fallback_reason=fb_reason,

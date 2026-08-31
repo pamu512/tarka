@@ -75,7 +75,7 @@ from .sar_transport_worker import (
     setup_sar_transport_worker,
     shutdown_sar_transport_worker,
 )
-from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
+from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn, ObjectActRequest
 from .template_apply import (
     apply_case_payload_to_case,
     apply_investigation_template_transaction,
@@ -94,7 +94,7 @@ from .disposition import (
 from .workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from auth_rbac import get_current_user, require_role, require_role_or_insecure_desk, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from tarka_shared.tracing import setup_tracing  # noqa: E402
@@ -645,6 +645,83 @@ async def create_case(
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
+
+
+@app.post("/v1/entities/{entity_id}/act")
+async def act_on_entity(
+    entity_id: str,
+    body: ObjectActRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    """Hold this Person. Leftover stays the same object; receipt is a human_disposition on the Person."""
+    eid = (entity_id or "").strip()
+    if not eid:
+        raise HTTPException(status_code=400, detail="entity_id is required")
+    user = get_current_user(request)
+    q = (
+        select(Case)
+        .where(
+            Case.tenant_id == body.tenant_id,
+            Case.entity_id == eid,
+            func.lower(Case.status).in_(("open", "investigating")),
+        )
+        .order_by(Case.created_at.desc())
+        .limit(1)
+    )
+    case = (await session.execute(q)).scalar_one_or_none()
+    created = False
+    if case is None:
+        case = Case(
+            tenant_id=body.tenant_id,
+            title=f"Act: hold {eid}",
+            entity_id=eid,
+            trace_id=(body.trace_id or "").strip() or f"act:{uuid.uuid4()}",
+            priority="medium",
+            status="open",
+            labels=["act:hold"],
+        )
+        session.add(case)
+        created = True
+    else:
+        labels = list(case.labels or [])
+        if "act:hold" not in labels:
+            labels.append("act:hold")
+            case.labels = labels
+    await session.commit()
+    await session.refresh(case)
+    if case.entity_id != eid:
+        raise HTTPException(status_code=500, detail="entity_id rewrite refused")
+    _maybe_record_human_disposition_decision(
+        case=case,
+        actor_id=user.user_id,
+        status="held",
+        reason_code="hold",
+        trace_id=str(case.trace_id or ""),
+    )
+    try:
+        await _trail.record(
+            session,
+            actor=user.user_id,
+            action="object_act_hold",
+            resource_type="case",
+            resource_id=str(case.id),
+            changes={"entity_id": eid, "action": "hold"},
+            tenant_id=case.tenant_id,
+        )
+        await session.commit()
+    except SQLAlchemyError:
+        await session.rollback()
+        # ponytail: lite postgres never created audit_trail (alembic-only). Hold + last_act already committed.
+    return {
+        "entity_id": eid,
+        "action": "hold",
+        "outcome": "held",
+        "case_id": str(case.id),
+        "created_leftover": created,
+        "trace_id": case.trace_id,
+    }
 
 
 async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str) -> Case:

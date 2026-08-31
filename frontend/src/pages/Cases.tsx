@@ -798,9 +798,16 @@ export default function Cases() {
                       <PriorityBadge priority={c.priority} />
                     </td>
                     <td className="py-3 px-4 font-mono text-xs text-gray-400">
-                      {c.entity_id.length > 16
-                        ? c.entity_id.slice(0, 16) + "\u2026"
-                        : c.entity_id}
+                      <Link
+                        to={`/graph?entity_id=${encodeURIComponent(c.entity_id)}&tenant_id=${encodeURIComponent(c.tenant_id)}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-brand-400 hover:text-brand-300"
+                        title={c.entity_id}
+                      >
+                        {c.entity_id.length > 16
+                          ? c.entity_id.slice(0, 16) + "\u2026"
+                          : c.entity_id}
+                      </Link>
                     </td>
                     <td className="py-3 px-4 text-gray-400">
                       {c.assigned_team || "—"}

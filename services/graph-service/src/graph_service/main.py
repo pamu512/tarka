@@ -34,6 +34,7 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import clamp_search_limit, is_found_payload
+from .object_attention import attention_for_node, score_object_attention, stats_from_subgraph
 from .entity_risk_writeback import (
     EntityRiskNotFound,
     clamp_refresh_limit,
@@ -165,6 +166,17 @@ class TagsRequest(BaseModel):
     tags: list[str]
 
 
+class AttentionObjectIn(BaseModel):
+    external_id: str
+    entity_type: str = "Custom"
+    on_this_event: bool = False
+
+
+class ObjectsAttentionRequest(BaseModel):
+    tenant_id: str
+    objects: list[AttentionObjectIn] = Field(default_factory=list, max_length=16)
+
+
 class RingSuspicionResponse(BaseModel):
     tenant_id: str
     entity_id: str
@@ -210,6 +222,138 @@ async def entities_search(tenant_id: str, q: str = "", label: str | None = None,
         tenant_id, q=needle, label=lab, limit=clamp_search_limit(limit)
     )
     return {"entities": rows, "truncated": bool(truncated)}
+
+
+def _subgraph_node_id(node: dict[str, Any]) -> str:
+    return str(node.get("id") or node.get("entity_id") or node.get("external_id") or "")
+
+
+def _entity_from_subgraph(data: dict[str, Any], external_id: str) -> dict[str, Any] | None:
+    for node in data.get("nodes") or []:
+        if isinstance(node, dict) and _subgraph_node_id(node) == external_id:
+            return node
+    return None
+
+
+def _attention_for_neighbors(seed_id: str, data: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
+    rows: list[dict[str, Any]] = []
+    for node in nodes:
+        nid = _subgraph_node_id(node)
+        if not nid or nid == seed_id:
+            continue
+        labels = [str(x) for x in (node.get("labels") or [])]
+        if "Person" in labels:
+            continue
+        fanout = int(node.get("relation_count") or 0)
+        hot = 0
+        factors = node.get("risk_factors") or []
+        if isinstance(factors, list):
+            for factor in factors:
+                s = str(factor)
+                if s.startswith("connected_flagged:"):
+                    try:
+                        hot = int(s.split(":", 1)[1])
+                    except (TypeError, ValueError):
+                        hot = 0
+        if not fanout:
+            fanout = 1
+        row = attention_for_node(
+            node,
+            person_fanout=fanout,
+            review_or_deny_neighbors=hot,
+            on_this_event=False,
+        )
+        rows.append(row)
+    rows.sort(key=lambda r: (-int(r.get("importance") or 0), str(r.get("entity_id") or "")))
+    return rows
+
+
+async def _attention_for_object(
+    tenant_id: str, external_id: str, entity_type: str, on_this_event: bool
+) -> dict[str, Any]:
+    data = await query_subgraph(tenant_id, external_id, 1)
+    node = _entity_from_subgraph(data, external_id)
+    nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
+    fanout, hot = stats_from_subgraph(external_id, nodes)
+    if node is None:
+        row = score_object_attention(
+            entity_type=entity_type,
+            person_fanout=0,
+            review_or_deny_neighbors=0,
+            on_this_event=on_this_event,
+        )
+        row["entity_id"] = external_id
+        row["entity_type"] = entity_type or "Custom"
+        row["found"] = False
+        return row
+    row = attention_for_node(
+        node,
+        person_fanout=fanout,
+        review_or_deny_neighbors=hot,
+        on_this_event=on_this_event,
+    )
+    row["found"] = True
+    return row
+
+
+@app.get("/v1/entities/{external_id}")
+async def get_entity(external_id: str, tenant_id: str):
+    data = await query_subgraph(tenant_id, external_id, 1)
+    node = _entity_from_subgraph(data, external_id)
+    if node is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    return node
+
+
+@app.get("/v1/entities/{external_id}/links")
+async def get_entity_links(external_id: str, tenant_id: str):
+    data = await query_subgraph(tenant_id, external_id, 1)
+    if _entity_from_subgraph(data, external_id) is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    return {
+        "entity_id": external_id,
+        "nodes": data.get("nodes") or [],
+        "edges": data.get("edges") or [],
+        "attention": _attention_for_neighbors(external_id, data),
+    }
+
+
+@app.post("/v1/objects/attention")
+async def objects_attention(body: ObjectsAttentionRequest):
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in body.objects[:16]:
+        eid = str(item.external_id or "").strip()
+        if not eid or eid in seen:
+            continue
+        seen.add(eid)
+        rows.append(
+            await _attention_for_object(
+                body.tenant_id, eid, item.entity_type, item.on_this_event
+            )
+        )
+    rows.sort(key=lambda r: (-int(r.get("importance") or 0), str(r.get("entity_id") or "")))
+    return {"tenant_id": body.tenant_id, "attention": rows}
+
+
+@app.get("/v1/entities/{external_id}/history")
+async def get_entity_history(external_id: str, tenant_id: str):
+    data = await query_subgraph(tenant_id, external_id, 1)
+    node = _entity_from_subgraph(data, external_id)
+    if node is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+    traces = props.get("trace_ids")
+    if not isinstance(traces, list):
+        last = props.get("last_trace_id")
+        traces = [last] if last else []
+    return {
+        "entity_id": external_id,
+        "last_trace_id": props.get("last_trace_id"),
+        "trace_ids": [str(t) for t in traces if t],
+        "properties": props,
+    }
 
 
 @app.post("/v1/entities", response_model=EntityResponse)
@@ -268,7 +412,11 @@ async def entity_deep_context(external_id: str, tenant_id: str):
     data = await query_entity_deep_context(tenant_id, external_id)
     if data is None:
         raise HTTPException(status_code=404, detail="entity_not_found")
-    risk = await compute_entity_risk(tenant_id, external_id)
+    try:
+        risk = await compute_entity_risk(tenant_id, external_id)
+    except Exception:
+        log.exception("deep-context risk failed tenant=%s entity=%s", tenant_id, external_id)
+        risk = {}
     factors = risk.get("risk_factors") if isinstance(risk.get("risk_factors"), list) else []
     data["risk_history"] = [
         {

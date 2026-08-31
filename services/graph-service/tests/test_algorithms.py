@@ -340,7 +340,7 @@ def _cypher_return_aliases(return_body: str) -> list[str]:
 def _age_risk_return_and_as_columns() -> tuple[list[str], list[str]]:
     src = algorithms_age.entity_risk_sql(3)
     ret_m = re.search(r"\bRETURN\b(.*?)\s+\$\$", src, re.S)
-    as_m = re.search(r"\$\$, %s\) as \(([^)]+)\)", src)
+    as_m = re.search(r"\$\$::cstring, \$1::ag_catalog.agtype\) as \(([^)]+)\)", src)
     assert ret_m is not None and as_m is not None
     return_cols = _cypher_return_aliases(ret_m.group(1))
     as_cols = [part.strip().split()[0] for part in as_m.group(1).split(",") if part.strip()]

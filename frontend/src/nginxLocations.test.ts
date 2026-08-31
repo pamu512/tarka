@@ -24,6 +24,12 @@ describe("production nginx hops", () => {
     expect(conf).toContain("set $tarka_optional integration-ingress:8003");
   });
 
+  it("rewrites /api/graph to graph-service /v1", () => {
+    expect(conf).toContain("location /api/graph/");
+    expect(conf).toContain("graph-service:8001");
+    expect(conf).toContain("rewrite ^/api/graph/(.*)$ /$1 break;");
+  });
+
   it("does not route analytics at the retired data-platform :8014 listener", () => {
     expect(conf).not.toContain("8014");
     expect(conf).not.toContain("data-platform");

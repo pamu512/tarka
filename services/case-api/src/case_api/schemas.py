@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CreateCaseRequest(BaseModel):
@@ -10,6 +10,14 @@ class CreateCaseRequest(BaseModel):
     title: str
     entity_id: str
     trace_id: str
+
+    @field_validator("entity_id", mode="before")
+    @classmethod
+    def _require_entity_id(cls, v: object) -> str:
+        s = str(v).strip() if v is not None else ""
+        if not s:
+            raise ValueError("entity_id is required")
+        return s
     priority: str = "medium"
     playbook_id: str | None = Field(
         default=None,
@@ -18,6 +26,20 @@ class CreateCaseRequest(BaseModel):
             "(GET /v1/investigation-templates), applied immediately after create."
         ),
     )
+
+
+class ObjectActRequest(BaseModel):
+    tenant_id: str
+    action: str = "hold"
+    trace_id: str | None = None
+
+    @field_validator("action", mode="before")
+    @classmethod
+    def _hold_only(cls, v: object) -> str:
+        s = str(v or "hold").strip().lower() or "hold"
+        if s != "hold":
+            raise ValueError("only hold is supported")
+        return s
 
 
 class CaseOut(BaseModel):

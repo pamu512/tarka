@@ -40,10 +40,10 @@
   "tag_rules": [
     {
       "id": "escalate_velocity_vpn",
-      "any_tag": ["velocity:high_1h", "sdk:vpn"],
+      "any_tag": ["velocity:high_1h"],
       "tags": ["escalated:velocity_vpn"],
       "score_delta": 20,
-      "description": "High velocity combined with VPN use"
+      "description": "Escalate when 1h velocity is already high. VPN alone does not fire this."
     }
   ]
 }
