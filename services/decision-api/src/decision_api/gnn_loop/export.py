@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from decision_api.gnn_loop import CHARGEBACK_CLASSES
+from decision_api.gnn_loop import CHARGEBACK_CLASSES, SCHEMA_ID
 from decision_api.y_label_store import load_label_records
 
 
@@ -141,6 +141,44 @@ def export_labeled_rows(
                 "dispute_outcome": dispute,
                 "chargeback_class": cls,
                 "trainable": bool(edges),
+            }
+        )
+    seen = {str(r.get("trace_id") or "") for r in rows}
+    by_t = store.get("by_trace") if isinstance(store.get("by_trace"), dict) else {}
+    late_t = (
+        store.get("chargeback_class_by_trace")
+        if isinstance(store.get("chargeback_class_by_trace"), dict)
+        else {}
+    )
+    late_d = (
+        store.get("dispute_outcome_by_trace")
+        if isinstance(store.get("dispute_outcome_by_trace"), dict)
+        else {}
+    )
+    for tid, y in by_t.items():
+        key = str(tid).strip()
+        if not key or key in seen or str(y) not in {"0", "1"}:
+            continue
+        if not (late_t.get(key) or late_d.get(key)):
+            continue
+        dummy = {"trace_id": key}
+        dispute, cls = _late_fields(dummy, store)
+        rows.append(
+            {
+                "trace_id": key,
+                "entity_id": "",
+                "subgraph_snapshot": {
+                    "schema_id": SCHEMA_ID,
+                    "status": "graph:missing",
+                    "trace_id": key,
+                    "vertices": [],
+                    "edges": [],
+                },
+                "y_label": str(y),
+                "why": _why_for_receipt(dummy, store),
+                "dispute_outcome": dispute,
+                "chargeback_class": cls,
+                "trainable": False,
             }
         )
     return rows
