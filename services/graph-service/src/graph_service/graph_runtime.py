@@ -120,7 +120,9 @@ async def delete_entity(tenant_id: str, external_id: str) -> None:
 _ALLOW_AGE_CAP = 20
 
 
-def allow_decision_ids_over_cap(nodes: list[dict[str, Any]], *, cap: int = _ALLOW_AGE_CAP) -> list[str]:
+def allow_decision_ids_over_cap(
+    nodes: list[dict[str, Any]], *, cap: int = _ALLOW_AGE_CAP
+) -> list[str]:
     allows: list[tuple[str, str]] = []
     for node in nodes:
         labels = node.get("labels") or []
@@ -131,12 +133,17 @@ def allow_decision_ids_over_cap(nodes: list[dict[str, Any]], *, cap: int = _ALLO
         kind = str(props.get("kind") or "").strip().lower()
         outcome = str(props.get("outcome") or "").strip().lower()
         source = str(props.get("source") or "").strip().lower()
-        material = kind in {"human_disposition", "policy_gate"} or outcome in {
-            "deny",
-            "review",
-            "held",
-            "hold",
-        } or outcome.startswith("resolved")
+        material = (
+            kind in {"human_disposition", "policy_gate"}
+            or outcome
+            in {
+                "deny",
+                "review",
+                "held",
+                "hold",
+            }
+            or outcome.startswith("resolved")
+        )
         if material:
             continue
         if source != "evaluate" or outcome != "allow":

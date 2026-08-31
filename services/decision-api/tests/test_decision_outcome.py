@@ -122,7 +122,9 @@ def test_opt_out_flag_skips_leftover_mint():
         case_create_on_deny_review=False,
         case_api_url="http://case.test",
     )
-    assert not any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
+    assert not any(
+        "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
+    )
 
 
 def test_allow_does_not_create_case():

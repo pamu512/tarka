@@ -43,7 +43,9 @@ def decision_visible(node: dict[str, Any], caller: frozenset[str]) -> bool:
 
 
 def filter_subgraph_for_read(data: dict[str, Any], caller: frozenset[str]) -> dict[str, Any]:
-    nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict) and decision_visible(n, caller)]
+    nodes = [
+        n for n in (data.get("nodes") or []) if isinstance(n, dict) and decision_visible(n, caller)
+    ]
     keep = {_node_id(n) for n in nodes}
     edges = []
     for edge in data.get("edges") or []:

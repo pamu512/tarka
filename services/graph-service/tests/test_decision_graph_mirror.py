@@ -83,7 +83,10 @@ async def test_mirror_upserts_typed_objects_and_fills_resulted_in(monkeypatch):
     types = {row[1] for row in upserts}
     assert "Decision" in types
     assert {"Person", "Login", "Decision"} <= types
-    assert any(rel == "RESULTED_IN" and src == "buyer-demo" and dst == "dec:tr-1" for _, src, dst, rel, _ in links)
+    assert any(
+        rel == "RESULTED_IN" and src == "buyer-demo" and dst == "dec:tr-1"
+        for _, src, dst, rel, _ in links
+    )
     assert any(rel == "BASED_ON" and src == "dec:tr-1" for _, src, dst, rel, _ in links)
     assert any(rel == "PERFORMED_LOGIN" for _, _, _, rel, _ in links)
 

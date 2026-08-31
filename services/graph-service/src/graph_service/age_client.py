@@ -362,8 +362,7 @@ async def delete_entity(tenant_id: str, external_id: str) -> None:
     tid = _cypher_lit(tenant_id)
     eid = _cypher_lit(external_id)
     q = _cypher_sql(
-        f"MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id = {eid} "
-        "DETACH DELETE n RETURN 1",
+        f"MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id = {eid} DETACH DELETE n RETURN 1",
         "ok ag_catalog.agtype",
         "CAST(ok AS VARCHAR) as ok",
     )

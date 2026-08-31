@@ -911,7 +911,9 @@ async def set_pack_mode(
     filename: str,
     body: RulePackMode,
     tenant_id: str | None = Query(None),  # kept: clients still send leftover-era query
-    session: AsyncSession = Depends(get_session),  # kept: signature stable after leftover floor moved to Promote
+    session: AsyncSession = Depends(
+        get_session
+    ),  # kept: signature stable after leftover floor moved to Promote
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
