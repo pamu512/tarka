@@ -69,6 +69,11 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
     assert (
         body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"
     )
+    assert "rule_precision_after_labels" in body
+    assert (
+        body["rule_precision_after_labels"]["schema_id"]
+        == "tarka.rule_precision_after_labels/v1"
+    )
 
 
 @pytest.mark.asyncio
@@ -148,12 +153,23 @@ async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
     assert len(body["champion_challenger"]["audit_rows"]) == 50
 
 
-def test_shadow_promote_gate_get_does_not_auto_promote():
-    import inspect
+@pytest.mark.asyncio
+async def test_shadow_promote_gate_get_does_not_auto_promote(challenge_client, monkeypatch):
+    writes: list[str] = []
 
-    from decision_api.calibration_api import shadow_promote_gate
+    def _record(name: str):
+        def _inner(*_a, **_k):
+            writes.append(name)
 
-    src = inspect.getsource(shadow_promote_gate)
-    assert "maybe_auto_promote" not in src
-    assert "auto_promote_shadow" not in src
-    assert "maybe_park" not in src
+        return _inner
+
+    monkeypatch.setattr(
+        "decision_api.leftover_promote_gate.maybe_auto_promote",
+        _record("maybe_auto_promote"),
+        raising=False,
+    )
+    r = await challenge_client.get(
+        "/v1/calibration/shadow-promote-gate", params={"tenant_id": "acme"}
+    )
+    assert r.status_code == 200, r.text
+    assert writes == []

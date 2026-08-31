@@ -1,4 +1,4 @@
-import inspect
+import pytest
 
 from graph_service.search_keys import (
     keys_from_upsert,
@@ -49,8 +49,22 @@ def test_sort_dedupe_person_wins_device():
     assert rows[0]["last_outcome"] == "deny"
 
 
-def test_age_search_source_has_no_match_n_when_sql_path():
+@pytest.mark.asyncio
+async def test_search_entities_uses_prefix_not_scan(monkeypatch):
     from graph_service import age_client
 
-    src = inspect.getsource(age_client.search_entities)
-    assert "MATCH (n)" not in src
+    async def _prefix(*_a, **_k):
+        return ([{"entity_id": "user-441"}], True)
+
+    scanned: list[int] = []
+
+    async def _scan(*_a, **_k):
+        scanned.append(1)
+        return [], False
+
+    monkeypatch.setattr("graph_service.search_keys.search_prefix", _prefix)
+    monkeypatch.setattr(age_client, "_search_entities_scan_fallback", _scan)
+    rows, ok = await age_client.search_entities("demo", "alice")
+    assert ok is True
+    assert rows == [{"entity_id": "user-441"}]
+    assert scanned == []

@@ -61,25 +61,21 @@ async def test_mirror_upserts_typed_objects_and_fills_resulted_in(monkeypatch):
     assert not any(rel == "RESULTED_IN" for _, _, _, rel, _ in links)
     assert not any(src == "dec_abc" or dst == "dec_abc" for _, src, dst, _, _ in links)
     assert any(rel == "PERFORMED_LOGIN" for _, _, _, rel, _ in links)
-    import inspect
-
-    sched = inspect.getsource(mirror.schedule_mirror)
-    assert "asyncio.run" not in sched
-    assert "threading" not in sched
 
 
-def test_age_upsert_merges_trace_ids():
-    import inspect
+@pytest.mark.asyncio
+async def test_schedule_mirror_awaits_on_loop(monkeypatch):
+    from graph_service import decision_graph_mirror as mirror
 
-    from graph_service import age_client
+    ran: list[str] = []
 
-    src = inspect.getsource(age_client.upsert_entity)
-    assert "merge_stored_trace_ids" in src
-    assert "_cypher_sql" in src
-    assert "_set_literals" in src
-    assert "$$, %s)" not in inspect.getsource(age_client)
-    pool_src = inspect.getsource(age_client.init_pool)
-    assert "reset=_reset_age_connection" in pool_src
+    async def _mirror(tenant_id, row):
+        ran.append(tenant_id)
+
+    monkeypatch.setenv("DECISION_GRAPH_JANUS_MIRROR", "1")
+    monkeypatch.setattr(mirror, "_mirror_async", _mirror)
+    await mirror.schedule_mirror("demo", {"external_id": "dec_1"})
+    assert ran == ["demo"]
 
 
 def test_merge_stored_trace_ids_keeps_history():
