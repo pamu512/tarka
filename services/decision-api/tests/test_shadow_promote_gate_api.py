@@ -148,12 +148,34 @@ async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
     assert len(body["champion_challenger"]["audit_rows"]) == 50
 
 
-def test_shadow_promote_gate_get_does_not_auto_promote():
-    import inspect
+@pytest.mark.asyncio
+async def test_shadow_promote_gate_get_does_not_auto_promote(
+    challenge_client, monkeypatch
+):
+    called: list[str] = []
 
-    from decision_api.calibration_api import shadow_promote_gate
+    def _spy(name: str):
+        async def _inner(*a, **k):
+            called.append(name)
+            raise AssertionError(f"GET must not call {name}")
 
-    src = inspect.getsource(shadow_promote_gate)
-    assert "maybe_auto_promote" not in src
-    assert "auto_promote_shadow" not in src
-    assert "maybe_park" not in src
+        return _inner
+
+    monkeypatch.setattr(
+        "decision_api.calibration_api._tick_auto_promote", _spy("_tick_auto_promote")
+    )
+    monkeypatch.setattr(
+        "decision_api.shadow_auto_promote.maybe_auto_promote_shadow",
+        _spy("maybe_auto_promote_shadow"),
+    )
+    monkeypatch.setattr(
+        "decision_api.live_rule_slip.maybe_park_live_rule_slip",
+        _spy("maybe_park_live_rule_slip"),
+    )
+    monkeypatch.setattr(
+        "decision_api.brain_wire.maybe_kill_leftover_fp_shadows",
+        _spy("maybe_kill_leftover_fp_shadows"),
+    )
+    r = await challenge_client.get("/v1/calibration/shadow-promote-gate")
+    assert r.status_code == 200, r.text
+    assert called == []

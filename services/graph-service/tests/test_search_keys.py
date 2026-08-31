@@ -1,4 +1,4 @@
-import inspect
+import pytest
 
 from graph_service.search_keys import (
     keys_from_upsert,
@@ -49,8 +49,20 @@ def test_sort_dedupe_person_wins_device():
     assert rows[0]["last_outcome"] == "deny"
 
 
-def test_age_search_source_has_no_match_n_when_sql_path():
+@pytest.mark.asyncio
+async def test_age_search_uses_sql_prefix_not_scan(monkeypatch):
     from graph_service import age_client
 
-    src = inspect.getsource(age_client.search_entities)
-    assert "MATCH (n)" not in src
+    hits = ([{"entity_id": "user-441", "key_kind": "email"}], False)
+
+    async def _prefix(tenant_id, q, label=None, limit=20):
+        assert tenant_id == "acme"
+        assert q == "ali"
+        return hits
+
+    async def _scan(*a, **k):
+        raise AssertionError("scan fallback must not run when prefix works")
+
+    monkeypatch.setattr("graph_service.search_keys.search_prefix", _prefix)
+    monkeypatch.setattr(age_client, "_search_entities_scan_fallback", _scan)
+    assert await age_client.search_entities("acme", "ali") == hits

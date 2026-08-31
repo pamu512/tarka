@@ -17,10 +17,6 @@ _SRC = Path(__file__).resolve().parents[1]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-_sentinel = type(sys)("shadow_schemas")
-_sentinel.HypothesisReport = type("HypothesisReport", (), {"model_dump": lambda s, **kw: {}})
-sys.modules.setdefault("shadow_schemas", _sentinel)
-
 from scout_pack_publisher import (  # noqa: E402
     build_scout_pack,
     leftover_gate_payload,
