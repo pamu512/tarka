@@ -1,7 +1,7 @@
 # Observe brain wire (Scout / recommender reads leftover helpfulness)
 
 **Date:** 2026-08-31  
-**Status:** Draft — implement **after** [leftover promote HIL](./2026-08-31-leftover-promote-hil-design.md) ships.  
+**Status:** Draft. Plan: `docs/superpowers/plans/2026-08-31-observe-brain-wire.md`. Implement **after** leftover HIL (shipped).  
 **Depends on:** leftover_promote_gate `helpfulness` object + extra-row join (same spec).  
 **Related:** VISION.md add-on (scout writes, parks in Observe, humans own live via gates), `PACK_AUTHOR.md`, `scout_pack_publisher.py`, `rule_recommender.py`, `rule_precision_after_labels`, [live-rule slip](./2026-08-31-live-rule-slip-design.md) (sibling; host critic of live `rule_id`s).
 

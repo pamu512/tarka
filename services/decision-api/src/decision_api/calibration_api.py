@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from decision_api.shared_path import ensure_services_shared_on_path
 
 ensure_services_shared_on_path()
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role, require_role_or_insecure_desk  # noqa: E402
 
 from decision_api.config import settings  # noqa: E402
 from decision_api.db import get_session  # noqa: E402
@@ -55,6 +55,9 @@ async def _tick_auto_promote(tenant_id: str) -> None:
         from decision_api.live_rule_slip import maybe_park_live_rule_slip
 
         await maybe_park_live_rule_slip(tid)
+        from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
+
+        await maybe_kill_leftover_fp_shadows(tid)
     except Exception:
         logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
 
@@ -648,11 +651,11 @@ async def shadow_promote_gate(
     ),
     draft_id: str | None = Query(None),
     session: AsyncSession = Depends(get_session),
-    _user=Depends(require_role("analyst")),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
 ) -> dict[str, Any]:
     """Desk-facing promote-gate posture + label gate + CC agreement (P0-CC)."""
     from decision_api.champion_challenger_audit import promote_lifecycle_stage
-    from decision_api.json_rules import get_shadow_packs
+    from decision_api.json_rules import get_disabled_mode_packs, get_shadow_packs
     from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
@@ -711,6 +714,15 @@ async def shadow_promote_gate(
                 "mode": "shadow",
             }
             for p in get_shadow_packs()
+        ]
+        + [
+            {
+                "name": str(p.get("name") or ""),
+                "is_ai_authored": bool(p.get("is_ai_authored")),
+                "mode": "disabled",
+            }
+            for p in get_disabled_mode_packs()
+            if p.get("is_ai_authored") is True
         ],
         "promote_lifecycle": lifecycle,
         "labeled_champion_challenger_f1": labeled_f1,

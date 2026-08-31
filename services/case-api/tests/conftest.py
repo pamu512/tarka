@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Prefer src/case_api over hoisted flat modules (avoid duplicate SQLAlchemy model registration).
 _service_root = str(Path(__file__).resolve().parents[1])
 _src_root = str(Path(__file__).resolve().parents[1] / "src")
@@ -41,3 +43,25 @@ if (
     and not (os.environ.get("OIDC_ISSUER") or "").strip()
 ):
     os.environ["ALLOW_INSECURE_NO_AUTH"] = "true"
+
+
+def _clear_rate_limit_buckets() -> None:
+    # ponytail: one process-wide TokenBucket; leftover HTTP tests share the API key.
+    # Ceiling: walks user_middleware kwargs. If setup_rate_limiter stops passing
+    # limiter=..., store the bucket on app.state and clear that instead.
+    try:
+        from case_api.main import app
+    except ImportError:
+        return
+    for spec in getattr(app, "user_middleware", ()):
+        limiter = getattr(spec, "kwargs", {}).get("limiter")
+        buckets = getattr(limiter, "_buckets", None)
+        if isinstance(buckets, dict):
+            buckets.clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_rate_limit_buckets():
+    _clear_rate_limit_buckets()
+    yield
+    _clear_rate_limit_buckets()

@@ -129,6 +129,7 @@ _MAX_REGEX_PATTERN_LEN = 256
 
 _cached_packs: list[dict[str, Any]] = []
 _shadow_mode_packs: list[dict[str, Any]] = []
+_disabled_mode_packs: list[dict[str, Any]] = []
 
 # Optional PLG sandbox bundle (Postgres-backed); merged pack, not on disk.
 SANDBOX_PLG_INDUSTRY_SOURCE_FILE = "sandbox_plg_industry_starter.json"
@@ -348,11 +349,12 @@ def build_emergency_static_rule_tuple() -> tuple[
 
 def load_rules() -> None:
     """Load all JSON rule packs from disk into memory. Call at startup."""
-    global _cached_packs, _shadow_mode_packs
+    global _cached_packs, _shadow_mode_packs, _disabled_mode_packs
     path = Path(settings.rules_path)
     if not path.is_dir():
         _cached_packs = _attach_plg_sandbox_pack([])
         _shadow_mode_packs = []
+        _disabled_mode_packs = []
         _sync_rust_engine_packs()
         try:
             from decision_api.policy_set import bump_policy_set_generation
@@ -363,6 +365,7 @@ def load_rules() -> None:
         return
     active: list[dict[str, Any]] = []
     shadow: list[dict[str, Any]] = []
+    disabled: list[dict[str, Any]] = []
     for f in sorted(path.glob("*.json")):
         try:
             pack = json.loads(f.read_text(encoding="utf-8"))
@@ -371,7 +374,7 @@ def load_rules() -> None:
             pack["_source_file"] = f.name
             mode = pack.get("mode", "active")
             if mode == "disabled":
-                continue
+                disabled.append(pack)
             elif mode == "shadow":
                 shadow.append(pack)
             else:
@@ -380,6 +383,7 @@ def load_rules() -> None:
             log.warning("skipping rule file %s: %s", f, e)
     _cached_packs = _attach_plg_sandbox_pack(active)
     _shadow_mode_packs = shadow
+    _disabled_mode_packs = disabled
     log.info(
         "loaded %d disk-active + %d shadow rule packs from %s (runtime PLG sandbox=%s; engine_active=%d)",
         len(active),
@@ -400,6 +404,11 @@ def load_rules() -> None:
 def get_shadow_packs() -> list[dict[str, Any]]:
     """Return packs with mode == 'shadow'."""
     return list(_shadow_mode_packs)
+
+
+def get_disabled_mode_packs() -> list[dict[str, Any]]:
+    """Return packs with mode == 'disabled' (Observe picker only; not evaluate)."""
+    return list(_disabled_mode_packs)
 
 
 def get_active_packs_snapshot() -> list[dict[str, Any]]:

@@ -164,7 +164,7 @@ async def test_shadow_promote_gate_get_does_not_auto_promote(
     writes: list[str] = []
 
     def _record(name: str):
-        def _inner(*_a, **_k):
+        async def _inner(*_a, **_k):
             writes.append(name)
 
         return _inner
@@ -173,6 +173,22 @@ async def test_shadow_promote_gate_get_does_not_auto_promote(
         "decision_api.leftover_promote_gate.maybe_auto_promote",
         _record("maybe_auto_promote"),
         raising=False,
+    )
+    monkeypatch.setattr(
+        "decision_api.calibration_api._tick_auto_promote",
+        _record("_tick_auto_promote"),
+    )
+    monkeypatch.setattr(
+        "decision_api.shadow_auto_promote.maybe_auto_promote_shadow",
+        _record("maybe_auto_promote_shadow"),
+    )
+    monkeypatch.setattr(
+        "decision_api.live_rule_slip.maybe_park_live_rule_slip",
+        _record("maybe_park_live_rule_slip"),
+    )
+    monkeypatch.setattr(
+        "decision_api.brain_wire.maybe_kill_leftover_fp_shadows",
+        _record("maybe_kill_leftover_fp_shadows"),
     )
     r = await challenge_client.get(
         "/v1/calibration/shadow-promote-gate", params={"tenant_id": "acme"}
