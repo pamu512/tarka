@@ -21,7 +21,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 ## Compose paths
 
 1. **Lite / day-1:** `infra/deploy/docker-compose.lite.yml` (optional fraud-desk overlay) → **core-api** + **graph-service** (Apache AGE) + thin desk (Hunt `/graph`, leftovers, `/ops/shadow`). Agent / signal-api / ingress / Janus are overlays.
-2. **Ingest rail (optional):** `infra/deploy/docker-compose.v2-ingest.yml` → orchestrator + shadow_agent (async ingest; not required for day-1)
+2. **Ingest rail (lab):** `infra/deploy/docker-compose.v2-ingest.yml` → orchestrator + shadow_agent. Not Day-1.
 3. **Trend loop (optional):** `--profile trend-tick` or `make trend-tick`
 
 ## Authority
