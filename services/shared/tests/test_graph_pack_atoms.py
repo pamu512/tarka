@@ -222,3 +222,50 @@ def test_core_used_etype_is_signed():
         tenant_id="t1",
     )
     assert eval_graph_v1("has_etype", hop, etype="USED", tenant_id="t1") is True
+
+
+def test_sibling_prior_flag_lifts_without_multi_id():
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": [{"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}],
+            "multi_id_user_ids": [],
+            "sibling_y_labels": {"bob": "FLAG"},
+            "vertices": [
+                {"id": "alice", "vtype": "user"},
+                {"id": "bob", "vtype": "user", "properties": {"y_label": "1"}},
+            ],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert hop["multi_id_user_ids"] == []
+    assert hop["sibling_flags"]
+    assert eval_graph_v1("has_multi_id", hop, tenant_id="t1") is False
+    assert eval_graph_v1("sibling_prior_flag", hop, tenant_id="t1") is True
+    assert eval_graph_v1("has_etype", hop, etype="USES_DEVICE", tenant_id="t1") is True
+
+
+def test_pack_why_names_atom_etype_or_graph_missing():
+    missing = hop_view_from_graph_meta(
+        _shared_device_hop(),
+        graph_url="",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    why_missing = pack_why_from_hop(missing)
+    assert why_missing["status"] == "graph:missing"
+    assert why_missing["named"] == "graph:missing"
+    assert why_missing["fired"] == []
+
+    live = hop_view_from_graph_meta(
+        _shared_device_hop(),
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    why = pack_why_from_hop(live)
+    assert why["named"] == "has_etype:USES_DEVICE+has_multi_id+sibling_prior_flag"
+    assert any(
+        x.get("atom") == "has_etype" and x.get("etype") == "USES_DEVICE" for x in why["fired"]
+    )
