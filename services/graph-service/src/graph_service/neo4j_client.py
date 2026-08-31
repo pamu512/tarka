@@ -22,8 +22,53 @@ from graph_contract import (
 
 _driver: AsyncDriver | None = None
 
-ALLOWED_LABELS = frozenset({"user", "device", "ip", "phone", "payment", "place", "promo", "order"})
-ALLOWED_RELS = frozenset({"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"})
+ALLOWED_LABELS = frozenset(
+    {
+        "user",
+        "device",
+        "ip",
+        "phone",
+        "payment",
+        "place",
+        "promo",
+        "order",
+        "Person",
+        "Account",
+        "Device",
+        "Payment",
+        "Login",
+        "Session",
+        "Ip",
+        "Document",
+        "LicensePlate",
+        "Decision",
+        "Custom",
+    }
+)
+ALLOWED_RELS = frozenset(
+    {
+        "USED",
+        "SEEN_AT",
+        "PARTY_WITH",
+        "OWNS",
+        "REFERRED",
+        "KYC_VERIFIED_BY",
+        "USED_DEVICE",
+        "USED_SESSION",
+        "USED_IP",
+        "MADE_PAYMENT",
+        "PERFORMED_LOGIN",
+        "USES_DEVICE",
+        "HAS_PHONE",
+        "SEEN_FROM_IP",
+        "PAYS_WITH",
+        "RESULTED_IN",
+        "ACTED_ON",
+        "BASED_ON",
+        "SHARED_WITH",
+        "CUSTOM",
+    }
+)
 
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 

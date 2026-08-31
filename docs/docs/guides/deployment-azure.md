@@ -69,7 +69,7 @@ Configure AKS to pull from ACR ([AcrPull role](https://learn.microsoft.com/azure
 
 ## Investigation agent / LLM egress
 
-Outbound calls from `investigation-agent` to `OPENAI_BASE_URL` require **controlled egress** (firewall, proxy, or private endpoints) if your policy restricts public internet. For EU/UK deployments, consider regional governance overlays: [AI governance regional builds](../honesty.md) and [LLM data flow](./investigation-agent-llm-data-flow.md).
+Outbound calls from `investigation-agent` to `OPENAI_BASE_URL` require **controlled egress** (firewall, proxy, or private endpoints) if your policy restricts public internet. For EU/UK deployments, see [regional governance](./investigation-agent-intended-use-and-data-flows.md#4-regional-governance-builds-us--euuk--global) and [LLM data flow](./investigation-agent-llm-data-flow.md).
 
 ---
 

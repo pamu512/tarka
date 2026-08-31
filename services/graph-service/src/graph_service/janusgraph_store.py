@@ -26,6 +26,7 @@ from graph_contract import (
     require_vtype,
     roles_from_properties,
 )
+from .graph_runtime import merge_stored_trace_ids
 from .janusgraph_gremlin import (
     get_traversal_source,
     run_in_gremlin_thread,
@@ -35,8 +36,53 @@ from .janusgraph_gremlin import (
 """JanusGraph / Gremlin implementation of graph CRUD (same contract as neo4j_client)."""
 log = logging.getLogger("graph-service.janus")
 
-ALLOWED_LABELS = frozenset({"user", "device", "ip", "phone", "payment", "place", "promo", "order"})
-ALLOWED_RELS = frozenset({"USED", "SEEN_AT", "PARTY_WITH", "OWNS", "REFERRED", "KYC_VERIFIED_BY"})
+ALLOWED_LABELS = frozenset(
+    {
+        "user",
+        "device",
+        "ip",
+        "phone",
+        "payment",
+        "place",
+        "promo",
+        "order",
+        "Person",
+        "Account",
+        "Device",
+        "Payment",
+        "Login",
+        "Session",
+        "Ip",
+        "Document",
+        "LicensePlate",
+        "Decision",
+        "Custom",
+    }
+)
+ALLOWED_RELS = frozenset(
+    {
+        "USED",
+        "SEEN_AT",
+        "PARTY_WITH",
+        "OWNS",
+        "REFERRED",
+        "KYC_VERIFIED_BY",
+        "USED_DEVICE",
+        "USED_SESSION",
+        "USED_IP",
+        "MADE_PAYMENT",
+        "PERFORMED_LOGIN",
+        "USES_DEVICE",
+        "HAS_PHONE",
+        "SEEN_FROM_IP",
+        "PAYS_WITH",
+        "RESULTED_IN",
+        "ACTED_ON",
+        "BASED_ON",
+        "SHARED_WITH",
+        "CUSTOM",
+    }
+)
 _SAFE_IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
@@ -196,6 +242,14 @@ def _upsert_entity_sync(
             elif isinstance(raw_roles, list):
                 old_roles = [str(x) for x in raw_roles]
         props["roles"] = merge_roles(old_roles, incoming_roles)
+        incoming_traces = properties.get("trace_ids")
+        if incoming_traces is not None:
+            existing_traces: Any = None
+            try:
+                existing_traces = g.V(v).values("trace_ids").limit(1).next()
+            except StopIteration:
+                existing_traces = None
+            props["trace_ids"] = merge_stored_trace_ids(existing_traces, incoming_traces)
         apply_props(g.V(v), drop_tags_first=True).iterate()
         return janus_graph_id(tenant_id, label, external_id)
     props["roles"] = incoming_roles

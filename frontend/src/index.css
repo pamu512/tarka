@@ -175,3 +175,8 @@ body {
   outline-offset: 0;
   border-radius: 0.25rem;
 }
+
+/* vis-network title popup. Never paint it — it sat on the leftover case canvas. */
+div.vis-tooltip {
+  display: none !important;
+}

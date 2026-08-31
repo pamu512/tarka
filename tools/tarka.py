@@ -507,10 +507,10 @@ def _generate_env(modules: list[str]):
     if "graph" in modules:
         lines.extend(
             [
-                "# Graph Service (Gremlin Server / JanusGraph-compatible backend)",
+                "# Graph Service (Apache AGE on Postgres)",
                 "GRAPH_SERVICE_URL=http://graph-service:8001",
-                "GRAPH_BACKEND=janusgraph",
-                "JANUSGRAPH_GREMLIN_URL=ws://janusgraph:8182/gremlin",
+                "GRAPH_BACKEND=age",
+                "DATABASE_URL=postgresql://fraud:fraud@postgres:5432/fraud",
                 "",
             ]
         )

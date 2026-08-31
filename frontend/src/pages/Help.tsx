@@ -68,8 +68,8 @@ export default function Help() {
 
       <Section id="overview" title="Overview">
         <p>
-          Tarka is a fraud operations desk: case queue, decision audit, graph, rules, and a small ops strip in one
-          shell. The left nav lists the production surface
+          Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
+          shell. A leftover case is a Hold artifact, not intake. The left nav lists the production surface
           {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}
@@ -110,13 +110,13 @@ export default function Help() {
       </Section>
 
       <Section id="cases" title="Cases">
-        <Sub title="Queue (/cases)">
+        <Sub title="Leftover (/leftovers)">
           <p>
-            Table-first investigation queue from the case service. Filters and the table are the default fold. KPI /
-            cohort / desk-activity sit in a closed ops snapshot. Empty tenant: create a case. Filters with no rows:
-            clear filters. Approve / Close stay on the existing{" "}
-            <code className="text-gray-500">cases.update</code> / bulk update APIs — there is no separate assignment
-            API.
+            Hold or an evaluate mint can leave a leftover. The queue is{" "}
+            <code className="text-gray-500">/leftovers</code> when Hunt is on — work happens on{" "}
+            <code className="text-gray-500">/graph</code>. Lean nav still hides{" "}
+            <code className="text-gray-500">/cases</code>. Deep link <code className="text-gray-500">/cases/:id</code>{" "}
+            stays for SAR / dispute. Approve / Close stay on <code className="text-gray-500">cases.update</code>.
           </p>
         </Sub>
         <Sub title="Case detail (/cases/:id)">
@@ -148,15 +148,16 @@ export default function Help() {
         {isPlaneEnabled("graph") ? (
           <Sub title="Graph (/graph)">
             <p>
-              Entity neighborhood for the workspace tenant. Tenant is the same workspace id as the top bar (
+              Desk home. You open on a person — the entity is the key; a decision is the event right now.
+              Tenant is the same workspace id as the top bar (
               <code className="text-gray-500">tarka-workspace-tenant</code>), not a second localStorage key.
             </p>
           </Sub>
         ) : (
           <Sub title="Graph">
             <p>
-              Plane off when <code className="text-gray-500">GRAPH_SERVICE_URL</code> is empty. Deep links render
-              that state; they do not productize a 503.
+              Empty <code className="text-gray-500">GRAPH_SERVICE_URL</code> is an outage on this desk. Deep links
+              render plane off; they do not productize a 503.
             </p>
           </Sub>
         )}

@@ -43,7 +43,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
     tenantQuery: true,
   },
   { to: "/disputes", label: "Disputes", module: "disputes", keywords: "chargeback" },
-  { to: "/graph", label: "Graph", module: "graph", keywords: "network neo4j explorer link analysis janus" },
+  { to: "/graph", label: "Hunt", module: "graph", keywords: "graph network hunt person explorer link analysis" },
   {
     to: "/graph/mule-path",
     label: "Mule path",

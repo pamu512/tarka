@@ -116,4 +116,40 @@ describe("AnalystReadinessBar", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("does not treat unset NATS as a runtime outage", async () => {
+    const healthy: EvaluationPostureResponse = {
+      service: "decision-api",
+      deployment_tier: "community",
+      tenant_reliability_profile: "balanced",
+      evaluation_mode: "detection",
+      compliance_posture: "nominal",
+      compliance_degraded: false,
+      compliance_degraded_reasons: [],
+      typology_count: 3,
+      predicate_registry_version: 1,
+      predicate_registry_pin_match: true,
+      dependencies: [{ id: "redis", ok: true }],
+      last_rules_reload_at: "2026-04-20T15:30:00.000Z",
+      runbook_url: "https://example.com/runbook",
+    };
+    mockEvaluationPosture.mockResolvedValue(healthy);
+    mockSlo.mockResolvedValue({
+      service: "decision-api",
+      current: { redis_connected: true, nats_connected: null },
+    });
+
+    render(
+      <MemoryRouter>
+        <AnalystReadinessBar />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Detection evaluation/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/NATS disconnected/i)).not.toBeInTheDocument();
+  });
 });

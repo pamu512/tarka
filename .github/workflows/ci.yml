@@ -695,11 +695,6 @@ jobs:
         working-directory: packages/fraud-sdk-typescript
       - run: npm run build
         working-directory: packages/fraud-sdk-typescript
-      - name: Build deprecated @tarka/web-sdk re-export
-        run: |
-          npm install
-          npm run build
-        working-directory: packages/tarka-web-sdk
 
   test-graphql-gateway:
     needs: audit-stubs

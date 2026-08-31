@@ -275,11 +275,11 @@ async def test_age_create_link_sends_on_create_not_blind_set(monkeypatch):
     queries: list[str] = []
 
     class _Conn:
-        async def fetchrow(self, stmt, _params):
+        async def fetchrow(self, stmt, *_a):
             queries.append(stmt)
             return None
 
-        async def execute(self, stmt, _params):
+        async def execute(self, stmt, *_a):
             queries.append(stmt)
 
     class _Pool:
@@ -295,9 +295,10 @@ async def test_age_create_link_sends_on_create_not_blind_set(monkeypatch):
     monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
     await age_client.create_link("acme", "a", "b", "USED", {})
     joined = "\n".join(queries)
-    assert "ON CREATE SET r += $create_props" in joined
-    assert "ON MATCH SET r += $match_props" in joined
+    assert "CREATE (a)-[r:USED]->(b)" in joined
+    assert "MATCH (a)-[r:USED]->(b)" in joined
     assert "SET r += $rel_props" not in joined
+    assert "ON CREATE SET" not in joined
 
 
 @pytest.mark.asyncio

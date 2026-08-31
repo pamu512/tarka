@@ -17,8 +17,8 @@ The repository root also has other **load-bearing** trees (not leftover):
 (`docker-compose.yml` and overlays) stay at root and include files under
 `infra/deploy/`.
 
-Leftovers (cookiecutter, cargo-fuzz, SQL trigger, root pointers) live in
-[`legacy_attic/`](../legacy_attic/README.md) (attic, not delete).
+The immutable-cases SQL trigger lives in
+[`legacy_attic/triggers/`](../legacy_attic/triggers/). Root cargo-fuzz is `fuzz/`.
 
 ## services/
 
@@ -56,14 +56,8 @@ Primary workloads hoisted from the former `tarka_v2_core/` wrapper:
 |------|------|
 | [`INDEX.md`](INDEX.md) | Operator hub |
 | [`docs/`](docs/) + [`mkdocs.yml`](mkdocs.yml) | MkDocs site source (`mkdocs serve` from `docs/`; do not commit `site/`) |
-| [`guides/`](docs/guides/) via `docs/docs/guides/` | Runbooks (flows, deploy, honesty) |
+| [`guides/`](docs/guides/) via `docs/docs/guides/` | Runbooks (flows, deploy) |
 | [`superpowers/`](superpowers/) | Recent design specs/plans only |
 | [`compliance/`](compliance/) | Control narratives (not certifications) |
-| Wiki mirror | [`wiki/`](wiki/) — publish with [`scripts/docs/sync-github-wiki.sh`](../scripts/docs/sync-github-wiki.sh); hub wins on conflict |
 
-Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md). Canonical honesty ledger: [`STUB_REGISTER.md`](STUB_REGISTER.md).
-
-## Migration
-
-The v1.3 hoist script (`infra/scripts/restructure_v130_layout.py`) is historical
-and already applied. Do not re-run it: it still `rmtree`s `legacy_attic/`.
+Root product docs: [`../README.md`](../README.md), [`../VISION.md`](../VISION.md), [`../ARCHITECTURE.md`](../ARCHITECTURE.md).

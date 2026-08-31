@@ -33,7 +33,7 @@ flowchart LR
 | **orchestrator** | TransactionSchema ingest → evaluate → optional Shadow |
 | **shadow_agent** | Local-first forensics LLM (Ollama/OpenAI-compatible) |
 | **investigation-agent** | Pack-why on evaluate-born residual cases; copilot + AgentRun |
-| **graph-service** | Entity graph HTTP; orchestrator GraphClient (Janus/Neo4j) |
+| **graph-service** | Entity graph HTTP. Lite default: Apache AGE on the same Postgres. Janus / Neo4j optional overlays. |
 | **signal-api** | Features + ML under one plane |
 | **integration-ingress** | OSINT, sanctions, Integration Hub, vault/KMS |
 | **data-plane** | Async ingest + analytics sink |
@@ -47,9 +47,9 @@ Legacy Python `rule_engine` HTTP evaluate is dual-run / compatibility only (`RUL
 
 | Store | Use |
 |-------|-----|
-| PostgreSQL | Cases, SAR, audit-oriented SoR, feature definitions |
+| PostgreSQL + Apache AGE | Cases, leftovers, SAR, audit, lite graph (`GRAPH_BACKEND=age`) |
 | Redis | Tags, velocities, telemetry dual-write |
-| JanusGraph / Neo4j | Topology (optional; `--profile graph`). Off on lite. |
+| JanusGraph / Neo4j | Optional topology overlay (`--profile graph` + graph-wire). Not Day-1. |
 | ClickHouse / DuckDB | Analytics KPIs (503 when offline) |
 | NATS JetStream | Async workers |
 | SQLite | Trend agent store; Shadow audit (sidecar) |
@@ -64,12 +64,7 @@ Legacy Python `rule_engine` HTTP evaluate is dual-run / compatibility only (`RUL
 | `…/docker-compose.fraud-desk.yml` | Lean nav + desk-strict |
 | `…/docker-compose.v2-ingest.yml` | Ingest + Shadow |
 | `--profile trend-tick` | Always-on trend drafts |
-| `--profile graph` | Gremlin + graph-service |
+| graph-service (lite) | AGE on the lite Postgres |
+| `--profile graph` + graph-wire | Janus/Gremlin overlay (optional) |
 
 Gateway map: `frontend/nginx.conf`.
-
----
-
-## Honesty
-
-See [`docs/STUB_REGISTER.md`](../STUB_REGISTER.md) and [productionization runbook](guides/repo-productionization-runbook.md).

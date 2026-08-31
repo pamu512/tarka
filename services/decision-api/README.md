@@ -4,6 +4,8 @@ Canonical evaluate service. Rust JSON packs (`tarka_rule_engine` via `tarka-core
 
 Service docs: [`docs/docs/services/decision-api.md`](../../docs/docs/services/decision-api.md). The former `legacy_v1_decision_api` tree has been removed; rules and alembic live here.
 
+Observe: leftover promote gate + `live_rule_slip` on `GET /v1/calibration/shadow-promote-gate`. Park is tick-only. Scout-pack that would clobber a slip draft is `409 slip_draft_exists`.
+
 ## Build & run
 
 ```bash

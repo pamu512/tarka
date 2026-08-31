@@ -7,17 +7,14 @@ Canonical **deterministic evaluate** is **decision-api** (Rust packs via `tarka-
 
 The Python AST sidecar (`services/rule_engine`, historically `:8778` / `:8001`) is **legacy dual-run / rollback only** (`RULE_EVAL_BACKEND=python` or `RULE_EVAL_DUAL_RUN=true`). See `services/rule_engine/DEPRECATED.md` and `infra/deploy/docker-compose.v2-ingest.yml` profile `legacy-python-rules`.
 
-`services/core_v2` is **quarantined** — not on the default stack. Use `docker-compose.streams-ai.yml` only if you still need that Redis-streams speed layer.
-
 ---
 
 ## Default stacks (pick one)
 
 | Stack | Compose | Evaluate surface |
 |-------|---------|------------------|
-| **Default / Lite** | `docker-compose.yml` → `infra/deploy/docker-compose.lite.yml` | `core-api` `:8000` `/decisions/.../evaluate` |
+| **Default / Lite** | `docker-compose.yml` → `infra/deploy/docker-compose.lite.yml` | `core-api` `:8000` `/decisions/.../evaluate` + AGE `graph-service` `:8001`. Desk home `/graph`. |
 | **V2 ingest** | `infra/deploy/docker-compose.v2-ingest.yml` | Orchestrator → decision-api; Shadow on `SHADOW_REVIEW` |
-| **Streams AI (legacy)** | `docker-compose.streams-ai.yml` | `core_v2` (deprecated) + ML/copilot sidecars |
 
 ---
 
@@ -182,7 +179,6 @@ Shadow agent loads prior rows for `entity_id` before LLM inference, then **adds 
 | `services/shadow_agent/` | Analyze + audit persistence + Ollama client. |
 | `services/shadow/` | Library hooks used by orchestrator (not an HTTP service). |
 | `tools/shadow/` | Desktop forensics console. |
-| `services/core_v2/` | Quarantined speed-layer; streams-ai compose only. |
 | `services/ingestor/` | `TransactionSchema` + manifest types. |
 | `packages/shared-core/tarka_shared/` | `AuditLog`, `Case`, DB session helpers. |
 | `docs/superpowers/specs/2026-07-11-one-rust-rule-engine-design.md` | Approach A design. |

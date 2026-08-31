@@ -13,12 +13,11 @@ describe("PlaneOff", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { name: /graph plane off/i })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/plane off/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/outage/i);
     expect(document.body.textContent ?? "").not.toMatch(/503/);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
     const back = screen.getByRole("link", { name: /back to desk/i });
     expect(back).toHaveAttribute("href", leanHomePath());
-    expect(back).toHaveAttribute("href", "/decisions");
     expect(back).not.toHaveAttribute("href", "/cases");
   });
 

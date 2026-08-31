@@ -13,9 +13,17 @@ from typing import Any
 log = logging.getLogger("tarka.decision_graph")
 
 
+def graph_write_url_configured() -> bool:
+    return bool(_base_url())
+
+
 def _enabled() -> bool:
-    raw = (os.environ.get("DECISION_GRAPH_ENABLED") or "0").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    raw = (os.environ.get("DECISION_GRAPH_ENABLED") or "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    return bool(_base_url())
 
 
 def _base_url() -> str:

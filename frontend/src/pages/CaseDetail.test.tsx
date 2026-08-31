@@ -34,6 +34,10 @@ vi.mock("@/api/client", async (importOriginal) => {
       entityRisk: vi.fn().mockRejectedValue(new Error("skip")),
       subgraph: vi.fn().mockRejectedValue(new Error("skip")),
       riskPropagation: vi.fn().mockResolvedValue({ entities: [] }),
+      getEntity: vi.fn().mockResolvedValue(null),
+      entityLinks: vi.fn().mockResolvedValue(null),
+      entityHistory: vi.fn().mockResolvedValue(null),
+      entityDeepContext: vi.fn().mockResolvedValue(null),
     },
     disputes: {
       ...actual.disputes,
@@ -225,6 +229,9 @@ describe("CaseDetail device integrity strip", () => {
     render(wrap(<CaseDetail />));
     const strip = await screen.findByTestId("device-integrity-strip");
     expect(strip).toBeInTheDocument();
+    const hunt = await screen.findByTestId("hunt-this-object");
+    expect(hunt).toHaveAttribute("href", "/graph?entity_id=ent-1&tenant_id=demo");
+    expect(hunt).toHaveTextContent("Hunt this object");
     expect(screen.getByTestId("device-integrity-rooted")).toHaveTextContent("missing");
     expect(screen.getByTestId("device-integrity-jailbroken")).toHaveTextContent("missing");
     expect(screen.getByTestId("device-integrity-biometrics")).toHaveTextContent("missing");

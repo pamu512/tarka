@@ -1,6 +1,6 @@
 # Counter replay and online/offline parity (v1.2.0)
 
-**Release target:** `v1.2.0` on **2026-05-30**. **Ship hold:** no tag or GitHub release until **[Epic C Release Candidate Gate Criteria](#epic-c-release-candidate-gate-criteria)** are satisfied on the RC commit ([`RELEASE_SCHEDULE.md`](../honesty.md)).
+**Release target:** `v1.2.0` on **2026-05-30**. **Ship hold:** no tag or GitHub release until **[Epic C Release Candidate Gate Criteria](#epic-c-release-candidate-gate-criteria)** are satisfied on the RC commit.
 
 **Scope for May 2026:** Epic C is **frozen for feature work**. Remaining work is **operational validation only**—execute the gate checklist on the RC branch, attach evidence, and obtain sign-offs. Implementation surface (manifest, replay APIs, scripts, CI workflows) is already on trunk; do not expand counter semantics before the tag.
 

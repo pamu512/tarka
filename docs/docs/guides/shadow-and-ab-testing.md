@@ -2,6 +2,8 @@
 
 Tarka separates **live decisions** from **observe-only evaluate** and offline simulation. In this guide, **shadow mode** means **Observe** — evaluate with no live side effects — not the LLM sidecar (Advise).
 
+Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). The leftover card is leftover **cost** + leftover-extra **helpfulness**. **Live rule slip** names a live `rule_id` when fire-rate or hit-mix shifts; a host shadow parks only when exactly one of retire / successor has support. GET `shadow-promote-gate` does not write packs. Promote does not strip the live rule. Scout cannot clobber a slip draft (`409 slip_draft_exists`).
+
 - **Live:** `POST /v1/decisions/evaluate` — production side effects when not marked observe.
 - **Observe (named contract):** same evaluate path with `metadata.shadow: true` — full scoring + audit, **non-mutating** side effects.
 - **Offline / synthetic:** `/v1/simulation/*` — labeled scenarios and A/B without production traffic.

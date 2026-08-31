@@ -11,6 +11,7 @@ _SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
     "graph:unavailable": "Signal Graph risk was unavailable",
     "graph:unconfigured": "Signal Graph risk URL unset",
     "graph:missing": "Signal Graph risk URL unset",
+    "graph:write_failed": "Graph object write failed (evaluate still decided)",
     "enrichment:unavailable": "Signal Feature enrichment was unavailable",
     "enrichment:unconfigured": "Signal Feature enrichment URL unset",
     "ml:unavailable": "Signal ML scoring was unavailable",

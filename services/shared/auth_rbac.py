@@ -282,6 +282,25 @@ def require_role(role: str):
     return _check
 
 
+def require_role_or_insecure_desk(role: str):
+    """Same as require_role, except local ALLOW_INSECURE anonymous may act.
+
+    Production fail-closes insecure. Other analyst routes stay require_role.
+    """
+
+    async def _check(request: Request) -> AuthUser:
+        user: AuthUser = getattr(request.state, "auth_user", None)
+        if not user:
+            raise HTTPException(401, "not authenticated")
+        if user.has_role(role):
+            return user
+        if _allow_insecure_no_auth() and user.auth_type == "none":
+            return user
+        raise HTTPException(403, f"role '{role}' required, you have {user.roles}")
+
+    return _check
+
+
 def get_current_user(request: Request) -> AuthUser:
     return getattr(
         request.state, "auth_user", AuthUser("anonymous", ["viewer"], "none", tenant_ids=set())

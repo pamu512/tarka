@@ -4,7 +4,7 @@
 **Default production shape:** one Linux VM (or a small VM pair), Docker Compose v2.  
 **Not required:** Apple Silicon, JanusGraph, or Ollama.
 
-Day-1 is **evaluate-only** (Rust packs + `core-api` + thin desk). Graph, signals, investigation, async ingest, and local Shadow are add-on overlays. Empty plane URL = plane off. Do not colocate JanusGraph and Ollama on the evaluate host.
+Day-1 is **lite**: Rust packs + `core-api` + Apache AGE + `graph-service` + thin desk (Hunt `/graph`). Signals, investigation, Janus overlay, async ingest, and local Shadow are add-on overlays. Empty Advise / signals URL = that plane off. Empty graph URL is evaluate-only fallback, not the product. Do not colocate JanusGraph and Ollama on the evaluate host.
 
 Architecture pointer (do not treat that file as the Day-1 process list): repo-root [`ARCHITECTURE.md`](../../../ARCHITECTURE.md).
 
@@ -31,23 +31,23 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 
 | Profile | Compose | Services (typical) | Linux RAM floor | When to turn on |
 |---------|---------|--------------------|-----------------|-----------------|
-| **Evaluate-only / thin desk** | `docker-compose.lite.yml` (optional `docker-compose.fraud-desk.yml`) | postgres, redis, core-api, frontend | **~3 GB** | **Day-1 default.** Rust evaluate + packs. Lean `/decisions` + `/rules` (+ residual `/cases`). No nats, no signal-api, no investigation-agent, no ingress. |
+| **Lite / thin desk** | `docker-compose.lite.yml` (optional `docker-compose.fraud-desk.yml`) | postgres (AGE), redis, graph-service, core-api, frontend | **~4 GB** | **Day-1 default.** Rust evaluate + packs + AGE Hunt. Lean `/graph`, `/leftovers`, `/ops/shadow`, `/decisions`, `/rules`. `/cases` hidden. No nats, no signal-api, no investigation-agent, no ingress. |
 | **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Advise / copilot. Sets desk `VITE_INVESTIGATION_AGENT_URL`. Empty URL hides Advise chrome. |
 | **+ signals** | lite + `docker-compose.signals.yml` | nats, signal-api `:8004`, integration-ingress `:8003` | **+2–3 GB** | Features / ML / calibration + ingress. Sets `FEATURE_SERVICE_URL` / `ML_SCORING_URL` and desk `VITE_SIGNAL_API_URL`. |
-| **Full desk** | `docker-compose.full-desk.yml` (lite + fraud-desk + signals + investigation) | evaluate-only plus nats, signal-api, ingress, investigation-agent | **~8 GB** | Former "Desk" shape. Analyst tools. Still no graph, no Ollama. |
+| **Full desk** | `docker-compose.full-desk.yml` (lite + fraud-desk + signals + investigation) | lite plus nats, signal-api, ingress, investigation-agent | **~8 GB** | Former "Desk" shape. Analyst tools. AGE graph already on lite. Still no Janus, no Ollama. |
 | **+ ingest** | lite `--profile ingest` (optional `docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
 | **+ OPA** | full compose `--profile opa` | `openpolicyagent/opa` `:8181` | **+256 MB** | Set `OPA_URL=http://opa:8181` on core-api. Empty URL skips the hop (no 2s timeout). Not part of `--profile full`. |
-| **+ graph** | lite `--profile graph` + `docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`), graph-service `:8001` | **+8 GB** | Topology / multi-account edges. Overlay sets `GRAPH_SERVICE_URL` / desk `VITE_GRAPH_SERVICE_URL`. Empty URL hides Graph nav (honest "plane off", not a 503 tab). |
+| **+ Janus graph** | lite `--profile graph` + `docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`); graph-service already on lite | **+8 GB** | Optional Gremlin backend. Lite already has AGE. Empty `VITE_GRAPH_SERVICE_URL` hides Hunt (honest "plane off"). |
 | **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends (Claude / Gemini / Qwen) add ~256 MB. | Forensics. Advise only. Set `SHADOW_LLM_BACKEND`. |
 | **Full triad on one box** | full desk + graph + large local LLM | all of the above | **~24 GB+** | Lab / demo. Not the production default. |
 
 Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay — do not treat it as this Day-1 shape.
 
-Disk: **≥ 12 GB** free for evaluate-only images; **≥ 20 GB** for full desk; **≥ 40 GB** if you also store 30B-class weights.
+Disk: **≥ 12 GB** free for lite images; **≥ 20 GB** for full desk; **≥ 40 GB** if you also store 30B-class weights.
 
 ---
 
-## Bring-up (evaluate-only / thin desk)
+## Bring-up (lite / thin desk)
 
 From repo root:
 
@@ -173,7 +173,7 @@ Do not put Janus + Ollama + evaluate on one VM and call it production.
 
 ---
 
-## Health and ports (evaluate-only)
+## Health and ports (lite)
 
 | Check | URL |
 |-------|-----|

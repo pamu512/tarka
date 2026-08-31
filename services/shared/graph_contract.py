@@ -31,12 +31,30 @@ CORE_ETYPES = frozenset(
         "OWNS",
         "REFERRED",
         "KYC_VERIFIED_BY",
+        "USED_DEVICE",
+        "USED_SESSION",
+        "USED_IP",
+        "MADE_PAYMENT",
+        "PERFORMED_LOGIN",
     }
 )
 
 # Legacy labels tenants may still register. Not a second identity system.
 LEGACY_VTYPES = frozenset(
-    {"Person", "Account", "Device", "Payment", "Document", "Decision", "Custom", "User"}
+    {
+        "Person",
+        "Account",
+        "Device",
+        "Payment",
+        "Document",
+        "Decision",
+        "Custom",
+        "User",
+        "Login",
+        "Session",
+        "Ip",
+        "LicensePlate",
+    }
 )
 
 _SAFE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
@@ -201,7 +219,7 @@ def _is_user_node(node: dict[str, Any]) -> bool:
 
 def _is_bridge_node(node: dict[str, Any]) -> bool:
     labels = {str(x).lower() for x in _labels_of(node)}
-    return bool(labels & BRIDGE_VTYPES)
+    return bool(labels & (BRIDGE_VTYPES | {"session", "document", "licenseplate"}))
 
 
 def graph_answers_from_neighborhood(
@@ -226,9 +244,15 @@ def graph_answers_from_neighborhood(
     for e in edges or []:
         if not isinstance(e, dict):
             continue
-        et = str(e.get("type") or e.get("rel") or e.get("etype") or "").strip()
-        src = str(e.get("from_id") or e.get("src") or e.get("from") or "").strip()
-        dst = str(e.get("to_id") or e.get("dst") or e.get("to") or "").strip()
+        et = str(
+            e.get("type") or e.get("rel") or e.get("etype") or e.get("relationship") or ""
+        ).strip()
+        src = str(
+            e.get("from_id") or e.get("src") or e.get("from") or e.get("from_external_id") or ""
+        ).strip()
+        dst = str(
+            e.get("to_id") or e.get("dst") or e.get("to") or e.get("to_external_id") or ""
+        ).strip()
         if not et or not src or not dst:
             continue
         named_edges.append({"from_id": src, "to_id": dst, "type": et})
@@ -278,9 +302,15 @@ def consume_graph_answers(graph_meta: dict[str, Any] | None) -> dict[str, Any]:
         for e in edges_raw:
             if not isinstance(e, dict):
                 continue
-            et = str(e.get("type") or e.get("rel") or "").strip()
-            src = str(e.get("from_id") or e.get("src") or e.get("from") or "").strip()
-            dst = str(e.get("to_id") or e.get("dst") or e.get("to") or "").strip()
+            et = str(
+                e.get("type") or e.get("rel") or e.get("etype") or e.get("relationship") or ""
+            ).strip()
+            src = str(
+                e.get("from_id") or e.get("src") or e.get("from") or e.get("from_external_id") or ""
+            ).strip()
+            dst = str(
+                e.get("to_id") or e.get("dst") or e.get("to") or e.get("to_external_id") or ""
+            ).strip()
             if et and src and dst:
                 named.append({"from_id": src, "to_id": dst, "type": et})
     roles = graph_meta.get("roles")

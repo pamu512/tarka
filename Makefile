@@ -1,4 +1,4 @@
-# Tarka v2 stack automation (Compose + local ML tooling).
+# Tarka desk automation (lite + fraud-desk compose).
 # Run targets from the repository root.
 #
 # Compose: defaults to ``docker compose`` (Docker Compose V2). To use the legacy
@@ -10,12 +10,10 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-MODEL_PATH := $(ROOT)/services/ml_sidecar/models/baseline_fraud_v1.onnx
-
-.PHONY: build up down logs audit test-ml train-model verify-model policy-check contract-check trend-tick help
+.PHONY: build up down logs policy-check contract-check trend-tick help
 
 help:
-	@echo "Targets: build up down logs audit test-ml train-model verify-model policy-check contract-check trend-tick"
+	@echo "Targets: build up down logs policy-check contract-check trend-tick"
 
 # Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
 policy-check:
@@ -37,23 +35,6 @@ down:
 
 logs:
 	$(COMPOSE) logs -f
-
-audit:
-	cd "$(ROOT)/services/core_v2" && ruff check .
-	cd "$(ROOT)/services/core_v2" && python3 -m pytest tests/ -q
-
-test-ml: verify-model
-	cd "$(ROOT)/services/ml_sidecar" && python3 -c "\
-from onnx_engine import FraudPredictor; \
-p = FraudPredictor(); \
-score = p.predict([100.0, 1.0, 2.0, 50.0, 12.0]); \
-print('ML inference smoke OK', score)"
-
-train-model:
-	cd "$(ROOT)" && python3 scripts/train_baseline_xgboost.py
-
-verify-model:
-	cd "$(ROOT)" && export TARKA_ONNX_MODEL="$(MODEL_PATH)" && python3 -c "import os, onnxruntime as ort; ort.InferenceSession(os.environ['TARKA_ONNX_MODEL']); print('Model Validated: OK')"
 
 # Always-on trend tick (host loop). Override DECISION_API_URL / TREND_TICK_INTERVAL_S.
 trend-tick:

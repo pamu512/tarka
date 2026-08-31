@@ -39,8 +39,8 @@ function remediation(
       return { ...common, text: "Verify Redis URL and decision-api health (Help → Readiness)" };
     case "graph_service_configured":
       return tier === "community"
-        ? { ...common, text: "Optional in Community tier; enable graph profile for Pro stack" }
-        : { ...common, text: "Set GRAPH_SERVICE_URL and start graph profile (deployment guide)" };
+        ? { ...common, text: "Set GRAPH_SERVICE_URL — graph is required on this desk" }
+        : { ...common, text: "Set GRAPH_SERVICE_URL and start graph-service (deployment guide)" };
     case "feature_service_configured":
     case "ml_scoring_configured":
       return { ...common, text: "Enable ML profile or set service URLs in environment" };

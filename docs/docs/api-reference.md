@@ -490,7 +490,7 @@ Unscored nodes (`risk_computed_at` absent) are excluded. Order: `risk_score` DES
 
 ## Case API — `:8002` {#case-api}
 
-**Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [competitor-parity.md](architecture.md#case-api--queue-routing--sar).
+**Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [case-api](services/case-api.md).
 
 ### Cases
 
@@ -732,7 +732,7 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 
 OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
 
-JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.dlq` and `fraud.ingest.mapping.request`. Guide: [competitor-parity.md](architecture.md).
+JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.dlq` and `fraud.ingest.mapping.request`.
 
 ---
 

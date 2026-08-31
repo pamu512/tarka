@@ -2,7 +2,7 @@
 
 **Prove every signal.** Local-first fraud OS you run yourself.
 
-Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review / investigation is residual — born from evaluate deny / review. ALLOW never becomes a case. Graph is optional topological memory. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is evaluate with `metadata.shadow` — not the LLM.
+Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review is residual — leftovers + Hunt, not a CRM inbox. ALLOW never becomes a leftover. Graph is **required for the desk** (AGE on lite, or yours). Evaluate never waits on it. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is pack canary + leftover promote + live-rule slip on `/ops/shadow`. RFP "shadow mode" = evaluate with `metadata.shadow` — not the LLM.
 
 ---
 
@@ -15,13 +15,12 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
 | [GNN label loop](guides/gnn-label-loop.md) | Offline snapshot/export/holdout; serve off unless heuristic_v1 loses |
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
-| [Productionization](guides/repo-productionization-runbook.md) | Trend tick, honesty knobs, desk-strict |
-| [STUB_REGISTER](../STUB_REGISTER.md) | Honesty ledger (no Potemkin APIs) |
+| [Productionization](guides/repo-productionization-runbook.md) | Trend tick, desk-strict knobs |
 | [Operator hub](../INDEX.md) | Documentation index |
 
 ## Compose paths
 
-1. **Evaluate-only / day-1:** `infra/deploy/docker-compose.lite.yml` (optional fraud-desk overlay) → **core-api** (evaluate + residual cases + thin desk). Agent / signal-api / ingress are overlays.
+1. **Lite / day-1:** `infra/deploy/docker-compose.lite.yml` (optional fraud-desk overlay) → **core-api** + **graph-service** (Apache AGE) + thin desk (Hunt `/graph`, leftovers, `/ops/shadow`). Agent / signal-api / ingress / Janus are overlays.
 2. **Ingest rail (optional):** `infra/deploy/docker-compose.v2-ingest.yml` → orchestrator + shadow_agent (async ingest; not required for day-1)
 3. **Trend loop (optional):** `--profile trend-tick` or `make trend-tick`
 

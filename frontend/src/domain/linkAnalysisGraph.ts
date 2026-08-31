@@ -129,6 +129,7 @@ export function riskFromNodeProperties(properties: Record<string, unknown>): num
 export type LinkAnalysisGraphNode = GraphNode & {
   /** 0–100 display risk; null when analytics did not supply a score. */
   displayRisk: number | null;
+  lastOutcome?: "deny" | "review" | "flag" | "allow" | "unknown";
 };
 
 export function buildRiskScoreByEntityId(

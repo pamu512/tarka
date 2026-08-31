@@ -14,7 +14,7 @@ INVESTIGATION = REPO / "infra" / "deploy" / "docker-compose.investigation.yml"
 SIGNALS = REPO / "infra" / "deploy" / "docker-compose.signals.yml"
 
 PLANE_SERVICES = ("investigation-agent", "signal-api", "integration-ingress")
-EVALUATE_ONLY = ("postgres", "redis", "core-api", "frontend")
+EVALUATE_ONLY = ("postgres", "redis", "graph-service", "core-api", "frontend")
 
 
 def _service_blocks(text: str) -> dict[str, str]:
@@ -51,6 +51,12 @@ def test_lite_default_excludes_plane_services() -> None:
     for plane in PLANE_SERVICES:
         assert plane not in default, f"{plane} must not start on default lite"
     assert "nats" not in default, "nats is unused for sync evaluate; keep it on ingest/signals"
+    assert "janusgraph" not in default, "lite graph is Apache AGE on postgres, not Janus"
+    pg = blocks["postgres"]
+    assert "apache/age:" in pg, "lite postgres must be the Apache AGE image"
+    gs = blocks["graph-service"]
+    assert "GRAPH_BACKEND: age" in gs
+    assert "janusgraph" not in gs
 
 
 def test_overlays_restore_plane_services() -> None:

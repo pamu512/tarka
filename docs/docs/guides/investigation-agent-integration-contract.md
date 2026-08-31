@@ -64,7 +64,5 @@ Add `--api-key` if the deployment requires it.
 
 - [CHANGELOG_INTEGRATION](investigation-agent-integration-contract.md)
 - [Customer API change policy](investigation-agent-integration-contract.md) (notice windows, joint certification, contract vs customer API versions)
-- Adapter cookiecutter template: [`legacy_attic/templates/cookiecutter-investigation-integration-adapter/`](../../../legacy_attic/templates/cookiecutter-investigation-integration-adapter/) (OSS scaffold for HTTP adapters)
-
 - [Investigation Copilot — intended use & data flows](investigation-agent-intended-use-and-data-flows.md)
 - [Investigation Agent Project](../services/investigation-agent.md)

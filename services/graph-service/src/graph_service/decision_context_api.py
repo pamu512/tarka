@@ -48,6 +48,8 @@ class RecordDecisionRequest(BaseModel):
         default_factory=list,
         description="Causal edges FROM listed parents TO this decision",
     )
+    objects: list[dict[str, Any]] = Field(default_factory=list)
+    object_links: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class InvalidateRequest(BaseModel):
@@ -107,7 +109,7 @@ def _maybe_mirror_semantica(
 
 
 @router.post("/v1/decisions")
-def post_decision(body: RecordDecisionRequest) -> dict[str, Any]:
+async def post_decision(body: RecordDecisionRequest) -> dict[str, Any]:
     _require_enabled()
     try:
         did = store.record_decision(
@@ -141,7 +143,12 @@ def post_decision(body: RecordDecisionRequest) -> dict[str, Any]:
     row = store.get_decision(body.tenant_id, did)
     assert row is not None
     row = _maybe_mirror_semantica(body, did, row)
-    schedule_mirror(body.tenant_id, row)
+    await schedule_mirror(
+        body.tenant_id,
+        row,
+        objects=list(body.objects),
+        object_links=list(body.object_links),
+    )
     return row
 
 

@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import hmac
+import inspect
 import json
 import logging
 import os
@@ -46,7 +47,15 @@ from .graph_case_api import router as graph_case_router
 from .investigation_templates_api import router as investigation_templates_router
 from .ml_training_api import router as ml_training_router
 from .multi_party_links import build_multi_party_links
-from .models import Case, CaseComment, CaseView, SarAuditLog, SARFiling, SarFiling
+from .models import (
+    Case,
+    CaseComment,
+    CaseView,
+    LeftoverPromoteAck,
+    SarAuditLog,
+    SARFiling,
+    SarFiling,
+)
 from .ops_kpi_series import router as ops_kpi_series_router
 from .retention import DEFAULT_RETENTION_DAYS, retention_loop
 from .routing import evaluate_case_routing
@@ -75,7 +84,15 @@ from .sar_transport_worker import (
     setup_sar_transport_worker,
     shutdown_sar_transport_worker,
 )
-from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn
+from .leftover import (
+    actor_from_request,
+    apply_claim,
+    claimed_by_other,
+    clear_claim,
+    is_leftover,
+    leftover_row,
+)
+from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn, ObjectActRequest
 from .template_apply import (
     apply_case_payload_to_case,
     apply_investigation_template_transaction,
@@ -88,13 +105,15 @@ from .decision_context_proxy import (
 )
 from .disposition import (
     apply_status_with_maker_checker,
+    escalate_status_for_reason,
     maker_checker_public,
+    normalize_reason_code,
     parse_maker_checker_statuses,
 )
 from .workflow import evaluate_workflows, get_workflows, is_sla_breached, load_workflows
 
 from audit_trail import AuditTrail, create_audit_model  # noqa: E402
-from auth_rbac import get_current_user, require_role, setup_auth  # noqa: E402
+from auth_rbac import get_current_user, require_role, require_role_or_insecure_desk, setup_auth  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from rate_limiter import setup_rate_limiter  # noqa: E402
 from tarka_shared.tracing import setup_tracing  # noqa: E402
@@ -402,7 +421,11 @@ if os.environ.get("TARKA_CORE_API_SUBAPP", "").strip() != "1":
     setup_observability(app, "case-api")
     setup_tracing(app, "case-api")
 setup_auth(app)
-setup_rate_limiter(app, rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")))
+setup_rate_limiter(
+    app,
+    rpm=int(os.environ.get("RATE_LIMIT_RPM", "600")),
+    burst=int(os.environ.get("RATE_LIMIT_BURST", "60")),
+)
 _cors_origins = (
     [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
     if settings.cors_origins
@@ -562,7 +585,8 @@ async def create_case(
             trace_id=body.trace_id,
             priority=body.priority,
             status="open",
-            labels=[],
+            labels=list(body.labels or []),
+            last_outcome=(body.last_outcome or "").strip() or None,
             assigned_team=routed_team,
         )
         session.add(c)
@@ -645,6 +669,340 @@ async def create_case(
     except SQLAlchemyError as exc:
         await session.rollback()
         raise HTTPException(status_code=503, detail="case_store_unavailable") from exc
+
+
+def _claimed_conflict_http(claimed_by: str) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": "claimed", "claimed_by": claimed_by})
+
+
+def _actor_id(request: Request) -> str:
+    return actor_from_request(request, get_current_user(request).user_id)
+
+
+async def _open_case_for_entity(
+    session: AsyncSession, tenant_id: str, entity_id: str
+) -> Case | None:
+    q = (
+        select(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            Case.entity_id == entity_id,
+            func.lower(Case.status).in_(("open", "investigating")),
+        )
+        .order_by(Case.created_at.desc())
+        .limit(1)
+    )
+    return (await session.execute(q)).scalar_one_or_none()
+
+
+@app.get("/v1/leftovers")
+async def list_leftovers(
+    tenant_id: str,
+    free_only: int = 0,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    q = (
+        select(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            func.lower(Case.status).in_(("open", "investigating")),
+        )
+        .order_by(Case.updated_at.desc())
+    )
+    rows = list((await session.execute(q)).scalars().all())
+    leftovers = [c for c in rows if is_leftover(c)]
+    if free_only:
+        leftovers = [c for c in leftovers if not str(c.claimed_by or "").strip()]
+    truncated = len(leftovers) > 100
+    leftovers = leftovers[:100]
+    return {
+        "leftovers": [
+            leftover_row(
+                c,
+                sla_breached=is_sla_breached(
+                    c.priority,
+                    c.created_at,
+                    sla_hours_override=c.sla_hours_override,
+                ),
+            )
+            for c in leftovers
+        ],
+        "truncated": truncated,
+    }
+
+
+class LeftoverPromoteAckIn(BaseModel):
+    tenant_id: str
+    draft_id: str
+
+
+async def _leftovers_for_tenant(session: AsyncSession, tenant_id: str) -> list[Case]:
+    q = (
+        select(Case)
+        .where(
+            Case.tenant_id == tenant_id,
+            func.lower(Case.status).in_(("open", "investigating")),
+        )
+        .order_by(Case.updated_at.desc())
+    )
+    rows = list((await session.execute(q)).scalars().all())
+    return [c for c in rows if is_leftover(c)]
+
+
+def _leftover_claimers(leftovers: list[Case]) -> list[str]:
+    seen: list[str] = []
+    for case in leftovers:
+        who = str(getattr(case, "claimed_by", None) or "").strip()
+        if who and who not in seen:
+            seen.append(who)
+    return seen
+
+
+def _promote_ack_out(row: LeftoverPromoteAck | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {
+        "draft_id": row.draft_id,
+        "acked_by": row.acked_by,
+        "acked_at": row.acked_at,
+    }
+
+
+@app.get("/v1/leftovers/promote-ack")
+async def get_leftover_promote_ack(
+    tenant_id: str,
+    draft_id: str,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    leftovers = await _leftovers_for_tenant(session, tenant_id)
+    claimers = _leftover_claimers(leftovers)
+    row = (
+        await session.execute(
+            select(LeftoverPromoteAck).where(
+                LeftoverPromoteAck.tenant_id == tenant_id,
+                LeftoverPromoteAck.draft_id == draft_id,
+            )
+        )
+    ).scalar_one_or_none()
+    return {
+        "ack": _promote_ack_out(row),
+        "claimers": claimers,
+        "required": bool(claimers),
+    }
+
+
+@app.post("/v1/leftovers/promote-ack")
+async def post_leftover_promote_ack(
+    body: LeftoverPromoteAckIn,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    draft_id = (body.draft_id or "").strip()
+    if not draft_id:
+        raise HTTPException(status_code=400, detail="draft_id is required")
+    leftovers = await _leftovers_for_tenant(session, body.tenant_id)
+    claimers = _leftover_claimers(leftovers)
+    actor = _actor_id(request)
+    if actor not in claimers:
+        raise HTTPException(status_code=403, detail="not_a_claimer")
+    row = (
+        await session.execute(
+            select(LeftoverPromoteAck).where(
+                LeftoverPromoteAck.tenant_id == body.tenant_id,
+                LeftoverPromoteAck.draft_id == draft_id,
+            )
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if row is None:
+        row = LeftoverPromoteAck(
+            tenant_id=body.tenant_id,
+            draft_id=draft_id,
+            acked_by=actor,
+            acked_at=now,
+        )
+        session.add(row)
+    else:
+        row.acked_by = actor
+        row.acked_at = now
+    await session.commit()
+    await session.refresh(row)
+    return {
+        "ack": _promote_ack_out(row),
+        "claimers": claimers,
+        "required": True,
+    }
+
+
+@app.post("/v1/leftovers/{case_id}/claim")
+async def claim_leftover(
+    case_id: uuid.UUID,
+    request: Request,
+    tenant_id: str,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    actor = _actor_id(request)
+    case = await _case_for_tenant(session, case_id, tenant_id)
+    if not is_leftover(case):
+        raise HTTPException(status_code=404, detail="not a leftover")
+    other = claimed_by_other(case, actor)
+    if other:
+        return _claimed_conflict_http(other)
+    apply_claim(case, actor)
+    await session.commit()
+    return leftover_row(
+        case,
+        sla_breached=is_sla_breached(
+            case.priority,
+            case.created_at,
+            sla_hours_override=case.sla_hours_override,
+        ),
+    )
+
+
+@app.post("/v1/entities/{entity_id}/act")
+async def act_on_entity(
+    entity_id: str,
+    body: ObjectActRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    _=Depends(require_role_or_insecure_desk("analyst")),
+):
+    """Hold / release / resolve this Person. Work stays on Hunt; leftover is the residual case."""
+    eid = (entity_id or "").strip()
+    if not eid:
+        raise HTTPException(status_code=400, detail="entity_id is required")
+    actor = _actor_id(request)
+    case = await _open_case_for_entity(session, body.tenant_id, eid)
+    created = False
+
+    if body.action == "hold":
+        if case is None:
+            case = Case(
+                tenant_id=body.tenant_id,
+                title=f"Act: hold {eid}",
+                entity_id=eid,
+                trace_id=(body.trace_id or "").strip() or f"act:{uuid.uuid4()}",
+                priority="medium",
+                status="open",
+                labels=["act:hold"],
+                last_act="held",
+            )
+            session.add(case)
+            created = True
+        else:
+            other = claimed_by_other(case, actor)
+            if other:
+                return _claimed_conflict_http(other)
+            labels = list(case.labels or [])
+            if "act:hold" not in labels:
+                labels.append("act:hold")
+                case.labels = labels
+            case.last_act = "held"
+        apply_claim(case, actor)
+        await session.commit()
+        await session.refresh(case)
+        if case.entity_id != eid:
+            raise HTTPException(status_code=500, detail="entity_id rewrite refused")
+        _maybe_record_human_disposition_decision(
+            case=case,
+            actor_id=actor,
+            status="held",
+            reason_code="hold",
+            trace_id=str(case.trace_id or ""),
+        )
+        out = {
+            "entity_id": eid,
+            "action": "hold",
+            "outcome": "held",
+            "case_id": str(case.id),
+            "created_leftover": created,
+            "trace_id": case.trace_id,
+        }
+        try:
+            await _trail.record(
+                session,
+                actor=actor,
+                action="object_act_hold",
+                resource_type="case",
+                resource_id=str(case.id),
+                changes={"entity_id": eid, "action": "hold"},
+                tenant_id=case.tenant_id,
+            )
+            await session.commit()
+        except SQLAlchemyError:
+            await session.rollback()
+            # ponytail: trail write is fail-soft. Hold + last_act already committed. Table is alembic 009 / create_all.
+        return out
+
+    if case is None or not is_leftover(case):
+        raise HTTPException(status_code=404, detail="leftover not found")
+
+    if body.action == "release":
+        other = claimed_by_other(case, actor)
+        if other:
+            return _claimed_conflict_http(other)
+        clear_claim(case)
+        case.last_act = "released"
+        await session.commit()
+        await session.refresh(case)
+        _maybe_record_human_disposition_decision(
+            case=case,
+            actor_id=actor,
+            status="released",
+            reason_code="release",
+            trace_id=str(case.trace_id or ""),
+        )
+        return {
+            "entity_id": eid,
+            "action": "release",
+            "outcome": "released",
+            "case_id": str(case.id),
+            "created_leftover": False,
+            "trace_id": case.trace_id,
+        }
+
+    try:
+        reason = normalize_reason_code(body.reason_code)
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="reason_code is required and must be known"
+        ) from None
+    if not reason:
+        raise HTTPException(status_code=400, detail="reason_code is required and must be known")
+    case.status = escalate_status_for_reason("resolved", reason)
+    case.last_act = "resolved"
+    clear_claim(case)
+    await session.commit()
+    await session.refresh(case)
+    _maybe_record_human_disposition_decision(
+        case=case,
+        actor_id=actor,
+        status="resolved",
+        reason_code=reason,
+        trace_id=str(case.trace_id or ""),
+    )
+    if str(case.trace_id or "").strip():
+        maybe = _persist_disposition_y_label(
+            request.app.state.http,
+            tenant_id=case.tenant_id,
+            trace_id=str(case.trace_id),
+            reason_code=reason,
+        )
+        if inspect.isawaitable(maybe):
+            await maybe
+    return {
+        "entity_id": eid,
+        "action": "resolve",
+        "outcome": "resolved",
+        "case_id": str(case.id),
+        "created_leftover": False,
+        "trace_id": case.trace_id,
+    }
 
 
 async def _case_for_tenant(session: AsyncSession, case_id: uuid.UUID, tenant_id: str) -> Case:

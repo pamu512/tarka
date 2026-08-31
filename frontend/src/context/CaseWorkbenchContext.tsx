@@ -169,9 +169,17 @@ export function CaseWorkbenchProvider({
     let auditOk = false;
     try {
       if (hasTrace) {
-        const audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
-          detail_level: "analyst",
-        });
+        // Viewer sessions 403 on analyst audit. Minimal still has pack-why (rule_pack_file + rule_hits).
+        let audit;
+        try {
+          audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
+            detail_level: "analyst",
+          });
+        } catch {
+          audit = await decisions.getAudit(caseData.trace_id, caseData.tenant_id, {
+            detail_level: "minimal",
+          });
+        }
         setDecisionExplain({
           score: audit.score,
           decision: audit.decision,

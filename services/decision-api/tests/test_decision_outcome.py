@@ -4,9 +4,11 @@ from decision_api.decision_outcome import (
     DecisionOutcomeContext,
     force_deny_from_degrade_tags,
     schedule_decision_outcomes,
+    try_record_evaluate_decision_graph,
     wrap_outcome_task,
 )
 from decision_api.degraded_decision_metrics import record_degraded_decision_metrics
+from decision_api.evaluate.score import signal_availability_notes_from_tags
 
 
 class _Bg:
@@ -15,6 +17,36 @@ class _Bg:
 
     def add_task(self, fn, *args, **kwargs):
         self.tasks.append((fn, args, kwargs))
+
+
+def test_try_record_evaluate_decision_graph_failsoft(monkeypatch):
+    import tarka_shared.decision_graph_client as client
+
+    ctx = DecisionOutcomeContext(
+        trace_id="tr",
+        tenant_id="ten",
+        entity_id="e",
+        event_type="login",
+        decision="review",
+        score=70.0,
+        tags=[],
+        device_context={"device_id": "dev-1"},
+    )
+    monkeypatch.setattr(client, "graph_write_url_configured", lambda: False)
+    assert try_record_evaluate_decision_graph(ctx) is True
+    monkeypatch.setattr(client, "graph_write_url_configured", lambda: True)
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: None)
+    assert try_record_evaluate_decision_graph(ctx) is False
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: "dec_1")
+    assert try_record_evaluate_decision_graph(ctx) is True
+    ctx.shadow_request = True
+    monkeypatch.setattr(client, "record_decision_failsoft", lambda _p: None)
+    assert try_record_evaluate_decision_graph(ctx) is True
+
+
+def test_graph_write_failed_signal_note():
+    notes = signal_availability_notes_from_tags(["graph:write_failed"])
+    assert notes and "still decided" in notes[0].lower()
 
 
 def test_force_deny_from_catalog_and_graph_tags():
@@ -94,6 +126,74 @@ def test_allow_does_not_create_case():
     assert not any(
         "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
     )
+
+
+def test_flag_does_not_create_case():
+    """flag is residual signal — it must never mint a leftover."""
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="t-flag",
+            tenant_id="ten",
+            entity_id="e-flag",
+            event_type="payment",
+            decision="flag",
+            score=40.0,
+            tags=[],
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda name, **_k: None,
+        case_create_on_deny_review=True,
+        case_api_url="http://case.test",
+    )
+    assert not any(
+        "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
+    )
+
+
+def test_maybe_create_case_sends_origin_evaluate_and_last_outcome():
+    import asyncio
+    from types import SimpleNamespace
+
+    from decision_api.decision_outcome import maybe_create_case_for_outcome
+
+    captured: dict = {}
+
+    class _Http:
+        async def post(self, url, *, json=None, headers=None, timeout=None):
+            captured["url"] = url
+            captured["json"] = json
+            return SimpleNamespace(status_code=201)
+
+    ctx = DecisionOutcomeContext(
+        trace_id="tr-deny",
+        tenant_id="ten",
+        entity_id="e1",
+        event_type="payment",
+        decision="deny",
+        score=90.0,
+        tags=[],
+    )
+    asyncio.run(
+        maybe_create_case_for_outcome(
+            http=_Http(),
+            case_api_url="http://case.test",
+            ctx=ctx,
+            headers={},
+        )
+    )
+    assert captured["json"]["labels"] == ["origin:evaluate"]
+    assert captured["json"]["last_outcome"] == "deny"
 
 
 def test_case_create_uses_internal_token_header():

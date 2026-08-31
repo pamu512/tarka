@@ -1,5 +1,0 @@
-# Compatibility wrapper — quarantined core_v2 stack lives in archive/.
-# Prefer the advertised desk pair (lite + fraud-desk).
-
-include:
-  - path: infra/deploy/archive/docker-compose.streams-ai.yml

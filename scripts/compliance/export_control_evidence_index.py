@@ -10,8 +10,6 @@ _REPO = Path(__file__).resolve().parents[2]
 _PATHS = [
     "docs/compliance/CLAIM_LOCK.md",
     "docs/compliance/soc2-pci/01-fail-closed-database-architecture.md",
-    "docs/STUB_REGISTER.md",
-    "docs/TIER_1_HONESTY_PROGRAM.md",
     "docs/docs/guides/shadow-and-ab-testing.md",
     "docs/docs/guides/partner-enrichment-fusion.md",
     "docs/docs/guides/calibration-ops-runbook.md",

@@ -24,13 +24,20 @@ MetricsInc = Callable[..., Any]
 BgAddTask = Callable[..., Any]
 
 
-def _record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> None:
-    """Best-effort Decision vertex for evaluate outcomes."""
+def try_record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> bool:
+    """Sync fail-soft graph write. True if written or URL unset. False if URL set and write failed."""
+    if ctx.shadow_request:
+        return True
     try:
-        from tarka_shared.decision_graph_client import record_decision_failsoft
+        from tarka_shared.decision_graph_client import (
+            graph_write_url_configured,
+            record_decision_failsoft,
+        )
         from tarka_shared.decision_graph_payload import build_evaluate_payload
     except ImportError:
-        return
+        return True
+    if not graph_write_url_configured():
+        return True
     payload = build_evaluate_payload(
         tenant_id=ctx.tenant_id,
         trace_id=ctx.trace_id,
@@ -44,8 +51,10 @@ def _record_evaluate_decision_graph(ctx: DecisionOutcomeContext) -> None:
         metadata=ctx.metadata,
         decision_log_record=ctx.decision_log_record,
         shadow_request=ctx.shadow_request,
+        device_context=ctx.device_context,
+        session_id=ctx.session_id,
     )
-    record_decision_failsoft(payload)
+    return record_decision_failsoft(payload) is not None
 
 
 def wrap_outcome_task(
@@ -91,6 +100,8 @@ class DecisionOutcomeContext:
     decision_log_record: dict[str, Any] | None = None
     degrade_tags: list[str] = field(default_factory=list)
     metadata: dict[str, Any] | None = None
+    device_context: dict[str, Any] | None = None
+    session_id: str | None = None
     # Production shadow duplicate: skip mutating side effects (graph, challenge, cases).
     shadow_request: bool = False
 
@@ -213,9 +224,6 @@ def schedule_decision_outcomes(
 
     if shadow_evaluation is not None:
         add(shadow_evaluation, *shadow_args)
-
-    # Decision context graph (fail-soft; never blocks evaluate).
-    add(_record_evaluate_decision_graph, ctx)
 
     if (
         not ctx.shadow_request
@@ -347,6 +355,8 @@ async def maybe_create_case_for_outcome(
         "entity_id": ctx.entity_id,
         "trace_id": ctx.trace_id,
         "priority": priority,
+        "labels": ["origin:evaluate"],
+        "last_outcome": ctx.decision,
     }
     try:
         r = await http.post(f"{base}/v1/cases", json=body, headers=headers, timeout=5.0)

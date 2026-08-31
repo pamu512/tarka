@@ -75,6 +75,52 @@ def test_shared_device_and_flagged_sibling_fires():
     assert eval_graph_v1("sibling_prior_flag", hop, tenant_id="t1") is True
 
 
+def test_hunt_used_device_write_satisfies_uses_device_atom():
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": [
+                {
+                    "from_external_id": "alice",
+                    "to_external_id": "dev-1",
+                    "relationship": "USED_DEVICE",
+                },
+            ],
+            "vertices": [
+                {"id": "alice", "labels": ["Person"]},
+                {"id": "dev-1", "labels": ["Device"]},
+            ],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="USES_DEVICE", tenant_id="t1") is True
+
+
+def test_evaluate_objects_write_satisfies_uses_device_atom():
+    from tarka_shared.decision_graph_payload import build_evaluate_objects
+
+    objects, links = build_evaluate_objects(
+        trace_id="tr-1",
+        entity_id="alice",
+        event_type="login",
+        payload={},
+        device_context={"device_id": "dev-1", "signals": {"ip": "203.0.113.9"}},
+        session_id="sess-1",
+    )
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": links,
+            "vertices": [{"id": o["external_id"], "labels": [o["entity_type"]]} for o in objects],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="USES_DEVICE", tenant_id="t1") is True
+    assert eval_graph_v1("has_etype", hop, etype="SEEN_FROM_IP", tenant_id="t1") is True
+
+
 def test_empty_url_does_not_fire_and_says_graph_missing():
     hop = hop_view_from_graph_meta(
         _shared_device_hop(),

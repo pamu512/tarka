@@ -1,6 +1,0 @@
-onnxruntime
-redis>=5.0.0
-pydantic>=2.0
-sqlalchemy>=2.0
-asyncpg
-structlog

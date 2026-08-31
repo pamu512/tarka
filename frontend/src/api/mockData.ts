@@ -1686,6 +1686,35 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       ],
     };
   }
+  if (path.includes("/api/graph/v1/entities/") && path.includes("/history")) {
+    const m = path.match(/\/entities\/([^/]+)\/history/);
+    const ext = m ? decodeURIComponent(m[1]) : "unknown";
+    if (ext === "__missing__") return { not_found: true };
+    return { entity_id: ext, last_trace_id: "tr-1001", trace_ids: ["tr-1001"], properties: {} };
+  }
+  if (path.includes("/api/graph/v1/entities/") && path.includes("/links")) {
+    const m = path.match(/\/entities\/([^/]+)\/links/);
+    const ext = m ? decodeURIComponent(m[1]) : "unknown";
+    if (ext === "__missing__") return { not_found: true };
+    return {
+      entity_id: ext,
+      nodes: [{ id: ext, labels: ["Person"], properties: {} }],
+      edges: [{ from_id: ext, to_id: "login:tr-1001", type: "PERFORMED_LOGIN", properties: {} }],
+    };
+  }
+  if (
+    path.includes("/api/graph/v1/entities/") &&
+    !path.includes("/search") &&
+    !path.includes("/tags") &&
+    !path.includes("/deep-context") &&
+    !path.includes("/links") &&
+    !path.includes("/history")
+  ) {
+    const m = path.match(/\/entities\/([^/?]+)/);
+    const ext = m ? decodeURIComponent(m[1]) : "unknown";
+    if (ext === "__missing__") return { not_found: true };
+    return { id: ext, labels: ["Person"], properties: { last_trace_id: "tr-1001" } };
+  }
   if (path.includes("/api/graph/v1/entities/") && path.includes("/deep-context")) {
     const m = path.match(/\/entities\/([^/]+)\/deep-context/);
     const ext = m ? decodeURIComponent(m[1]) : "unknown";

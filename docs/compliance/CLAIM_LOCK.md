@@ -13,7 +13,6 @@
 
 | Topic | Doc |
 |-------|-----|
-| Stub / mock honesty | [`docs/STUB_REGISTER.md`](../STUB_REGISTER.md) |
 | Feature authority | [`docs/docs/guides/feature-data-flows.md`](../docs/guides/feature-data-flows.md) |
 | AI / trend ops | [`docs/docs/guides/repo-productionization-runbook.md`](../docs/guides/repo-productionization-runbook.md) |
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |

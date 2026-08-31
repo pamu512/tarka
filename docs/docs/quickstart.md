@@ -17,7 +17,7 @@ cd tarka
 docker compose -f infra/deploy/docker-compose.lite.yml up --build
 ```
 
-This brings up **Postgres**, **Redis**, **core-api** (decision-api + case-api), and the **frontend**. It does **not** start investigation-agent, signal-api, or integration-ingress.
+This brings up **Postgres (Apache AGE)**, **Redis**, **graph-service**, **core-api** (decision-api + case-api), and the **frontend**. It does **not** start investigation-agent, signal-api, or integration-ingress. Desk home is `/graph` when the graph URL is set. Receipts stay at `/decisions`. Leftovers are `/leftovers`.
 
 Thin desk (lean nav + desk-strict): also merge `infra/deploy/docker-compose.fraud-desk.yml`. Full desk / +investigation / +signals: [SRE compose profiles](operations/sre-compose-profiles.md).
 
@@ -59,7 +59,11 @@ docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick
 # or: make trend-tick
 ```
 
-## Graph (optional)
+## Graph
+
+Lite already runs AGE + graph-service (`GRAPH_BACKEND=age`). Empty `GRAPH_SERVICE_URL` is evaluate-only fallback, not the product desk.
+
+Janus / Neo4j overlay (optional, not Day-1):
 
 ```bash
 docker compose \
@@ -68,7 +72,7 @@ docker compose \
   --profile graph up --build
 ```
 
-Set `DECISION_GRAPH_ENABLED=1` for decision accountability chains (see [decision-context-graph](guides/decision-context-graph.md)). Prefer JanusGraph/Gremlin for the fraud-graph story; Neo4j remains available via `GRAPH_BACKEND`.
+Set `GRAPH_BACKEND` and `DECISION_GRAPH_ENABLED=1` for decision accountability chains (see [decision-context-graph](guides/decision-context-graph.md)).
 
 ## Next
 
