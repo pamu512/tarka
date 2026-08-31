@@ -1447,6 +1447,22 @@ export type LeftoverPromoteGate = {
   draft_id?: string | null;
 };
 
+export type LiveRuleSlip = {
+  window?: "ok" | "underpowered";
+  fp_cap?: number;
+  rules?: Array<{
+    rule_id?: string;
+    triggers?: Array<"fire_rate" | "mix">;
+    hypothesis?: "retire" | "successor" | "underpowered" | "ambiguous";
+    fp_rate?: number;
+    labeled_hits?: number;
+    miss_count?: number;
+    miss_is_not_recall?: boolean;
+    parked_draft?: string | null;
+    park_reason?: string | null;
+  }>;
+};
+
 export type ShadowAutoPromoteProvision = {
   schema_id?: string;
   tenant_id?: string;
@@ -1788,6 +1804,7 @@ export const decisions = {
         requires?: string[];
       };
       leftover_promote_gate?: LeftoverPromoteGate;
+      live_rule_slip?: LiveRuleSlip;
       shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
       champion_challenger?: {
         rows_with_policy_routing?: number;

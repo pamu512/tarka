@@ -3,7 +3,7 @@
 **Date:** 2026-08-31  
 **Status:** Draft — implement **after** [leftover promote HIL](./2026-08-31-leftover-promote-hil-design.md) ships.  
 **Depends on:** leftover_promote_gate `helpfulness` object + extra-row join (same spec).  
-**Related:** VISION.md add-on (scout writes, parks in Observe, humans own live via gates), `PACK_AUTHOR.md`, `scout_pack_publisher.py`, `rule_recommender.py`, `rule_precision_after_labels`.
+**Related:** VISION.md add-on (scout writes, parks in Observe, humans own live via gates), `PACK_AUTHOR.md`, `scout_pack_publisher.py`, `rule_recommender.py`, `rule_precision_after_labels`, [live-rule slip](./2026-08-31-live-rule-slip-design.md) (sibling; host critic of live `rule_id`s).
 
 ## Goal
 
@@ -42,6 +42,7 @@ This is not leftover 3.8 / Hunt 4.0. Not “we have an LLM.” Seed that publish
 - Draft knobs (B). VisualRuleBuilder. NL rule writer.
 - New endpoint if shadow-promote-gate already returns `leftover_promote_gate.helpfulness` **and** `rule_precision_after_labels` can ride the same GET (add the rules array there if missing; do not add `/v1/brain`).
 - Changing evaluate. Changing leftover mint defaults. Maker-checker roles.
+- Owning live-rule slip. If `live_rule_slip` is on the GET, Scout does not promote from it and does not treat a ping as leftover helpfulness. Host returns **409** `slip_draft_exists` if scout-pack would clobber a slip draft. Kill / auto-promote stay `is_ai_authored` only (slip drafts are host templates).
 
 ---
 

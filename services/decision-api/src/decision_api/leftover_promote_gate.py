@@ -307,6 +307,9 @@ async def compute_desk_and_leftover_gates(
     cc_rows: list[dict[str, Any]] = []
     y_by_trace: dict[str, str] = {}
     y_by_entity: dict[str, str] = {}
+    slip: dict[str, Any] = {"window": "underpowered", "fp_cap": 0.4, "rules": []}
+    slip_rows: list[dict[str, Any]] = []
+    scanned = False
     if tid and session is not None:
         try:
             from sqlalchemy import select
@@ -358,6 +361,19 @@ async def compute_desk_and_leftover_gates(
                 }
                 for rec in records
             ]
+            slip_rows = [
+                {
+                    "trace_id": str(rec.trace_id),
+                    "entity_id": str(rec.entity_id or ""),
+                    "event_type": rec.event_type,
+                    "decision": rec.decision,
+                    "rule_hits": list(rec.rule_hits or []),
+                    "payload_snapshot": rec.payload_snapshot
+                    if isinstance(rec.payload_snapshot, dict)
+                    else {},
+                }
+                for rec in records
+            ]
             cc_audit = aggregate_champion_challenger(cc_rows)
             ystore = load_y_labels(tid)
             y_by_trace = dict(ystore.get("by_trace") or {})
@@ -367,6 +383,7 @@ async def compute_desk_and_leftover_gates(
                 by_trace=y_by_trace,
                 by_entity=y_by_entity,
             )
+            scanned = True
         except Exception:
             label_posture = {
                 "healthy": False,
@@ -392,6 +409,17 @@ async def compute_desk_and_leftover_gates(
     drift_gate = drift_promote_gate(drift_row)
     extras = extra_review_or_deny_rows(mapped_cc_decision_rows(cc_rows))
     add_cap, fp_rate_cap, min_labeled_extras = leftover_caps_for_tenant(tid)
+    if scanned:
+        from decision_api.json_rules import get_shadow_packs
+        from decision_api.live_rule_slip import live_rule_slip
+
+        slip = live_rule_slip(
+            slip_rows,
+            by_trace=y_by_trace,
+            by_entity=y_by_entity,
+            fp_cap=fp_rate_cap,
+            parked=get_shadow_packs(),
+        )
     leftovers = await fetch_leftover_list(tid)
     leftover_g = leftover_promote_gate(
         leftovers=leftovers,
@@ -420,4 +448,5 @@ async def compute_desk_and_leftover_gates(
         "champion_challenger": cc_audit,
         "labeled_champion_challenger_f1": labeled_f1,
         "label_posture": label_posture,
+        "live_rule_slip": slip,
     }

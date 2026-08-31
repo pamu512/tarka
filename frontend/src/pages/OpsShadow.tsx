@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { cases, deskActor, type LeftoverPromoteGate, type ShadowAutoPromoteProvision } from "../api/client";
+import {
+  cases,
+  deskActor,
+  type LeftoverPromoteGate,
+  type LiveRuleSlip,
+  type ShadowAutoPromoteProvision,
+} from "../api/client";
+import { formatLiveRuleSlipLine } from "../domain/liveRuleSlip";
 import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -39,6 +46,7 @@ type ShadowPromoteGate = {
     hint?: string | null;
   };
   leftover_promote_gate?: LeftoverPromoteGate;
+  live_rule_slip?: LiveRuleSlip;
   shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
   desk_promote_gate?: {
     promote_allowed?: boolean;
@@ -673,6 +681,31 @@ export default function OpsShadow() {
           Promote
         </button>
         {leftoverMsg ? <p className="text-[11px] font-mono text-gray-400">{leftoverMsg}</p> : null}
+      </section>
+
+      <section
+        className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-2"
+        data-testid="live-rule-slip-card"
+      >
+        <h2 className="text-sm font-semibold text-gray-200">Live rule slip</h2>
+        {data?.live_rule_slip?.window === "underpowered" ? (
+          <p className="text-xs text-gray-500">Window underpowered. No pings.</p>
+        ) : null}
+        <ul className="text-xs font-mono text-gray-300 space-y-1">
+          {(data?.live_rule_slip?.rules || []).map((row) => (
+            <li key={row.rule_id}>
+              {formatLiveRuleSlipLine({
+                rule_id: row.rule_id ?? "",
+                triggers: row.triggers ?? [],
+                hypothesis: row.hypothesis ?? "",
+                parked_draft: row.parked_draft ?? null,
+              })}
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] text-gray-500">
+          Miss counts are leftover-born fraud, not recall. Promote does not strip the live rule.
+        </p>
       </section>
 
       {err ? <p className="text-red-400">{err}</p> : null}

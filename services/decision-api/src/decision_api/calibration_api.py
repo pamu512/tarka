@@ -52,6 +52,9 @@ async def _tick_auto_promote(tenant_id: str) -> None:
         from decision_api.shadow_auto_promote import maybe_auto_promote_shadow
 
         await maybe_auto_promote_shadow(tid)
+        from decision_api.live_rule_slip import maybe_park_live_rule_slip
+
+        await maybe_park_live_rule_slip(tid)
     except Exception:
         logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
 
@@ -699,6 +702,7 @@ async def shadow_promote_gate(
         "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
         "leftover_promote_gate": leftover_g,
+        "live_rule_slip": gates["live_rule_slip"],
         "shadow_drafts": [
             {
                 "name": str(p.get("name") or ""),

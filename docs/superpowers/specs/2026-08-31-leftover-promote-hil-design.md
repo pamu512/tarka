@@ -57,7 +57,8 @@ This slice is leftover-lead HIL on Observe promote: cost **and** “did the extr
 ## Next specs (not this implementation)
 
 1. [Observe brain wire](./2026-08-31-observe-brain-wire-design.md) — Scout / recommender must read leftover-extra helpfulness before publish; kill FP drafts. **After this spec ships.**
-2. B: knobs on the named draft (`score_delta` 5–30, leftover destination `mint` / `none`), then Promote. Same page.
+2. [Live-rule slip](./2026-08-31-live-rule-slip-design.md) — host ping + xor park on the same GET/tick. **After this spec ships.** Sibling of brain wire; does not rewrite it.
+3. B: knobs on the named draft (`score_delta` 5–30, leftover destination `mint` / `none`), then Promote. Same page.
 
 ---
 

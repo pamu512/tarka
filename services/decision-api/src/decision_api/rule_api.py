@@ -20,6 +20,7 @@ from decision_api.db import get_session
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
 from decision_api.models import BacktestRun
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
+from decision_api.live_rule_slip import maybe_park_live_rule_slip
 from decision_api.shadow_auto_promote import (
     activate_shadow_pack,
     load_provision,
@@ -506,7 +507,10 @@ async def auto_promote_tick(
     tenant_id: str = Query(..., min_length=1, max_length=128),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    return await maybe_auto_promote_shadow(tenant_id)
+    out = await maybe_auto_promote_shadow(tenant_id)
+    parked = await maybe_park_live_rule_slip(tenant_id)
+    out["live_rule_slip_parked"] = parked
+    return out
 
 
 @router.post("/shadow-packs/{draft_id}/promote")
@@ -797,6 +801,11 @@ async def create_scout_pack(
     _require_rule_governance(x_rule_governance_secret)
     if body.mode != "shadow":
         raise HTTPException(400, "scout packs must use mode='shadow'")
+    from decision_api.json_rules import get_shadow_packs
+    from decision_api.live_rule_slip import slip_draft_would_clobber
+
+    if slip_draft_would_clobber(body.name, None, get_shadow_packs()):
+        raise HTTPException(409, "slip_draft_exists")
     pack: dict[str, Any] = {
         "version": 1,
         "name": body.name,
@@ -839,6 +848,7 @@ async def create_scout_pack(
     if tid:
         try:
             await maybe_auto_promote_shadow(tid)
+            await maybe_park_live_rule_slip(tid)
         except Exception:
             logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
     return {"file": fpath.name, "pack": pack, "mode": "shadow"}

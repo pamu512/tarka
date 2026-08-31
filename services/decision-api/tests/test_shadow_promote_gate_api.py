@@ -101,6 +101,7 @@ async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
             self.event_type = "payment"
             self.decision = "allow"
             self.score = 0.1
+            self.rule_hits = []
             self.payload_snapshot = {
                 "policy_routing": {
                     "champion_decision": "allow",
@@ -155,3 +156,4 @@ def test_shadow_promote_gate_get_does_not_auto_promote():
     src = inspect.getsource(shadow_promote_gate)
     assert "maybe_auto_promote" not in src
     assert "auto_promote_shadow" not in src
+    assert "maybe_park" not in src
