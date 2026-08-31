@@ -1,6 +1,6 @@
 # Leftover cost + labeled helpfulness on named-draft promote Implementation Plan
 
-> **Shipped on `master` except Task 9 (shadow-first / force-live).** Do not re-execute Tasks 1–8 as greenfield.
+> **Shipped including Task 9 (shadow-first / force-live).** Do not re-execute Tasks 1–8 as greenfield.
 >
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -779,7 +779,7 @@ If the frontend has a running desk, click `/ops/shadow` with empty signal URL an
 
 Register `POST /{filename}/force-live` **before** `/{filename}`.
 
-- [ ] **Step 1: Tests** — expect FAIL
+- [x] **Step 1: Tests** — expect FAIL
 
 ```python
 @pytest.mark.asyncio
@@ -799,9 +799,9 @@ async def test_put_mode_active_is_shadow_first(tmp_path):
     # PUT …/mode=active → 409 shadow_first even when leftover gate is green
 ```
 
-- [ ] **Step 2: Implement** — `create_rule_pack` / `update_rule_pack` / add-rule set `mode=shadow`. `POST …/force-live` as spec. `set_pack_mode(active)` → 409 `shadow_first`. Scout / assist caller 403 on force-live.
+- [x] **Step 2: Implement** — `create_rule_pack` / `update_rule_pack` / add-rule set `mode=shadow`. `POST …/force-live` as spec. `set_pack_mode(active)` → 409 `shadow_first`. Scout / assist caller 403 on force-live.
 
-- [ ] **Step 3: Run** `pytest tests/test_shadow_first_writes.py -q` — expected PASS
+- [x] **Step 3: Run** `pytest tests/test_shadow_first_writes.py -q` — expected PASS
 
 - [ ] **Step 4: Commit** — skip unless the user asked.
 

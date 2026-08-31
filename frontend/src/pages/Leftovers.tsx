@@ -35,7 +35,12 @@ export default function Leftovers() {
     setErr("");
     try {
       await cases.claimLeftover(row.case_id, tenantId || "demo");
-      navigate(`/graph?entity_id=${encodeURIComponent(row.entity_id)}&tenant_id=${encodeURIComponent(tenantId || "demo")}`);
+      const q = new URLSearchParams({
+        entity_id: row.entity_id,
+        tenant_id: tenantId || "demo",
+      });
+      if (row.trace_id) q.set("decision_id", `dec:${row.trace_id}`);
+      navigate(`/graph?${q}`);
     } catch (e) {
       setErr(toUserFacingError(e, { subject: "Leftover", action: "claim this leftover" }));
     } finally {

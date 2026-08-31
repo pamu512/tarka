@@ -1884,6 +1884,9 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   }
 
   if (path.includes("/api/decisions/v1/rules") && method === "GET") return { packs: [{ _file: "default.json", name: "Default", version: 1, rules: [{ id: "velocity_guard", when: [{ field: "amount", op: "gt", value: 500 }], score_delta: 25 }], tag_rules: [] }] };
+  if (path.includes("/force-live") && method === "POST") {
+    return { mode: "active", forced: true, file: path.split("/").slice(-2, -1)[0] || "pack.json" };
+  }
   if (path.includes("/api/decisions/v1/rules") && ["POST", "PUT", "DELETE"].includes(method)) return { ok: true };
 
   if (path.includes("/api/decisions/v1/simulation/scenarios")) return { scenarios: { ecommerce: { description: "Synthetic e-commerce scenario" } } };

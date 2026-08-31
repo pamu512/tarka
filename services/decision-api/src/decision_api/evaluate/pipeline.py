@@ -1557,6 +1557,8 @@ async def run_evaluate_decision(
                 merged_tags,
                 geo_extra_tags,
                 tenant_flags,
+                decision,
+                partner_graph_hints,
             ),
             shadow_evaluation=_run_shadow_evaluation,
             shadow_args=(

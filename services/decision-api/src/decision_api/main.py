@@ -2202,22 +2202,24 @@ async def _fetch_ml_score(
     return parse_ml_score_payload(data if isinstance(data, dict) else None)
 
 
-def _quantize_place_cell(lat: float, lon: float, precision: int = 3) -> str:
-    """Stable coarse place id for co-presence (no external API)."""
-    return f"cell:{precision}:{round(lat, precision)}:{round(lon, precision)}"
-
-
 async def _graph_upsert(
     http: httpx.AsyncClient,
     body: EvaluateRequest,
     trace_id: str,
     merged_tags: list[str],
     geo_extra_tags: list[str] | None = None,
+    decision: str | None = None,
+    partner_graph_hints: dict[str, Any] | None = None,
 ) -> None:
     if not settings.graph_service_url:
         return
     base = settings.graph_service_url.rstrip("/")
-    from tarka_shared.decision_graph_payload import build_evaluate_objects
+    from tarka_shared.decision_graph_payload import (
+        attach_decision_object,
+        build_evaluate_objects,
+        normalize_markings,
+        resolve_decision_source,
+    )
 
     payload = body.payload if isinstance(body.payload, dict) else {}
     dc_dump = body.device_context.model_dump() if body.device_context else None
@@ -2229,6 +2231,18 @@ async def _graph_upsert(
         device_context=dc_dump,
         session_id=body.session_id,
     )
+    if str(decision or "").strip():
+        meta = body.metadata if isinstance(body.metadata, dict) else {}
+        attach_decision_object(
+            objects,
+            links,
+            person_id=body.entity_id,
+            trace_id=trace_id,
+            outcome=str(decision),
+            kind="evaluate",
+            source=resolve_decision_source(meta),
+            markings=normalize_markings(meta.get("markings")),
+        )
     device_tags = extract_signal_tags(dc_dump) if dc_dump else []
     for obj in objects:
         oid = str(obj.get("external_id") or "").strip()
@@ -2304,7 +2318,9 @@ async def _graph_upsert(
         and -90 <= la_f <= 90
         and -180 <= lo_f <= 180
     ):
-        cell = _quantize_place_cell(la_f, lo_f)
+        from tarka_shared.decision_graph_payload import place_cell_id
+
+        cell = place_cell_id(la_f, lo_f)
         gtags = list(geo_extra_tags or [])
         await http.post(
             f"{base}/v1/entities",
@@ -2351,6 +2367,38 @@ async def _graph_upsert(
                 headers=_upstream_headers(),
             )
 
+    from decision_api.partner_fusion import graph_writes_from_hints
+
+    hint_objs, hint_links = graph_writes_from_hints(partner_graph_hints)
+    for obj in hint_objs:
+        await http.post(
+            f"{base}/v1/entities",
+            json={
+                "tenant_id": body.tenant_id,
+                "entity_type": obj["entity_type"],
+                "external_id": obj["external_id"],
+                "properties": {
+                    **obj["properties"],
+                    "trace_id": obj["properties"].get("trace_id") or trace_id,
+                },
+            },
+            headers=_upstream_headers(),
+        )
+    for link in hint_links:
+        props = dict(link["properties"])
+        props.setdefault("trace_id", trace_id)
+        await http.post(
+            f"{base}/v1/links",
+            json={
+                "tenant_id": body.tenant_id,
+                "from_external_id": link["from_external_id"],
+                "to_external_id": link["to_external_id"],
+                "relationship": link["relationship"],
+                "properties": props,
+            },
+            headers=_upstream_headers(),
+        )
+
 
 async def _graph_upsert_stepped(
     http: httpx.AsyncClient,
@@ -2359,13 +2407,23 @@ async def _graph_upsert_stepped(
     merged_tags: list[str],
     geo_extra_tags: list[str] | None,
     tenant_flags: dict[str, Any],
+    decision: str | None = None,
+    partner_graph_hints: dict[str, Any] | None = None,
 ) -> None:
     """Background graph writes with overall timeout (#32)."""
     if tenant_flag_enabled(tenant_flags, "disable_graph"):
         return
 
     async def _do():
-        await _graph_upsert(http, body, trace_id, merged_tags, geo_extra_tags)
+        await _graph_upsert(
+            http,
+            body,
+            trace_id,
+            merged_tags,
+            geo_extra_tags,
+            decision,
+            partner_graph_hints,
+        )
 
     _, trace = await run_evaluation_step(
         "graph_upsert",

@@ -91,7 +91,7 @@ export interface GraphEntityDeepContext {
 async function fetchGraphJsonOr404<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Graph-Markings": "desk" },
       credentials: "include",
     });
     const text = await res.text();
@@ -1355,6 +1355,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const allowMockFallback = allowMocksForRequest(url);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...(url.includes("/api/graph/") ? { "X-Graph-Markings": "desk" } : {}),
     ...(init?.headers as Record<string, string> | undefined),
   };
   try {
@@ -1805,7 +1806,12 @@ export const decisions = {
       };
       leftover_promote_gate?: LeftoverPromoteGate;
       live_rule_slip?: LiveRuleSlip;
-      shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
+      shadow_drafts?: Array<{
+        name?: string;
+        file?: string;
+        is_ai_authored?: boolean;
+        mode?: string;
+      }>;
       champion_challenger?: {
         rows_with_policy_routing?: number;
         decision_agreement_rate?: number | null;
@@ -1859,6 +1865,17 @@ export const decisions = {
       method: "POST",
       headers: { "X-Actor": deskActor() },
     });
+  },
+
+  forceLiveRulePack(filename: string, reason: string) {
+    return request<{ mode?: string; forced?: boolean; file?: string }>(
+      `/api/decisions/v1/rules/${encodeURIComponent(filename)}/force-live`,
+      {
+        method: "POST",
+        headers: { "X-Actor": deskActor() },
+        body: JSON.stringify({ reason }),
+      },
+    );
   },
 
   championChallengerAudit(tenantId: string, limit = 200) {
@@ -2926,9 +2943,16 @@ export type GraphSearchHit = {
 };
 
 export const graph = {
-  subgraph(entityId: string, tenantId: string, depth?: number) {
+  subgraph(
+    entityId: string,
+    tenantId: string,
+    depth?: number,
+    net?: { lookbackDays?: number; types?: string[] },
+  ) {
     const q = new URLSearchParams({ entity_id: entityId, tenant_id: tenantId });
     if (depth) q.set("depth", String(depth));
+    if (net?.lookbackDays) q.set("lookback_days", String(net.lookbackDays));
+    if (net?.types?.length) q.set("types", net.types.join(","));
     return request<SubgraphResponse>(`/api/graph/v1/subgraph?${q}`);
   },
 
@@ -3017,6 +3041,14 @@ export const graph = {
       entity_id: string;
       last_trace_id?: string | null;
       trace_ids: string[];
+      decisions?: Array<{
+        id: string;
+        outcome?: string | null;
+        source?: string | null;
+        kind?: string | null;
+        trace_id?: string | null;
+        created_at?: string | null;
+      }>;
       properties: Record<string, unknown>;
     }>(graphEntityUrl(entityId, tenantId, "/history"));
   },

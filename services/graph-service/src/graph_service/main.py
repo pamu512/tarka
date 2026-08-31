@@ -34,6 +34,7 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import clamp_search_limit, is_found_payload
+from .decision_markings import filter_subgraph_for_read, parse_caller_markings
 from .object_attention import attention_for_node, score_object_attention, stats_from_subgraph
 from .entity_risk_writeback import (
     EntityRiskNotFound,
@@ -57,6 +58,8 @@ from .graph_runtime import (
     update_tags,
     upsert_entity,
 )
+from .mapped_ingest import MappedIngestRequest, ingest_mapped_object
+from .hunt_net import apply_hunt_net, clamp_lookback_days
 
 log = logging.getLogger(__name__)
 
@@ -235,6 +238,48 @@ def _entity_from_subgraph(data: dict[str, Any], external_id: str) -> dict[str, A
     return None
 
 
+def _subgraph_for_read(data: dict[str, Any], request: Request) -> dict[str, Any]:
+    return filter_subgraph_for_read(
+        data, parse_caller_markings(request.headers.get("x-graph-markings"))
+    )
+
+
+def _decision_hops_from_subgraph(data: dict[str, Any], person_id: str) -> list[dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    for node in data.get("nodes") or []:
+        if isinstance(node, dict):
+            nid = _subgraph_node_id(node)
+            if nid:
+                by_id[nid] = node
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for edge in data.get("edges") or []:
+        if not isinstance(edge, dict) or str(edge.get("type") or "") != "RESULTED_IN":
+            continue
+        frm = str(edge.get("from_id") or "")
+        to = str(edge.get("to_id") or "")
+        other = to if frm == person_id else frm if to == person_id else ""
+        if not other or other in seen:
+            continue
+        node = by_id.get(other) or {}
+        labels = [str(x) for x in (node.get("labels") or [])]
+        if "Decision" not in labels:
+            continue
+        seen.add(other)
+        props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+        out.append(
+            {
+                "id": other,
+                "outcome": props.get("outcome"),
+                "source": props.get("source"),
+                "kind": props.get("kind"),
+                "trace_id": props.get("trace_id"),
+                "created_at": props.get("created_at"),
+            }
+        )
+    return out
+
+
 def _attention_for_neighbors(seed_id: str, data: dict[str, Any]) -> list[dict[str, Any]]:
     nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
     rows: list[dict[str, Any]] = []
@@ -298,8 +343,8 @@ async def _attention_for_object(
 
 
 @app.get("/v1/entities/{external_id}")
-async def get_entity(external_id: str, tenant_id: str):
-    data = await query_subgraph(tenant_id, external_id, 1)
+async def get_entity(external_id: str, tenant_id: str, request: Request):
+    data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
     node = _entity_from_subgraph(data, external_id)
     if node is None:
         raise HTTPException(status_code=404, detail="entity_not_found")
@@ -307,8 +352,8 @@ async def get_entity(external_id: str, tenant_id: str):
 
 
 @app.get("/v1/entities/{external_id}/links")
-async def get_entity_links(external_id: str, tenant_id: str):
-    data = await query_subgraph(tenant_id, external_id, 1)
+async def get_entity_links(external_id: str, tenant_id: str, request: Request):
+    data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
     if _entity_from_subgraph(data, external_id) is None:
         raise HTTPException(status_code=404, detail="entity_not_found")
     return {
@@ -336,8 +381,8 @@ async def objects_attention(body: ObjectsAttentionRequest):
 
 
 @app.get("/v1/entities/{external_id}/history")
-async def get_entity_history(external_id: str, tenant_id: str):
-    data = await query_subgraph(tenant_id, external_id, 1)
+async def get_entity_history(external_id: str, tenant_id: str, request: Request):
+    data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
     node = _entity_from_subgraph(data, external_id)
     if node is None:
         raise HTTPException(status_code=404, detail="entity_not_found")
@@ -350,6 +395,7 @@ async def get_entity_history(external_id: str, tenant_id: str):
         "entity_id": external_id,
         "last_trace_id": props.get("last_trace_id"),
         "trace_ids": [str(t) for t in traces if t],
+        "decisions": _decision_hops_from_subgraph(data, external_id),
         "properties": props,
     }
 
@@ -379,6 +425,26 @@ async def upsert_entity_endpoint(body: UpsertEntityRequest):
         entity_type=body.entity_type,
         external_id=body.external_id,
     )
+
+
+@app.post("/v1/ingest/objects")
+async def ingest_mapped_objects(body: MappedIngestRequest):
+    """Second writer: map a foreign record onto the same Person evaluate uses."""
+    try:
+        out = await ingest_mapped_object(body)
+    except UnsignedGraphToken as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        await refresh_touched_and_neighbors(out["tenant_id"], [out["person_id"], out["object_id"]])
+    except Exception:
+        log.exception(
+            "mutation risk refresh failed after mapped ingest tenant=%s person=%s",
+            out["tenant_id"],
+            out["person_id"],
+        )
+    return out
 
 
 @app.post("/v1/entities/{external_id}/tags")
@@ -464,9 +530,20 @@ async def links_endpoint(body: LinkRequest):
 
 
 @app.get("/v1/subgraph")
-async def subgraph(entity_id: str, tenant_id: str, depth: int = 2):
-    data = await query_subgraph(tenant_id, entity_id, depth)
-    return data
+async def subgraph(
+    entity_id: str,
+    tenant_id: str,
+    request: Request,
+    depth: int = 2,
+    lookback_days: int | None = None,
+    types: str | None = None,
+):
+    data = _subgraph_for_read(await query_subgraph(tenant_id, entity_id, depth), request)
+    lb = clamp_lookback_days(lookback_days)
+    type_list = [part.strip() for part in (types or "").split(",") if part.strip()] or None
+    if lb is None and type_list is None:
+        return data
+    return apply_hunt_net(data, seed_id=entity_id, lookback_days=lb, types=type_list)
 
 
 # ---------- schema endpoints ----------

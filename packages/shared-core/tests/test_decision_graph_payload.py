@@ -37,11 +37,14 @@ def test_build_evaluate_payload_includes_entities():
     assert "dev-9" in payload["entity_external_ids"]
     assert payload["audit_log_id"] == "al-99"
     types = {o["entity_type"] for o in payload["objects"]}
-    assert types == {"Person", "Device", "Payment"}
+    assert types == {"Person", "Device", "Payment", "Decision"}
     rels = {lk["relationship"] for lk in payload["object_links"]}
     assert "USED_DEVICE" in rels
     assert "MADE_PAYMENT" in rels
-    assert "RESULTED_IN" not in rels
+    assert "RESULTED_IN" in rels
+    assert "BASED_ON" in rels
+    assert _link(payload["object_links"], "RESULTED_IN", src="acct-1", dst="dec:tr-1")
+    assert _link(payload["object_links"], "BASED_ON", src="dec:tr-1", dst="pay:tr-1")
     assert all(o["properties"].get("last_outcome") == "review" for o in payload["objects"])
 
 
@@ -60,6 +63,22 @@ def test_build_evaluate_objects_login_device_context():
     assert types["Login"] == "login:tr-login"
     assert any(lk["relationship"] == "PERFORMED_LOGIN" for lk in links)
     assert any(lk["relationship"] == "USED_DEVICE" for lk in links)
+
+
+def test_build_evaluate_objects_writes_place_seen_at():
+    mod = _load_payload()
+    objects, links = mod.build_evaluate_objects(
+        trace_id="tr-geo",
+        entity_id="buyer-demo",
+        event_type="login",
+        payload={"session_last_lat": 1.2349, "session_last_lon": 3.4561},
+        device_context={"device_id": "dev-1"},
+    )
+    types = {o["entity_type"]: o["external_id"] for o in objects}
+    assert types["Place"] == "cell:3:1.235:3.456"
+    assert any(
+        lk["relationship"] == "SEEN_AT" and lk["to_external_id"] == types["Place"] for lk in links
+    )
 
 
 def test_guest_clicks_share_device_and_session_not_person_id():
@@ -128,9 +147,71 @@ def test_evaluate_writes_email_and_phone_on_person_not_as_person_id():
     assert person["external_id"] == "hunt-eval-buyer"
     assert person["properties"]["email"] == "buyer@desk.example"
     assert person["properties"]["phone"] == "+15550199"
-    assert all(o["external_id"] != "buyer@desk.example" for o in objects if o["entity_type"] == "Person")
+    assert all(
+        o["external_id"] != "buyer@desk.example" for o in objects if o["entity_type"] == "Person"
+    )
     assert all(o["external_id"] != "+15550199" for o in objects if o["entity_type"] == "Person")
     assert any(lk["relationship"] == "USED_DEVICE" for lk in links)
+    email = next(o for o in objects if o["entity_type"] == "Email")
+    phone = next(o for o in objects if o["entity_type"] == "Phone")
+    assert email["external_id"] == "email:buyer@desk.example"
+    assert phone["external_id"] == "phone:+15550199"
+    assert _link(links, "HAS_EMAIL", src="hunt-eval-buyer", dst="email:buyer@desk.example")
+    assert _link(links, "HAS_PHONE", src="hunt-eval-buyer", dst="phone:+15550199")
+
+
+def test_queryable_ids_are_shared_instruments_not_person_merge():
+    """ATO / sold account: two Persons, same mailbox / phone / doc / card / address."""
+    mod = _load_payload()
+    payload = {
+        "email": "Sold@X.com",
+        "phone": "+15550199",
+        "document_id": "passport-9",
+        "card_id": "cardtok-1",
+        "address": "12 Oak St",
+    }
+    a, la = mod.build_evaluate_objects(
+        trace_id="tr-a", entity_id="acct-old", event_type="login", payload=payload
+    )
+    b, lb = mod.build_evaluate_objects(
+        trace_id="tr-b", entity_id="acct-new", event_type="login", payload=payload
+    )
+    persons = {o["external_id"] for o in a + b if o["entity_type"] == "Person"}
+    assert persons == {"acct-old", "acct-new"}
+    assert {o["external_id"] for o in a + b if o["entity_type"] == "Email"} == {
+        "email:sold@x.com"
+    }
+    assert {o["external_id"] for o in a + b if o["entity_type"] == "Phone"} == {
+        "phone:+15550199"
+    }
+    assert {o["external_id"] for o in a + b if o["entity_type"] == "Document"} == {"passport-9"}
+    assert {o["external_id"] for o in a + b if o["entity_type"] == "Card"} == {"card:cardtok-1"}
+    assert {o["external_id"] for o in a + b if o["entity_type"] == "Address"} == {
+        "addr:12 oak st"
+    }
+    assert _link(la, "HAS_EMAIL", src="acct-old", dst="email:sold@x.com")
+    assert _link(lb, "HAS_EMAIL", src="acct-new", dst="email:sold@x.com")
+
+
+def test_email_change_writes_new_mailbox_keeps_person():
+    """Old mailbox stays a vertex on the first write; later evaluate MERGEs a new Email."""
+    mod = _load_payload()
+    first, _ = mod.build_evaluate_objects(
+        trace_id="tr-1",
+        entity_id="acct-1",
+        event_type="login",
+        payload={"email": "old@x.com"},
+    )
+    second, _ = mod.build_evaluate_objects(
+        trace_id="tr-2",
+        entity_id="acct-1",
+        event_type="login",
+        payload={"email": "new@x.com"},
+    )
+    emails = {o["external_id"] for o in first + second if o["entity_type"] == "Email"}
+    assert emails == {"email:old@x.com", "email:new@x.com"}
+    person = next(o for o in second if o["entity_type"] == "Person")
+    assert person["properties"]["email"] == "new@x.com"
 
 
 def _link(links, rel, src=None, dst=None):
@@ -245,7 +326,10 @@ def test_build_human_disposition_payload_edges():
     persons = [o["external_id"] for o in payload["objects"] if o["entity_type"] == "Person"]
     assert persons == ["acct-1"]
     assert payload["objects"][0]["properties"]["last_act"] == "escalated"
-    assert payload["object_links"] == []
+    types = {o["entity_type"] for o in payload["objects"]}
+    assert "Decision" in types
+    assert _link(payload["object_links"], "RESULTED_IN", src="acct-1")
+    assert _link(payload["object_links"], "SUPERSEDES", dst="dec-parent")
 
 
 def test_agent_advise_payload_has_tenant_and_not_observe_shadow():
@@ -265,3 +349,56 @@ def test_agent_advise_payload_has_tenant_and_not_observe_shadow():
     assert payload["tenant_id"] == "tenant_alpha"
     assert payload.get("shadow") is not True
     assert "shadow" not in payload
+
+
+def test_evaluate_payload_stamps_source_and_desk_markings():
+    mod = _load_payload()
+    payload = mod.build_evaluate_payload(
+        tenant_id="t1",
+        trace_id="tr-disp",
+        entity_id="acct-1",
+        event_type="payment",
+        decision="deny",
+        score=0.9,
+        rule_hits=[],
+        fallback_reason=None,
+        payload={"payment_id": "pay-1"},
+        metadata={"decision_source": "dispute"},
+        decision_log_record=None,
+        shadow_request=False,
+    )
+    dec = next(o for o in payload["objects"] if o["entity_type"] == "Decision")
+    assert dec["properties"]["source"] == "dispute"
+    assert dec["properties"]["markings"] == ["desk"]
+
+
+def test_allow_decision_ids_over_cap_keeps_material_and_newest_allows():
+    mod = _load_payload()
+    nodes = [
+        {
+            "id": f"dec:allow-{i}",
+            "labels": ["Decision"],
+            "properties": {
+                "source": "evaluate",
+                "outcome": "allow",
+                "kind": "evaluate",
+                "created_at": f"2026-08-31T00:{i:02d}:00Z",
+            },
+        }
+        for i in range(21)
+    ]
+    nodes.append(
+        {
+            "id": "dec:deny-1",
+            "labels": ["Decision"],
+            "properties": {
+                "source": "evaluate",
+                "outcome": "deny",
+                "kind": "evaluate",
+                "created_at": "2026-08-01T00:00:00Z",
+            },
+        }
+    )
+    drop = mod.allow_decision_ids_over_cap(nodes)
+    assert drop == ["dec:allow-0"]
+    assert "dec:deny-1" not in drop

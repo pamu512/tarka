@@ -87,6 +87,52 @@ describe("GraphContextPanel object dossier", () => {
     expect(screen.getByTestId("object-history")).toHaveTextContent("tr-1");
   });
 
+  it("lists Decision hops on history and seeds Hunt", async () => {
+    const onSelectEntity = vi.fn();
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: "tr-hop",
+      trace_ids: ["tr-hop"],
+      decisions: [
+        {
+          id: "dec:tr-hop",
+          outcome: "deny",
+          source: "evaluate",
+          kind: "evaluate",
+          trace_id: "tr-hop",
+        },
+      ],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        embedded
+        onSelectEntity={onSelectEntity}
+      />,
+    );
+
+    expect(await screen.findByTestId("object-history")).toHaveTextContent("deny");
+    expect(screen.getByTestId("object-history")).toHaveTextContent("evaluate");
+    screen.getByTestId("object-history").querySelector("button")?.click();
+    expect(onSelectEntity).toHaveBeenCalledWith("dec:tr-hop");
+  });
+
   it("shows pack-why, hold state, and evaluate receipt on the link", async () => {
     vi.mocked(graph.getEntity).mockResolvedValue({
       id: "buyer-demo",
@@ -317,5 +363,57 @@ describe("GraphContextPanel object dossier", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       /Graph lagged this evaluate\. Receipt is source of truth/,
     );
+  });
+
+  it("prefers RESULTED_IN Decision hops over audit receipts", async () => {
+    const onSelectEntity = vi.fn();
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [
+        {
+          id: "dec:tr-hop",
+          labels: ["Decision"],
+          properties: { outcome: "review", created_at: "2026-08-31T10:00:00Z", source: "evaluate" },
+        },
+      ],
+      edges: [
+        {
+          from_id: "buyer-demo",
+          to_id: "dec:tr-hop",
+          type: "RESULTED_IN",
+          properties: {},
+        },
+      ],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: "tr-hop",
+      trace_ids: ["tr-hop"],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        embedded
+        onSelectEntity={onSelectEntity}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("object-decision-hop")).toHaveTextContent("review");
+    });
+    expect(decisions.getAudit).not.toHaveBeenCalled();
+    screen.getByTestId("object-decision-hop").querySelector("button")?.click();
+    expect(onSelectEntity).toHaveBeenCalledWith("dec:tr-hop");
   });
 });

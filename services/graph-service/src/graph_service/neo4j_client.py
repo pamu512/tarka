@@ -42,6 +42,11 @@ ALLOWED_LABELS = frozenset(
         "Document",
         "LicensePlate",
         "Decision",
+        "Email",
+        "Phone",
+        "Place",
+        "Address",
+        "Card",
         "Custom",
     }
 )
@@ -59,12 +64,14 @@ ALLOWED_RELS = frozenset(
         "MADE_PAYMENT",
         "PERFORMED_LOGIN",
         "USES_DEVICE",
+        "HAS_EMAIL",
         "HAS_PHONE",
         "SEEN_FROM_IP",
         "PAYS_WITH",
         "RESULTED_IN",
         "ACTED_ON",
         "BASED_ON",
+        "SUPERSEDES",
         "SHARED_WITH",
         "CUSTOM",
     }
@@ -261,6 +268,16 @@ async def create_link(
             create_props=create_props,
             match_props=match_props,
         )
+
+
+async def delete_entity(tenant_id: str, external_id: str) -> None:
+    driver = await get_driver()
+    q = """
+    MATCH (n {tenant_id: $tenant_id, external_id: $external_id})
+    DETACH DELETE n
+    """
+    async with driver.session() as session:
+        await session.run(q, tenant_id=tenant_id, external_id=external_id)
 
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:

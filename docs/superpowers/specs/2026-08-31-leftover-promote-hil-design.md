@@ -1,7 +1,7 @@
 # Leftover cost + labeled helpfulness on named-draft promote (A3)
 
 **Date:** 2026-08-31  
-**Status:** Shipped on `master` (leftover cost + helpfulness + desk Promote + provisioned auto-promote). **Not shipped:** shadow-first create/edit, `POST …/force-live` (plan Task 9). Plan: `docs/superpowers/plans/2026-08-31-leftover-promote-hil.md`.  
+**Status:** Shipped (leftover cost + helpfulness + desk Promote + provisioned auto-promote + shadow-first writes + `POST …/force-live`). Plan: `docs/superpowers/plans/2026-08-31-leftover-promote-hil.md`.  
 **Approach:** A3 (blast radius + SLA/cap hard floor + ack-if-claimed) **plus** leftover-extra FP gate.  
 **Related:** [leftover + Hunt production](./2026-08-31-leftover-hunt-production-design.md), [Observe brain wire](./2026-08-31-observe-brain-wire-design.md), VISION.md (LLM authors, humans own live packs via gates), `GET /v1/calibration/shadow-promote-gate`, `GET /v1/leftovers`, `y_label_store`.
 
@@ -23,7 +23,7 @@ This slice is leftover-lead HIL on Observe promote: cost **and** “did the extr
 - Evaluate never waits on graph. Leftover list never calls graph.
 - ALLOW / `flag` never mint leftovers.
 - LLM / Scout writes `mode=shadow` only (`PACK_AUTHOR.md` hard stop). Auto-promote is a **host** action after user provision, not an author action.
-- **Shadow-first (lock, HTTP not shipped):** intended: `POST /v1/rules` and `PUT /v1/rules/{file}` always persist `mode=shadow`. Today omitted `mode` still loads as `active`. Force-live is specified, not implemented. Scout / assist cannot force-live.
+- **Shadow-first:** `POST /v1/rules`, `PUT /v1/rules/{file}`, and add-rule persist `mode=shadow`. Omitted `mode` on disk still loads as `active` (fixtures only). Live is Promote, provisioned auto-promote, or human `POST …/force-live`. Scout / assist cannot force-live.
 - Humans own the live bar. AI may *propose* gate numbers in pack `evidence`; they never evaluate and never auto-promote until the user copies them into provision (first review).
 - Pack lifecycle is not a signals job. `/ops/shadow` is always-on lean, not behind empty `VITE_SIGNAL_API_URL`.
 - Not a maker-checker role system. Not draft knobs (B). Not a node editor. Not a Tarka-branded model.
@@ -34,9 +34,9 @@ This slice is leftover-lead HIL on Observe promote: cost **and** “did the extr
 - `GET /v1/calibration/shadow-promote-gate` returns `leftover_promote_gate` and `live_rule_slip`.
 - Desk `/ops/shadow` leftover card + provision + Promote. Lean always-on.
 - Provisioned host auto-promote after first review. Scout still writes `mode=shadow`.
-- `PUT …/mode=active` leftover floor is in the leftover HIL plan; **shadow-first / force-live is not shipped** — create/update can still omit `mode` (loaders treat omitted as `active`).
+- `PUT …/mode=active` is **409** `shadow_first`. Leftover floor stays on desk Promote. Force-live is the only leftover/science skip.
 - Scout `POST /v1/rules/scout-pack` still does not read leftover helpfulness (brain wire is the next spec).
-- Leftovers: `GET /v1/leftovers`, claim, promote-ack. Evaluate mint only when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **off**).
+- Leftovers: `GET /v1/leftovers`, claim, promote-ack. Evaluate mint on deny/review by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 
 ## Non-goals
 
@@ -304,7 +304,7 @@ Different verb from Promote. Promote still requires `desk_promote_gate`. Force-l
 
 Desk: Override is a second control on Observe, smaller than Promote, reason required. Show last `rule_force_live` on the pack. Do not put Override on Hunt.
 
-`PUT …/mode=active` without going through Promote or force-live is **409** `shadow_first` once this ships (leftover floor stays for Promote; force-live is the only skip). Until the force-live route exists, `PUT …/mode=active` remains leftover-gated as above (no silent skip).
+`PUT …/mode=active` without going through Promote or force-live is **409** `shadow_first` (leftover floor stays for Promote; force-live is the only skip).
 
 ## Desk
 
@@ -328,7 +328,7 @@ Hunt resolve        ──► y_label (already) ──► helpfulness + auto-pro
 PUT  shadow-auto-promote-provision          ──► user bar (first review / redefine)
 maybe_auto_promote  ──► mode=active iff provision.auto_promote && desk_ok
 POST rules/shadow-packs/{draft_id}/promote  ──► same write, human
-PUT  rules/{file}/mode=active               ──► leftover gate; then 409 shadow_first once force-live ships
+PUT  rules/{file}/mode=active               ──► 409 shadow_first
 POST rules/{file}/force-live                ──► human reason → active + rule_force_live
 POST/PUT rules                              ──► always persist mode=shadow
 ```

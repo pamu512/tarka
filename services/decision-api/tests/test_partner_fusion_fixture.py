@@ -6,7 +6,11 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-from decision_api.partner_fusion import graph_writeback_hints, signals_to_feature_tags
+from decision_api.partner_fusion import (
+    graph_writeback_hints,
+    graph_writes_from_hints,
+    signals_to_feature_tags,
+)
 
 _FIXTURE = (
     Path(__file__).resolve().parents[3]
@@ -38,3 +42,14 @@ def test_partner_fusion_fixture_file_maps_to_graph_hints():
     assert any(v.get("label") == "Place" for v in hints["vertices"])
     assert any(e.get("type") == "USED_DEVICE" for e in hints["edges"])
     assert any(e.get("type") == "SEEN_AT" for e in hints["edges"])
+    entities, links = graph_writes_from_hints(hints)
+    assert any(
+        e["entity_type"] == "Device" and e["external_id"].startswith("fp:")
+        for e in entities
+    )
+    assert any(e["entity_type"] == "Place" for e in entities)
+    assert not any(e["entity_type"] == "Entity" for e in entities)
+    assert any(
+        lk["relationship"] == "USED_DEVICE" and lk["from_external_id"] == "e-fixture"
+        for lk in links
+    )

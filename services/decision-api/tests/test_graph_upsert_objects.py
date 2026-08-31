@@ -14,6 +14,9 @@ def test_graph_upsert_uses_evaluate_objects_not_custom_session():
     end = text.index("async def _graph_upsert_stepped(", start)
     body = text[start:end]
     assert "build_evaluate_objects" in body
+    assert "attach_decision_object" in body
+    assert "graph_writes_from_hints" in body
+    assert "partner_graph_hints" in body
     assert 'entity_type": "Custom"' not in body
     assert '"relationship": "USED"' not in body
 

@@ -4,10 +4,10 @@ import { LINK_ANALYSIS_MAX_NODES, undirectedLinkKey } from "./linkAnalysisGraph"
 import {
   buildPersonHuntGraph,
   decisionToastText,
+  filterReceiptLookback,
   filterWorkspaceNodes,
   graphLaggedEvaluate,
   hierarchyInstrumentFanout,
-  hierarchyInstrumentIds,
   lastOutcomeLabel,
   mergeSubgraphs,
   parseGraphWorkspaceParams,
@@ -16,6 +16,7 @@ import {
   rankRelatedLinks,
   searchHitMatchedOn,
   searchHitViaSubtitle,
+  seedInstrumentFanout,
   storedDisplayRisk,
   typeHistogram,
 } from "./graphInvestigation";
@@ -34,7 +35,13 @@ describe("parseGraphWorkspaceParams", () => {
       new URLSearchParams("entity_id=a&tenant_id=acme&depth=4"),
       "demo",
     );
-    expect(p).toEqual({ entityId: "a", tenantId: "acme", depth: 4 });
+    expect(p).toEqual({
+      entityId: "a",
+      tenantId: "acme",
+      depth: 4,
+      lookbackDays: 90,
+      decisionId: "",
+    });
   });
   it("accepts entity / tenant aliases", () => {
     const p = parseGraphWorkspaceParams(new URLSearchParams("entity=a&tenant=acme"), "demo");
@@ -45,6 +52,11 @@ describe("parseGraphWorkspaceParams", () => {
   it("clamps depth 1–5", () => {
     expect(parseGraphWorkspaceParams(new URLSearchParams("depth=9"), "demo").depth).toBe(5);
     expect(parseGraphWorkspaceParams(new URLSearchParams("depth=0"), "demo").depth).toBe(1);
+  });
+  it("defaults lookback to 90 days and clamps to retention", () => {
+    expect(parseGraphWorkspaceParams(new URLSearchParams(), "demo").lookbackDays).toBe(90);
+    expect(parseGraphWorkspaceParams(new URLSearchParams("lookback_days=7"), "demo").lookbackDays).toBe(7);
+    expect(parseGraphWorkspaceParams(new URLSearchParams("lookback_days=99999"), "demo").lookbackDays).toBe(2555);
   });
 });
 
@@ -281,34 +293,124 @@ describe("typeHistogram", () => {
   });
 });
 
-describe("hierarchyInstrumentIds", () => {
-  it("picks Device Payment Document LicensePlate Ip, not Login", () => {
-    const ids = hierarchyInstrumentIds(
+describe("seedInstrumentFanout", () => {
+  const now = Date.parse("2026-09-01T00:00:00Z");
+
+  it("ranks attend_pack first, keeps Place and one Decision, drops Login", () => {
+    const r = seedInstrumentFanout(
       "buyer",
       [
         n("buyer", { labels: ["Person"] }),
-        n("dev-1", { labels: ["Device"] }),
-        n("pay-1", { labels: ["Payment"] }),
-        n("dl-1", { labels: ["Document"] }),
-        n("plate:X", { labels: ["LicensePlate"] }),
+        n("dev-quiet", { labels: ["Device"] }),
+        n("dev-hot", { labels: ["Device"] }),
+        n("cell:3:1.2:3.4", { labels: ["Place"] }),
         n("login:tr", { labels: ["Login"] }),
-        n("dec-hold", { labels: ["Decision"] }),
+        n("dec-old", {
+          labels: ["Decision"],
+          properties: { outcome: "allow", created_at: "2026-08-20T00:00:00Z" },
+        }),
+        n("dec-deny", {
+          labels: ["Decision"],
+          properties: { outcome: "deny", created_at: "2026-08-31T00:00:00Z" },
+        }),
+      ],
+      [
+        { from_id: "buyer", to_id: "dev-quiet", type: "USED_DEVICE" },
+        { from_id: "buyer", to_id: "dev-hot", type: "USED_DEVICE" },
+        { from_id: "buyer", to_id: "cell:3:1.2:3.4", type: "SEEN_AT" },
+        { from_id: "buyer", to_id: "login:tr", type: "PERFORMED_LOGIN" },
+        { from_id: "buyer", to_id: "dec-old", type: "RESULTED_IN" },
+        { from_id: "buyer", to_id: "dec-deny", type: "RESULTED_IN" },
+      ],
+      [
+        {
+          entity_id: "dev-hot",
+          entity_type: "Device",
+          importance: 9,
+          reasons: [],
+          attend_pack: true,
+        },
+        {
+          entity_id: "dev-quiet",
+          entity_type: "Device",
+          importance: 1,
+          reasons: [],
+          attend_pack: false,
+        },
+      ],
+      { nowMs: now, lookbackDays: 90, max: 25, pinDecisionId: "dec-deny" },
+    );
+    expect(r.ids[0]).toBe("dev-hot");
+    expect(r.ids).toContain("cell:3:1.2:3.4");
+    expect(r.ids).toContain("dec-deny");
+    expect(r.ids).not.toContain("dec-old");
+    expect(r.ids).not.toContain("login:tr");
+  });
+
+  it("seeds Email Phone Document Card Address as durable ATO instruments", () => {
+    const r = seedInstrumentFanout(
+      "buyer",
+      [
+        n("buyer", { labels: ["Person"] }),
+        n("email:sold@x.com", { labels: ["Email"] }),
+        n("phone:+1", { labels: ["Phone"] }),
+        n("passport-9", { labels: ["Document"] }),
+        n("card:tok", { labels: ["Card"] }),
+        n("addr:12 oak", { labels: ["Address"] }),
+        n("login:tr", { labels: ["Login"] }),
+      ],
+      [
+        { from_id: "buyer", to_id: "email:sold@x.com", type: "HAS_EMAIL" },
+        { from_id: "buyer", to_id: "phone:+1", type: "HAS_PHONE" },
+        { from_id: "buyer", to_id: "passport-9", type: "USED" },
+        { from_id: "buyer", to_id: "card:tok", type: "USED" },
+        { from_id: "buyer", to_id: "addr:12 oak", type: "USED" },
+        { from_id: "buyer", to_id: "login:tr", type: "PERFORMED_LOGIN" },
+      ],
+      null,
+      { nowMs: now, lookbackDays: 90, max: 25 },
+    );
+    expect(r.ids).toEqual(
+      expect.arrayContaining([
+        "email:sold@x.com",
+        "phone:+1",
+        "passport-9",
+        "card:tok",
+        "addr:12 oak",
+      ]),
+    );
+    expect(r.ids).not.toContain("login:tr");
+  });
+});
+
+describe("filterReceiptLookback", () => {
+  const now = Date.parse("2026-09-01T00:00:00Z");
+
+  it("drops old Login, keeps Device and undated Login", () => {
+    const r = filterReceiptLookback(
+      [
+        n("buyer", { labels: ["Person"] }),
+        n("dev-1", { labels: ["Device"] }),
+        n("login:old", {
+          labels: ["Login"],
+          properties: { created_at: "2025-01-01T00:00:00Z" },
+        }),
+        n("login:undated", { labels: ["Login"] }),
       ],
       [
         { from_id: "buyer", to_id: "dev-1", type: "USED_DEVICE" },
-        { from_id: "buyer", to_id: "pay-1", type: "MADE_PAYMENT" },
-        { from_id: "buyer", to_id: "dl-1", type: "USED" },
-        { from_id: "buyer", to_id: "plate:X", type: "USED" },
-        { from_id: "buyer", to_id: "login:tr", type: "PERFORMED_LOGIN" },
-        { from_id: "buyer", to_id: "dec-hold", type: "ACTED_ON" },
+        { from_id: "buyer", to_id: "login:old", type: "PERFORMED_LOGIN" },
+        { from_id: "buyer", to_id: "login:undated", type: "PERFORMED_LOGIN" },
       ],
+      { seedId: "buyer", lookbackDays: 90, nowMs: now },
     );
-    expect(ids).toEqual(["dev-1", "dl-1", "pay-1", "plate:X"]);
+    const ids = r.nodes.map((x) => x.id).sort();
+    expect(ids).toEqual(["buyer", "dev-1", "login:undated"]);
   });
 });
 
 describe("buildPersonHuntGraph", () => {
-  it("keeps the instrument tree and never draws Decision nodes", () => {
+  it("keeps the instrument tree and Person-RESULTED_IN-Decision hops", () => {
     const r = buildPersonHuntGraph(
       "buyer",
       {
@@ -323,7 +425,7 @@ describe("buildPersonHuntGraph", () => {
           { from_id: "buyer", to_id: "dev-1", type: "USED_DEVICE" },
           { from_id: "buyer", to_id: "pay-1", type: "MADE_PAYMENT" },
           { from_id: "buyer", to_id: "login:tr", type: "PERFORMED_LOGIN" },
-          { from_id: "buyer", to_id: "dec-hold", type: "ACTED_ON" },
+          { from_id: "buyer", to_id: "dec-hold", type: "RESULTED_IN" },
         ],
       },
       [
@@ -353,11 +455,17 @@ describe("buildPersonHuntGraph", () => {
       50,
     );
     const ids = r.nodes.map((x) => x.id).sort();
-    expect(ids).toEqual(["buyer", "dev-1", "ip:1", "ip:2", "pay-1"]);
-    expect(ids).not.toContain("login:tr");
-    expect(ids).not.toContain("dec-hold");
-    expect(ids).not.toContain("dec-login");
-    expect(ids).not.toContain("dec-pay");
+    expect(ids).toEqual([
+      "buyer",
+      "dec-hold",
+      "dec-login",
+      "dec-pay",
+      "dev-1",
+      "ip:1",
+      "ip:2",
+      "login:tr",
+      "pay-1",
+    ]);
   });
 });
 

@@ -710,6 +710,7 @@ async def shadow_promote_gate(
         "shadow_drafts": [
             {
                 "name": str(p.get("name") or ""),
+                "file": str(p.get("_source_file") or p.get("_file") or ""),
                 "is_ai_authored": bool(p.get("is_ai_authored")),
                 "mode": "shadow",
             }

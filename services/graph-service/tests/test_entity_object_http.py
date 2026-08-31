@@ -37,6 +37,33 @@ def _subgraph():
     }
 
 
+def test_decision_seed_404_without_markings(client, monkeypatch):
+    monkeypatch.setattr(
+        "graph_service.main.query_subgraph",
+        AsyncMock(
+            return_value={
+                "nodes": [
+                    {
+                        "id": "dec:tr-1",
+                        "labels": ["Decision"],
+                        "properties": {"markings": ["desk"], "outcome": "deny"},
+                    }
+                ],
+                "edges": [],
+            }
+        ),
+    )
+    hidden = client.get("/v1/entities/dec:tr-1", params={"tenant_id": "demo"})
+    assert hidden.status_code == 404
+    shown = client.get(
+        "/v1/entities/dec:tr-1",
+        params={"tenant_id": "demo"},
+        headers={"X-Graph-Markings": "desk"},
+    )
+    assert shown.status_code == 200
+    assert shown.json()["id"] == "dec:tr-1"
+
+
 def test_get_entity_404(client, monkeypatch):
     monkeypatch.setattr(
         "graph_service.main.query_subgraph", AsyncMock(return_value={"nodes": [], "edges": []})
@@ -62,9 +89,67 @@ def test_get_entity_links_history(client, monkeypatch):
     assert hist.status_code == 200
     assert hist.json()["last_trace_id"] == "tr-1"
     assert hist.json()["trace_ids"] == ["tr-1"]
+    assert hist.json()["decisions"] == []
     att = links.json().get("attention") or []
     assert any(row["entity_id"] == "login:tr-1" for row in att)
     assert all(row.get("attend_pack") is False for row in att)
+
+
+def test_history_includes_resulted_in_decisions(client, monkeypatch):
+    monkeypatch.setattr(
+        "graph_service.main.query_subgraph",
+        AsyncMock(
+            return_value={
+                "nodes": [
+                    {
+                        "id": "buyer-demo",
+                        "labels": ["Person"],
+                        "properties": {"last_trace_id": "tr-hop", "trace_ids": ["tr-hop"]},
+                    },
+                    {
+                        "id": "dec:tr-hop",
+                        "labels": ["Decision"],
+                        "properties": {
+                            "outcome": "deny",
+                            "source": "evaluate",
+                            "kind": "evaluate",
+                            "trace_id": "tr-hop",
+                            "created_at": "2026-08-31T00:00:00Z",
+                            "markings": ["desk"],
+                        },
+                    },
+                ],
+                "edges": [
+                    {
+                        "from_id": "buyer-demo",
+                        "to_id": "dec:tr-hop",
+                        "type": "RESULTED_IN",
+                        "properties": {},
+                    }
+                ],
+            }
+        ),
+    )
+    hidden = client.get("/v1/entities/buyer-demo/history", params={"tenant_id": "demo"})
+    assert hidden.status_code == 200
+    assert hidden.json()["decisions"] == []
+    hist = client.get(
+        "/v1/entities/buyer-demo/history",
+        params={"tenant_id": "demo"},
+        headers={"X-Graph-Markings": "desk"},
+    )
+    assert hist.status_code == 200
+    rows = hist.json()["decisions"]
+    assert rows == [
+        {
+            "id": "dec:tr-hop",
+            "outcome": "deny",
+            "source": "evaluate",
+            "kind": "evaluate",
+            "trace_id": "tr-hop",
+            "created_at": "2026-08-31T00:00:00Z",
+        }
+    ]
 
 
 def test_objects_attention_pack_bar(client, monkeypatch):

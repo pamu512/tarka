@@ -56,6 +56,11 @@ ALLOWED_LABELS = frozenset(
         "Document",
         "LicensePlate",
         "Decision",
+        "Email",
+        "Phone",
+        "Place",
+        "Address",
+        "Card",
         "Custom",
     }
 )
@@ -73,12 +78,14 @@ ALLOWED_RELS = frozenset(
         "MADE_PAYMENT",
         "PERFORMED_LOGIN",
         "USES_DEVICE",
+        "HAS_EMAIL",
         "HAS_PHONE",
         "SEEN_FROM_IP",
         "PAYS_WITH",
         "RESULTED_IN",
         "ACTED_ON",
         "BASED_ON",
+        "SUPERSEDES",
         "SHARED_WITH",
         "CUSTOM",
     }
@@ -402,6 +409,15 @@ def _list_one_hop_ids_sync(tenant_id: str, entity_id: str) -> list[str]:
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
     return await run_in_gremlin_thread(lambda: _list_one_hop_ids_sync(tenant_id, entity_id))
+
+
+def _delete_entity_sync(tenant_id: str, external_id: str) -> None:
+    g = get_traversal_source()
+    g.V().has("tenant_id", tenant_id).has("external_id", external_id).drop().iterate()
+
+
+async def delete_entity(tenant_id: str, external_id: str) -> None:
+    await run_in_gremlin_thread(lambda: _delete_entity_sync(tenant_id, external_id))
 
 
 def _walk_incident_layers(

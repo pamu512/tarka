@@ -8,22 +8,31 @@ export type WorkspaceFilter = {
   growthOnly: boolean;
 };
 
+export const HUNT_LOOKBACK_DEFAULT_DAYS = 90;
+export const HUNT_LOOKBACK_MAX_DAYS = 2555;
+export const HUNT_SEED_MAX = 25;
+
 export function parseGraphWorkspaceParams(
   sp: URLSearchParams,
   defaultTenant: string,
-): { entityId: string; tenantId: string; depth: number } {
+): { entityId: string; tenantId: string; depth: number; lookbackDays: number; decisionId: string } {
   const entityId = sp.get("entity_id") || sp.get("entity") || "";
   const tenantId = sp.get("tenant_id") || sp.get("tenant") || defaultTenant;
   const parsed = Number.parseInt(sp.get("depth") ?? "", 10);
   const depth = Number.isFinite(parsed) ? Math.min(5, Math.max(1, parsed)) : 2;
-  return { entityId, tenantId, depth };
+  const rawLb = Number.parseInt(sp.get("lookback_days") ?? "", 10);
+  const lookbackDays = Number.isFinite(rawLb)
+    ? Math.min(HUNT_LOOKBACK_MAX_DAYS, Math.max(1, rawLb))
+    : HUNT_LOOKBACK_DEFAULT_DAYS;
+  const decisionId = (sp.get("decision_id") || "").trim();
+  return { entityId, tenantId, depth, lookbackDays, decisionId };
 }
 
 export function primaryLabel(labels: string[] | undefined): string {
   return labels?.[0] || "Custom";
 }
 
-/** Last evaluate on this object. Decisions are not graph nodes. */
+/** Last evaluate stamp when no Decision vertex is selected. */
 export function decisionToastText(node: GraphNode | null | undefined): string | null {
   const raw = node?.properties?.last_outcome;
   const outcome = typeof raw === "string" ? raw.trim() : "";
@@ -145,8 +154,134 @@ export function filterWorkspaceNodes(
   };
 }
 
-const HUNT_INSTRUMENT_LABELS = new Set(["Device", "Payment", "Document", "LicensePlate", "Ip"]);
+const HUNT_INSTRUMENT_LABELS = new Set([
+  "Device",
+  "Place",
+  "Payment",
+  "Document",
+  "LicensePlate",
+  "Ip",
+  "Email",
+  "Phone",
+  "Card",
+  "Address",
+]);
 const HUNT_HIERARCHY_EXPAND_CAP = 8;
+const HUNT_RECEIPT_LABELS = new Set(["Login", "Session", "Decision"]);
+const HUNT_SEED_LABELS = new Set([...HUNT_INSTRUMENT_LABELS, "Decision"]);
+
+function hopTimeMs(node: GraphNode): number | null {
+  const props = node.properties || {};
+  for (const key of ["created_at", "observed_at", "last_seen", "updated_at"] as const) {
+    const raw = props[key];
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const ms = Date.parse(raw);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return null;
+}
+
+function nodeOutcome(node: GraphNode): LastOutcomeLabel {
+  const fromLast = lastOutcomeLabel(node);
+  if (fromLast !== "unknown") return fromLast;
+  return lastOutcomeLabel({ last_outcome: node.properties?.outcome });
+}
+
+function outcomeRank(label: LastOutcomeLabel): number {
+  if (label === "deny" || label === "review") return 3;
+  if (label === "flag") return 2;
+  if (label === "allow") return 0;
+  return 1;
+}
+
+export function filterReceiptLookback(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  opts: { seedId: string; lookbackDays: number; nowMs: number },
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const since = opts.nowMs - opts.lookbackDays * 86_400_000;
+  const drop = new Set<string>();
+  for (const node of nodes) {
+    if (node.id === opts.seedId) continue;
+    if (!HUNT_RECEIPT_LABELS.has(primaryLabel(node.labels))) continue;
+    const t = hopTimeMs(node);
+    if (t != null && t < since) drop.add(node.id);
+  }
+  const kept = nodes.filter((node) => !drop.has(node.id));
+  const ids = new Set(kept.map((node) => node.id));
+  return {
+    nodes: kept,
+    edges: edges.filter((edge) => {
+      const { from, to } = linkEndIds(edge);
+      return ids.has(from) && ids.has(to);
+    }),
+  };
+}
+
+export function seedInstrumentFanout(
+  seedId: string,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  attention: GraphObjectAttention[] | null | undefined,
+  opts: { nowMs: number; lookbackDays: number; max: number; pinDecisionId?: string },
+): { ids: string[]; total: number } {
+  const windowed = filterReceiptLookback(nodes, edges, {
+    seedId,
+    lookbackDays: opts.lookbackDays,
+    nowMs: opts.nowMs,
+  });
+  const byId = new Map(windowed.nodes.map((node) => [node.id, node]));
+  const att = new Map((attention || []).map((row) => [row.entity_id, row]));
+  const seen = new Set<string>();
+  const candidates: GraphNode[] = [];
+  for (const edge of windowed.edges) {
+    const { from, to } = linkEndIds(edge);
+    const other = from === seedId ? to : to === seedId ? from : "";
+    if (!other || other === seedId || seen.has(other)) continue;
+    const node = byId.get(other);
+    if (!node || !HUNT_SEED_LABELS.has(primaryLabel(node.labels))) continue;
+    seen.add(other);
+    candidates.push(node);
+  }
+  const pin = (opts.pinDecisionId || "").trim();
+  const ranked = [...candidates].sort((a, b) => compareHuntNeighbor(b, a, att));
+  const picked: GraphNode[] = [];
+  let haveDecision = false;
+  for (const node of ranked) {
+    const isDec = primaryLabel(node.labels) === "Decision";
+    if (isDec) {
+      if (haveDecision) continue;
+      if (pin && node.id !== pin) continue;
+      haveDecision = true;
+    }
+    picked.push(node);
+  }
+  if (pin && !haveDecision) {
+    const pinned = byId.get(pin);
+    if (pinned && primaryLabel(pinned.labels) === "Decision") picked.unshift(pinned);
+  }
+  const ids = picked.slice(0, Math.max(1, opts.max)).map((node) => node.id);
+  return { ids, total: candidates.length };
+}
+
+function compareHuntNeighbor(
+  a: GraphNode,
+  b: GraphNode,
+  att: Map<string, GraphObjectAttention>,
+): number {
+  const aa = att.get(a.id);
+  const ba = att.get(b.id);
+  const ap = aa?.attend_pack ? 1 : 0;
+  const bp = ba?.attend_pack ? 1 : 0;
+  if (ap !== bp) return ap - bp;
+  const ai = aa?.importance ?? -1;
+  const bi = ba?.importance ?? -1;
+  if (ai !== bi) return ai - bi;
+  const ao = outcomeRank(nodeOutcome(a));
+  const bo = outcomeRank(nodeOutcome(b));
+  if (ao !== bo) return ao - bo;
+  return (hopTimeMs(a) ?? 0) - (hopTimeMs(b) ?? 0);
+}
 
 /** Mid-tier neighbors to fan out so Person Hunt sees IP + Decision (AGE is depth 1). */
 export function hierarchyInstrumentFanout(
@@ -173,32 +308,7 @@ export function hierarchyInstrumentIds(seedId: string, nodes: GraphNode[], edges
   return hierarchyInstrumentFanout(seedId, nodes, edges).ids;
 }
 
-function filterPersonHuntNoise(
-  seedId: string,
-  nodes: GraphNode[],
-  edges: GraphEdge[],
-): { nodes: GraphNode[]; edges: GraphEdge[] } {
-  const seed = nodes.find((node) => node.id === seedId);
-  const drop = new Set<string>();
-  for (const node of nodes) {
-    if (node.id === seedId) continue;
-    const kind = primaryLabel(node.labels);
-    if (kind === "Decision") drop.add(node.id);
-    if (kind === "Login" && seed?.labels?.includes("Person")) drop.add(node.id);
-  }
-
-  const kept = nodes.filter((node) => !drop.has(node.id));
-  const ids = new Set(kept.map((node) => node.id));
-  return {
-    nodes: kept,
-    edges: edges.filter((edge) => {
-      const { from, to } = linkEndIds(edge);
-      return ids.has(from) && ids.has(to);
-    }),
-  };
-}
-
-/** Person canvas: instrument 1-hops merged in. Decision vertices stay off the graph. */
+/** Person canvas: instrument 1-hops merged in. Login stays when expand asked for it. */
 export function buildPersonHuntGraph(
   seedId: string,
   seedSub: { nodes: GraphNode[]; edges: GraphEdge[] },
@@ -209,14 +319,7 @@ export function buildPersonHuntGraph(
     nodes: instrumentSubs.flatMap((sub) => sub.nodes),
     edges: instrumentSubs.flatMap((sub) => sub.edges),
   };
-  const merged = mergeSubgraphs(seedId, seedSub, extra, maxNodes);
-  const cleaned = filterPersonHuntNoise(seedId, merged.nodes, merged.edges);
-  return {
-    nodes: cleaned.nodes,
-    edges: cleaned.edges,
-    originalNodeCount: merged.originalNodeCount,
-    prunedNodeCount: cleaned.nodes.length,
-  };
+  return mergeSubgraphs(seedId, seedSub, extra, maxNodes);
 }
 
 export function mergeSubgraphs(
