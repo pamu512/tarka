@@ -99,6 +99,73 @@ async def create_link(
     await _store().create_link(
         tenant_id, from_external_id, to_external_id, relationship, properties
     )
+    if relationship == "RESULTED_IN":
+        try:
+            await trim_allow_decision_window(tenant_id, from_external_id)
+        except Exception:
+            log.warning(
+                "allow_decision_trim_failed tenant=%s person=%s",
+                tenant_id,
+                from_external_id,
+                exc_info=True,
+            )
+
+
+async def delete_entity(tenant_id: str, external_id: str) -> None:
+    await _store().delete_entity(tenant_id, external_id)
+
+
+# ponytail: same rule as tarka_shared.decision_graph_payload.allow_decision_ids_over_cap.
+# graph-service image does not ship shared-core; keep the picker here until it does.
+_ALLOW_AGE_CAP = 20
+
+
+def allow_decision_ids_over_cap(nodes: list[dict[str, Any]], *, cap: int = _ALLOW_AGE_CAP) -> list[str]:
+    allows: list[tuple[str, str]] = []
+    for node in nodes:
+        labels = node.get("labels") or []
+        etype = str(node.get("entity_type") or "")
+        if etype != "Decision" and "Decision" not in [str(x) for x in labels]:
+            continue
+        props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+        kind = str(props.get("kind") or "").strip().lower()
+        outcome = str(props.get("outcome") or "").strip().lower()
+        source = str(props.get("source") or "").strip().lower()
+        material = kind in {"human_disposition", "policy_gate"} or outcome in {
+            "deny",
+            "review",
+            "held",
+            "hold",
+        } or outcome.startswith("resolved")
+        if material:
+            continue
+        if source != "evaluate" or outcome != "allow":
+            continue
+        eid = str(
+            node.get("id") or node.get("external_id") or props.get("external_id") or ""
+        ).strip()
+        if not eid:
+            continue
+        allows.append((str(props.get("created_at") or ""), eid))
+    allows.sort(key=lambda row: (row[0], row[1]))
+    if len(allows) <= cap:
+        return []
+    return [eid for _, eid in allows[:-cap]]
+
+
+async def trim_allow_decision_window(tenant_id: str, person_id: str) -> int:
+    """Drop oldest evaluate-allow Decision hops until the Person is at the cap."""
+    pid = str(person_id or "").strip()
+    if not pid:
+        return 0
+    sub = await query_subgraph(tenant_id, pid, 1)
+    drop = allow_decision_ids_over_cap(list(sub.get("nodes") or []))
+    for eid in drop:
+        try:
+            await delete_entity(tenant_id, eid)
+        except Exception:
+            log.warning("allow_decision_delete_failed id=%s", eid, exc_info=True)
+    return len(drop)
 
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:

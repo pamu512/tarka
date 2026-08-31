@@ -89,7 +89,7 @@ Compose: `infra/deploy/docker-compose.v2-ingest.yml`.
 
 Work **arrives** on `GET /v1/leftovers` (desk `/leftovers`). Work **happens** on Hunt (`/graph`). Hold / release / resolve are Person acts (`POST /v1/entities/{id}/act`). Fat `/cases` stays hidden in lean; CaseDetail is SAR / dispute / QA.
 
-A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint only when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **off**).
+A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint on deny/review by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 
 Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. One leftover cannot Promote.
 

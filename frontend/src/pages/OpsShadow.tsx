@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   cases,
   deskActor,
+  rules,
   type LeftoverPromoteGate,
   type LiveRuleSlip,
   type ShadowAutoPromoteProvision,
@@ -47,7 +48,12 @@ type ShadowPromoteGate = {
   };
   leftover_promote_gate?: LeftoverPromoteGate;
   live_rule_slip?: LiveRuleSlip;
-  shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
+  shadow_drafts?: Array<{
+    name?: string;
+    file?: string;
+    is_ai_authored?: boolean;
+    mode?: string;
+  }>;
   desk_promote_gate?: {
     promote_allowed?: boolean;
     blockers?: string[];
@@ -150,6 +156,12 @@ export default function OpsShadow() {
   const [minLabeledExtras, setMinLabeledExtras] = useState(5);
   const [leftoverMsg, setLeftoverMsg] = useState("");
   const [leftoverBusy, setLeftoverBusy] = useState(false);
+  const [forceReason, setForceReason] = useState("");
+  const [lastForceLive, setLastForceLive] = useState<{
+    ts?: string;
+    actor?: string;
+    detail?: { reason?: string };
+  } | null>(null);
 
   async function refreshL3() {
     try {
@@ -223,10 +235,38 @@ export default function OpsShadow() {
   const draftNames = (data?.shadow_drafts || [])
     .map((d) => (d.name || "").trim())
     .filter(Boolean);
+  const selectedDraftFile = (
+    (data?.shadow_drafts || []).find((d) => (d.name || "").trim() === draftId)?.file || ""
+  ).trim();
   const actor = deskActor();
   const canAck = Boolean(draftId) && (leftoverGate?.claimers || []).includes(actor);
   const canPromote = Boolean(draftId) && Boolean(deskGate?.promote_allowed);
+  const canForceLive = Boolean(selectedDraftFile) && forceReason.trim().length >= 8;
   const helpfulness = leftoverGate?.helpfulness;
+
+  useEffect(() => {
+    if (!selectedDraftFile) {
+      setLastForceLive(null);
+      return;
+    }
+    void rules
+      .changeLog(200)
+      .then((log) => {
+        const row = (log.items || []).find(
+          (item) => item.action === "rule_force_live" && item.file === selectedDraftFile,
+        );
+        setLastForceLive(
+          row
+            ? {
+                ts: row.ts,
+                actor: row.actor,
+                detail: row.detail as { reason?: string } | undefined,
+              }
+            : null,
+        );
+      })
+      .catch(() => setLastForceLive(null));
+  }, [selectedDraftFile]);
   const lifecycle = data?.promote_lifecycle;
   const l3Status = l3?.status || "NOT_STARTED";
   const l3Armed = l3Status !== "NOT_STARTED" && Boolean(l3?.tenant_id);
@@ -280,6 +320,32 @@ export default function OpsShadow() {
       setData(gate);
     } catch (e) {
       setLeftoverMsg(toUserFacingError(e, { subject: "Shadow pack", action: "promote named draft" }));
+    } finally {
+      setLeftoverBusy(false);
+    }
+  }
+
+  async function forceLiveDraft() {
+    if (!canForceLive) return;
+    setLeftoverBusy(true);
+    setLeftoverMsg("");
+    try {
+      const out = await decisions.forceLiveRulePack(selectedDraftFile, forceReason.trim());
+      setLeftoverMsg(`Forced live ${out.file || selectedDraftFile} → ${out.mode || "active"}.`);
+      setForceReason("");
+      const gate = await decisions.shadowPromoteGate(tenantId, draftId);
+      setData(gate);
+      const log = await rules.changeLog(200);
+      const row = (log.items || []).find(
+        (item) => item.action === "rule_force_live" && item.file === (out.file || selectedDraftFile),
+      );
+      setLastForceLive(
+        row
+          ? { ts: row.ts, actor: row.actor, detail: row.detail as { reason?: string } | undefined }
+          : null,
+      );
+    } catch (e) {
+      setLeftoverMsg(toUserFacingError(e, { subject: "Force-live", action: "override leftover and science gates" }));
     } finally {
       setLeftoverBusy(false);
     }
@@ -680,6 +746,37 @@ export default function OpsShadow() {
         >
           Promote
         </button>
+        <div className="space-y-2 border-t border-surface-700 pt-3" data-testid="force-live-override">
+          <p className="text-[11px] text-gray-500">
+            Override skips leftover and science. Human reason required. Smaller than Promote.
+          </p>
+          <label className="block text-[10px] text-gray-500">
+            reason
+            <input
+              type="text"
+              value={forceReason}
+              onChange={(e) => setForceReason(e.target.value)}
+              minLength={8}
+              placeholder="why this pack must go live now"
+              className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!canForceLive || leftoverBusy}
+            onClick={() => void forceLiveDraft()}
+            className="text-[11px] px-2 py-1 rounded border border-surface-700 text-gray-400 hover:border-amber-500/60 hover:text-amber-200 disabled:opacity-50"
+          >
+            Override
+          </button>
+          {lastForceLive ? (
+            <p className="text-[11px] font-mono text-gray-500" data-testid="last-rule-force-live">
+              last rule_force_live {lastForceLive.actor || "?"}
+              {lastForceLive.ts ? ` @ ${lastForceLive.ts}` : ""}
+              {lastForceLive.detail?.reason ? ` — ${lastForceLive.detail.reason}` : ""}
+            </p>
+          ) : null}
+        </div>
         {leftoverMsg ? <p className="text-[11px] font-mono text-gray-400">{leftoverMsg}</p> : null}
       </section>
 

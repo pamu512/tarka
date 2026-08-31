@@ -90,7 +90,34 @@ async function loadMinimalReceipts(tenantId: string, traceIds: string[]): Promis
 type StoryHold = { outcome: string; created_at: string };
 type StoryRow =
   | { kind: "evaluate"; at: string; receipt: AuditEntry }
-  | { kind: "hold"; at: string; outcome: string };
+  | { kind: "hold"; at: string; outcome: string }
+  | { kind: "hop"; at: string; id: string; outcome: string };
+
+function hopStoryFromLinks(
+  seedId: string,
+  edges: GraphEdge[],
+  nodes: GraphNode[],
+): StoryRow[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const rows: StoryRow[] = [];
+  const seen = new Set<string>();
+  for (const edge of edges) {
+    if (edge.type !== "RESULTED_IN") continue;
+    const other = edge.from_id === seedId ? edge.to_id : edge.to_id === seedId ? edge.from_id : "";
+    if (!other || seen.has(other)) continue;
+    const node = byId.get(other);
+    if (!node?.labels?.includes("Decision")) continue;
+    seen.add(other);
+    const props = node.properties || {};
+    rows.push({
+      kind: "hop",
+      id: other,
+      at: String(props.created_at || ""),
+      outcome: String(props.outcome || ""),
+    });
+  }
+  return rows.sort((a, b) => b.at.localeCompare(a.at));
+}
 
 function holdForStory(
   lastAct: unknown,
@@ -103,7 +130,22 @@ function holdForStory(
   return { outcome, created_at: String(disposition?.created_at || "").trim() };
 }
 
-function buildObjectStory(receipts: AuditEntry[], hold: StoryHold | null): StoryRow[] {
+function buildObjectStory(
+  receipts: AuditEntry[],
+  hold: StoryHold | null,
+  hops: StoryRow[] = [],
+): StoryRow[] {
+  if (hops.length) {
+    const rows = [...hops];
+    if (hold && !rows.some((row) => row.kind === "hop" && row.outcome === hold.outcome)) {
+      rows.push({ kind: "hold", at: hold.created_at, outcome: hold.outcome });
+    }
+    return rows.sort((a, b) => {
+      if (a.kind === "hold" && !a.at) return -1;
+      if (b.kind === "hold" && !b.at) return 1;
+      return b.at.localeCompare(a.at);
+    });
+  }
   const rows: StoryRow[] = receipts.map((receipt) => ({
     kind: "evaluate" as const,
     at: String(receipt.created_at || ""),
@@ -152,11 +194,20 @@ export function GraphContextPanel({
   const [objectNode, setObjectNode] = useState<GraphNode | null>(null);
   const [links, setLinks] = useState<{
     edges: GraphEdge[];
+    nodes?: GraphNode[];
     attention?: GraphObjectAttention[];
   } | null>(null);
   const [history, setHistory] = useState<{
     last_trace_id?: string | null;
     trace_ids: string[];
+    decisions?: Array<{
+      id: string;
+      outcome?: string | null;
+      source?: string | null;
+      kind?: string | null;
+      trace_id?: string | null;
+      created_at?: string | null;
+    }>;
     properties?: Record<string, unknown>;
   } | null>(null);
   const [receipts, setReceipts] = useState<AuditEntry[]>([]);
@@ -202,7 +253,8 @@ export function GraphContextPanel({
     setLinks(linkRow);
     setHistory(hist);
     setData(ctx);
-    setReceipts(await loadMinimalReceipts(tenantId, receiptTraceIds(hist)));
+    const hops = hopStoryFromLinks(entityId, linkRow?.edges || [], linkRow?.nodes || []);
+    setReceipts(hops.length ? [] : await loadMinimalReceipts(tenantId, receiptTraceIds(hist)));
     setHold(holdForStory(obj?.properties?.last_act ?? hist?.properties?.last_act, disposition));
     setLatestEval(latest);
     setState("ready");
@@ -481,7 +533,8 @@ export function GraphContextPanel({
           {state === "ready" ? (
             <div className="space-y-6 text-sm">
               {(() => {
-                const story = buildObjectStory(receipts, hold);
+                const hops = hopStoryFromLinks(entityId || "", links?.edges || [], links?.nodes || []);
+                const story = buildObjectStory(receipts, hold, hops);
                 if (!story.length) return null;
                 let proving = true;
                 return (
@@ -490,6 +543,32 @@ export function GraphContextPanel({
                       Story
                     </h3>
                     {story.map((row) => {
+                      if (row.kind === "hop") {
+                        return (
+                          <div
+                            key={`hop-${row.id}`}
+                            data-testid="object-decision-hop"
+                            className="rounded border border-surface-800 px-2 py-2"
+                          >
+                            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+                              {onSelectEntity ? (
+                                <button
+                                  type="button"
+                                  className="font-mono text-sky-300 hover:underline"
+                                  onClick={() => onSelectEntity(row.id)}
+                                >
+                                  {row.id}
+                                </button>
+                              ) : (
+                                <span className="font-mono text-gray-300">{row.id}</span>
+                              )}
+                              <span className={isPackFiredDecision(row.outcome) ? "text-amber-200" : "text-gray-400"}>
+                                {row.outcome || "—"}
+                              </span>
+                            </p>
+                          </div>
+                        );
+                      }
                       if (row.kind === "hold") {
                         return (
                           <div
@@ -605,13 +684,35 @@ export function GraphContextPanel({
               {history ? (
                 <section data-testid="object-history">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                    Evaluate traces
+                    Decision history
                   </h3>
                   <p className="text-xs text-gray-400">
                     Last:{" "}
                     <span className="font-mono text-gray-200">{history.last_trace_id || "—"}</span>
                   </p>
-                  {history.trace_ids.length > 0 ? (
+                  {history.decisions && history.decisions.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {history.decisions.map((row) => (
+                        <li key={row.id} className="flex flex-wrap gap-x-2 text-[11px] text-gray-400">
+                          {onSelectEntity ? (
+                            <button
+                              type="button"
+                              className="font-mono text-sky-300 hover:underline"
+                              onClick={() => onSelectEntity(row.id)}
+                            >
+                              {row.outcome || row.id}
+                            </button>
+                          ) : (
+                            <span className="font-mono text-gray-200">{row.outcome || row.id}</span>
+                          )}
+                          {row.source ? <span>{row.source}</span> : null}
+                          {row.trace_id ? (
+                            <span className="font-mono text-gray-500">{row.trace_id}</span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : history.trace_ids.length > 0 ? (
                     <ul className="mt-2 space-y-1">
                       {history.trace_ids.map((tid) => (
                         <li key={tid} className="font-mono text-[11px] text-gray-500">
