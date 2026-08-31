@@ -88,12 +88,14 @@ Amount / payment:
 ## Hard stops
 
 1. **Mode is always `shadow`** (Observe / canary). You cannot set `mode` to `"active"` or `"live"`.
-2. **You cannot promote** a pack to live. Promotion is a human/gate operation.
+2. **You cannot promote** a pack to live, and you cannot force-live. Promote is `POST …/shadow-packs/{draft_id}/promote`. Override is `POST /v1/rules/{file}/force-live` (human actor + reason). Neither is yours.
 3. **You cannot create a case.** Case creation is a separate service.
 4. **You cannot call evaluate as the decider.** Evaluate stays Rust. You advise only.
 5. **`score_delta` is bounded 5–30.** No deny-100, no blacklist writes.
 6. **Silence is allowed.** If the evidence does not support a rule, return an empty `rules` array — but the validator requires at least one rule per pack, so only submit when you have evidence.
 7. **Skipping a check is showing-signs, not a block.** Unless the host already has that pack deployed.
+
+Host create/edit (`POST /v1/rules`, `PUT /v1/rules/{file}`) also persist `mode=shadow` even for human packs. Live is Promote, provisioned auto-promote, or force-live. Omitted `mode` on disk still loads as active (fixtures only).
 
 ## Evidence requirement
 

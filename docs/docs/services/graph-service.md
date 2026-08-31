@@ -1,6 +1,6 @@
 # Graph Service
 
-The Graph Service manages an entity graph backed by Neo4j/JanusGraph/AGE. It also hosts the **decision context graph** — durable accountability records (evaluate → agent advise → human disposition) with causal chains.
+The Graph Service manages an entity graph. **Lite default is Apache AGE** on the same Postgres (`GRAPH_BACKEND=age`). JanusGraph and Neo4j are optional overlays. It also hosts the **decision context graph** — durable accountability records (evaluate → agent advise → human disposition) with causal chains. Evaluate never waits on this hop.
 
 **Decision graph guide:** [Decision context graph](../guides/decision-context-graph.md)
 

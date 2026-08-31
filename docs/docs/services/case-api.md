@@ -1,6 +1,8 @@
 # Case API
 
-Cases are **residual**: born from evaluate → review / deny. ALLOW never becomes a case. The Case API provides persistence, audit trail, workflow hooks, WebSocket live feeds, and webhook delivery for these evaluate-born cases.
+Cases are **residual**: born from evaluate → review / deny, or from Hunt Hold. ALLOW never becomes a leftover. Lean desk uses **`GET /v1/leftovers`** (and claim / promote-ack). Fat `/cases` CRM stays hidden in lean; this API still serves SAR / dispute / QA.
+
+The Case API provides persistence, leftover list, audit trail, workflow hooks, WebSocket live feeds, and webhook delivery.
 
 **Port:** 8002  
 **Framework:** Python / FastAPI
@@ -8,6 +10,17 @@ Cases are **residual**: born from evaluate → review / deny. ALLOW never become
 Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
 
 ---
+
+## Leftovers (desk station)
+
+```
+GET /v1/leftovers?tenant_id=&free_only=0
+POST /v1/leftovers/{case_id}/claim
+GET /v1/leftovers/promote-ack?tenant_id=&draft_id=
+POST /v1/leftovers/promote-ack
+```
+
+Register promote-ack **before** `/{case_id}`. Claim is per actor; Hold does not steal. See leftover Hunt spec.
 
 ## Endpoints
 

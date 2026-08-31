@@ -9,7 +9,8 @@ const conf = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../n
 describe("production nginx hops", () => {
   it("proxies SPA paths that used to fall through to index.html", () => {
     expect(conf).toContain("location /api/auth/");
-    expect(conf).toContain("core-api:8000/auth");
+    expect(conf).toContain("core-api:8000");
+    expect(conf).toContain("rewrite ^/api/auth/(.*)$ /auth/$1 break;");
     expect(conf).toContain("location /api/orchestrator/");
     expect(conf).toContain("location /api/v1/demo/");
     expect(conf).toContain("location /api/collab/");
@@ -22,6 +23,12 @@ describe("production nginx hops", () => {
     expect(conf).toContain("upstream_unavailable");
     expect(conf).toContain("set $tarka_optional signal-api:8004");
     expect(conf).toContain("set $tarka_optional integration-ingress:8003");
+  });
+
+  it("rewrites /api/graph to graph-service /v1", () => {
+    expect(conf).toContain("location /api/graph/");
+    expect(conf).toContain("graph-service:8001");
+    expect(conf).toContain("rewrite ^/api/graph/(.*)$ /$1 break;");
   });
 
   it("does not route analytics at the retired data-platform :8014 listener", () => {

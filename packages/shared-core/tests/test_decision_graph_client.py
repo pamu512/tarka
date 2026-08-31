@@ -22,6 +22,15 @@ def test_record_disabled_returns_none(monkeypatch) -> None:
     assert mod.record_decision_failsoft({"tenant_id": "t", "kind": "evaluate"}) is None
 
 
+def test_graph_write_url_configured(monkeypatch) -> None:
+    mod = _load_client()
+    monkeypatch.delenv("GRAPH_SERVICE_URL", raising=False)
+    monkeypatch.delenv("DECISION_GRAPH_URL", raising=False)
+    assert mod.graph_write_url_configured() is False
+    monkeypatch.setenv("GRAPH_SERVICE_URL", "http://graph-service:8001")
+    assert mod.graph_write_url_configured() is True
+
+
 def test_record_no_url_returns_none(monkeypatch) -> None:
     mod = _load_client()
     monkeypatch.setenv("DECISION_GRAPH_ENABLED", "1")

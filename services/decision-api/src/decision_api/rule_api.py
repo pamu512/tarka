@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import uuid
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +20,13 @@ from decision_api.db import get_session
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
 from decision_api.models import BacktestRun
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
+from decision_api.live_rule_slip import maybe_park_live_rule_slip
+from decision_api.shadow_auto_promote import (
+    activate_shadow_pack,
+    load_provision,
+    maybe_auto_promote_shadow,
+    save_provision,
+)
 from decision_api.shadow import (
     get_observation_stats,
     get_observations,
@@ -31,6 +40,7 @@ from decision_api.vertical_packs import (
 
 """REST API for rule CRUD — serves the visual rule builder."""
 router = APIRouter(prefix="/v1/rules", tags=["rules"])
+logger = logging.getLogger(__name__)
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
@@ -454,6 +464,94 @@ async def promote_vertical_pack(
     }
 
 
+class ShadowAutoPromoteProvisionIn(BaseModel):
+    tenant_id: str = Field(min_length=1, max_length=128)
+    auto_promote: bool
+    leftover_add_cap: int
+    leftover_fp_rate_cap: float
+    min_labeled_extras: int
+
+
+@router.get("/shadow-auto-promote-provision")
+async def get_shadow_auto_promote_provision(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    return load_provision(tenant_id)
+
+
+@router.put("/shadow-auto-promote-provision")
+async def put_shadow_auto_promote_provision(
+    body: ShadowAutoPromoteProvisionIn,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    actor = (x_actor or "").strip() or str(getattr(user, "user_id", "") or "")
+    if not actor:
+        actor = "api"
+    try:
+        return save_provision(
+            body.tenant_id,
+            auto_promote=body.auto_promote,
+            leftover_add_cap=body.leftover_add_cap,
+            leftover_fp_rate_cap=body.leftover_fp_rate_cap,
+            min_labeled_extras=body.min_labeled_extras,
+            provisioned_by=actor[:256],
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/shadow-packs/auto-promote-tick")
+async def auto_promote_tick(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    _user=Depends(require_role("analyst")),
+) -> dict[str, Any]:
+    out = await maybe_auto_promote_shadow(tenant_id)
+    parked = await maybe_park_live_rule_slip(tenant_id)
+    out["live_rule_slip_parked"] = parked
+    return out
+
+
+@router.post("/shadow-packs/{draft_id}/promote")
+async def promote_shadow_pack(
+    draft_id: str,
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    session: AsyncSession = Depends(get_session),
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    _user=Depends(require_role("analyst")),
+):
+    from decision_api.json_rules import get_shadow_packs
+    from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+
+    want = (draft_id or "").strip()
+    match = next(
+        (p for p in get_shadow_packs() if str(p.get("name") or "") == want),
+        None,
+    )
+    if match is None:
+        raise HTTPException(404, "no_shadow_draft")
+    gates = await compute_desk_and_leftover_gates(tenant_id, want, session=session)
+    leftover_g = gates["leftover_promote_gate"]
+    desk = gates["desk_promote_gate"]
+    leftover_blockers = leftover_g.get("blockers") or []
+    desk_blockers = desk.get("blockers") or []
+    if leftover_blockers or desk_blockers or not desk.get("promote_allowed"):
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": "promote_blocked",
+                "desk_promote_gate": desk,
+                "leftover_promote_gate": leftover_g,
+            },
+        )
+    return activate_shadow_pack(
+        want,
+        actor=_actor_from_headers(x_actor),
+        reason="promote_shadow_pack",
+    )
+
+
 @router.get("/{filename}")
 async def get_rule_pack(filename: str):
     fpath = _existing_pack_path(filename)
@@ -590,6 +688,7 @@ class ScoutPackIn(BaseModel):
     authored_by: str = Field(default="scout_coordinated_burst", max_length=128)
     is_ai_authored: bool = Field(default=True)
     scout_report_id: str = Field(default="", max_length=128)
+    tenant_id: str = ""
 
 
 # ponytail: mirrors pack_author_contract.validate_ai_authored_pack
@@ -702,6 +801,11 @@ async def create_scout_pack(
     _require_rule_governance(x_rule_governance_secret)
     if body.mode != "shadow":
         raise HTTPException(400, "scout packs must use mode='shadow'")
+    from decision_api.json_rules import get_shadow_packs
+    from decision_api.live_rule_slip import slip_draft_would_clobber
+
+    if slip_draft_would_clobber(body.name, None, get_shadow_packs()):
+        raise HTTPException(409, "slip_draft_exists")
     pack: dict[str, Any] = {
         "version": 1,
         "name": body.name,
@@ -740,6 +844,13 @@ async def create_scout_pack(
             "rule_count": len(body.rules),
         },
     )
+    tid = (body.tenant_id or "").strip()
+    if tid:
+        try:
+            await maybe_auto_promote_shadow(tid)
+            await maybe_park_live_rule_slip(tid)
+        except Exception:
+            logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
     return {"file": fpath.name, "pack": pack, "mode": "shadow"}
 
 
@@ -751,6 +862,8 @@ class RulePackMode(BaseModel):
 async def set_pack_mode(
     filename: str,
     body: RulePackMode,
+    tenant_id: str | None = Query(None),
+    session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -762,6 +875,23 @@ async def set_pack_mode(
     if body.mode not in ("active", "shadow", "disabled"):
         raise HTTPException(400, "mode must be 'active', 'shadow', or 'disabled'")
     pack = json.loads(fpath.read_text(encoding="utf-8"))
+    if body.mode == "active":
+        from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+
+        gates = await compute_desk_and_leftover_gates(
+            (tenant_id or "").strip(),
+            str(pack.get("name") or ""),
+            session=session,
+        )
+        leftover_g = gates["leftover_promote_gate"]
+        if leftover_g.get("blockers"):
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "detail": "leftover_promote_gate",
+                    "leftover_promote_gate": leftover_g,
+                },
+            )
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()

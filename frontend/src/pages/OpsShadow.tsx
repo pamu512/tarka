@@ -1,4 +1,12 @@
 import { useEffect, useState } from "react";
+import {
+  cases,
+  deskActor,
+  type LeftoverPromoteGate,
+  type LiveRuleSlip,
+  type ShadowAutoPromoteProvision,
+} from "../api/client";
+import { formatLiveRuleSlipLine } from "../domain/liveRuleSlip";
 import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -37,6 +45,9 @@ type ShadowPromoteGate = {
     max_psi?: number | null;
     hint?: string | null;
   };
+  leftover_promote_gate?: LeftoverPromoteGate;
+  live_rule_slip?: LiveRuleSlip;
+  shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
   desk_promote_gate?: {
     promote_allowed?: boolean;
     blockers?: string[];
@@ -131,6 +142,14 @@ export default function OpsShadow() {
   const [l3Busy, setL3Busy] = useState(false);
   const [signWeek, setSignWeek] = useState<1 | 2 | 3 | 4>(1);
   const [signEce, setSignEce] = useState(false);
+  const [draftId, setDraftId] = useState("");
+  const [provision, setProvision] = useState<ShadowAutoPromoteProvision | null>(null);
+  const [autoPromote, setAutoPromote] = useState(false);
+  const [leftoverAddCap, setLeftoverAddCap] = useState(10);
+  const [leftoverFpCap, setLeftoverFpCap] = useState(0.4);
+  const [minLabeledExtras, setMinLabeledExtras] = useState(5);
+  const [leftoverMsg, setLeftoverMsg] = useState("");
+  const [leftoverBusy, setLeftoverBusy] = useState(false);
 
   async function refreshL3() {
     try {
@@ -144,11 +163,27 @@ export default function OpsShadow() {
     }
   }
 
+  function applyProvision(p: ShadowAutoPromoteProvision) {
+    setProvision(p);
+    setAutoPromote(Boolean(p.auto_promote));
+    setLeftoverAddCap(Number(p.leftover_add_cap ?? 10));
+    setLeftoverFpCap(Number(p.leftover_fp_rate_cap ?? 0.4));
+    setMinLabeledExtras(Number(p.min_labeled_extras ?? 5));
+  }
+
   useEffect(() => {
     void decisions
-      .shadowPromoteGate(tenantId)
-      .then(setData)
+      .shadowPromoteGate(tenantId, draftId || undefined)
+      .then((gate) => {
+        setData(gate);
+        const names = (gate.shadow_drafts || []).map((d) => (d.name || "").trim()).filter(Boolean);
+        setDraftId((cur) => (cur && names.includes(cur) ? cur : names[0] || cur));
+      })
       .catch((e) => setErr(String(e)));
+    void decisions
+      .getShadowAutoPromoteProvision(tenantId)
+      .then(applyProvision)
+      .catch(() => setProvision(null));
     void decisions
       .typologyOps(tenantId)
       .then((ops) =>
@@ -171,14 +206,84 @@ export default function OpsShadow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh L3 once + when promote tenant changes
   }, [tenantId]);
 
+  useEffect(() => {
+    if (!draftId.trim()) return;
+    void decisions
+      .shadowPromoteGate(tenantId, draftId)
+      .then(setData)
+      .catch((e) => setErr(String(e)));
+  }, [draftId, tenantId]);
+
   const cc = data?.champion_challenger;
   const labelGate = data?.label_gated_promote;
   const mcnemar = data?.mcnemar_promote_gate;
   const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
+  const leftoverGate = data?.leftover_promote_gate;
+  const draftNames = (data?.shadow_drafts || [])
+    .map((d) => (d.name || "").trim())
+    .filter(Boolean);
+  const actor = deskActor();
+  const canAck = Boolean(draftId) && (leftoverGate?.claimers || []).includes(actor);
+  const canPromote = Boolean(draftId) && Boolean(deskGate?.promote_allowed);
+  const helpfulness = leftoverGate?.helpfulness;
   const lifecycle = data?.promote_lifecycle;
   const l3Status = l3?.status || "NOT_STARTED";
   const l3Armed = l3Status !== "NOT_STARTED" && Boolean(l3?.tenant_id);
+
+  async function ackLeftover() {
+    if (!canAck) return;
+    setLeftoverBusy(true);
+    setLeftoverMsg("");
+    try {
+      await cases.leftoverPromoteAckPost(tenantId, draftId);
+      const gate = await decisions.shadowPromoteGate(tenantId, draftId);
+      setData(gate);
+      setLeftoverMsg("Leftover promote ack recorded.");
+    } catch (e) {
+      setLeftoverMsg(toUserFacingError(e, { subject: "Leftover ack", action: "acknowledge leftover claimers" }));
+    } finally {
+      setLeftoverBusy(false);
+    }
+  }
+
+  async function saveProvision() {
+    setLeftoverBusy(true);
+    setLeftoverMsg("");
+    try {
+      const saved = await decisions.putShadowAutoPromoteProvision({
+        tenant_id: tenantId,
+        auto_promote: autoPromote,
+        leftover_add_cap: leftoverAddCap,
+        leftover_fp_rate_cap: leftoverFpCap,
+        min_labeled_extras: minLabeledExtras,
+      });
+      applyProvision(saved);
+      const gate = await decisions.shadowPromoteGate(tenantId, draftId || undefined);
+      setData(gate);
+      setLeftoverMsg(`Provision saved (v${saved.version ?? "?"}).`);
+    } catch (e) {
+      setLeftoverMsg(toUserFacingError(e, { subject: "Auto-promote provision", action: "save leftover gates" }));
+    } finally {
+      setLeftoverBusy(false);
+    }
+  }
+
+  async function promoteDraft() {
+    if (!canPromote) return;
+    setLeftoverBusy(true);
+    setLeftoverMsg("");
+    try {
+      const out = await decisions.promoteShadowPack(draftId, tenantId);
+      setLeftoverMsg(`Promoted ${out.draft_id || draftId} → ${out.mode || "active"}.`);
+      const gate = await decisions.shadowPromoteGate(tenantId, draftId);
+      setData(gate);
+    } catch (e) {
+      setLeftoverMsg(toUserFacingError(e, { subject: "Shadow pack", action: "promote named draft" }));
+    } finally {
+      setLeftoverBusy(false);
+    }
+  }
 
   async function armL3() {
     setL3Msg("");
@@ -439,6 +544,167 @@ export default function OpsShadow() {
         <p className="text-[10px] text-gray-500 font-mono">
           {l3?.playbook || "docs/compliance/CLAIM_LOCK.md"}
           {l3?.internal_host_action_sink ? ` · sink ${l3.internal_host_action_sink}` : ""}
+        </p>
+      </section>
+
+      <section
+        className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-3"
+        data-testid="leftover-promote-card"
+      >
+        <h2 className="text-sm font-semibold text-gray-200">Leftover promote</h2>
+        <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-3 font-mono">
+          <div>
+            Extra review/deny:{" "}
+            <span className="text-gray-100">{leftoverGate?.extra_review_or_deny ?? 0}</span>
+          </div>
+          <div>
+            Extra leftover mint:{" "}
+            <span className="text-gray-100">{leftoverGate?.extra_leftover_mint ?? 0}</span>
+            {leftoverGate?.leftover_mint_on === false ? (
+              <span className="text-gray-500"> (mint off)</span>
+            ) : null}
+          </div>
+          <div>
+            SLA breached:{" "}
+            <span className={leftoverGate?.sla_breached_count ? "text-amber-300" : "text-gray-100"}>
+              {leftoverGate?.sla_breached_count ?? 0}
+            </span>
+            <span className="text-gray-500"> / {leftoverGate?.leftover_count ?? 0}</span>
+          </div>
+        </dl>
+        <p className="text-xs text-gray-400">
+          Claimers:{" "}
+          <span className="font-mono text-gray-200">
+            {(leftoverGate?.claimers || []).length ? leftoverGate?.claimers?.join(", ") : "none"}
+          </span>
+        </p>
+        <p className="text-xs text-gray-400 font-mono">
+          Helpfulness:{" "}
+          {helpfulness?.underpowered ? (
+            <span className="text-amber-300">underpowered</span>
+          ) : (
+            <span className="text-gray-200">
+              extra_tp={helpfulness?.extra_tp ?? 0} extra_fp={helpfulness?.extra_fp ?? 0} fp_rate=
+              {helpfulness?.fp_rate ?? "n/a"}
+            </span>
+          )}
+        </p>
+        {leftoverGate?.blockers?.length ? (
+          <p className="text-xs text-amber-300">[{leftoverGate.blockers.join(", ")}]</p>
+        ) : null}
+        {leftoverGate?.hint ? <p className="text-[11px] text-gray-500">{leftoverGate.hint}</p> : null}
+        <label className="block text-[10px] text-gray-500 max-w-xs">
+          Shadow draft
+          <select
+            value={draftId}
+            onChange={(e) => setDraftId(e.target.value)}
+            className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+          >
+            {draftNames.length ? null : <option value="">no shadow drafts</option>}
+            {draftNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={!canAck || leftoverBusy}
+          onClick={() => void ackLeftover()}
+          className="text-xs px-3 py-1.5 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+        >
+          {leftoverBusy ? "Working…" : "Ack leftover claimers"}
+        </button>
+        <div className="space-y-2 border-t border-surface-700 pt-3" data-testid="leftover-provision-form">
+          <p className="text-[11px] text-gray-500">
+            First review / redefine leftover caps. version {provision?.version ?? 0}
+            {provision?.provisioned_by ? ` by ${provision.provisioned_by}` : ""}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <label className="block text-[10px] text-gray-500">
+              leftover_add_cap
+              <input
+                type="number"
+                min={0}
+                value={leftoverAddCap}
+                onChange={(e) => setLeftoverAddCap(Number(e.target.value))}
+                className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+              />
+            </label>
+            <label className="block text-[10px] text-gray-500">
+              leftover_fp_rate_cap
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.01}
+                value={leftoverFpCap}
+                onChange={(e) => setLeftoverFpCap(Number(e.target.value))}
+                className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+              />
+            </label>
+            <label className="block text-[10px] text-gray-500">
+              min_labeled_extras
+              <input
+                type="number"
+                min={1}
+                value={minLabeledExtras}
+                onChange={(e) => setMinLabeledExtras(Number(e.target.value))}
+                className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200 font-mono"
+              />
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-[11px] text-gray-300">
+            <input
+              type="checkbox"
+              checked={autoPromote}
+              onChange={(e) => setAutoPromote(e.target.checked)}
+            />
+            auto_promote
+          </label>
+          <button
+            type="button"
+            disabled={leftoverBusy}
+            onClick={() => void saveProvision()}
+            className="text-xs px-3 py-1.5 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+          >
+            Save provision
+          </button>
+        </div>
+        <button
+          type="button"
+          disabled={!canPromote || leftoverBusy}
+          onClick={() => void promoteDraft()}
+          className="text-xs px-3 py-1.5 rounded border border-surface-600 text-gray-200 hover:border-brand-500 disabled:opacity-50"
+        >
+          Promote
+        </button>
+        {leftoverMsg ? <p className="text-[11px] font-mono text-gray-400">{leftoverMsg}</p> : null}
+      </section>
+
+      <section
+        className="rounded-xl border border-surface-700 bg-surface-900 px-4 py-3 space-y-2"
+        data-testid="live-rule-slip-card"
+      >
+        <h2 className="text-sm font-semibold text-gray-200">Live rule slip</h2>
+        {data?.live_rule_slip?.window === "underpowered" ? (
+          <p className="text-xs text-gray-500">Window underpowered. No pings.</p>
+        ) : null}
+        <ul className="text-xs font-mono text-gray-300 space-y-1">
+          {(data?.live_rule_slip?.rules || []).map((row) => (
+            <li key={row.rule_id}>
+              {formatLiveRuleSlipLine({
+                rule_id: row.rule_id ?? "",
+                triggers: row.triggers ?? [],
+                hypothesis: row.hypothesis ?? "",
+                parked_draft: row.parked_draft ?? null,
+              })}
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] text-gray-500">
+          Miss counts are leftover-born fraud, not recall. Promote does not strip the live rule.
         </p>
       </section>
 

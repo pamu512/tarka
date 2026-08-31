@@ -98,14 +98,14 @@ export function DecisionTimelinePanel({
         </h4>
         <p className="text-xs text-gray-500">
           {message
-            ? `No decisions recorded (${message}). Enable DECISION_GRAPH_ENABLED + graph profile.`
+            ? `No decisions recorded (${message}). Graph write failed or graph-service is down.`
             : "No decisions recorded for this case yet."}
         </p>
         <p className="text-[10px] text-gray-600 mt-2">
           See{" "}
           <a
             className="text-brand-400 hover:underline"
-            href="https://github.com/pamu512/tarka/wiki/Decision-Accountability-Graph"
+            href="https://github.com/pamu512/tarka/blob/master/docs/docs/guides/decision-context-graph.md"
             target="_blank"
             rel="noreferrer"
           >

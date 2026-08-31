@@ -1,4 +1,4 @@
-import type { GraphEdge, GraphNode, GraphPathExplanation } from "../api/client";
+import type { GraphEdge, GraphNode, GraphObjectAttention, GraphPathExplanation } from "../api/client";
 import { pruneSubgraphForLinkView, undirectedLinkKey } from "./linkAnalysisGraph";
 
 export type WorkspaceFilter = {
@@ -23,6 +23,54 @@ export function primaryLabel(labels: string[] | undefined): string {
   return labels?.[0] || "Custom";
 }
 
+/** Last evaluate on this object. Decisions are not graph nodes. */
+export function decisionToastText(node: GraphNode | null | undefined): string | null {
+  const raw = node?.properties?.last_outcome;
+  const outcome = typeof raw === "string" ? raw.trim() : "";
+  return outcome || null;
+}
+
+export type LastOutcomeLabel = "deny" | "review" | "flag" | "allow" | "unknown";
+
+export function lastOutcomeLabel(
+  source:
+    | { properties?: Record<string, unknown> | null; last_outcome?: unknown }
+    | null
+    | undefined,
+): LastOutcomeLabel {
+  const raw = source?.last_outcome ?? source?.properties?.last_outcome;
+  const token = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (token === "deny" || token === "review" || token === "flag" || token === "allow") return token;
+  return "unknown";
+}
+
+/** Canvas class. Unknown is not the allow color. */
+export function outcomePaintClass(label: LastOutcomeLabel): string {
+  switch (label) {
+    case "deny":
+      return "hunt-outcome-deny";
+    case "review":
+    case "flag":
+      return "hunt-outcome-review";
+    case "allow":
+      return "hunt-outcome-allow";
+    default:
+      return "hunt-outcome-unknown";
+  }
+}
+
+export function graphLaggedEvaluate(
+  latest: { trace_id?: string | null } | null | undefined,
+  history: { last_trace_id?: string | null; trace_ids?: string[] } | null | undefined,
+): boolean {
+  const tid = String(latest?.trace_id || "").trim();
+  if (!tid) return false;
+  const last = String(history?.last_trace_id || "").trim();
+  if (tid === last) return false;
+  const ids = new Set((history?.trace_ids || []).map((x) => String(x || "").trim()).filter(Boolean));
+  return !ids.has(tid);
+}
+
 export function searchHitViaSubtitle(
   via: { entity_id: string; labels?: string[] | null } | null | undefined,
 ): string | null {
@@ -30,6 +78,12 @@ export function searchHitViaSubtitle(
   if (!id) return null;
   const kind = via?.labels?.[0] || "Custom";
   return `via ${kind} ${id}`;
+}
+
+export function searchHitMatchedOn(matchedOn: string | null | undefined): string | null {
+  const on = String(matchedOn || "").trim();
+  if (!on || on === "external_id") return null;
+  return on;
 }
 
 export function storedDisplayRisk(node: GraphNode): number | null {
@@ -91,6 +145,80 @@ export function filterWorkspaceNodes(
   };
 }
 
+const HUNT_INSTRUMENT_LABELS = new Set(["Device", "Payment", "Document", "LicensePlate", "Ip"]);
+const HUNT_HIERARCHY_EXPAND_CAP = 8;
+
+/** Mid-tier neighbors to fan out so Person Hunt sees IP + Decision (AGE is depth 1). */
+export function hierarchyInstrumentFanout(
+  seedId: string,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { ids: string[]; total: number } {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const seen = new Set<string>();
+  const all: string[] = [];
+  for (const edge of edges) {
+    const { from, to } = linkEndIds(edge);
+    const other = from === seedId ? to : to === seedId ? from : "";
+    if (!other || other === seedId || seen.has(other)) continue;
+    if (!HUNT_INSTRUMENT_LABELS.has(primaryLabel(byId.get(other)?.labels))) continue;
+    seen.add(other);
+    all.push(other);
+  }
+  const ids = [...all].sort((a, b) => a.localeCompare(b)).slice(0, HUNT_HIERARCHY_EXPAND_CAP);
+  return { ids, total: all.length };
+}
+
+export function hierarchyInstrumentIds(seedId: string, nodes: GraphNode[], edges: GraphEdge[]): string[] {
+  return hierarchyInstrumentFanout(seedId, nodes, edges).ids;
+}
+
+function filterPersonHuntNoise(
+  seedId: string,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  const seed = nodes.find((node) => node.id === seedId);
+  const drop = new Set<string>();
+  for (const node of nodes) {
+    if (node.id === seedId) continue;
+    const kind = primaryLabel(node.labels);
+    if (kind === "Decision") drop.add(node.id);
+    if (kind === "Login" && seed?.labels?.includes("Person")) drop.add(node.id);
+  }
+
+  const kept = nodes.filter((node) => !drop.has(node.id));
+  const ids = new Set(kept.map((node) => node.id));
+  return {
+    nodes: kept,
+    edges: edges.filter((edge) => {
+      const { from, to } = linkEndIds(edge);
+      return ids.has(from) && ids.has(to);
+    }),
+  };
+}
+
+/** Person canvas: instrument 1-hops merged in. Decision vertices stay off the graph. */
+export function buildPersonHuntGraph(
+  seedId: string,
+  seedSub: { nodes: GraphNode[]; edges: GraphEdge[] },
+  instrumentSubs: Array<{ nodes: GraphNode[]; edges: GraphEdge[] }>,
+  maxNodes: number,
+): { nodes: GraphNode[]; edges: GraphEdge[]; originalNodeCount: number; prunedNodeCount: number } {
+  const extra = {
+    nodes: instrumentSubs.flatMap((sub) => sub.nodes),
+    edges: instrumentSubs.flatMap((sub) => sub.edges),
+  };
+  const merged = mergeSubgraphs(seedId, seedSub, extra, maxNodes);
+  const cleaned = filterPersonHuntNoise(seedId, merged.nodes, merged.edges);
+  return {
+    nodes: cleaned.nodes,
+    edges: cleaned.edges,
+    originalNodeCount: merged.originalNodeCount,
+    prunedNodeCount: cleaned.nodes.length,
+  };
+}
+
 export function mergeSubgraphs(
   seedId: string,
   base: { nodes: GraphNode[]; edges: GraphEdge[] },
@@ -122,6 +250,84 @@ export function pathNodeIds(expl: GraphPathExplanation, seedId: string, selected
     }
   }
   return ids;
+}
+
+const LAST_PERSON_KEY = "tarka.last_person_entity";
+
+export function readLastPersonEntity(tenantId: string): string {
+  try {
+    const raw = localStorage.getItem(LAST_PERSON_KEY);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw) as { tenant_id?: string; entity_id?: string };
+    if (String(parsed.tenant_id || "") !== tenantId) return "";
+    return String(parsed.entity_id || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function isWeakHomeId(id: string): boolean {
+  return id.startsWith("ip:");
+}
+
+function linkEndIds(edge: GraphEdge): { from: string; to: string } {
+  const extra = edge as GraphEdge & { startNode?: unknown; endNode?: unknown };
+  return {
+    from: String(edge.from_id || extra.startNode || ""),
+    to: String(edge.to_id || extra.endNode || ""),
+  };
+}
+
+export function rankRelatedLinks(
+  seedId: string,
+  edges: GraphEdge[],
+  attention: GraphObjectAttention[] | null | undefined,
+): Array<{ edge: GraphEdge; other: string; attention: GraphObjectAttention | null }> {
+  const byId = new Map((attention || []).map((row) => [row.entity_id, row]));
+  return [...edges]
+    .map((edge) => {
+      const { from, to } = linkEndIds(edge);
+      const other = from === seedId ? to : to === seedId ? from : from || to;
+      return { edge, other, attention: byId.get(other) ?? null };
+    })
+    .filter((row) => row.other)
+    .sort((a, b) => {
+      const ai = a.attention?.importance ?? -1;
+      const bi = b.attention?.importance ?? -1;
+      if (bi !== ai) return bi - ai;
+      return a.other.localeCompare(b.other);
+    });
+}
+
+export function writeLastPersonEntity(tenantId: string, entityId: string): void {
+  const tid = tenantId.trim();
+  const id = entityId.trim();
+  if (!tid || !id || isWeakHomeId(id)) return;
+  try {
+    localStorage.setItem(LAST_PERSON_KEY, JSON.stringify({ tenant_id: tid, entity_id: id }));
+  } catch {
+    // quota — desk still opens; next visit may not restore this person
+  }
+}
+
+/** Entity is the key. Prefer the last person, then a Person row, then any object. */
+export function pickHomePerson(opts: {
+  lastEntityId?: string | null;
+  rows?: Array<{ entity_id?: string; labels?: string[] }>;
+}): string {
+  const last = String(opts.lastEntityId || "").trim();
+  if (last && !isWeakHomeId(last)) return last;
+  const rows = opts.rows || [];
+  const person = rows.find((r) => {
+    const id = String(r.entity_id || "").trim();
+    return id && !isWeakHomeId(id) && (r.labels || []).includes("Person");
+  });
+  if (person?.entity_id) return String(person.entity_id).trim();
+  const any = rows.find((r) => {
+    const id = String(r.entity_id || "").trim();
+    return id && !isWeakHomeId(id);
+  });
+  return String(any?.entity_id || "").trim();
 }
 
 export function pathHighlightLinkKeys(expl: GraphPathExplanation): Set<string> {

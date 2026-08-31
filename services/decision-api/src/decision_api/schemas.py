@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from decision_api.attestation_taxonomy import normalize_attestation_object
 
@@ -127,6 +127,15 @@ class EvaluateRequest(BaseModel):
     role: str
     parties: list[EvaluatePartyIn] = Field(default_factory=list)
     session_id: str | None = None
+
+    @field_validator("entity_id", mode="before")
+    @classmethod
+    def _require_entity_id(cls, v: Any) -> str:
+        s = str(v).strip() if v is not None else ""
+        if not s:
+            raise ValueError("entity_id is required")
+        return s
+
     region: str = "global"
     payload: dict[str, Any] = Field(default_factory=dict)
     device_context: DeviceContextIn | None = None
