@@ -48,6 +48,7 @@ def test_build_dispute_evaluate_body_includes_checkpoint_and_subtype():
     )
     assert body["event_type"] == "custom"
     assert body["metadata"]["checkpoint"] == "dispute"
+    assert body["metadata"]["decision_source"] == "dispute"
     assert body["metadata"]["event_subtype"] == "chargeback"
     assert body["metadata"]["dispute_id"] == str(row.id)
     assert body["metadata"]["reason_code"] == "4853"

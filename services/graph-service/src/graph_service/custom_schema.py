@@ -49,6 +49,10 @@ _DEFAULT_ENTITY_TYPES = [
     "Decision",
     "Document",
     "LicensePlate",
+    "Email",
+    "Phone",
+    "Address",
+    "Card",
     "Custom",
 ]
 _DEFAULT_RELATIONSHIP_TYPES = [
@@ -59,6 +63,7 @@ _DEFAULT_RELATIONSHIP_TYPES = [
     "MADE_PAYMENT",
     "PERFORMED_LOGIN",
     "USES_DEVICE",
+    "HAS_EMAIL",
     "HAS_PHONE",
     "SEEN_FROM_IP",
     "PAYS_WITH",
@@ -67,6 +72,7 @@ _DEFAULT_RELATIONSHIP_TYPES = [
     "RESULTED_IN",
     "ACTED_ON",
     "BASED_ON",
+    "SUPERSEDES",
     "SEEN_AT",
     "PARTY_WITH",
     "OWNS",

@@ -11,9 +11,29 @@ from graph_service.search_keys import (
 def test_normalize_and_person_keys():
     assert normalize_search_key("  Alice@Acme.com ") == "alice@acme.com"
     keys = keys_from_upsert("Person", "user-441", {"email": "Alice@Acme.com", "phone": "555-0100"})
-    assert ("email", "alice@acme.com") in keys
-    assert ("external_id", "user-441") in keys
+    assert keys == [("external_id", "user-441")]
     assert keys_from_upsert("Device", "dev-1", {"email": "x@y.com"}) == [("external_id", "dev-1")]
+
+
+def test_identifier_vertices_own_search_keys():
+    """Mailbox / phone search hits the instrument, not the latest Person."""
+    assert keys_from_upsert("Email", "email:alice@acme.com", {"email": "Alice@Acme.com"}) == [
+        ("external_id", "email:alice@acme.com"),
+        ("email", "alice@acme.com"),
+    ]
+    assert keys_from_upsert("Phone", "phone:+15550199", {"phone": "+15550199"}) == [
+        ("external_id", "phone:+15550199"),
+        ("phone", "+15550199"),
+    ]
+    assert keys_from_upsert("Document", "passport-9", {}) == [("external_id", "passport-9")]
+    assert keys_from_upsert("Card", "card:cardtok-1", {"card_id": "cardtok-1"}) == [
+        ("external_id", "card:cardtok-1"),
+        ("card_id", "cardtok-1"),
+    ]
+    assert keys_from_upsert("Address", "addr:12 oak st", {"address": "12 Oak St"}) == [
+        ("external_id", "addr:12 oak st"),
+        ("address", "12 oak st"),
+    ]
 
 
 def test_outcome_rank_unknown_between_flag_and_allow():

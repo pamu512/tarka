@@ -25,10 +25,13 @@ import {
   typeHistogram,
   buildPersonHuntGraph,
   decisionToastText,
-  hierarchyInstrumentFanout,
+  HUNT_LOOKBACK_DEFAULT_DAYS,
+  HUNT_LOOKBACK_MAX_DAYS,
+  HUNT_SEED_MAX,
   lastOutcomeLabel,
   pickHomePerson,
   readLastPersonEntity,
+  seedInstrumentFanout,
   writeLastPersonEntity,
   type WorkspaceFilter,
 } from "../domain/graphInvestigation";
@@ -52,9 +55,12 @@ const NODE_COLORS: Record<string, string> = {
   Document: "#f59e0b",
   LicensePlate: "#d946ef",
   Email: "#06b6d4",
+  Phone: "#6366f1",
   Ip: "#ec4899",
   IP: "#ec4899",
+  Place: "#10b981",
   Address: "#84cc16",
+  Card: "#f43f5e",
 };
 
 const FALLBACK_SCHEMA_TYPES = [
@@ -68,9 +74,26 @@ const FALLBACK_SCHEMA_TYPES = [
   "Document",
   "LicensePlate",
   "Email",
+  "Phone",
   "Ip",
   "IP",
+  "Place",
   "Address",
+  "Card",
+];
+
+const SEED_EXPAND_TYPES = [
+  "Device",
+  "Place",
+  "Payment",
+  "Ip",
+  "Document",
+  "LicensePlate",
+  "Email",
+  "Phone",
+  "Card",
+  "Address",
+  "Decision",
 ];
 
 const EMPTY_FILTER: WorkspaceFilter = {
@@ -121,6 +144,8 @@ export default function GraphInvestigationPage() {
   const entityId = parsed.entityId.trim();
   const tenantId = parsed.tenantId.trim() || workspaceTenantId || "demo";
   const depth = parsed.depth;
+  const lookbackDays = parsed.lookbackDays;
+  const decisionId = parsed.decisionId;
 
   const [searchQ, setSearchQ] = useState("");
   const [searchLabel, setSearchLabel] = useState<string | null>(null);
@@ -140,6 +165,8 @@ export default function GraphInvestigationPage() {
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
   const [minRiskText, setMinRiskText] = useState("");
+  const [expandTypes, setExpandTypes] = useState<string[]>(SEED_EXPAND_TYPES);
+  const [expandMax, setExpandMax] = useState(HUNT_SEED_MAX);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -169,7 +196,13 @@ export default function GraphInvestigationPage() {
   }, [tenantId]);
 
   const writeUrl = useCallback(
-    (next: { entityId: string; tenantId: string; depth: number }) => {
+    (next: {
+      entityId: string;
+      tenantId: string;
+      depth: number;
+      lookbackDays?: number;
+      decisionId?: string;
+    }) => {
       const sp = new URLSearchParams();
       if (next.entityId) {
         sp.set("entity_id", next.entityId);
@@ -177,9 +210,13 @@ export default function GraphInvestigationPage() {
       }
       if (next.tenantId) sp.set("tenant_id", next.tenantId);
       sp.set("depth", String(next.depth));
+      const lb = next.lookbackDays ?? lookbackDays;
+      if (lb !== HUNT_LOOKBACK_DEFAULT_DAYS) sp.set("lookback_days", String(lb));
+      const dec = next.decisionId ?? decisionId;
+      if (dec) sp.set("decision_id", dec);
       setParams(sp, { replace: true });
     },
-    [setParams],
+    [decisionId, lookbackDays, setParams],
   );
 
   useEffect(() => {
@@ -310,17 +347,36 @@ export default function GraphInvestigationPage() {
     setDossierMessage(null);
     void (async () => {
       try {
-        const sub = await graph.subgraph(entityId, tenantId, depth);
+        const [sub, links] = await Promise.all([
+          graph.subgraph(entityId, tenantId, depth, {
+            lookbackDays,
+            types: SEED_EXPAND_TYPES,
+          }),
+          graph.entityLinks(entityId, tenantId),
+        ]);
         if (cancelled) return;
-        const fanout = hierarchyInstrumentFanout(entityId, sub.nodes, sub.edges);
+        const fanout = seedInstrumentFanout(
+          entityId,
+          sub.nodes,
+          sub.edges,
+          links?.attention,
+          {
+            nowMs: Date.now(),
+            lookbackDays,
+            max: HUNT_SEED_MAX,
+            pinDecisionId: decisionId,
+          },
+        );
         const instrumentIds = fanout.ids;
         setInstrumentCapNote(
-          fanout.total > 8 ? `Showing 8 of ${fanout.total} instruments` : "",
+          fanout.total > HUNT_SEED_MAX ? `Showing ${HUNT_SEED_MAX} of ${fanout.total} significant hops` : "",
         );
         const extras: typeof sub[] = [];
         if (instrumentIds.length > 0) {
           const settled = await Promise.allSettled(
-            instrumentIds.map((id) => graph.subgraph(id, tenantId, 1)),
+            instrumentIds.map((id) =>
+              graph.subgraph(id, tenantId, 1, { lookbackDays, types: SEED_EXPAND_TYPES }),
+            ),
           );
           if (cancelled) return;
           for (const row of settled) {
@@ -351,7 +407,7 @@ export default function GraphInvestigationPage() {
     return () => {
       cancelled = true;
     };
-  }, [graphPlaneDisabled, entityId, tenantId, depth]);
+  }, [decisionId, depth, entityId, graphPlaneDisabled, lookbackDays, tenantId]);
 
   const expandNode = useCallback(
     async (id: string) => {
@@ -363,12 +419,21 @@ export default function GraphInvestigationPage() {
       setExpanding(true);
       setError(null);
       try {
-        const extra = await graph.subgraph(id, tenantId, 1);
+        const extra = await graph.subgraph(id, tenantId, 1, {
+          lookbackDays,
+          types: expandTypes,
+        });
         if (seedLoadGenRef.current !== genAtStart) return;
+        const others = extra.nodes.filter((node) => node.id !== id).slice(0, expandMax);
+        const keep = new Set([id, ...others.map((node) => node.id)]);
+        const capped = {
+          nodes: extra.nodes.filter((node) => keep.has(node.id)),
+          edges: extra.edges.filter((edge) => keep.has(edge.from_id) && keep.has(edge.to_id)),
+        };
         const merged = buildPersonHuntGraph(
           seedAtStart,
           loadedRef.current ?? { nodes: [], edges: [] },
-          [extra],
+          [capped],
           LINK_ANALYSIS_MAX_NODES,
         );
         setLoaded({ nodes: merged.nodes, edges: merged.edges });
@@ -383,7 +448,7 @@ export default function GraphInvestigationPage() {
         setExpanding(false);
       }
     },
-    [entityId, graphPlaneDisabled, tenantId],
+    [entityId, expandMax, expandTypes, graphPlaneDisabled, lookbackDays, tenantId],
   );
 
   const pathFromSeed = useCallback(async () => {
@@ -571,6 +636,27 @@ export default function GraphInvestigationPage() {
             className={`${inputClass} w-20`}
           />
         </label>
+        <label className="text-xs text-gray-500 flex flex-col gap-1">
+          Lookback
+          <select
+            value={lookbackDays}
+            disabled={disabled}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10);
+              writeUrl({
+                entityId,
+                tenantId,
+                depth,
+                lookbackDays: Number.isFinite(n) ? n : HUNT_LOOKBACK_DEFAULT_DAYS,
+              });
+            }}
+            className={`${inputClass} w-28`}
+          >
+            <option value={90}>90 days</option>
+            <option value={365}>1 year</option>
+            <option value={HUNT_LOOKBACK_MAX_DAYS}>Retention</option>
+          </select>
+        </label>
       </div>
 
       {error ? (
@@ -634,7 +720,7 @@ export default function GraphInvestigationPage() {
               </div>
               <ul className="space-y-0.5">
                 {histogram.map((row) => {
-                  const on = filter.types?.includes(row.label) ?? false;
+                  const on = filter.types == null || filter.types.includes(row.label);
                   return (
                     <li key={row.label}>
                       <button
@@ -643,10 +729,17 @@ export default function GraphInvestigationPage() {
                           on ? "bg-brand-600/20 text-brand-200" : "text-gray-400 hover:bg-surface-800"
                         }`}
                         onClick={() =>
-                          setFilter((f) => ({
-                            ...f,
-                            types: f.types?.length === 1 && f.types[0] === row.label ? null : [row.label],
-                          }))
+                          setFilter((f) => {
+                            const all = histogram.map((h) => h.label);
+                            const cur = f.types ?? all;
+                            const next = cur.includes(row.label)
+                              ? cur.filter((t) => t !== row.label)
+                              : [...cur, row.label];
+                            return {
+                              ...f,
+                              types: next.length === 0 || next.length === all.length ? null : next,
+                            };
+                          })
                         }
                       >
                         <span
@@ -787,6 +880,41 @@ export default function GraphInvestigationPage() {
           <aside className="min-h-0 flex flex-col bg-surface-900 border border-surface-700 rounded-xl overflow-hidden">
             {selectedId ? (
               <div className="shrink-0 border-b border-surface-800 px-2 py-2 space-y-2">
+                <div className="flex flex-wrap gap-1">
+                  {[...SEED_EXPAND_TYPES, "Login", "Session"].map((t) => {
+                    const on = expandTypes.includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        disabled={disabled}
+                        className={chipClass(on)}
+                        onClick={() =>
+                          setExpandTypes((cur) =>
+                            on ? cur.filter((x) => x !== t) : [...cur, t],
+                          )
+                        }
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="text-[10px] text-gray-500 flex items-center gap-1.5">
+                  Max
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={expandMax}
+                    disabled={disabled}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setExpandMax(Number.isFinite(n) ? Math.min(200, Math.max(1, n)) : HUNT_SEED_MAX);
+                    }}
+                    className={`${inputClass} py-0.5 w-16 text-[11px]`}
+                  />
+                </label>
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"

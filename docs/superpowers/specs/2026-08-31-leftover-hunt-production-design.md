@@ -31,7 +31,7 @@ Do not quote a vendor 4.x because the 5-min worked.
 
 - `GET /v1/leftovers`, claim, `claimed_by` / `claimed_at`, `last_outcome`. Desk `/leftovers` (lean, graph on). `/cases` hidden in lean.
 - Hold `POST /v1/entities/{id}/act` mints or reuses an open leftover, label `act:hold`, writes `last_act` on Person. Resolve writes `y_label`.
-- Evaluate can mint deny/review leftovers when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **false**).
+- Evaluate mints deny/review leftovers by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 - Hunt home `/graph`; Story + Hold on the Person pane.
 - AGE search is `MATCH (n) WHERE tenant_id = …` then Python filter. AGE Cypher does not use property indexes (apache/age#2348).
 
@@ -41,7 +41,6 @@ Do not quote a vendor 4.x because the 5-min worked.
 - Next-unassigned auto-serve, multi-inbox routing, snooze, QA sampling (caps leftover at 3.8).
 - Bulk-decision on every neighbor, consortium who-else (caps Hunt at 4.0).
 - AGE `[*1..n]` / GIN-on-properties as the search fix.
-- Turning `CASE_CREATE_ON_DENY_REVIEW` on for lite by default. The **path** must work and be tested; lite env may stay off.
 - FinCEN ungating, no-code builder, Tarka-branded model.
 
 ---
@@ -198,7 +197,7 @@ If `latestEvaluate` is 404 / null, no banner (nothing to compare).
 ## Architecture
 
 ```
-evaluate deny/review ──(flag CASE_CREATE_ON_DENY_REVIEW)──► case-api leftover
+evaluate deny/review ──(default on; CASE_CREATE_ON_DENY_REVIEW opt-out)──► case-api leftover
                                                               labels origin:evaluate
 Hold / resolve / release ──► case-api act + claim + last_act
 GET /v1/leftovers ──► thin /leftovers ──claim──► /graph?entity_id=

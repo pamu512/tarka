@@ -106,6 +106,8 @@ def map_tx_to_evaluate_request(
 ) -> dict[str, Any]:
     """Pure map: transaction envelope → decision-api EvaluateRequest JSON body."""
     meta = dict(transaction.metadata) if isinstance(transaction.metadata, dict) else {}
+    if not str(meta.get("decision_source") or "").strip():
+        meta["decision_source"] = "ingest"
     tenant_id = resolve_tenant_id(meta, tenant_header=tenant_header)
     event_type = resolve_event_type(meta)
 
@@ -119,7 +121,16 @@ def map_tx_to_evaluate_request(
     if transaction.country is not None:
         payload["country"] = transaction.country
     # Pass through non-reserved metadata keys into payload for rule features.
-    reserved = {"tenant_id", "event_type", "session_id", "region", "device_id", "device_platform"}
+    reserved = {
+        "tenant_id",
+        "event_type",
+        "session_id",
+        "region",
+        "device_id",
+        "device_platform",
+        "decision_source",
+        "markings",
+    }
     for key, value in meta.items():
         if key in reserved or key in payload:
             continue

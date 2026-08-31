@@ -67,6 +67,7 @@ def build_dispute_evaluate_body(
     """Build POST /v1/decisions/evaluate body for dispute reprocess."""
     metadata: dict[str, Any] = {
         "checkpoint": "dispute",
+        "decision_source": "dispute",
         "dispute_id": str(dispute_row.id),
         "reason_code": str(getattr(dispute_row, "reason_code", "") or ""),
         "dispute_type": str(getattr(dispute_row, "dispute_type", "") or ""),

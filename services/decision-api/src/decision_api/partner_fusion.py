@@ -152,6 +152,64 @@ def graph_writeback_hints(
     }
 
 
+def graph_writes_from_hints(
+    hints: dict[str, Any] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Turn partner_graph_writeback vertices/edges into /v1/entities + /v1/links bodies.
+
+    ``from.label=Entity`` is the evaluate Person (already upserted). That vertex
+    is not posted again. No fuzzy merge.
+    """
+    if not isinstance(hints, dict):
+        return [], []
+    entities: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw in hints.get("vertices") or []:
+        if not isinstance(raw, dict):
+            continue
+        etype = str(raw.get("label") or raw.get("entity_type") or "").strip()
+        eid = str(raw.get("id") or raw.get("external_id") or "").strip()
+        if not etype or not eid or etype == "Entity":
+            continue
+        key = (etype, eid)
+        if key in seen:
+            continue
+        seen.add(key)
+        props = raw.get("props") if isinstance(raw.get("props"), dict) else {}
+        if not props and isinstance(raw.get("properties"), dict):
+            props = raw["properties"]
+        out_props = dict(props)
+        out_props.setdefault("source", "partner")
+        entities.append(
+            {"entity_type": etype, "external_id": eid, "properties": out_props}
+        )
+    links: list[dict[str, Any]] = []
+    for raw in hints.get("edges") or []:
+        if not isinstance(raw, dict):
+            continue
+        frm = raw.get("from") if isinstance(raw.get("from"), dict) else {}
+        to = raw.get("to") if isinstance(raw.get("to"), dict) else {}
+        src = str(frm.get("id") or raw.get("from_external_id") or "").strip()
+        dst = str(to.get("id") or raw.get("to_external_id") or "").strip()
+        rel = str(raw.get("type") or raw.get("relationship") or "").strip()
+        if not src or not dst or not rel:
+            continue
+        props = raw.get("props") if isinstance(raw.get("props"), dict) else {}
+        if not props and isinstance(raw.get("properties"), dict):
+            props = raw["properties"]
+        out_props = dict(props)
+        out_props.setdefault("source", "partner")
+        links.append(
+            {
+                "from_external_id": src,
+                "to_external_id": dst,
+                "relationship": rel,
+                "properties": out_props,
+            }
+        )
+    return entities, links
+
+
 async def maybe_fetch_partner_signals(
     *,
     http: Any,

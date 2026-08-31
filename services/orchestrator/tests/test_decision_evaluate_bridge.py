@@ -44,6 +44,7 @@ def test_map_tx_tenant_from_header() -> None:
     assert body["entity_id"] == "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     assert body["payload"]["amount"] == 42.5
     assert body["payload"]["country"] == "US"
+    assert body["metadata"]["decision_source"] == "ingest"
 
 
 def test_map_tx_metadata_overrides() -> None:

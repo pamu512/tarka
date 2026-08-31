@@ -477,11 +477,7 @@ async def test_set_mode_active_409_on_sla(desk_client, tmp_path, monkeypatch):
         headers={"X-Rule-Governance-Secret": "gov-secret"},
     )
     assert r.status_code == 409, r.text
-    body = r.json()
-    leftover = body.get("leftover_promote_gate") or {}
-    if not leftover and isinstance(body.get("detail"), dict):
-        leftover = body["detail"].get("leftover_promote_gate") or {}
-    assert "leftover_sla_breached" in leftover.get("blockers", [])
+    assert r.json()["detail"] == "shadow_first"
     on_disk = json.loads(
         (desk_client._rules_dir / "sla_pack.json").read_text(encoding="utf-8")
     )

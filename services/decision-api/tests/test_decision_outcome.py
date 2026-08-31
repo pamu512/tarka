@@ -95,6 +95,38 @@ def test_schedule_decision_outcomes_enqueues_core_tasks():
     assert any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
 
 
+def test_opt_out_flag_skips_leftover_mint():
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="t-off",
+            tenant_id="ten",
+            entity_id="e-off",
+            event_type="payment",
+            decision="review",
+            score=70.0,
+            tags=[],
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda name, **_k: None,
+        case_create_on_deny_review=False,
+        case_api_url="http://case.test",
+    )
+    assert not any(
+        "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
+    )
+
+
 def test_allow_does_not_create_case():
     """ALLOW evaluations must never open a case."""
     bg = _Bg()

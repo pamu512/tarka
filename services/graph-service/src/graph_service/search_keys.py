@@ -22,25 +22,60 @@ def outcome_rank(outcome: str | None) -> int:
     return _OUTCOME_RANK.get(token, 3)
 
 
+# ponytail: Person no longer owns email/phone keys. Latest evaluate used to steal the
+# mailbox (PK tenant+kind+norm). Search hits the instrument; Hunt hops owners.
+_IDENTIFIER_EXTRA = {
+    "email": "email",
+    "phone": "phone",
+    "card": "card_id",
+    "address": "address",
+    "ip": "ip",
+}
+_IDENTIFIER_TYPES = frozenset(
+    {
+        "device",
+        "email",
+        "phone",
+        "document",
+        "licenseplate",
+        "ip",
+        "place",
+        "address",
+        "card",
+    }
+)
+_ETYPE_CANON = {
+    "device": "Device",
+    "email": "Email",
+    "phone": "Phone",
+    "document": "Document",
+    "licenseplate": "LicensePlate",
+    "ip": "Ip",
+    "place": "Place",
+    "address": "Address",
+    "card": "Card",
+    "person": "Person",
+}
+
+
 def keys_from_upsert(
     entity_type: str, external_id: str, properties: dict[str, Any] | None
 ) -> list[tuple[str, str]]:
     kind = str(entity_type or "").strip()
+    kind_l = kind.lower()
     eid = normalize_search_key(external_id)
     if not eid:
         return []
-    if kind.lower() == "device":
+    if kind_l == "person":
         return [("external_id", eid)]
-    if kind.lower() != "person":
+    if kind_l not in _IDENTIFIER_TYPES:
         return []
     out: list[tuple[str, str]] = [("external_id", eid)]
-    props = properties or {}
-    email = normalize_search_key(props.get("email"))
-    phone = normalize_search_key(props.get("phone"))
-    if email:
-        out.append(("email", email))
-    if phone:
-        out.append(("phone", phone))
+    extra = _IDENTIFIER_EXTRA.get(kind_l)
+    if extra:
+        val = normalize_search_key((properties or {}).get(extra))
+        if val and (extra, val) not in out:
+            out.append((extra, val))
     return out
 
 
@@ -144,7 +179,8 @@ async def upsert_search_keys(
     if not keys:
         return
     outcome = str((properties or {}).get("last_outcome") or "").strip() or None
-    etype = "Device" if str(entity_type).lower() == "device" else "Person"
+    raw_type = str(entity_type or "").strip()
+    etype = _ETYPE_CANON.get(raw_type.lower(), raw_type or "Person")
     await ensure_search_keys_table()
     pool = await _acquire()
     async with pool.acquire() as conn:

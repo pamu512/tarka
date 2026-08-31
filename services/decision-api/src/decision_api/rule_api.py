@@ -169,6 +169,19 @@ def _actor_from_headers(x_actor: str | None) -> str:
     return a[:256] if a else "api"
 
 
+def _require_force_live_human(x_actor: str | None) -> str:
+    """Force-live is a human fingerprint. Do not use RULE_CHANGE_ACTOR fallback."""
+    actor = (x_actor or "").strip()
+    low = actor.lower()
+    if not actor or low.startswith("scout") or "assist" in low:
+        raise HTTPException(403, "force_live_human_only")
+    return actor[:256]
+
+
+class ForceLiveBody(BaseModel):
+    reason: str = Field(min_length=8, max_length=2000)
+
+
 def _require_rule_governance(x_rule_governance_secret: str | None) -> None:
     """N2: when RULE_GOVERNANCE_SECRET is set, mutating rule APIs require X-Rule-Governance-Secret."""
     expected = settings.rule_governance_secret
@@ -558,6 +571,38 @@ async def promote_shadow_pack(
     )
 
 
+@router.post("/{filename}/force-live")
+async def force_live_pack(
+    filename: str,
+    body: ForceLiveBody,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Skip leftover + science. Human actor + reason only. Scout / assist 403."""
+    _require_rule_governance(x_rule_governance_secret)
+    actor = _require_force_live_human(x_actor)
+    fpath = _existing_pack_path(filename)
+    pack = json.loads(fpath.read_text(encoding="utf-8"))
+    prior_mode = str(pack.get("mode") or "active")
+    pack["mode"] = "active"
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    _append_rule_change(
+        "rule_force_live",
+        filename,
+        actor=actor,
+        detail={
+            "actor": actor,
+            "reason": body.reason,
+            "file": filename,
+            "prior_mode": prior_mode,
+        },
+    )
+    return {"mode": "active", "forced": True, "file": filename}
+
+
 @router.get("/{filename}")
 async def get_rule_pack(filename: str):
     fpath = _existing_pack_path(filename)
@@ -587,6 +632,7 @@ async def create_rule_pack(
     pack = {
         "version": 1,
         "name": body.name,
+        "mode": "shadow",
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
         "canary_percent": body.canary_percent,
@@ -622,6 +668,7 @@ async def update_rule_pack(
     pack = {
         "version": 1,
         "name": body.name,
+        "mode": "shadow",
         "rules": [_rule_to_dict(r) for r in body.rules],
         "tag_rules": [_tag_rule_to_dict(r) for r in body.tag_rules],
         "canary_percent": body.canary_percent,
@@ -673,6 +720,7 @@ async def add_rule(
     if not body.id:
         body.id = f"rule_{uuid.uuid4().hex[:8]}"
     pack.setdefault("rules", []).append(_rule_to_dict(body))
+    pack["mode"] = "shadow"
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
     _append_rule_change(
@@ -945,8 +993,10 @@ class RulePackMode(BaseModel):
 async def set_pack_mode(
     filename: str,
     body: RulePackMode,
-    tenant_id: str | None = Query(None),
-    session: AsyncSession = Depends(get_session),
+    tenant_id: str | None = Query(None),  # kept: clients still send leftover-era query
+    session: AsyncSession = Depends(
+        get_session
+    ),  # kept: signature stable after leftover floor moved to Promote
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -957,24 +1007,9 @@ async def set_pack_mode(
     fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
         raise HTTPException(400, "mode must be 'active', 'shadow', or 'disabled'")
-    pack = json.loads(fpath.read_text(encoding="utf-8"))
     if body.mode == "active":
-        from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
-
-        gates = await compute_desk_and_leftover_gates(
-            (tenant_id or "").strip(),
-            str(pack.get("name") or ""),
-            session=session,
-        )
-        leftover_g = gates["leftover_promote_gate"]
-        if leftover_g.get("blockers"):
-            return JSONResponse(
-                status_code=409,
-                content={
-                    "detail": "leftover_promote_gate",
-                    "leftover_promote_gate": leftover_g,
-                },
-            )
+        raise HTTPException(409, "shadow_first")
+    pack = json.loads(fpath.read_text(encoding="utf-8"))
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()

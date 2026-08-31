@@ -39,6 +39,11 @@ ALLOWED_LABELS = frozenset(
         "Document",
         "LicensePlate",
         "Decision",
+        "Email",
+        "Phone",
+        "Place",
+        "Address",
+        "Card",
         "Custom",
     }
 )
@@ -56,12 +61,14 @@ ALLOWED_RELS = frozenset(
         "MADE_PAYMENT",
         "PERFORMED_LOGIN",
         "USES_DEVICE",
+        "HAS_EMAIL",
         "HAS_PHONE",
         "SEEN_FROM_IP",
         "PAYS_WITH",
         "RESULTED_IN",
         "ACTED_ON",
         "BASED_ON",
+        "SUPERSEDES",
         "SHARED_WITH",
         "CUSTOM",
     }
@@ -349,6 +356,18 @@ async def create_link(
                 await conn.execute(q_update)
             return
         await conn.execute(q_create)
+
+
+async def delete_entity(tenant_id: str, external_id: str) -> None:
+    tid = _cypher_lit(tenant_id)
+    eid = _cypher_lit(external_id)
+    q = _cypher_sql(
+        f"MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id = {eid} DETACH DELETE n RETURN 1",
+        "ok ag_catalog.agtype",
+        "CAST(ok AS VARCHAR) as ok",
+    )
+    async with _acquire() as conn:
+        await conn.execute(q)
 
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:

@@ -81,7 +81,7 @@ services:
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
       DECISION_API_URL: http://127.0.0.1:8000/decisions
       # Auto-create a case for deny/review evaluations (requires CASE_API_URL + CASE_INTERNAL_TOKEN).
-      CASE_CREATE_ON_DENY_REVIEW: ${CASE_CREATE_ON_DENY_REVIEW:-false}
+      CASE_CREATE_ON_DENY_REVIEW: ${CASE_CREATE_ON_DENY_REVIEW:-true}
       CASE_API_URL: ${CASE_API_URL:-http://127.0.0.1:8000/cases}
       CASE_INTERNAL_TOKEN: ${CASE_INTERNAL_TOKEN:-}
       TREND_AGENT_DATA_DIR: /var/trend-agent

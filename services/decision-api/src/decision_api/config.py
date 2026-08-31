@@ -244,9 +244,10 @@ class Settings(BaseSettings):
         "FEATURE_CATALOG_FAIL_CLOSED_EVENT_TYPES", ""
     ).strip()
     #: When true and ``case_api_url`` set, auto-create a case on deny/review outcomes.
+    #: Opt-out. Unset / lite default mints leftovers on material deny/review.
     case_create_on_deny_review: bool = os.environ.get(
-        "CASE_CREATE_ON_DENY_REVIEW", ""
-    ).strip().lower() in ("1", "true", "yes", "on")
+        "CASE_CREATE_ON_DENY_REVIEW", "true"
+    ).strip().lower() not in ("0", "false", "no", "off")
     #: S2S token for internal case-api calls (sent as X-Internal-Token). Avoids
     #: requiring API_KEYS on the desk (which would 401 the viewer UI).
     case_internal_token: str = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()
