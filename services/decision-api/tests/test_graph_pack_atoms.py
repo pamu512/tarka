@@ -204,3 +204,20 @@ def test_graph_v1_is_a_leaf_in_when_ast():
         }
     )
     assert evaluate_json_ast(req.ast, req.features) is True
+
+
+def test_evaluate_objects_write_fires_uses_device_ast():
+    from tarka_shared.decision_graph_payload import build_evaluate_objects
+
+    _objects, links = build_evaluate_objects(
+        trace_id="tr-1",
+        entity_id="alice",
+        event_type="login",
+        payload={},
+        device_context={"device_id": "dev-1"},
+    )
+    feats = _features_from_hop({"named_edges": links}, graph_url="http://graph.test")
+    node = TypeAdapter(JsonAstNode).validate_python(
+        {"type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE"}
+    )
+    assert evaluate_json_ast(node, feats) is True

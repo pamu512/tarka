@@ -19,10 +19,17 @@ import {
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
   pathNodeIds,
+  searchHitMatchedOn,
   searchHitViaSubtitle,
   storedDisplayRisk,
   typeHistogram,
-  mergeSubgraphs,
+  buildPersonHuntGraph,
+  decisionToastText,
+  hierarchyInstrumentFanout,
+  lastOutcomeLabel,
+  pickHomePerson,
+  readLastPersonEntity,
+  writeLastPersonEntity,
   type WorkspaceFilter,
 } from "../domain/graphInvestigation";
 import {
@@ -30,7 +37,7 @@ import {
   type LinkAnalysisGraphNode,
   toForceGraphLinks,
 } from "../domain/linkAnalysisGraph";
-import { pruneSubgraphAsync } from "../domain/linkAnalysisPruneWorkerRunner";
+import { useToast } from "../context/ToastContext";
 import { toUserFacingError } from "../utils/userFacingErrors";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 
@@ -39,12 +46,32 @@ const NODE_COLORS: Record<string, string> = {
   Account: "#22c55e",
   Device: "#f97316",
   Payment: "#a855f7",
+  Login: "#eab308",
+  Session: "#14b8a6",
+  Decision: "#94a3b8",
+  Document: "#f59e0b",
+  LicensePlate: "#d946ef",
   Email: "#06b6d4",
+  Ip: "#ec4899",
   IP: "#ec4899",
   Address: "#84cc16",
 };
 
-const FALLBACK_SCHEMA_TYPES = ["Person", "Account", "Device", "Payment", "Email", "IP", "Address"];
+const FALLBACK_SCHEMA_TYPES = [
+  "Person",
+  "Account",
+  "Device",
+  "Payment",
+  "Login",
+  "Session",
+  "Decision",
+  "Document",
+  "LicensePlate",
+  "Email",
+  "Ip",
+  "IP",
+  "Address",
+];
 
 const EMPTY_FILTER: WorkspaceFilter = {
   types: null,
@@ -56,7 +83,11 @@ const EMPTY_FILTER: WorkspaceFilter = {
 
 function paintStoredRisk(nodes: GraphNode[]): LinkAnalysisGraphNode[] {
   const stored = new Map(nodes.map((n) => [n.id, storedDisplayRisk(n)]));
-  return nodes.map((n) => ({ ...n, displayRisk: stored.get(n.id) ?? null }));
+  return nodes.map((n) => ({
+    ...n,
+    displayRisk: stored.get(n.id) ?? null,
+    lastOutcome: lastOutcomeLabel(n),
+  }));
 }
 
 function pruneBanner(originalNodeCount: number, prunedNodeCount: number, rawNodeCount: number): string {
@@ -80,6 +111,7 @@ const chipClass = (on: boolean) =>
 
 export default function GraphInvestigationPage() {
   const { graphPlaneDisabled } = useFailoverPlanes();
+  const { toast } = useToast();
   const { tenantId: workspaceTenantId, setTenantId: setWorkspaceTenantId } = useTenantEnvironment();
   const [params, setParams] = useSearchParams();
   const parsed = useMemo(
@@ -104,6 +136,7 @@ export default function GraphInvestigationPage() {
   const [expanding, setExpanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pruneNote, setPruneNote] = useState("");
+  const [instrumentCapNote, setInstrumentCapNote] = useState("");
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
   const [minRiskText, setMinRiskText] = useState("");
@@ -138,13 +171,27 @@ export default function GraphInvestigationPage() {
   const writeUrl = useCallback(
     (next: { entityId: string; tenantId: string; depth: number }) => {
       const sp = new URLSearchParams();
-      if (next.entityId) sp.set("entity_id", next.entityId);
+      if (next.entityId) {
+        sp.set("entity_id", next.entityId);
+        writeLastPersonEntity(next.tenantId, next.entityId);
+      }
       if (next.tenantId) sp.set("tenant_id", next.tenantId);
       sp.set("depth", String(next.depth));
       setParams(sp, { replace: true });
     },
     [setParams],
   );
+
+  useEffect(() => {
+    if (entityId) writeLastPersonEntity(tenantId, entityId);
+  }, [entityId, tenantId]);
+
+  useEffect(() => {
+    if (graphPlaneDisabled || entityId) return;
+    const last = readLastPersonEntity(tenantId);
+    if (!last) return;
+    writeUrl({ entityId: last, tenantId, depth });
+  }, [graphPlaneDisabled, entityId, tenantId, depth, writeUrl]);
 
   const selectEntity = useCallback(
     (id: string, tid = tenantId) => {
@@ -217,8 +264,13 @@ export default function GraphInvestigationPage() {
       try {
         const r = await graph.entityRiskTop({ tenant_id: tenantId, limit: 20 });
         if (cancelled) return;
-        setTopN(r.entities ?? []);
+        const rows = r.entities ?? [];
+        setTopN(rows);
         setTopNErr("");
+        if (!entityIdRef.current) {
+          const home = pickHomePerson({ lastEntityId: readLastPersonEntity(tenantId), rows });
+          if (home) writeUrl({ entityId: home, tenantId, depth });
+        }
       } catch (e) {
         if (cancelled) return;
         setTopN([]);
@@ -228,7 +280,7 @@ export default function GraphInvestigationPage() {
     return () => {
       cancelled = true;
     };
-  }, [graphPlaneDisabled, entityId, tenantId]);
+  }, [graphPlaneDisabled, entityId, tenantId, depth, writeUrl]);
 
   useEffect(() => {
     seedLoadGenRef.current += 1;
@@ -238,6 +290,7 @@ export default function GraphInvestigationPage() {
       if (!entityId) {
         setLoaded(null);
         setPruneNote("");
+        setInstrumentCapNote("");
         setSelectedId(null);
         setSelectedNode(null);
         setHighlightIds(undefined);
@@ -251,6 +304,7 @@ export default function GraphInvestigationPage() {
     setLoading(true);
     setError(null);
     setPruneNote("");
+    setInstrumentCapNote("");
     setHighlightIds(undefined);
     setHighlightLinkKeys(undefined);
     setDossierMessage(null);
@@ -258,13 +312,28 @@ export default function GraphInvestigationPage() {
       try {
         const sub = await graph.subgraph(entityId, tenantId, depth);
         if (cancelled) return;
-        const pruned = await pruneSubgraphAsync(sub.nodes, sub.edges, entityId, LINK_ANALYSIS_MAX_NODES);
-        if (cancelled) return;
-        setLoaded({ nodes: pruned.nodes, edges: pruned.edges });
-        if (pruned.originalNodeCount > pruned.prunedNodeCount) {
-          setPruneNote(pruneBanner(pruned.originalNodeCount, pruned.prunedNodeCount, sub.nodes.length));
+        const fanout = hierarchyInstrumentFanout(entityId, sub.nodes, sub.edges);
+        const instrumentIds = fanout.ids;
+        setInstrumentCapNote(
+          fanout.total > 8 ? `Showing 8 of ${fanout.total} instruments` : "",
+        );
+        const extras: typeof sub[] = [];
+        if (instrumentIds.length > 0) {
+          const settled = await Promise.allSettled(
+            instrumentIds.map((id) => graph.subgraph(id, tenantId, 1)),
+          );
+          if (cancelled) return;
+          for (const row of settled) {
+            if (row.status === "fulfilled") extras.push(row.value);
+          }
         }
-        const seed = pruned.nodes.find((n) => n.id === entityId) ?? {
+        const built = buildPersonHuntGraph(entityId, sub, extras, LINK_ANALYSIS_MAX_NODES);
+        if (cancelled) return;
+        setLoaded({ nodes: built.nodes, edges: built.edges });
+        if (built.originalNodeCount > built.prunedNodeCount) {
+          setPruneNote(pruneBanner(built.originalNodeCount, built.prunedNodeCount, sub.nodes.length));
+        }
+        const seed = built.nodes.find((n) => n.id === entityId) ?? {
           id: entityId,
           labels: [],
           properties: {},
@@ -296,10 +365,10 @@ export default function GraphInvestigationPage() {
       try {
         const extra = await graph.subgraph(id, tenantId, 1);
         if (seedLoadGenRef.current !== genAtStart) return;
-        const merged = mergeSubgraphs(
+        const merged = buildPersonHuntGraph(
           seedAtStart,
           loadedRef.current ?? { nodes: [], edges: [] },
-          extra,
+          [extra],
           LINK_ANALYSIS_MAX_NODES,
         );
         setLoaded({ nodes: merged.nodes, edges: merged.edges });
@@ -390,14 +459,7 @@ export default function GraphInvestigationPage() {
   return (
     <div className="p-6 h-full flex flex-col gap-4 animate-fade-in min-h-0">
       <div className="flex items-center justify-between gap-4">
-        <PageTitle module="graph">Graph</PageTitle>
-        <p className="text-sm text-gray-500">
-          Trace layered payouts in{" "}
-          <Link to="/graph/mule-path" className="text-brand-400 hover:text-brand-300 font-medium">
-            Mule path
-          </Link>{" "}
-          (User A → mule → cash-out).
-        </p>
+        <PageTitle module="graph">Hunt</PageTitle>
       </div>
 
       {graphPlaneDisabled ? (
@@ -436,6 +498,7 @@ export default function GraphInvestigationPage() {
             <ul className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-y-auto rounded-lg border border-surface-600 bg-surface-900 shadow-xl">
               {searchHits.map((hit) => {
                 const viaLine = searchHitViaSubtitle(hit.via);
+                const matchedOn = searchHitMatchedOn(hit.matched_on);
                 return (
                   <li key={`${hit.tenant_id}:${hit.entity_id}`}>
                     <button
@@ -445,9 +508,13 @@ export default function GraphInvestigationPage() {
                     >
                       <span className="font-mono">{hit.entity_id}</span>
                       <span className="text-gray-500 ml-2">{hit.labels?.[0] ?? "Custom"}</span>
+                      {matchedOn ? (
+                        <span className="text-sky-300/90 ml-2">{matchedOn}</span>
+                      ) : null}
                       {hit.scored && hit.risk_score != null ? (
                         <span className="text-amber-300/90 ml-2 font-mono">{hit.risk_score.toFixed(0)}</span>
                       ) : null}
+                      <span className="text-gray-400 ml-2">{lastOutcomeLabel(hit)}</span>
                       {viaLine ? (
                         <div className="text-[11px] text-gray-500 mt-0.5">{viaLine}</div>
                       ) : null}
@@ -519,6 +586,11 @@ export default function GraphInvestigationPage() {
       {pruneNote ? (
         <p className="text-xs text-amber-200/90 border border-amber-500/30 rounded-md px-3 py-2 bg-amber-500/10">
           {pruneNote}
+        </p>
+      ) : null}
+      {instrumentCapNote ? (
+        <p className="text-xs text-gray-400" data-testid="instrument-cap">
+          {instrumentCapNote}
         </p>
       ) : null}
 
@@ -684,6 +756,14 @@ export default function GraphInvestigationPage() {
                   setSelectedId(id);
                   setSelectedNode(node);
                   setDossierMessage(null);
+                  const line = decisionToastText(node);
+                  if (line) {
+                    const d = line.toLowerCase();
+                    toast(
+                      line,
+                      d === "deny" || d === "flag" ? "error" : d === "allow" ? "success" : "info",
+                    );
+                  }
                 }}
                 onNodeDoubleClick={(id) => {
                   if (expandingRef.current) return;
@@ -742,6 +822,7 @@ export default function GraphInvestigationPage() {
                 tenantId={tenantId}
                 entityId={selectedId}
                 nodeHint={selectedNode ?? undefined}
+                onSelectEntity={selectEntity}
               />
             </div>
           </aside>

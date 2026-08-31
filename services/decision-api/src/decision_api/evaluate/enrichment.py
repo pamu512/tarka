@@ -183,3 +183,65 @@ async def fetch_graph_risk_wrapped(
             degrade_tags.append("graph:stale_fail_closed")
         return None
     return data
+
+
+async def fetch_object_attention(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    objects: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    if not settings.graph_service_url or not objects:
+        return []
+    rt = _require_rt()
+    url = settings.graph_service_url.rstrip("/") + "/v1/objects/attention"
+    r = await http.post(
+        url,
+        json={
+            "tenant_id": tenant_id,
+            "objects": [
+                {
+                    "external_id": o["external_id"],
+                    "entity_type": o.get("entity_type") or "Custom",
+                    "on_this_event": True,
+                }
+                for o in objects
+                if o.get("external_id")
+            ],
+        },
+        headers=rt.upstream_headers(),
+        timeout=settings.eval_step_graph_risk_timeout_seconds,
+    )
+    await _maybe_await(r.raise_for_status())
+    data = await _maybe_await(r.json())
+    if not isinstance(data, dict):
+        return []
+    rows = data.get("attention")
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+
+async def fetch_object_attention_wrapped(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    objects: list[dict[str, str]],
+    degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Fail-soft. Empty list means pack does not attend."""
+    rt = _require_rt()
+    if tenant_flag_enabled(tenant_flags, "disable_graph"):
+        return []
+    if tag_hop_unconfigured(degrade_tags, "graph"):
+        return []
+    try:
+        return await rt.circuit_graph.call(
+            lambda: fetch_object_attention(http, tenant_id, objects)
+        )
+    except CircuitOpenError:
+        rt.metrics_inc("tarka_circuit_open_total_graph")
+        if "graph:unavailable" not in degrade_tags:
+            degrade_tags.append("graph:unavailable")
+        return []
+    except Exception:
+        if "graph:unavailable" not in degrade_tags:
+            degrade_tags.append("graph:unavailable")
+        return []

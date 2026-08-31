@@ -6,14 +6,16 @@ Tarka is a local-first fraud OS: evaluate packs + audit trail + analyst desk.
 
 ## Day-1 (compose)
 
-Evaluate-only lite (Rust packs + `core-api`). Thin desk overlay is optional. Same path as [`docs/INDEX.md`](docs/INDEX.md) and the [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Lite is evaluate + graph (Rust packs + `core-api` + Apache AGE). Wire your own graph by pointing `GRAPH_SERVICE_URL` / `GRAPH_BACKEND` at it. Thin desk overlay is optional. Same path as [`docs/INDEX.md`](docs/INDEX.md) and the [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 ```bash
 docker compose -f infra/deploy/docker-compose.lite.yml up --build
-# thin desk (lean /decisions + /rules):
+# thin desk (Hunt /graph + /rules; receipts at /decisions):
 #   -f infra/deploy/docker-compose.fraud-desk.yml
 # + investigation / + signals / full desk: see the SRE runbook
 ```
+
+Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
 
 - [Author a pack](docs/docs/guides/rules.md) — JSON rule packs (strategy analyst)
 - [First evaluate](docs/docs/guides/oss-15-minute-first-decision.md) — `POST /decisions/v1/decisions/evaluate`
@@ -40,7 +42,7 @@ Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
 Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
 
-Optional after evaluate works: investigation overlay, signals overlay, graph (`--profile graph`), local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation overlay, signals overlay, local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 **15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 

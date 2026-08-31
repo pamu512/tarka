@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,8 +39,21 @@ from decision_api.y_label_store import load_y_labels, merge_y_labels  # noqa: E4
 
 """Calibration snapshots, drift hints, and reliability export (Wave 1 trust)."""
 router = APIRouter(prefix="/v1/calibration", tags=["calibration"])
+logger = logging.getLogger(__name__)
 
 _EXPORT_MAX = 50_000
+
+
+async def _tick_auto_promote(tenant_id: str) -> None:
+    tid = (tenant_id or "").strip()
+    if not tid:
+        return
+    try:
+        from decision_api.shadow_auto_promote import maybe_auto_promote_shadow
+
+        await maybe_auto_promote_shadow(tid)
+    except Exception:
+        logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
 
 
 def _data_dir() -> Path:
@@ -387,6 +401,7 @@ async def _reliability_bins_payload(
         store_meta = merge_y_labels(tenant_id, by_trace=by_t, by_entity=by_e)
         by_t = dict(store_meta["by_trace"])
         by_e = dict(store_meta["by_entity"])
+        await _tick_auto_promote(tenant_id)
     else:
         stored = load_y_labels(tenant_id)
         # Incoming maps win over store for this request; store fills gaps.
@@ -487,6 +502,7 @@ async def rule_precision_after_labels_endpoint(
         store_meta = merge_y_labels(tenant_id, by_trace=by_t, by_entity=by_e)
         by_t = dict(store_meta["by_trace"])
         by_e = dict(store_meta["by_entity"])
+        await _tick_auto_promote(tenant_id)
     else:
         stored = load_y_labels(tenant_id)
         by_t = {**stored["by_trace"], **by_t}
@@ -554,6 +570,7 @@ async def merge_y_labels_endpoint(
         dispute_outcome_by_trace=dispute_by_trace or None,
         chargeback_class_by_trace=chargeback_by_trace or None,
     )
+    await _tick_auto_promote(body.tenant_id)
     return {
         "ok": True,
         "schema_id": "tarka.y_labels_merge/v1",
@@ -626,19 +643,14 @@ async def shadow_promote_gate(
     tenant_id: str | None = Query(
         None, description="Optional tenant for label/CC scan"
     ),
+    draft_id: str | None = Query(None),
     session: AsyncSession = Depends(get_session),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
     """Desk-facing promote-gate posture + label gate + CC agreement (P0-CC)."""
-    from decision_api.champion_challenger_audit import (
-        aggregate_champion_challenger,
-        drift_promote_gate,
-        label_gated_promote,
-        labeled_champion_challenger_f1,
-        mcnemar_promote_gate,
-        promote_lifecycle_stage,
-    )
-    from decision_api.y_label_store import load_y_labels
+    from decision_api.champion_challenger_audit import promote_lifecycle_stage
+    from decision_api.json_rules import get_shadow_packs
+    from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
     from decision_api.vertical_packs import evaluate_kill_criteria, get_vertical_pack
 
     pack = get_vertical_pack("fintech") or {}
@@ -660,102 +672,16 @@ async def shadow_promote_gate(
         events_evaluated=int(criteria.get("min_events", 100)) + 50,
     )
 
-    label_posture: dict[str, Any] = {
-        "healthy": False,
-        "status": "no_tenant",
-        "label_coverage": 0.0,
-        "hint": "Pass tenant_id to scan real-label coverage before promote.",
-    }
-    cc_audit: dict[str, Any] = aggregate_champion_challenger([])
-    labeled_f1: dict[str, Any] = labeled_champion_challenger_f1([])
     tid = (tenant_id or "").strip()
-    if tid:
-        try:
-            stmt = (
-                select(AuditRecord)
-                .where(AuditRecord.tenant_id == tid)
-                .order_by(AuditRecord.created_at.desc())
-                .limit(500)
-            )
-            result = await session.execute(stmt)
-            records = result.scalars().all()
-            export_rows = [
-                audit_row_to_export_dict(
-                    {
-                        "trace_id": rec.trace_id,
-                        "tenant_id": rec.tenant_id,
-                        "entity_id": rec.entity_id,
-                        "event_type": rec.event_type,
-                        "decision": rec.decision,
-                        "score": rec.score,
-                        "payload_snapshot": rec.payload_snapshot,
-                        "created_at": rec.created_at,
-                    }
-                )
-                for rec in records
-            ]
-            bins = reliability_bins(export_rows, n_bins=10, use_proxy_labels=True)
-            label_posture = label_coverage_posture(
-                label_coverage=float(bins.get("label_coverage") or 0.0),
-                proxy_only=bins.get("label_source") == "proxy_from_decision",
-            )
-            label_posture["label_source"] = bins.get("label_source")
-            label_posture["rows_scanned"] = len(export_rows)
-            cc_rows = [
-                {
-                    "trace_id": str(rec.trace_id),
-                    "entity_id": str(rec.entity_id or ""),
-                    "payload_snapshot": rec.payload_snapshot
-                    if isinstance(rec.payload_snapshot, dict)
-                    else {},
-                }
-                for rec in records
-            ]
-            cc_audit = aggregate_champion_challenger(cc_rows)
-            ystore = load_y_labels(tid)
-            labeled_f1 = labeled_champion_challenger_f1(
-                cc_rows,
-                by_trace=ystore.get("by_trace"),
-                by_entity=ystore.get("by_entity"),
-            )
-        except Exception:
-            label_posture = {
-                "healthy": False,
-                "status": "label_coverage_unavailable",
-                "label_coverage": 0.0,
-                "hint": "audit scan failed",
-            }
-
-    # Desk bar: real labels + McNemar (volume + mid-p) + elevated calibration drift block.
-    live_promote = label_gated_promote(label_posture=label_posture, kill_gate=None)
-    mcnemar = mcnemar_promote_gate(cc_audit)
-    drift_row: dict[str, Any] = {"hint": "no_tenant"}
-    if tid:
-        drift_row = compute_drift_for_tenant(tid, "default")
-    drift_gate = drift_promote_gate(drift_row)
-    combined_blockers = (
-        list(live_promote.get("blockers") or [])
-        + list(mcnemar.get("blockers") or [])
-        + list(drift_gate.get("blockers") or [])
-    )
-    # Dedupe
-    seen_b: set[str] = set()
-    uniq_b: list[str] = []
-    for b in combined_blockers:
-        if b and b not in seen_b:
-            seen_b.add(b)
-            uniq_b.append(b)
-    desk_ok = len(uniq_b) == 0
-    desk_promote = {
-        "schema_id": "tarka.desk_promote_gate/v1",
-        "promote_allowed": desk_ok,
-        "blockers": uniq_b,
-        "requires": [
-            "label_gated_promote",
-            "mcnemar_promote_gate",
-            "drift_promote_gate",
-        ],
-    }
+    gates = await compute_desk_and_leftover_gates(tid, draft_id, session=session)
+    leftover_g = gates["leftover_promote_gate"]
+    desk_promote = gates["desk_promote_gate"]
+    live_promote = gates["label_gated_promote"]
+    mcnemar = gates["mcnemar_promote_gate"]
+    drift_gate = gates["drift_promote_gate"]
+    labeled_f1 = gates["labeled_champion_challenger_f1"]
+    cc_audit = gates["champion_challenger"]
+    desk_ok = bool(desk_promote.get("promote_allowed"))
     lifecycle = promote_lifecycle_stage(
         label_ok=bool(live_promote.get("promote_allowed")),
         mcnemar_ok=bool(mcnemar.get("promote_allowed")),
@@ -772,6 +698,15 @@ async def shadow_promote_gate(
         "mcnemar_promote_gate": mcnemar,
         "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
+        "leftover_promote_gate": leftover_g,
+        "shadow_drafts": [
+            {
+                "name": str(p.get("name") or ""),
+                "is_ai_authored": bool(p.get("is_ai_authored")),
+                "mode": "shadow",
+            }
+            for p in get_shadow_packs()
+        ],
         "promote_lifecycle": lifecycle,
         "labeled_champion_challenger_f1": labeled_f1,
         "champion_challenger": cc_audit,

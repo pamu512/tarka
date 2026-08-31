@@ -1134,10 +1134,12 @@ def _http(request: Request) -> httpx.AsyncClient:
     return request.app.state.http
 
 
-def _external_nats_connected(broker: Any) -> bool:
+def _external_nats_connected(broker: Any) -> bool | None:
     from tarka_core.messaging import NatsBroker
 
-    return isinstance(broker, NatsBroker) and broker.has_active_connection
+    if not isinstance(broker, NatsBroker):
+        return None
+    return broker.has_active_connection
 
 
 # ---------- health ----------
@@ -2215,50 +2217,63 @@ async def _graph_upsert(
     if not settings.graph_service_url:
         return
     base = settings.graph_service_url.rstrip("/")
+    from tarka_shared.decision_graph_payload import build_evaluate_objects
 
-    # Upsert Account node with tags
-    await http.post(
-        f"{base}/v1/entities",
-        json={
-            "tenant_id": body.tenant_id,
-            "entity_type": "Account",
-            "external_id": body.entity_id,
-            "properties": {"last_event": body.event_type.value, "trace_id": trace_id},
-            "tags": merged_tags,
-        },
-        headers=_upstream_headers(),
+    payload = body.payload if isinstance(body.payload, dict) else {}
+    dc_dump = body.device_context.model_dump() if body.device_context else None
+    objects, links = build_evaluate_objects(
+        trace_id=trace_id,
+        entity_id=body.entity_id,
+        event_type=body.event_type.value,
+        payload=payload,
+        device_context=dc_dump,
+        session_id=body.session_id,
     )
-
-    # Upsert Device node if device_context present
-    if body.device_context:
-        dc = body.device_context
-        device_tags = extract_signal_tags(dc.model_dump())
+    device_tags = extract_signal_tags(dc_dump) if dc_dump else []
+    for obj in objects:
+        oid = str(obj.get("external_id") or "").strip()
+        etype = str(obj.get("entity_type") or "Custom").strip() or "Custom"
+        if not oid:
+            continue
+        props = dict(obj.get("properties") or {}) if isinstance(obj.get("properties"), dict) else {}
+        tags: list[str] = []
+        if etype == "Person":
+            tags = merged_tags
+            props["last_event"] = body.event_type.value
+        elif etype == "Device" and body.device_context:
+            tags = device_tags
+            props["platform"] = body.device_context.platform
+            props.update(
+                {
+                    k: v
+                    for k, v in body.device_context.signals.items()
+                    if isinstance(v, (str, bool, int, float)) or v is None
+                }
+            )
         await http.post(
             f"{base}/v1/entities",
             json={
                 "tenant_id": body.tenant_id,
-                "entity_type": "Device",
-                "external_id": dc.device_id,
-                "properties": {
-                    "platform": dc.platform,
-                    **{
-                        k: v
-                        for k, v in dc.signals.items()
-                        if isinstance(v, (str, bool, int, float)) or v is None
-                    },
-                },
-                "tags": device_tags,
+                "entity_type": etype,
+                "external_id": oid,
+                "properties": props,
+                "tags": tags,
             },
             headers=_upstream_headers(),
         )
-        # Link Account -> Device
+    for link in links:
+        src = str(link.get("from_external_id") or "").strip()
+        dst = str(link.get("to_external_id") or "").strip()
+        rel = str(link.get("relationship") or "").strip()
+        if not src or not dst or not rel:
+            continue
         await http.post(
             f"{base}/v1/links",
             json={
                 "tenant_id": body.tenant_id,
-                "from_external_id": body.entity_id,
-                "to_external_id": dc.device_id,
-                "relationship": "USED",
+                "from_external_id": src,
+                "to_external_id": dst,
+                "relationship": rel,
                 "properties": {
                     "trace_id": trace_id,
                     "event_type": body.event_type.value,
@@ -2267,32 +2282,7 @@ async def _graph_upsert(
             headers=_upstream_headers(),
         )
 
-    # Upsert Session node if session_id present
-    if body.session_id:
-        await http.post(
-            f"{base}/v1/entities",
-            json={
-                "tenant_id": body.tenant_id,
-                "entity_type": "Custom",
-                "external_id": body.session_id,
-                "properties": {"type": "session", "trace_id": trace_id},
-                "tags": [],
-            },
-            headers=_upstream_headers(),
-        )
-        await http.post(
-            f"{base}/v1/links",
-            json={
-                "tenant_id": body.tenant_id,
-                "from_external_id": body.entity_id,
-                "to_external_id": body.session_id,
-                "relationship": "USED",
-                "properties": {"trace_id": trace_id},
-            },
-            headers=_upstream_headers(),
-        )
-
-    # Place cell for co-location (quantized lat/lon from SDK or payload hints)
+    # Place / SEEN_AT is not in Hunt objects yet — keep it on this hop only.
     sig: dict[str, Any] = {}
     if body.device_context:
         sig = body.device_context.signals or {}
@@ -2342,12 +2332,14 @@ async def _graph_upsert(
             },
             headers=_upstream_headers(),
         )
-        if body.session_id:
+        sess = str(body.session_id or "").strip()
+        sess_ext = f"sess:{sess}" if sess and not sess.startswith("sess:") else sess
+        if sess_ext:
             await http.post(
                 f"{base}/v1/links",
                 json={
                     "tenant_id": body.tenant_id,
-                    "from_external_id": body.session_id,
+                    "from_external_id": sess_ext,
                     "to_external_id": cell,
                     "relationship": "SEEN_AT",
                     "properties": {"trace_id": trace_id},

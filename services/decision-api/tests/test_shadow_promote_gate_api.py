@@ -69,3 +69,89 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
     assert (
         body["champion_challenger"]["schema_id"] == "tarka.champion_challenger_audit/v1"
     )
+
+
+@pytest.mark.asyncio
+async def test_shadow_promote_gate_includes_leftover_gate(challenge_client, monkeypatch):
+    monkeypatch.setattr("decision_api.config.settings.case_api_url", "")
+    r = await challenge_client.get("/v1/calibration/shadow-promote-gate")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["leftover_promote_gate"]["schema_id"] == "tarka.leftover_promote_gate/v1"
+    assert "leftover_queue_unavailable" in body["leftover_promote_gate"]["blockers"]
+    assert "leftover_promote_gate" in body["desk_promote_gate"]["requires"]
+    assert body["desk_promote_gate"]["promote_allowed"] is False
+    assert isinstance(body.get("shadow_drafts"), list)
+
+
+@pytest.mark.asyncio
+async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    monkeypatch.setattr("decision_api.config.settings.case_api_url", "")
+
+    from auth_rbac import AuthUser
+    from decision_api.calibration_api import router as calibration_router
+    from decision_api.db import get_session
+
+    class _Rec:
+        def __init__(self, i: int):
+            self.trace_id = f"t{i:03d}"
+            self.tenant_id = "acme"
+            self.entity_id = f"e{i:03d}"
+            self.event_type = "payment"
+            self.decision = "allow"
+            self.score = 0.1
+            self.payload_snapshot = {
+                "policy_routing": {
+                    "champion_decision": "allow",
+                    "challenger_decision": "review",
+                }
+            }
+            self.created_at = None
+
+    class _ManyResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return [_Rec(i) for i in range(60)]
+
+    class _ManySession:
+        async def execute(self, *a, **k):
+            return _ManyResult()
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def _inject_auth(request, call_next):
+        request.state.auth_user = AuthUser(
+            "test-analyst", ["analyst", "admin"], "test", tenant_ids={"*"}
+        )
+        return await call_next(request)
+
+    app.include_router(calibration_router)
+
+    async def _session_override():
+        yield _ManySession()
+
+    app.dependency_overrides[get_session] = _session_override
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        r = await client.get(
+            "/v1/calibration/shadow-promote-gate", params={"tenant_id": "acme"}
+        )
+    app.dependency_overrides.clear()
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["leftover_promote_gate"]["extra_review_or_deny"] == 60
+    assert len(body["champion_challenger"]["audit_rows"]) == 50
+
+
+def test_shadow_promote_gate_get_does_not_auto_promote():
+    import inspect
+
+    from decision_api.calibration_api import shadow_promote_gate
+
+    src = inspect.getsource(shadow_promote_gate)
+    assert "maybe_auto_promote" not in src
+    assert "auto_promote_shadow" not in src

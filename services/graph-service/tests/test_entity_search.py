@@ -50,7 +50,20 @@ def test_search_http_empty_q_no_store(monkeypatch):
 
     with TestClient(app) as client:
         data = client.get("/v1/entities/search", params={"tenant_id": "t"}).json()
-    assert data == {"entities": []}
+    assert data == {"entities": [], "truncated": False}
+    store.assert_not_called()
+
+
+def test_search_http_q_shorter_than_2_no_store(monkeypatch):
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
+    store = AsyncMock(return_value=([], False))
+    monkeypatch.setattr("graph_service.main.search_entities", store)
+    from fastapi.testclient import TestClient
+    from graph_service.main import app
+
+    with TestClient(app) as client:
+        data = client.get("/v1/entities/search", params={"tenant_id": "t", "q": "a"}).json()
+    assert data == {"entities": [], "truncated": False}
     store.assert_not_called()
 
 
@@ -98,7 +111,7 @@ def test_search_http_truncated_true(monkeypatch):
     with TestClient(app) as client:
         data = client.get(
             "/v1/entities/search",
-            params={"tenant_id": "t", "q": "x"},
+            params={"tenant_id": "t", "q": "xx"},
         ).json()
     assert data == {"entities": [], "truncated": True}
 

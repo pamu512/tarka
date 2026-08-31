@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 
 import { MicroDevFirstRunWizard } from "@/components/MicroDevFirstRunWizard";
+import { LEAN_NAV } from "@/config/leanNav";
 import { useMicroDevOnboardingStore } from "@/state/microDevOnboardingStore";
 import { useRuntimeEnvironmentStore } from "@/state/runtimeEnvironmentStore";
 
@@ -10,10 +11,13 @@ export function MicroDevOnboardingGate({ children }: { children: ReactNode }) {
   const bootstrap = useMicroDevOnboardingStore((s) => s.bootstrap);
 
   useEffect(() => {
+    if (LEAN_NAV) return;
     void bootstrap(tier);
   }, [tier, bootstrap]);
 
-  if (tier !== "micro") {
+  // Evaluate-only desk is Postgres lite, not micro-dev. A proxy blip must not
+  // replace Cases / Decisions with the SQLite first-run wizard.
+  if (LEAN_NAV || tier !== "micro") {
     return <>{children}</>;
   }
 

@@ -7,7 +7,7 @@
 #     up --build
 #
 # Does NOT start investigation-agent, signal-api, or integration-ingress.
-# Does NOT enable --profile graph. Empty plane URLs hide Graph / Advise chrome.
+# Graph starts with lite (no --profile graph). Advise stays off until that overlay.
 # Former ~8 GB "Desk" (agent + signals + ingress) is docker-compose.full-desk.yml.
 
 services:
@@ -19,6 +19,7 @@ services:
         VITE_LEAN_NAV: "true"
         VITE_DESK_STRICT: "true"
         VITE_USE_API_MOCKS: "false"
+        VITE_GRAPH_SERVICE_URL: /api/graph
     environment:
       VITE_DESK_STRICT: "true"
       VITE_USE_API_MOCKS: "false"

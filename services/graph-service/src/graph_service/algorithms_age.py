@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from .age_client import get_pool
+from .age_client import _acquire
 from .algorithms_neo4j import _relation_growth_counts
 from .entity_risk_score import entity_not_found_payload, score_entity_risk
 
@@ -24,7 +24,6 @@ async def detect_communities(
     tenant_id: str,
     min_community_size: int = 3,
 ) -> list[dict]:
-    pool = await get_pool()
 
     # AGE does not support variable length paths in the same way as Neo4j with all functions
     # We will use a simplified approach or standard cypher that AGE supports
@@ -34,8 +33,8 @@ async def detect_communities(
            CAST(CAST(all_labels AS VARCHAR) AS JSON) as all_labels,
            CAST(CAST(all_tags_lists AS VARCHAR) AS JSON) as all_tags_lists,
            CAST(CAST(cnt AS VARCHAR) AS JSON) as cnt
-    FROM cypher('tarka', $$
-        MATCH (n {tenant_id: $tenant_id})
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (n) WHERE n.tenant_id = $tenant_id
         WITH collect(n) AS all_nodes
         UNWIND all_nodes AS seed
         OPTIONAL MATCH path = (seed)-[*1..5]-(peer)
@@ -70,7 +69,7 @@ async def detect_communities(
                all_tags_lists,
                cnt
         ORDER BY cnt DESC
-    $$, %s) as (canonical_key agtype, member_ids agtype, all_labels agtype, all_tags_lists agtype, cnt agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (canonical_key ag_catalog.agtype, member_ids ag_catalog.agtype, all_labels ag_catalog.agtype, all_tags_lists ag_catalog.agtype, cnt ag_catalog.agtype);
     """
 
     params_json = json.dumps({"tenant_id": tenant_id, "min_size": min_community_size})
@@ -79,7 +78,7 @@ async def detect_communities(
     communities: list[dict] = []
     idx = 0
 
-    async with pool.acquire() as conn:
+    async with _acquire() as conn:
         rows = await conn.fetch(q, params_json)
 
         for row in rows:
@@ -131,7 +130,6 @@ async def propagate_risk(
     decay: float = 0.5,
 ) -> list[dict]:
     depth = _clamp_depth(depth)
-    pool = await get_pool()
 
     q = f"""
     SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id,
@@ -139,8 +137,8 @@ async def propagate_risk(
            CAST(CAST(distance AS VARCHAR) AS JSON) as distance,
            CAST(CAST(rel_types AS VARCHAR) AS JSON) as rel_types,
            CAST(CAST(node_chain AS VARCHAR) AS JSON) as node_chain
-    FROM cypher('tarka', $$
-        MATCH (root {{tenant_id: $tenant_id, external_id: $entity_id}})
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (root) WHERE root.tenant_id = $tenant_id AND root.external_id = $entity_id
         MATCH path = (root)-[*1..{depth}]-(neighbor)
         WHERE neighbor.tenant_id = $tenant_id
           AND neighbor.external_id <> $entity_id
@@ -155,7 +153,7 @@ async def propagate_risk(
                rel_types,
                node_chain
         ORDER BY distance
-    $$, %s) as (entity_id agtype, entity_labels agtype, distance agtype, rel_types agtype, node_chain agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (entity_id ag_catalog.agtype, entity_labels ag_catalog.agtype, distance ag_catalog.agtype, rel_types ag_catalog.agtype, node_chain ag_catalog.agtype);
     """
 
     params_json = json.dumps({"tenant_id": tenant_id, "entity_id": entity_id})
@@ -163,7 +161,7 @@ async def propagate_risk(
     seen: set[str] = set()
     entities: list[dict] = []
 
-    async with pool.acquire() as conn:
+    async with _acquire() as conn:
         rows = await conn.fetch(q, params_json)
 
         for row in rows:
@@ -249,26 +247,25 @@ async def find_shared_attributes(
     if not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,63}$", attribute):
         raise ValueError(f"Invalid attribute name: {attribute!r}")
 
-    pool = await get_pool()
 
     q = f"""
     SELECT CAST(CAST(attr_value AS VARCHAR) AS JSON) as attr_value,
            CAST(CAST(entities AS VARCHAR) AS JSON) as entities,
            CAST(CAST(group_size AS VARCHAR) AS JSON) as group_size
-    FROM cypher('tarka', $$
-        MATCH (n {{tenant_id: $tenant_id}})
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (n) WHERE n.tenant_id = $tenant_id
         WHERE n.`{attribute}` IS NOT NULL
         WITH n.`{attribute}` AS attr_value, collect(n.external_id) AS entities
         WHERE size(entities) >= $min_shared
         RETURN attr_value, entities, size(entities) AS group_size
         ORDER BY group_size DESC
-    $$, %s) as (attr_value agtype, entities agtype, group_size agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (attr_value ag_catalog.agtype, entities ag_catalog.agtype, group_size ag_catalog.agtype);
     """
 
     params_json = json.dumps({"tenant_id": tenant_id, "min_shared": min_shared})
 
     results = []
-    async with pool.acquire() as conn:
+    async with _acquire() as conn:
         rows = await conn.fetch(q, params_json)
         for row in rows:
             if not row["attr_value"] or row["attr_value"] == "null":
@@ -298,14 +295,13 @@ async def detect_fraud_rings(
 ) -> list[dict]:
     min_ring_size = max(3, min(min_ring_size, 6))
     max_ring = 6
-    pool = await get_pool()
 
     q = f"""
     SELECT CAST(CAST(node_ids AS VARCHAR) AS JSON) as node_ids,
            CAST(CAST(rel_types AS VARCHAR) AS JSON) as rel_types,
            CAST(CAST(ring_len AS VARCHAR) AS JSON) as ring_len,
            CAST(CAST(all_tags AS VARCHAR) AS JSON) as all_tags
-    FROM cypher('tarka', $$
+    FROM ag_catalog.cypher('tarka'::name, $$
         MATCH path = (a {{tenant_id: $tenant_id}})-[*{min_ring_size}..{max_ring}]-(a)
         WHERE ALL(n IN nodes(path) WHERE n.tenant_id = $tenant_id)
         WITH nodes(path) AS ring_nodes,
@@ -322,7 +318,7 @@ async def detect_fraud_rings(
         RETURN DISTINCT node_ids, rel_types, ring_len, all_tags
         ORDER BY ring_len
         LIMIT 50
-    $$, %s) as (node_ids agtype, rel_types agtype, ring_len agtype, all_tags agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (node_ids ag_catalog.agtype, rel_types ag_catalog.agtype, ring_len ag_catalog.agtype, all_tags ag_catalog.agtype);
     """
 
     params_json = json.dumps({"tenant_id": tenant_id})
@@ -330,7 +326,7 @@ async def detect_fraud_rings(
     seen: set[str] = set()
     rings: list[dict] = []
 
-    async with pool.acquire() as conn:
+    async with _acquire() as conn:
         rows = await conn.fetch(q, params_json)
         for row in rows:
             if not row["node_ids"] or row["node_ids"] == "null":
@@ -391,6 +387,8 @@ async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
 
 
 def entity_risk_sql(hop_depth: int) -> str:
+    # ponytail: AGE 1.6 has no [*1..n]; community_size is 1-hop degree + 1.
+    _ = hop_depth
     return f"""
     SELECT CAST(CAST(tags AS VARCHAR) AS JSON) as tags,
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
@@ -399,8 +397,8 @@ def entity_risk_sql(hop_depth: int) -> str:
            CAST(CAST(shared_device_count AS VARCHAR) AS JSON) as shared_device_count,
            CAST(CAST(node_labels AS VARCHAR) AS JSON) as node_labels,
            CAST(CAST(edge_timestamps AS VARCHAR) AS JSON) as edge_timestamps
-    FROM cypher('tarka', $$
-        MATCH (n {{tenant_id: $tenant_id, external_id: $entity_id}})
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (n) WHERE n.tenant_id = $tenant_id AND n.external_id = $entity_id
 
         OPTIONAL MATCH (n)-[r]-(neighbor)
         WHERE neighbor.tenant_id = $tenant_id
@@ -414,13 +412,12 @@ def entity_risk_sql(hop_depth: int) -> str:
                              WHERE t IN $high_risk_tags)
              ]) AS flagged_neighbors
 
-        OPTIONAL MATCH (n)-[*1..{hop_depth}]-(community_member)
-        WHERE community_member.tenant_id = $tenant_id
         WITH n, conn_count, flagged_neighbors,
-             count(DISTINCT community_member) + 1 AS community_size
+             conn_count + 1 AS community_size
 
-        OPTIONAL MATCH (other {{tenant_id: $tenant_id}})
-        WHERE other.external_id <> $entity_id
+        OPTIONAL MATCH (other)
+        WHERE other.tenant_id = $tenant_id
+          AND other.external_id <> $entity_id
           AND other.device_id IS NOT NULL
           AND n.device_id IS NOT NULL
           AND other.device_id = n.device_id
@@ -438,7 +435,7 @@ def entity_risk_sql(hop_depth: int) -> str:
           shared_device_count,
           labels(n)           AS node_labels,
           edge_timestamps
-    $$, %s) as (tags agtype, conn_count agtype, flagged_neighbors agtype, community_size agtype, shared_device_count agtype, node_labels agtype, edge_timestamps agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (tags ag_catalog.agtype, conn_count ag_catalog.agtype, flagged_neighbors ag_catalog.agtype, community_size ag_catalog.agtype, shared_device_count ag_catalog.agtype, node_labels ag_catalog.agtype, edge_timestamps ag_catalog.agtype);
     """
 
 
@@ -454,14 +451,13 @@ async def compute_entity_risk(
     mult = float(profile.get("risk_score_multiplier") or 1.0)
     hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
 
-    pool = await get_pool()
     q = entity_risk_sql(hop_depth)
 
     params_json = json.dumps(
         {"tenant_id": tenant_id, "entity_id": entity_id, "high_risk_tags": sorted(_HIGH_RISK_TAGS)}
     )
 
-    async with pool.acquire() as conn:
+    async with _acquire() as conn:
         row = await conn.fetchrow(q, params_json)
 
     if not row or not row["conn_count"] or row["conn_count"] == "null":

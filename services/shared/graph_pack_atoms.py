@@ -38,6 +38,14 @@ PACK_HOP_ETYPES = frozenset(
     }
 )
 
+# Hunt / upsert write names → pack atom names. Same fact, one hop view.
+ETYPE_WRITE_TO_PACK = {
+    "USED_DEVICE": "USES_DEVICE",
+    "USED": "USES_DEVICE",
+    "USED_IP": "SEEN_FROM_IP",
+    "MADE_PAYMENT": "PAYS_WITH",
+}
+
 GRAPH_V1_ATOMS = frozenset({"has_etype", "has_multi_id", "sibling_prior_flag"})
 _SAFE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 _MISSING = frozenset({"graph:missing", "graph:unavailable", "graph:empty"})
@@ -46,6 +54,11 @@ _POSITIVE_FLAGS = frozenset({"1", "true", "flag", "flagged", "fraud", "block", "
 
 def _norm_etype(raw: str) -> str:
     return str(raw or "").strip().upper().replace(" ", "_").replace("-", "_")
+
+
+def canonical_pack_etype(raw: str) -> str:
+    token = _norm_etype(raw)
+    return ETYPE_WRITE_TO_PACK.get(token, token)
 
 
 def signed_pack_etypes(tenant_id: str) -> frozenset[str]:
@@ -330,8 +343,8 @@ def eval_graph_v1(
         for edge in hop.get("named_edges") or []:
             if not isinstance(edge, dict):
                 continue
-            got = _norm_etype(str(edge.get("type") or edge.get("etype") or ""))
-            if got == want:
+            got = canonical_pack_etype(str(edge.get("type") or edge.get("etype") or ""))
+            if got == canonical_pack_etype(want):
                 return True
         return False
     if name == "has_multi_id":

@@ -10,14 +10,25 @@ async function loadLeanNav() {
 }
 
 describe("leanNav", () => {
-  it("defaults to lean home /decisions when VITE_LEAN_NAV is unset", async () => {
+  it("defaults to lean home /graph when graph URL is set", async () => {
     vi.stubEnv("VITE_LEAN_NAV", undefined);
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
     vi.resetModules();
     const { LEAN_NAV, INCLUDE_DEMO_SURFACE, leanHomePath } = await loadLeanNav();
     expect(LEAN_NAV).toBe(true);
     expect(INCLUDE_DEMO_SURFACE).toBe(false);
-    expect(leanHomePath()).toBe("/decisions");
+    expect(leanHomePath()).toBe("/graph");
+    expect(leanHomePath()).not.toBe("/decisions");
     expect(leanHomePath()).not.toBe("/cases");
+  });
+
+  it("falls back to /decisions when graph URL is empty", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "");
+    vi.resetModules();
+    const { leanHomePath, isPlaneEnabled } = await loadLeanNav();
+    expect(isPlaneEnabled("graph")).toBe(false);
+    expect(leanHomePath()).toBe("/decisions");
   });
 
   it("uses demo home /command-center when VITE_LEAN_NAV=false", async () => {
@@ -34,10 +45,11 @@ describe("leanNav", () => {
     vi.resetModules();
     const { isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
     expect(isProductionSurfacePath("/cases")).toBe(true);
+    expect(isProductionSurfacePath("/leftovers")).toBe(true);
     expect(isProductionSurfacePath("/cases/abc")).toBe(true);
     expect(isProductionSurfacePath("/ops/qa")).toBe(true);
     expect(isProductionSurfacePath("/ops/calibration")).toBe(true);
-    expect(isProductionSurfacePath("/ops/shadow")).toBe(false);
+    expect(isProductionSurfacePath("/ops/shadow")).toBe(true);
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/decisions")).toBe(true);
     expect(isProductionSurfacePath("/decisions/tr-abc")).toBe(true);
@@ -47,7 +59,7 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
     expect(isProductionSurfacePath("/login")).toBe(true);
     expect(isProductionSurfacePath("/auth/callback")).toBe(true);
-    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/decisions")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);
@@ -71,6 +83,7 @@ describe("leanNav", () => {
     const {
       isPlaneEnabled,
       isNavItemVisible,
+      isProductionSurfacePath,
       visibleLeanNavPaths,
       planeForPath,
     } = await loadLeanNav();
@@ -81,15 +94,28 @@ describe("leanNav", () => {
     expect(planeForPath("/graph/mule-path")).toBe("graph");
     expect(planeForPath("/investigation/shadow-llm")).toBe("advise");
     expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/leftovers")).toBe(false);
     expect(isNavItemVisible("/investigation/shadow-llm")).toBe(false);
     expect(isNavItemVisible("/ops/calibration")).toBe(false);
     expect(isNavItemVisible("/ops/counters")).toBe(false);
     expect(isNavItemVisible("/decisions")).toBe(true);
     expect(isNavItemVisible("/rules")).toBe(true);
-    expect(isNavItemVisible("/cases")).toBe(true);
+    expect(isNavItemVisible("/cases")).toBe(false);
+    expect(isProductionSurfacePath("/cases")).toBe(true);
     expect(visibleLeanNavPaths()).not.toContain("/graph");
+    expect(visibleLeanNavPaths()).not.toContain("/cases");
     expect(visibleLeanNavPaths()).toContain("/decisions");
     expect(visibleLeanNavPaths()).toContain("/rules");
+  });
+
+  it("shows /ops/shadow when VITE_SIGNAL_API_URL is empty", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_SIGNAL_API_URL", "");
+    vi.resetModules();
+    const { isNavItemVisible, planeForPath } = await loadLeanNav();
+    expect(isNavItemVisible("/ops/shadow")).toBe(true);
+    expect(planeForPath("/ops/shadow")).toBe(null);
+    expect(planeForPath("/ops/shadow")).not.toBe("signals");
   });
 
   it("shows Graph / Advise / signal chrome when plane URLs are set", async () => {
@@ -103,8 +129,20 @@ describe("leanNav", () => {
     expect(isPlaneEnabled("advise")).toBe(true);
     expect(isPlaneEnabled("signals")).toBe(true);
     expect(isNavItemVisible("/graph")).toBe(true);
+    expect(isNavItemVisible("/graph/mule-path")).toBe(false);
+    expect(isNavItemVisible("/leftovers")).toBe(true);
+    expect(isNavItemVisible("/cases")).toBe(false);
     expect(isNavItemVisible("/ops/calibration")).toBe(true);
     expect(isNavItemVisible("/investigation")).toBe(false);
+  });
+
+  it("keeps mule path on the brochure surface when the graph plane is on", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "false");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.resetModules();
+    const { isNavItemVisible, INCLUDE_DEMO_SURFACE } = await loadLeanNav();
+    expect(INCLUDE_DEMO_SURFACE).toBe(true);
+    expect(isNavItemVisible("/graph/mule-path")).toBe(true);
   });
 
   it("hides Graph on the brochure surface when the graph URL is empty", async () => {
@@ -114,6 +152,7 @@ describe("leanNav", () => {
     const { isNavItemVisible, INCLUDE_DEMO_SURFACE } = await loadLeanNav();
     expect(INCLUDE_DEMO_SURFACE).toBe(true);
     expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/graph/mule-path")).toBe(false);
     expect(isNavItemVisible("/command-center")).toBe(true);
   });
 });
