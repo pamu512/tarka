@@ -47,6 +47,25 @@ async def client(tmp_path, monkeypatch):
                     try:
                         from decision_api.main import app
 
+                        async def _allow_leftover(tid, pack):
+                            ids = [
+                                str(r.get("id") or "").strip()
+                                for r in (pack.get("rules") or [])
+                                if isinstance(r, dict) and str(r.get("id") or "").strip()
+                            ]
+                            return {
+                                "publish_allowed": True,
+                                "reason": None,
+                                "keep_rule_ids": ids,
+                                "stamp_underpowered": False,
+                                "should_kill": False,
+                                "_helpfulness": {},
+                            }
+
+                        monkeypatch.setattr(
+                            "decision_api.rule_api._scout_leftover_verdict",
+                            _allow_leftover,
+                        )
                         app.state.http = AsyncMock()
                         app.dependency_overrides = {}
                         transport = httpx.ASGITransport(app=app)
@@ -80,6 +99,7 @@ def _scout_pack_body() -> dict:
         "authored_by": "scout_coordinated_burst",
         "is_ai_authored": True,
         "scout_report_id": "rpt-001",
+        "tenant_id": "t1",
     }
 
 

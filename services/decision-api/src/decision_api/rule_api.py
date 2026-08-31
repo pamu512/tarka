@@ -510,6 +510,12 @@ async def auto_promote_tick(
     out = await maybe_auto_promote_shadow(tenant_id)
     parked = await maybe_park_live_rule_slip(tenant_id)
     out["live_rule_slip_parked"] = parked
+    try:
+        from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
+
+        await maybe_kill_leftover_fp_shadows(tenant_id)
+    except Exception:
+        logger.exception("maybe_kill_leftover_fp_shadows failed tenant=%s", tenant_id)
     return out
 
 
@@ -689,6 +695,7 @@ class ScoutPackIn(BaseModel):
     is_ai_authored: bool = Field(default=True)
     scout_report_id: str = Field(default="", max_length=128)
     tenant_id: str = ""
+    evidence: dict[str, Any] = Field(default_factory=dict)
 
 
 # ponytail: mirrors pack_author_contract.validate_ai_authored_pack
@@ -784,6 +791,35 @@ def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
     return errors
 
 
+async def _scout_leftover_verdict(tid: str, pack: dict[str, Any]) -> dict[str, Any]:
+    from decision_api.brain_wire import brain_wire_verdict
+    from decision_api.db import SessionLocal
+    from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+
+    async with SessionLocal() as session:
+        gates = await compute_desk_and_leftover_gates(tid, None, session=session)
+    leftover_g = gates.get("leftover_promote_gate") if isinstance(gates, dict) else {}
+    leftover_g = leftover_g if isinstance(leftover_g, dict) else {}
+    helpfulness = leftover_g.get("helpfulness")
+    if not isinstance(helpfulness, dict):
+        helpfulness = leftover_g
+    precision = gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    try:
+        fp_cap = float(helpfulness.get("fp_rate_cap") or 0.4)
+    except (TypeError, ValueError):
+        fp_cap = 0.4
+    ids = [
+        str(r.get("id") or "").strip()
+        for r in (pack.get("rules") or [])
+        if isinstance(r, dict) and str(r.get("id") or "").strip()
+    ]
+    verdict = brain_wire_verdict(
+        helpfulness, precision, proposed_rule_ids=ids, fp_cap=fp_cap
+    )
+    verdict["_helpfulness"] = dict(helpfulness)
+    return verdict
+
+
 @router.post("/scout-pack", status_code=201)
 async def create_scout_pack(
     body: ScoutPackIn,
@@ -818,7 +854,17 @@ async def create_scout_pack(
         "authored_by": body.authored_by,
         "is_ai_authored": body.is_ai_authored,
         "scout_report_id": body.scout_report_id,
+        "evidence": dict(body.evidence) if isinstance(body.evidence, dict) else {},
     }
+    tid = (body.tenant_id or "").strip()
+    if not tid:
+        raise HTTPException(409, "leftover_helpfulness_no_tenant")
+    pack["tenant_id"] = tid
+    from decision_api.brain_wire import fingerprint_from_pack, load_killed_fingerprints
+
+    fp = fingerprint_from_pack(pack)
+    if fp and fp in load_killed_fingerprints(tid):
+        raise HTTPException(409, "leftover_helpfulness_killed")
     ai_errors = _validate_ai_authored_pack(pack)
     if ai_errors:
         raise HTTPException(
@@ -828,6 +874,32 @@ async def create_scout_pack(
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
+    verdict = await _scout_leftover_verdict(tid, pack)
+    if not verdict.get("publish_allowed"):
+        raise HTTPException(409, str(verdict.get("reason") or "leftover_helpfulness_refused"))
+    keep = {str(x) for x in (verdict.get("keep_rule_ids") or [])}
+    proposed = [
+        r
+        for r in (pack.get("rules") or [])
+        if isinstance(r, dict) and str(r.get("id") or "").strip()
+    ]
+    if proposed:
+        pack["rules"] = [r for r in proposed if str(r.get("id") or "").strip() in keep]
+        body.rules = pack["rules"]
+        if not pack["rules"]:
+            raise HTTPException(409, str(verdict.get("reason") or "rule_fp_over_cap"))
+    if verdict.get("stamp_underpowered"):
+        h = verdict.get("_helpfulness") if isinstance(verdict.get("_helpfulness"), dict) else {}
+        ev = pack.get("evidence")
+        if not isinstance(ev, dict):
+            ev = {}
+            pack["evidence"] = ev
+        ev["leftover_helpfulness"] = {
+            "labeled_extras": h.get("labeled_extras"),
+            "extra_tp": h.get("extra_tp"),
+            "extra_fp": h.get("extra_fp"),
+            "hint": "helpfulness_underpowered",
+        }
     fpath = _new_pack_path("scout")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
@@ -844,13 +916,14 @@ async def create_scout_pack(
             "rule_count": len(body.rules),
         },
     )
-    tid = (body.tenant_id or "").strip()
-    if tid:
-        try:
-            await maybe_auto_promote_shadow(tid)
-            await maybe_park_live_rule_slip(tid)
-        except Exception:
-            logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
+    try:
+        from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
+
+        await maybe_auto_promote_shadow(tid)
+        await maybe_park_live_rule_slip(tid)
+        await maybe_kill_leftover_fp_shadows(tid)
+    except Exception:
+        logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
     return {"file": fpath.name, "pack": pack, "mode": "shadow"}
 
 

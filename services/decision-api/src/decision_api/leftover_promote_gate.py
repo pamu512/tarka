@@ -420,6 +420,19 @@ async def compute_desk_and_leftover_gates(
             fp_cap=fp_rate_cap,
             parked=get_shadow_packs(),
         )
+    from decision_api.rule_label_metrics import rule_precision_after_labels
+
+    labeled_rows: list[dict[str, Any]] = []
+    for row in slip_rows:
+        item = dict(row)
+        row_tid = str(item.get("trace_id") or "").strip()
+        eid = str(item.get("entity_id") or "").strip()
+        lab = y_by_trace.get(row_tid) if row_tid else None
+        if lab is None and eid:
+            lab = y_by_entity.get(eid)
+        item["y_label"] = lab if lab in {"0", "1"} else ""
+        labeled_rows.append(item)
+    precision = rule_precision_after_labels(labeled_rows)
     leftovers = await fetch_leftover_list(tid)
     leftover_g = leftover_promote_gate(
         leftovers=leftovers,
@@ -449,4 +462,5 @@ async def compute_desk_and_leftover_gates(
         "labeled_champion_challenger_f1": labeled_f1,
         "label_posture": label_posture,
         "live_rule_slip": slip,
+        "rule_precision_after_labels": precision,
     }

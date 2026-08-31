@@ -58,6 +58,7 @@ def _sample_scan_payload(*, count: int = 1) -> dict[str, Any]:
         )
     return {
         "strategy": "coordinated_burst",
+        "tenant_id": "t1",
         "bursts_found": count,
         "hypothesis_reports": reports,
         "hypothesis_reports_blocked": [],
@@ -100,6 +101,29 @@ def _clear_dedup():
     _published_fingerprints.clear()
     yield
     _published_fingerprints.clear()
+
+
+@pytest.fixture(autouse=True)
+def _allow_leftover_gate():
+    """Existing burst tests are not leftover-critic cases — allow publish."""
+    gate = {
+        "leftover_promote_gate": {
+            "helpfulness": {
+                "blockers": [],
+                "underpowered": True,
+                "labeled_extras": 0,
+                "extra_tp": 0,
+                "extra_fp": 0,
+                "fp_rate_cap": 0.4,
+            }
+        },
+        "rule_precision_after_labels": {"rules": []},
+    }
+    with mock.patch(
+        "scout_pack_publisher.leftover_gate_payload",
+        new=mock.AsyncMock(return_value=gate),
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
