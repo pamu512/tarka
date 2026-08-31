@@ -79,7 +79,11 @@ def test_hunt_used_device_write_satisfies_uses_device_atom():
     hop = hop_view_from_graph_meta(
         {
             "named_edges": [
-                {"from_external_id": "alice", "to_external_id": "dev-1", "relationship": "USED_DEVICE"},
+                {
+                    "from_external_id": "alice",
+                    "to_external_id": "dev-1",
+                    "relationship": "USED_DEVICE",
+                },
             ],
             "vertices": [
                 {"id": "alice", "labels": ["Person"]},
@@ -107,9 +111,7 @@ def test_evaluate_objects_write_satisfies_uses_device_atom():
     hop = hop_view_from_graph_meta(
         {
             "named_edges": links,
-            "vertices": [
-                {"id": o["external_id"], "labels": [o["entity_type"]]} for o in objects
-            ],
+            "vertices": [{"id": o["external_id"], "labels": [o["entity_type"]]} for o in objects],
         },
         graph_url="http://graph.test",
         tenant_id="t1",

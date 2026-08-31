@@ -40,7 +40,9 @@ def test_no_lift_drops_and_kills():
 
 def test_sla_cost_blocker_does_not_drop():
     v = brain_wire_verdict(
-        _h(blockers=["leftover_sla_breached"], underpowered=True, labeled=0, tp=0, fp=0),
+        _h(
+            blockers=["leftover_sla_breached"], underpowered=True, labeled=0, tp=0, fp=0
+        ),
         {"rules": []},
         proposed_rule_ids=["r1"],
         fp_cap=0.4,
@@ -57,22 +59,46 @@ def test_rule_fp_strips_then_empty_drops():
             {"rule_id": "r2", "enough_support": False, "fp_rate": 0.9},
         ]
     }
-    v = brain_wire_verdict(_h(underpowered=True, labeled=0), precision, proposed_rule_ids=["r1", "r2"], fp_cap=0.4)
+    v = brain_wire_verdict(
+        _h(underpowered=True, labeled=0),
+        precision,
+        proposed_rule_ids=["r1", "r2"],
+        fp_cap=0.4,
+    )
     assert v["keep_rule_ids"] == ["r2"]
-    v2 = brain_wire_verdict(_h(underpowered=True, labeled=0), precision, proposed_rule_ids=["r1"], fp_cap=0.4)
+    v2 = brain_wire_verdict(
+        _h(underpowered=True, labeled=0),
+        precision,
+        proposed_rule_ids=["r1"],
+        fp_cap=0.4,
+    )
     assert v2["publish_allowed"] is False
     assert v2["reason"] == "rule_fp_over_cap"
     assert v2["should_kill"] is False
 
 
 def test_underpowered_stamps_and_publishes():
-    v = brain_wire_verdict(_h(underpowered=True, labeled=3, tp=1, fp=2), {"rules": []}, proposed_rule_ids=["r1"], fp_cap=0.4)
+    v = brain_wire_verdict(
+        _h(underpowered=True, labeled=3, tp=1, fp=2),
+        {"rules": []},
+        proposed_rule_ids=["r1"],
+        fp_cap=0.4,
+    )
     assert v["publish_allowed"] is True
     assert v["stamp_underpowered"] is True
     assert v["should_kill"] is False
 
 
-def _write_shadow(rules_dir, filename, *, name, is_ai_authored, authored_by, evidence=None, scout_report_id=""):
+def _write_shadow(
+    rules_dir,
+    filename,
+    *,
+    name,
+    is_ai_authored,
+    authored_by,
+    evidence=None,
+    scout_report_id="",
+):
     pack = {
         "version": 1,
         "name": name,
@@ -95,7 +121,10 @@ def _write_shadow(rules_dir, filename, *, name, is_ai_authored, authored_by, evi
 
 
 def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
-    from decision_api.brain_wire import disable_ai_shadow_packs, load_killed_fingerprints
+    from decision_api.brain_wire import (
+        disable_ai_shadow_packs,
+        load_killed_fingerprints,
+    )
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
 
@@ -133,15 +162,30 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
     helpfulness = _h(blockers=["leftover_extras_fp_over_cap"])
     killed = disable_ai_shadow_packs(helpfulness, tenant_id="t1")
     assert "ai.json" in killed
-    assert json.loads((rules_dir / "ai.json").read_text(encoding="utf-8"))["mode"] == "disabled"
-    assert json.loads((rules_dir / "human.json").read_text(encoding="utf-8"))["mode"] == "shadow"
-    assert json.loads((rules_dir / "slip.json").read_text(encoding="utf-8"))["mode"] == "shadow"
+    assert (
+        json.loads((rules_dir / "ai.json").read_text(encoding="utf-8"))["mode"]
+        == "disabled"
+    )
+    assert (
+        json.loads((rules_dir / "human.json").read_text(encoding="utf-8"))["mode"]
+        == "shadow"
+    )
+    assert (
+        json.loads((rules_dir / "slip.json").read_text(encoding="utf-8"))["mode"]
+        == "shadow"
+    )
     assert ("canvas_hash", "abc123") in load_killed_fingerprints("t1")
 
     again = disable_ai_shadow_packs(helpfulness, tenant_id="t1")
     assert again == []
-    assert json.loads((rules_dir / "human.json").read_text(encoding="utf-8"))["mode"] == "shadow"
-    assert json.loads((rules_dir / "slip.json").read_text(encoding="utf-8"))["mode"] == "shadow"
+    assert (
+        json.loads((rules_dir / "human.json").read_text(encoding="utf-8"))["mode"]
+        == "shadow"
+    )
+    assert (
+        json.loads((rules_dir / "slip.json").read_text(encoding="utf-8"))["mode"]
+        == "shadow"
+    )
 
 
 @pytest.mark.asyncio

@@ -23,7 +23,14 @@ def brain_wire_verdict(
 ) -> dict[str, Any]:
     h = helpfulness if isinstance(helpfulness, Mapping) else {}
     blockers = {str(b) for b in (h.get("blockers") or []) if b}
-    drop = next((b for b in ("leftover_extras_fp_over_cap", "leftover_extras_no_lift") if b in blockers), None)
+    drop = next(
+        (
+            b
+            for b in ("leftover_extras_fp_over_cap", "leftover_extras_no_lift")
+            if b in blockers
+        ),
+        None,
+    )
     if drop:
         return {
             "publish_allowed": False,
@@ -33,7 +40,11 @@ def brain_wire_verdict(
             "should_kill": True,
         }
     keep: list[str] = []
-    rules = {str(r.get("rule_id") or ""): r for r in ((precision or {}).get("rules") or []) if isinstance(r, Mapping)}
+    rules = {
+        str(r.get("rule_id") or ""): r
+        for r in ((precision or {}).get("rules") or [])
+        if isinstance(r, Mapping)
+    }
     for rid in proposed_rule_ids:
         token = str(rid or "").strip()
         if not token:
@@ -150,7 +161,9 @@ def disable_ai_shadow_packs(
     from decision_api.rule_api import _append_rule_change
 
     base = Path(settings.rules_path)
-    by_name = {p.name: p for p in base.glob("*.json") if p.is_file()} if base.is_dir() else {}
+    by_name = (
+        {p.name: p for p in base.glob("*.json") if p.is_file()} if base.is_dir() else {}
+    )
     killed: list[str] = []
     keys: list[tuple[str, str]] = []
     for pack in get_shadow_packs():
@@ -177,7 +190,11 @@ def disable_ai_shadow_packs(
         _append_rule_change(
             "kill_shadow_pack_leftover_fp",
             fname,
-            detail={"helpfulness": dict(helpfulness) if isinstance(helpfulness, Mapping) else {}},
+            detail={
+                "helpfulness": dict(helpfulness)
+                if isinstance(helpfulness, Mapping)
+                else {}
+            },
         )
         fp = fingerprint_from_pack(on_disk) or fingerprint_from_pack(pack)
         if fp:

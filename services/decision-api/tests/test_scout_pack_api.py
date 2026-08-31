@@ -51,7 +51,8 @@ async def client(tmp_path, monkeypatch):
                             ids = [
                                 str(r.get("id") or "").strip()
                                 for r in (pack.get("rules") or [])
-                                if isinstance(r, dict) and str(r.get("id") or "").strip()
+                                if isinstance(r, dict)
+                                and str(r.get("id") or "").strip()
                             ]
                             return {
                                 "publish_allowed": True,

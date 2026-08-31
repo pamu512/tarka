@@ -508,8 +508,12 @@ async def run_evaluate_decision(
                     fallback=None,
                 )
                 try:
-                    from tarka_shared.decision_graph_payload import evaluate_related_object_refs
-                    from decision_api.evaluate.enrichment import fetch_object_attention_wrapped
+                    from tarka_shared.decision_graph_payload import (
+                        evaluate_related_object_refs,
+                    )
+                    from decision_api.evaluate.enrichment import (
+                        fetch_object_attention_wrapped,
+                    )
 
                     refs = evaluate_related_object_refs(
                         trace_id=str(trace_id),
@@ -1279,13 +1283,15 @@ async def run_evaluate_decision(
                 payload=body.payload if isinstance(body.payload, dict) else {},
                 metadata=body.metadata if isinstance(body.metadata, dict) else None,
                 fallback_reason=fb_reason,
-                device_context=body.device_context.model_dump() if body.device_context else None,
+                device_context=body.device_context.model_dump()
+                if body.device_context
+                else None,
                 session_id=body.session_id,
                 shadow_request=shadow_request,
             )
-            if (settings.graph_service_url or "").strip() and not try_record_evaluate_decision_graph(
-                _graph_ctx
-            ):
+            if (
+                settings.graph_service_url or ""
+            ).strip() and not try_record_evaluate_decision_graph(_graph_ctx):
                 if "graph:write_failed" not in merged_tags:
                     merged_tags.append("graph:write_failed")
                 _gnote = _SIGNAL_UNAVAILABLE_AUDIT.get("graph:write_failed")
@@ -1517,7 +1523,9 @@ async def run_evaluate_decision(
                 ml_score=ml_score if isinstance(ml_score, float) else None,
                 payload=body.payload if isinstance(body.payload, dict) else {},
                 metadata=body.metadata if isinstance(body.metadata, dict) else None,
-                device_context=body.device_context.model_dump() if body.device_context else None,
+                device_context=body.device_context.model_dump()
+                if body.device_context
+                else None,
                 session_id=body.session_id,
                 recommended_action=recommended_action,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,

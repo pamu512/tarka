@@ -2235,7 +2235,11 @@ async def _graph_upsert(
         etype = str(obj.get("entity_type") or "Custom").strip() or "Custom"
         if not oid:
             continue
-        props = dict(obj.get("properties") or {}) if isinstance(obj.get("properties"), dict) else {}
+        props = (
+            dict(obj.get("properties") or {})
+            if isinstance(obj.get("properties"), dict)
+            else {}
+        )
         tags: list[str] = []
         if etype == "Person":
             tags = merged_tags

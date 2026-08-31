@@ -88,7 +88,10 @@ async def rules_client(tmp_path, monkeypatch):
 def test_get_source_does_not_park():
     src = Path("src/decision_api/calibration_api.py").read_text(encoding="utf-8")
     # shadow_promote_gate function body only
-    assert "maybe_park_live_rule_slip" not in src.split("async def shadow_promote_gate")[1].split("async def ")[0]
+    assert (
+        "maybe_park_live_rule_slip"
+        not in src.split("async def shadow_promote_gate")[1].split("async def ")[0]
+    )
 
 
 def test_tick_source_parks():
@@ -196,5 +199,9 @@ def test_promote_slip_does_not_strip_live_rule(tmp_path, monkeypatch):
     live = json.loads((tmp_path / "live.json").read_text(encoding="utf-8"))
     assert any(str(r.get("id") or "") == "r1" for r in live["rules"])
     src = Path("src/decision_api/shadow_auto_promote.py").read_text(encoding="utf-8")
-    activate_src = src.split("def activate_shadow_pack")[1].split("\nasync def ")[0].split("\ndef ")[0]
+    activate_src = (
+        src.split("def activate_shadow_pack")[1]
+        .split("\nasync def ")[0]
+        .split("\ndef ")[0]
+    )
     assert "replaces_rule_id" not in activate_src

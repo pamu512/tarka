@@ -109,9 +109,7 @@ async def test_age_upsert_merges_trace_ids(monkeypatch):
     monkeypatch.setattr(age_client, "get_allowed_labels", lambda tid: None)
     monkeypatch.setattr(age_client, "require_vtype", lambda tid, t: t)
     monkeypatch.setattr(age_client, "_acquire", lambda: _CM())
-    gid = await age_client.upsert_entity(
-        "acme", "Person", "u1", {"trace_ids": ["tr-2"]}
-    )
+    gid = await age_client.upsert_entity("acme", "Person", "u1", {"trace_ids": ["tr-2"]})
     assert gid == "1"
     blob = "\n".join(stmts)
     merged = merge_stored_trace_ids(["tr-1"], ["tr-2"])

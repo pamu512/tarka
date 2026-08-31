@@ -19,9 +19,14 @@ def test_default_schema_includes_evaluate_object_types():
         "Document",
         "LicensePlate",
     } <= set(schema.entity_types)
-    assert {"USED_DEVICE", "USED_SESSION", "USED_IP", "MADE_PAYMENT", "PERFORMED_LOGIN", "RESULTED_IN"} <= set(
-        schema.relationship_types
-    )
+    assert {
+        "USED_DEVICE",
+        "USED_SESSION",
+        "USED_IP",
+        "MADE_PAYMENT",
+        "PERFORMED_LOGIN",
+        "RESULTED_IN",
+    } <= set(schema.relationship_types)
 
 
 def test_validate_skips_when_no_typed_edges_configured():

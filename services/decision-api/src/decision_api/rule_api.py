@@ -803,7 +803,9 @@ async def _scout_leftover_verdict(tid: str, pack: dict[str, Any]) -> dict[str, A
     helpfulness = leftover_g.get("helpfulness")
     if not isinstance(helpfulness, dict):
         helpfulness = leftover_g
-    precision = gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    precision = (
+        gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    )
     try:
         fp_cap = float(helpfulness.get("fp_rate_cap") or 0.4)
     except (TypeError, ValueError):
@@ -876,7 +878,9 @@ async def create_scout_pack(
         raise HTTPException(422, detail={"validation_errors": errors})
     verdict = await _scout_leftover_verdict(tid, pack)
     if not verdict.get("publish_allowed"):
-        raise HTTPException(409, str(verdict.get("reason") or "leftover_helpfulness_refused"))
+        raise HTTPException(
+            409, str(verdict.get("reason") or "leftover_helpfulness_refused")
+        )
     keep = {str(x) for x in (verdict.get("keep_rule_ids") or [])}
     proposed = [
         r
@@ -889,7 +893,11 @@ async def create_scout_pack(
         if not pack["rules"]:
             raise HTTPException(409, str(verdict.get("reason") or "rule_fp_over_cap"))
     if verdict.get("stamp_underpowered"):
-        h = verdict.get("_helpfulness") if isinstance(verdict.get("_helpfulness"), dict) else {}
+        h = (
+            verdict.get("_helpfulness")
+            if isinstance(verdict.get("_helpfulness"), dict)
+            else {}
+        )
         ev = pack.get("evidence")
         if not isinstance(ev, dict):
             ev = {}

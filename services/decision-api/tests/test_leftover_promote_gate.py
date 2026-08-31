@@ -13,9 +13,24 @@ from decision_api.leftover_promote_gate import (
 
 def test_allow_to_review_is_extra_deny_to_review_is_not():
     rows = [
-        {"trace_id": "t1", "entity_id": "e1", "champion_decision": "allow", "challenger_decision": "review"},
-        {"trace_id": "t2", "entity_id": "e2", "champion_decision": "deny", "challenger_decision": "review"},
-        {"trace_id": "t3", "entity_id": "e3", "champion_decision": "flag", "challenger_decision": "deny"},
+        {
+            "trace_id": "t1",
+            "entity_id": "e1",
+            "champion_decision": "allow",
+            "challenger_decision": "review",
+        },
+        {
+            "trace_id": "t2",
+            "entity_id": "e2",
+            "champion_decision": "deny",
+            "challenger_decision": "review",
+        },
+        {
+            "trace_id": "t3",
+            "entity_id": "e3",
+            "champion_decision": "flag",
+            "challenger_decision": "deny",
+        },
     ]
     extras = extra_review_or_deny_rows(rows)
     assert {r["trace_id"] for r in extras} == {"t1", "t3"}
@@ -25,11 +40,18 @@ def test_allow_to_review_is_extra_deny_to_review_is_not():
 
 def test_helpfulness_fp_over_cap_and_underpowered():
     extras = [
-        {"trace_id": f"t{i}", "entity_id": f"e{i}", "champion_decision": "allow", "challenger_decision": "review"}
+        {
+            "trace_id": f"t{i}",
+            "entity_id": f"e{i}",
+            "champion_decision": "allow",
+            "challenger_decision": "review",
+        }
         for i in range(5)
     ]
     by_trace = {f"t{i}": "0" for i in range(5)}
-    h = leftover_helpfulness(extras, by_trace=by_trace, by_entity={}, min_labeled_extras=5, fp_rate_cap=0.4)
+    h = leftover_helpfulness(
+        extras, by_trace=by_trace, by_entity={}, min_labeled_extras=5, fp_rate_cap=0.4
+    )
     assert h["labeled_extras"] == 5
     assert h["extra_fp"] == 5
     assert h["extra_tp"] == 0
@@ -38,14 +60,21 @@ def test_helpfulness_fp_over_cap_and_underpowered():
     assert "leftover_extras_fp_over_cap" in h["blockers"]
     assert "leftover_extras_no_lift" in h["blockers"]
 
-    h2 = leftover_helpfulness(extras[:3], by_trace={"t0": "0", "t1": "0", "t2": "0"}, by_entity={})
+    h2 = leftover_helpfulness(
+        extras[:3], by_trace={"t0": "0", "t1": "0", "t2": "0"}, by_entity={}
+    )
     assert h2["underpowered"] is True
     assert h2["blockers"] == []
 
 
 def test_helpfulness_tp_does_not_block_and_proxy_ignored():
     extras = [
-        {"trace_id": f"t{i}", "entity_id": f"e{i}", "champion_decision": "allow", "challenger_decision": "review"}
+        {
+            "trace_id": f"t{i}",
+            "entity_id": f"e{i}",
+            "champion_decision": "allow",
+            "challenger_decision": "review",
+        }
         for i in range(5)
     ]
     by_trace = {f"t{i}": "1" for i in range(5)}
@@ -84,7 +113,14 @@ def test_gate_sla_volume_ack_and_empty_green():
     )
     assert "leftover_sla_breached" in g["blockers"]
 
-    extras = [{"trace_id": f"t{i}", "champion_decision": "allow", "challenger_decision": "review"} for i in range(11)]
+    extras = [
+        {
+            "trace_id": f"t{i}",
+            "champion_decision": "allow",
+            "challenger_decision": "review",
+        }
+        for i in range(11)
+    ]
     g2 = leftover_promote_gate(
         leftovers=[],
         extras=extras,

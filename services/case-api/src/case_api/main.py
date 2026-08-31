@@ -47,7 +47,15 @@ from .graph_case_api import router as graph_case_router
 from .investigation_templates_api import router as investigation_templates_router
 from .ml_training_api import router as ml_training_router
 from .multi_party_links import build_multi_party_links
-from .models import Case, CaseComment, CaseView, LeftoverPromoteAck, SarAuditLog, SARFiling, SarFiling
+from .models import (
+    Case,
+    CaseComment,
+    CaseView,
+    LeftoverPromoteAck,
+    SarAuditLog,
+    SARFiling,
+    SarFiling,
+)
 from .ops_kpi_series import router as ops_kpi_series_router
 from .retention import DEFAULT_RETENTION_DAYS, retention_loop
 from .routing import evaluate_case_routing
@@ -667,7 +675,9 @@ def _actor_id(request: Request) -> str:
     return actor_from_request(request, get_current_user(request).user_id)
 
 
-async def _open_case_for_entity(session: AsyncSession, tenant_id: str, entity_id: str) -> Case | None:
+async def _open_case_for_entity(
+    session: AsyncSession, tenant_id: str, entity_id: str
+) -> Case | None:
     q = (
         select(Case)
         .where(
@@ -955,7 +965,9 @@ async def act_on_entity(
     try:
         reason = normalize_reason_code(body.reason_code)
     except ValueError:
-        raise HTTPException(status_code=400, detail="reason_code is required and must be known") from None
+        raise HTTPException(
+            status_code=400, detail="reason_code is required and must be known"
+        ) from None
     if not reason:
         raise HTTPException(status_code=400, detail="reason_code is required and must be known")
     case.status = escalate_status_for_reason("resolved", reason)

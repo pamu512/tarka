@@ -88,23 +88,29 @@ async def analyze(
     helpfulness = leftover_g.get("helpfulness")
     if not isinstance(helpfulness, dict):
         helpfulness = leftover_g
-    precision = gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    precision = (
+        gates.get("rule_precision_after_labels") if isinstance(gates, dict) else {}
+    )
     try:
         fp_cap = float(helpfulness.get("fp_rate_cap") or 0.4)
     except (TypeError, ValueError):
         fp_cap = 0.4
-    rec_ids = [str(r.rule_id or "").strip() for r in recommendations if str(r.rule_id or "").strip()]
+    rec_ids = [
+        str(r.rule_id or "").strip()
+        for r in recommendations
+        if str(r.rule_id or "").strip()
+    ]
     verdict = brain_wire_verdict(
         helpfulness, precision, proposed_rule_ids=rec_ids, fp_cap=fp_cap
     )
     keep = {str(x) for x in (verdict.get("keep_rule_ids") or [])}
     drop_reason = str(verdict.get("reason") or "rule_fp_over_cap")
     dropped = [
-        {"rule_id": rid, "reason": drop_reason}
-        for rid in rec_ids
-        if rid not in keep
+        {"rule_id": rid, "reason": drop_reason} for rid in rec_ids if rid not in keep
     ]
-    recommendations = [r for r in recommendations if str(r.rule_id or "").strip() in keep]
+    recommendations = [
+        r for r in recommendations if str(r.rule_id or "").strip() in keep
+    ]
 
     total = len(records)
     fraud_count = sum(1 for r in records if r["decision"] in ("deny", "review"))

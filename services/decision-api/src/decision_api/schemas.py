@@ -135,6 +135,7 @@ class EvaluateRequest(BaseModel):
         if not s:
             raise ValueError("entity_id is required")
         return s
+
     region: str = "global"
     payload: dict[str, Any] = Field(default_factory=dict)
     device_context: DeviceContextIn | None = None

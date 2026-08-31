@@ -325,7 +325,9 @@ async def create_link(
         "CAST(gid AS VARCHAR) as gid",
     )
     q_update = (
-        _cypher_sql(f"{ends} MATCH (a)-[r:{rel}]->(b) SET {match_sql} RETURN r", "r ag_catalog.agtype")
+        _cypher_sql(
+            f"{ends} MATCH (a)-[r:{rel}]->(b) SET {match_sql} RETURN r", "r ag_catalog.agtype"
+        )
         if match_sql
         else None
     )

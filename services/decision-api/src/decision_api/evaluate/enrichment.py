@@ -216,7 +216,9 @@ async def fetch_object_attention(
     if not isinstance(data, dict):
         return []
     rows = data.get("attention")
-    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    return (
+        [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    )
 
 
 async def fetch_object_attention_wrapped(

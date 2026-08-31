@@ -154,9 +154,7 @@ async def api_client(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "decision_api.live_rule_slip.maybe_park_live_rule_slip", _no_park
     )
-    monkeypatch.setattr(
-        "decision_api.rule_api.maybe_park_live_rule_slip", _no_park
-    )
+    monkeypatch.setattr("decision_api.rule_api.maybe_park_live_rule_slip", _no_park)
 
     class _CM:
         async def __aenter__(self):
@@ -207,23 +205,36 @@ async def test_get_shadow_promote_gate_never_disables_file(api_client, monkeypat
 
     _write_pack(api_client._rules_dir, "ai.json")
     load_rules()
-    before = {p.name: p.read_text(encoding="utf-8") for p in api_client._rules_dir.glob("*.json")}
+    before = {
+        p.name: p.read_text(encoding="utf-8")
+        for p in api_client._rules_dir.glob("*.json")
+    }
     _patch_leftover_compute(monkeypatch, _fp_over_cap_gates())
 
     r = await api_client.get(
         "/v1/calibration/shadow-promote-gate", params={"tenant_id": "t1"}
     )
     assert r.status_code == 200, r.text
-    after = {p.name: p.read_text(encoding="utf-8") for p in api_client._rules_dir.glob("*.json")}
+    after = {
+        p.name: p.read_text(encoding="utf-8")
+        for p in api_client._rules_dir.glob("*.json")
+    }
     assert after == before
-    assert json.loads((api_client._rules_dir / "ai.json").read_text(encoding="utf-8"))["mode"] == "shadow"
+    assert (
+        json.loads((api_client._rules_dir / "ai.json").read_text(encoding="utf-8"))[
+            "mode"
+        ]
+        == "shadow"
+    )
 
 
 @pytest.mark.asyncio
 async def test_get_shadow_drafts_includes_disabled_ai_pack(api_client):
     from decision_api.json_rules import load_rules
 
-    _write_pack(api_client._rules_dir, "dead.json", name="killed_draft", mode="disabled")
+    _write_pack(
+        api_client._rules_dir, "dead.json", name="killed_draft", mode="disabled"
+    )
     load_rules()
 
     r = await api_client.get(
@@ -248,7 +259,9 @@ async def test_tick_fp_over_cap_disables_ai_shadow(api_client, monkeypatch):
         "/v1/rules/shadow-packs/auto-promote-tick", params={"tenant_id": "t1"}
     )
     assert r.status_code == 200, r.text
-    on_disk = json.loads((api_client._rules_dir / "ai.json").read_text(encoding="utf-8"))
+    on_disk = json.loads(
+        (api_client._rules_dir / "ai.json").read_text(encoding="utf-8")
+    )
     assert on_disk["mode"] == "disabled"
 
 
@@ -256,7 +269,9 @@ async def test_tick_fp_over_cap_disables_ai_shadow(api_client, monkeypatch):
 async def test_promote_disabled_pack_is_404(api_client):
     from decision_api.json_rules import load_rules
 
-    _write_pack(api_client._rules_dir, "dead.json", name="killed_draft", mode="disabled")
+    _write_pack(
+        api_client._rules_dir, "dead.json", name="killed_draft", mode="disabled"
+    )
     load_rules()
 
     r = await api_client.post(
@@ -317,7 +332,10 @@ async def test_scout_pack_underpowered_stamps_evidence_stays_shadow(
     filename = body["file"]
     on_disk = json.loads((api_client._rules_dir / filename).read_text(encoding="utf-8"))
     assert on_disk["mode"] == "shadow"
-    assert on_disk["evidence"]["leftover_helpfulness"]["hint"] == "helpfulness_underpowered"
+    assert (
+        on_disk["evidence"]["leftover_helpfulness"]["hint"]
+        == "helpfulness_underpowered"
+    )
 
 
 def test_tick_sites_call_kill_get_does_not():
@@ -327,12 +345,14 @@ def test_tick_sites_call_kill_get_does_not():
     assert "maybe_kill_leftover_fp_shadows" in tick
     get_fn = cal.split("async def shadow_promote_gate")[1].split("async def ")[0]
     assert "maybe_kill" not in get_fn
-    assert "maybe_kill_leftover_fp_shadows" in rules.split("async def auto_promote_tick")[1].split(
-        "async def "
-    )[0]
-    assert "maybe_kill_leftover_fp_shadows" in rules.split("async def create_scout_pack")[1].split(
-        "async def "
-    )[0]
+    assert (
+        "maybe_kill_leftover_fp_shadows"
+        in rules.split("async def auto_promote_tick")[1].split("async def ")[0]
+    )
+    assert (
+        "maybe_kill_leftover_fp_shadows"
+        in rules.split("async def create_scout_pack")[1].split("async def ")[0]
+    )
 
 
 class _DummyAudit:

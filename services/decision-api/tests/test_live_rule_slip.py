@@ -16,7 +16,9 @@ from decision_api.live_rule_slip import (
 )
 
 
-def _row(i, *, hits=(), y=None, event="payment", geo="US", decision="allow", entity=None):
+def _row(
+    i, *, hits=(), y=None, event="payment", geo="US", decision="allow", entity=None
+):
     return {
         "trace_id": f"t{i}",
         "entity_id": entity or f"e{i}",
@@ -84,7 +86,9 @@ def test_h1_retire_not_h2():
 
 def test_both_hypotheses_ambiguous():
     prior = _half(0, 50, hits=["r1"], geo="US")
-    fps = [_row(50 + i, hits=["r1"], y="0", decision="deny", geo="DE") for i in range(5)]
+    fps = [
+        _row(50 + i, hits=["r1"], y="0", decision="deny", geo="DE") for i in range(5)
+    ]
     misses = [_row(55 + i, hits=(), y="1", geo="DE", decision="deny") for i in range(5)]
     rest = _half(60, 40, hits=["r1"], geo="DE")
     by_trace = {f"t{50 + i}": "0" for i in range(5)}
@@ -106,10 +110,19 @@ def test_resolve_y_trace_then_entity_ignores_proxy():
 
 def test_sanitize_and_slot():
     assert sanitize_rule_id("r1/foo") == "r1_foo"
-    assert existing_slip_slot(
-        "r1",
-        [{"name": "slip_retire_r1", "mode": "shadow", "evidence": {"live_rule_id": "r1"}}],
-    ) == "slip_retire_r1"
+    assert (
+        existing_slip_slot(
+            "r1",
+            [
+                {
+                    "name": "slip_retire_r1",
+                    "mode": "shadow",
+                    "evidence": {"live_rule_id": "r1"},
+                }
+            ],
+        )
+        == "slip_retire_r1"
+    )
 
 
 def test_clobber_name_and_slot():
@@ -119,13 +132,31 @@ def test_clobber_name_and_slot():
     assert slip_draft_would_clobber(
         "scout_x",
         {"live_rule_id": "r1"},
-        [{"name": "slip_retire_r1", "mode": "shadow", "evidence": {"live_rule_id": "r1"}}],
+        [
+            {
+                "name": "slip_retire_r1",
+                "mode": "shadow",
+                "evidence": {"live_rule_id": "r1"},
+            }
+        ],
     )
     assert not slip_draft_would_clobber("scout_x", {}, [])
 
 
 def test_find_live_and_retire_shape():
-    packs = [{"_source_file": "a.json", "mode": "active", "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gt", "value": 10}], "score_delta": 20}]}]
+    packs = [
+        {
+            "_source_file": "a.json",
+            "mode": "active",
+            "rules": [
+                {
+                    "id": "r1",
+                    "when": [{"field": "amount", "op": "gt", "value": 10}],
+                    "score_delta": 20,
+                }
+            ],
+        }
+    ]
     found = find_live_rule("r1", packs)
     assert found["when"][0]["field"] == "amount"
     pack = build_retire_pack("r1", found["when"], fp_rate=0.8, triggers=["fire_rate"])
@@ -139,18 +170,30 @@ def test_find_live_and_retire_shape():
 
 
 def test_successor_legal_when_and_skip_unknown_field():
-    pack = build_successor_pack("r1", "geo_country", "DE", miss_count=5, triggers=["mix"])
+    pack = build_successor_pack(
+        "r1", "geo_country", "DE", miss_count=5, triggers=["mix"]
+    )
     assert pack["rules"][0]["score_delta"] == 15
-    assert pack["rules"][0]["when"] == [{"field": "geo_country", "op": "eq", "value": "DE"}]
+    assert pack["rules"][0]["when"] == [
+        {"field": "geo_country", "op": "eq", "value": "DE"}
+    ]
     assert pack["is_ai_authored"] is False
-    assert build_successor_pack("r1", "not_a_field", "x", miss_count=5, triggers=["mix"]) is None
+    assert (
+        build_successor_pack("r1", "not_a_field", "x", miss_count=5, triggers=["mix"])
+        is None
+    )
 
 
 def test_write_slip_pack_roundtrip(tmp_path, monkeypatch):
     from decision_api.config import settings
 
     monkeypatch.setattr(settings, "rules_path", str(tmp_path))
-    pack = build_retire_pack("r1", [{"field": "amount", "op": "gt", "value": 1}], fp_rate=0.9, triggers=["fire_rate"])
+    pack = build_retire_pack(
+        "r1",
+        [{"field": "amount", "op": "gt", "value": 1}],
+        fp_rate=0.9,
+        triggers=["fire_rate"],
+    )
     name = write_slip_pack(pack)
     assert (tmp_path / name).is_file()
     assert name.startswith("slip_retire_")
@@ -166,15 +209,27 @@ def test_successor_mix_dominant_geo_on_misses():
 async def test_park_xor_and_dedup(tmp_path, monkeypatch):
     from decision_api.live_rule_slip import maybe_park_live_rule_slip
     from decision_api.config import settings
+
     monkeypatch.setattr(settings, "rules_path", str(tmp_path))
     (tmp_path / "live.json").write_text(
-        json.dumps({
-            "version": 1, "name": "live", "mode": "active",
-            "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gt", "value": 1}], "score_delta": 20}],
-        }),
+        json.dumps(
+            {
+                "version": 1,
+                "name": "live",
+                "mode": "active",
+                "rules": [
+                    {
+                        "id": "r1",
+                        "when": [{"field": "amount", "op": "gt", "value": 1}],
+                        "score_delta": 20,
+                    }
+                ],
+            }
+        ),
         encoding="utf-8",
     )
     from decision_api.json_rules import load_rules
+
     load_rules()
     prior = _half(0, 50, hits=())
     labeled = [_row(50 + i, hits=["r1"], y="0", decision="deny") for i in range(5)]
@@ -196,18 +251,32 @@ async def test_park_xor_and_dedup(tmp_path, monkeypatch):
 async def test_park_skips_ambiguous(tmp_path, monkeypatch):
     from decision_api.live_rule_slip import maybe_park_live_rule_slip
     from decision_api.config import settings
+
     monkeypatch.setattr(settings, "rules_path", str(tmp_path))
     (tmp_path / "live.json").write_text(
-        json.dumps({
-            "version": 1, "name": "live", "mode": "active",
-            "rules": [{"id": "r1", "when": [{"field": "amount", "op": "gt", "value": 1}], "score_delta": 20}],
-        }),
+        json.dumps(
+            {
+                "version": 1,
+                "name": "live",
+                "mode": "active",
+                "rules": [
+                    {
+                        "id": "r1",
+                        "when": [{"field": "amount", "op": "gt", "value": 1}],
+                        "score_delta": 20,
+                    }
+                ],
+            }
+        ),
         encoding="utf-8",
     )
     from decision_api.json_rules import load_rules
+
     load_rules()
     prior = _half(0, 50, hits=["r1"], geo="US")
-    fps = [_row(50 + i, hits=["r1"], y="0", decision="deny", geo="DE") for i in range(5)]
+    fps = [
+        _row(50 + i, hits=["r1"], y="0", decision="deny", geo="DE") for i in range(5)
+    ]
     misses = [_row(55 + i, hits=(), y="1", geo="DE", decision="deny") for i in range(5)]
     rest = _half(60, 40, hits=["r1"], geo="DE")
     rows = fps + misses + rest + prior

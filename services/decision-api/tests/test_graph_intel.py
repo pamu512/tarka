@@ -1,4 +1,8 @@
-from decision_api.graph_intel import attend_score_delta, attend_tags, graph_tags_from_risk
+from decision_api.graph_intel import (
+    attend_score_delta,
+    attend_tags,
+    graph_tags_from_risk,
+)
 
 
 def test_neighbor_device_count_high_tag():
@@ -37,4 +41,9 @@ def test_attend_only_hot_objects_move_score_and_tags():
     assert attend_tags(rows) == ["graph:attend:payment"]
     assert attend_score_delta(rows) == 8.0
     assert attend_score_delta([]) == 0.0
-    assert attend_score_delta([{"attend_pack": True}, {"attend_pack": True}, {"attend_pack": True}]) == 20.0
+    assert (
+        attend_score_delta(
+            [{"attend_pack": True}, {"attend_pack": True}, {"attend_pack": True}]
+        )
+        == 20.0
+    )
