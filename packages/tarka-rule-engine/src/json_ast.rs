@@ -526,7 +526,7 @@ pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{json, Map, Value};
 
     fn hop_features() -> Map<String, Value> {
         json!({
@@ -611,5 +611,81 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code, "ast_unsigned_etype");
+    }
+
+    fn shipped_uses_device_ast() -> AstNode {
+        let pack: Value = serde_json::from_str(include_str!(
+            "../../../services/decision-api/rules/graph_v1_uses_device_v1.json"
+        ))
+        .unwrap();
+        parse_ast_strict_in_rule(&pack["rules"][0]["when_ast"], "when_ast", "uses_device")
+            .unwrap()
+    }
+
+    #[test]
+    fn shipped_pack_flags_uses_device_plus_multi_id() {
+        assert!(eval_ast(&shipped_uses_device_ast(), &hop_features()));
+    }
+
+    #[test]
+    fn shipped_pack_misses_on_graph_missing() {
+        let missing = json!({
+            "_graph_hop_v1": {"status": "graph:missing", "named_edges": [], "multi_id_user_ids": []}
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&shipped_uses_device_ast(), &missing));
+    }
+
+    #[test]
+    fn shipped_pack_misses_related_etype() {
+        let hop = json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "dev-1", "type": "RELATED"}
+                ],
+                "multi_id_user_ids": ["bob"],
+                "sibling_flags": {"bob": "1"},
+                "signed_etypes": ["USES_DEVICE"]
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&shipped_uses_device_ast(), &hop));
+    }
+
+    #[test]
+    fn shipped_pack_replay_reads_stored_hop_fields() {
+        let ast = shipped_uses_device_ast();
+        let live = hop_features();
+        let stored = live.get("_graph_hop_v1").cloned().unwrap();
+        let replay = json!({ "_graph_hop_v1": stored })
+            .as_object()
+            .cloned()
+            .unwrap();
+        assert_eq!(eval_ast(&ast, &live), eval_ast(&ast, &replay));
+        assert!(eval_ast(&ast, &live));
+    }
+
+    #[test]
+    fn shipped_pack_flags_sibling_prior_without_multi_id() {
+        let hop = json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}
+                ],
+                "multi_id_user_ids": [],
+                "sibling_flags": {"bob": "FLAG"},
+                "signed_etypes": ["USES_DEVICE"]
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(eval_ast(&shipped_uses_device_ast(), &hop));
     }
 }
