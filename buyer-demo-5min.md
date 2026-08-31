@@ -38,7 +38,7 @@ If they ask Decisions: “Receipts are a plane. The job is this Person.”
 
 ## 0:00–0:45  Speak (laptop already on Hunt)
 
-Do not click. Cursor in the corner.
+Do not click. Pointer stays in the corner.
 
 **Fraud vendors sold you a cloud score. You send them the event, they send back blocked, and ops reconstructs a why that should have been on the object. That is a ticket product with a model behind it.**
 

@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Prefer src/case_api over hoisted flat modules (avoid duplicate SQLAlchemy model registration).
 _service_root = str(Path(__file__).resolve().parents[1])
 _src_root = str(Path(__file__).resolve().parents[1] / "src")
@@ -31,6 +33,9 @@ if not (os.environ.get("API_KEYS") or "").strip():
     os.environ["API_KEYS"] = "case-api-test-key"
 # Disable background retention sweeps during pytest (avoids races with in-memory DB lifecycle).
 os.environ.setdefault("CASE_RETENTION_DAYS", "0")
+# Shared TokenBucket is process-wide and keyed by API key (burst=60). Leftover
+# HTTP tests in this PR would otherwise 429 later files (e.g. SAR notes).
+os.environ.setdefault("RATE_LIMIT_RPM", "1000000")
 
 # auth_rbac middleware requires API_KEYS, OIDC, or ALLOW_INSECURE_NO_AUTH.
 if (
@@ -38,3 +43,25 @@ if (
     and not (os.environ.get("OIDC_ISSUER") or "").strip()
 ):
     os.environ["ALLOW_INSECURE_NO_AUTH"] = "true"
+
+
+def _clear_rate_limit_buckets() -> None:
+    # ponytail: one process-wide TokenBucket; leftover HTTP tests share the API key.
+    # Ceiling: walks user_middleware kwargs. If setup_rate_limiter stops passing
+    # limiter=..., store the bucket on app.state and clear that instead.
+    try:
+        from case_api.main import app
+    except ImportError:
+        return
+    for spec in getattr(app, "user_middleware", ()):
+        limiter = getattr(spec, "kwargs", {}).get("limiter")
+        buckets = getattr(limiter, "_buckets", None)
+        if isinstance(buckets, dict):
+            buckets.clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_rate_limit_buckets():
+    _clear_rate_limit_buckets()
+    yield
+    _clear_rate_limit_buckets()
