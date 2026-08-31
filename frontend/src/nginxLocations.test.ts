@@ -9,7 +9,8 @@ const conf = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../n
 describe("production nginx hops", () => {
   it("proxies SPA paths that used to fall through to index.html", () => {
     expect(conf).toContain("location /api/auth/");
-    expect(conf).toContain("core-api:8000/auth");
+    expect(conf).toContain("core-api:8000");
+    expect(conf).toContain("rewrite ^/api/auth/(.*)$ /auth/$1 break;");
     expect(conf).toContain("location /api/orchestrator/");
     expect(conf).toContain("location /api/v1/demo/");
     expect(conf).toContain("location /api/collab/");

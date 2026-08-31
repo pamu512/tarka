@@ -703,6 +703,7 @@ async def shadow_promote_gate(
         "desk_promote_gate": desk_promote,
         "leftover_promote_gate": leftover_g,
         "live_rule_slip": gates["live_rule_slip"],
+        "rule_precision_after_labels": gates["rule_precision_after_labels"],
         "shadow_drafts": [
             {
                 "name": str(p.get("name") or ""),

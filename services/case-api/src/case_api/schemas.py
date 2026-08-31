@@ -18,6 +18,7 @@ class CreateCaseRequest(BaseModel):
         if not s:
             raise ValueError("entity_id is required")
         return s
+
     priority: str = "medium"
     playbook_id: str | None = Field(
         default=None,

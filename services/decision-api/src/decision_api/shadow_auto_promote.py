@@ -23,7 +23,9 @@ _lock = threading.Lock()
 def _file_token(tenant_id: str) -> str:
     """Hex digest path segment — breaks CodeQL taint from request → path."""
     slug = _tenant_slug(tenant_id)
-    digest = hashlib.sha256(f"tarka.shadow_auto_promote:{slug}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(
+        f"tarka.shadow_auto_promote:{slug}".encode("utf-8")
+    ).hexdigest()
     if not _HEX64.fullmatch(digest):
         raise ValueError("invalid shadow auto-promote file token")
     return digest

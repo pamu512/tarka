@@ -61,9 +61,9 @@ def sort_search_hits(hits: list[dict[str, Any]], limit: int = 20) -> list[dict[s
         if _is_person(raw) and not _is_person(prev):
             best[eid] = raw
             continue
-        if _is_person(raw) == _is_person(prev) and outcome_rank(raw.get("last_outcome")) < outcome_rank(
-            prev.get("last_outcome")
-        ):
+        if _is_person(raw) == _is_person(prev) and outcome_rank(
+            raw.get("last_outcome")
+        ) < outcome_rank(prev.get("last_outcome")):
             best[eid] = raw
     rows = list(best.values())
     rows.sort(

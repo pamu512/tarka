@@ -31,6 +31,9 @@ if not (os.environ.get("API_KEYS") or "").strip():
     os.environ["API_KEYS"] = "case-api-test-key"
 # Disable background retention sweeps during pytest (avoids races with in-memory DB lifecycle).
 os.environ.setdefault("CASE_RETENTION_DAYS", "0")
+# Leftover hunt + SAR tests share one app limiter; default burst 60 429s the suite.
+os.environ.setdefault("RATE_LIMIT_RPM", "100000")
+os.environ.setdefault("RATE_LIMIT_BURST", "100000")
 
 # auth_rbac middleware requires API_KEYS, OIDC, or ALLOW_INSECURE_NO_AUTH.
 if (

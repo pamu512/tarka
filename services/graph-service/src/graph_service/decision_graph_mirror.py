@@ -69,6 +69,12 @@ async def _mirror_async(tenant_id: str, decision: dict[str, Any]) -> None:
         if not src or not dst or src == did or dst == did or rel in {"RESULTED_IN", "BASED_ON"}:
             continue
         try:
-            await create_link(tenant_id, src, dst, rel, {"source": "evaluate", "trace_id": decision.get("trace_id")})
+            await create_link(
+                tenant_id,
+                src,
+                dst,
+                rel,
+                {"source": "evaluate", "trace_id": decision.get("trace_id")},
+            )
         except Exception:
             log.debug("decision_mirror_link_skip from=%s to=%s", src, dst, exc_info=True)

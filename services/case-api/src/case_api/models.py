@@ -32,7 +32,9 @@ class Case(Base):
     labels: Mapped[list] = mapped_column(JSON, default=list)
     default_owner: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
     claimed_by: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    claimed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
     last_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     last_act: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     sla_hours_override: Mapped[int | None] = mapped_column(nullable=True, default=None)
@@ -53,7 +55,9 @@ class Case(Base):
 
 class LeftoverPromoteAck(Base):
     __tablename__ = "leftover_promote_acks"
-    __table_args__ = (UniqueConstraint("tenant_id", "draft_id", name="uq_leftover_promote_acks_tenant_draft"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "draft_id", name="uq_leftover_promote_acks_tenant_draft"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[str] = mapped_column(String(128), index=True)

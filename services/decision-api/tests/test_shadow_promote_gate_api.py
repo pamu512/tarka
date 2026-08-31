@@ -77,12 +77,16 @@ async def test_shadow_promote_gate_endpoint(challenge_client):
 
 
 @pytest.mark.asyncio
-async def test_shadow_promote_gate_includes_leftover_gate(challenge_client, monkeypatch):
+async def test_shadow_promote_gate_includes_leftover_gate(
+    challenge_client, monkeypatch
+):
     monkeypatch.setattr("decision_api.config.settings.case_api_url", "")
     r = await challenge_client.get("/v1/calibration/shadow-promote-gate")
     assert r.status_code == 200
     body = r.json()
-    assert body["leftover_promote_gate"]["schema_id"] == "tarka.leftover_promote_gate/v1"
+    assert (
+        body["leftover_promote_gate"]["schema_id"] == "tarka.leftover_promote_gate/v1"
+    )
     assert "leftover_queue_unavailable" in body["leftover_promote_gate"]["blockers"]
     assert "leftover_promote_gate" in body["desk_promote_gate"]["requires"]
     assert body["desk_promote_gate"]["promote_allowed"] is False
@@ -154,7 +158,9 @@ async def test_shadow_promote_gate_extras_use_full_cc_scan(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_shadow_promote_gate_get_does_not_auto_promote(challenge_client, monkeypatch):
+async def test_shadow_promote_gate_get_does_not_auto_promote(
+    challenge_client, monkeypatch
+):
     writes: list[str] = []
 
     def _record(name: str):

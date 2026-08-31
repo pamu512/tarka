@@ -22,7 +22,9 @@ def _case_api_headers() -> dict[str, str]:
     return headers
 
 
-def mapped_cc_decision_rows(audits: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def mapped_cc_decision_rows(
+    audits: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
     """Champion/challenger extract matching aggregate_champion_challenger, uncapped."""
     from decision_api.champion_challenger_audit import extract_policy_routing
 
@@ -118,13 +120,17 @@ def leftover_caps_for_tenant(tenant_id: str) -> tuple[int, float, int]:
     except (TypeError, ValueError):
         fp_rate_cap = 0.4
     try:
-        min_labeled_extras = int(os.environ.get("LEFTOVER_PROMOTE_MIN_LABELED_EXTRAS", "5"))
+        min_labeled_extras = int(
+            os.environ.get("LEFTOVER_PROMOTE_MIN_LABELED_EXTRAS", "5")
+        )
     except (TypeError, ValueError):
         min_labeled_extras = 5
     return add_cap, fp_rate_cap, min_labeled_extras
 
 
-def extra_review_or_deny_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def extra_review_or_deny_rows(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for row in rows:
         champ = str(row.get("champion_decision") or "").strip().lower()
@@ -134,7 +140,9 @@ def extra_review_or_deny_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[st
     return out
 
 
-def extra_leftover_mint_count(extras: Sequence[Mapping[str, Any]], *, mint_on: bool) -> int:
+def extra_leftover_mint_count(
+    extras: Sequence[Mapping[str, Any]], *, mint_on: bool
+) -> int:
     return len(extras) if mint_on else 0
 
 
@@ -420,6 +428,19 @@ async def compute_desk_and_leftover_gates(
             fp_cap=fp_rate_cap,
             parked=get_shadow_packs(),
         )
+    from decision_api.rule_label_metrics import rule_precision_after_labels
+
+    labeled_rows: list[dict[str, Any]] = []
+    for row in slip_rows:
+        item = dict(row)
+        row_tid = str(item.get("trace_id") or "").strip()
+        eid = str(item.get("entity_id") or "").strip()
+        lab = y_by_trace.get(row_tid) if row_tid else None
+        if lab is None and eid:
+            lab = y_by_entity.get(eid)
+        item["y_label"] = lab if lab in {"0", "1"} else ""
+        labeled_rows.append(item)
+    precision = rule_precision_after_labels(labeled_rows)
     leftovers = await fetch_leftover_list(tid)
     leftover_g = leftover_promote_gate(
         leftovers=leftovers,
@@ -449,4 +470,5 @@ async def compute_desk_and_leftover_gates(
         "labeled_champion_challenger_f1": labeled_f1,
         "label_posture": label_posture,
         "live_rule_slip": slip,
+        "rule_precision_after_labels": precision,
     }

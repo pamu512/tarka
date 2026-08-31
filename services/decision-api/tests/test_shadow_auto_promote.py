@@ -13,7 +13,11 @@ from decision_api.db import get_session
 
 def test_provision_default_then_save_increments(tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
-    from decision_api.shadow_auto_promote import default_provision, load_provision, save_provision
+    from decision_api.shadow_auto_promote import (
+        default_provision,
+        load_provision,
+        save_provision,
+    )
 
     d = default_provision("t1")
     assert d["auto_promote"] is False
@@ -230,7 +234,9 @@ class _EmptySession:
         return _EmptyResult()
 
 
-def _write_shadow_pack(rules_dir, *, name: str, filename: str, is_ai_authored: bool = True):
+def _write_shadow_pack(
+    rules_dir, *, name: str, filename: str, is_ai_authored: bool = True
+):
     path = rules_dir / filename
     path.write_text(
         json.dumps(
@@ -434,9 +440,9 @@ async def test_tick_promotes_ai_shadow_when_provisioned_and_green(
     assert "scout_ai" in body["promoted"]
     assert "human_canary" not in body["promoted"]
     assert (
-        json.loads((desk_client._rules_dir / "scout_ai.json").read_text(encoding="utf-8"))[
-            "mode"
-        ]
+        json.loads(
+            (desk_client._rules_dir / "scout_ai.json").read_text(encoding="utf-8")
+        )["mode"]
         == "active"
     )
     assert (

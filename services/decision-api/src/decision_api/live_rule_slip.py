@@ -36,7 +36,13 @@ def mix_value(row: Mapping[str, Any], field: str) -> str:
         return str(row.get("event_type") or "").strip()
     snap = row.get("payload_snapshot")
     payload = snap.get("payload") if isinstance(snap, Mapping) else None
-    blob = payload if isinstance(payload, Mapping) else snap if isinstance(snap, Mapping) else {}
+    blob = (
+        payload
+        if isinstance(payload, Mapping)
+        else snap
+        if isinstance(snap, Mapping)
+        else {}
+    )
     return str(blob.get(field) or "").strip()
 
 
@@ -62,7 +68,11 @@ def _rate(rule_id: str, half: Sequence[Mapping[str, Any]]) -> tuple[float, int]:
     return ((h / n) if n else 0.0, h)
 
 
-def _fire_rate_on(rule_id: str, current: Sequence[Mapping[str, Any]], prior: Sequence[Mapping[str, Any]]) -> bool:
+def _fire_rate_on(
+    rule_id: str,
+    current: Sequence[Mapping[str, Any]],
+    prior: Sequence[Mapping[str, Any]],
+) -> bool:
     rc, hc = _rate(rule_id, current)
     rp, hp = _rate(rule_id, prior)
     if max(hc, hp) < MIN_HITS:
@@ -74,16 +84,18 @@ def _fire_rate_on(rule_id: str, current: Sequence[Mapping[str, Any]], prior: Seq
 
 def _dominant(rule_id: str, half: Sequence[Mapping[str, Any]], field: str) -> str:
     vals = [
-        mix_value(r, field)
-        for r in half
-        if rule_id in _hits(r) and mix_value(r, field)
+        mix_value(r, field) for r in half if rule_id in _hits(r) and mix_value(r, field)
     ]
     if len(vals) < MIN_HITS:
         return ""
     return Counter(vals).most_common(1)[0][0]
 
 
-def _mix_on(rule_id: str, current: Sequence[Mapping[str, Any]], prior: Sequence[Mapping[str, Any]]) -> bool:
+def _mix_on(
+    rule_id: str,
+    current: Sequence[Mapping[str, Any]],
+    prior: Sequence[Mapping[str, Any]],
+) -> bool:
     for field in MIX_FIELDS:
         a, b = _dominant(rule_id, current, field), _dominant(rule_id, prior, field)
         if a and b and a != b:
@@ -139,7 +151,10 @@ def live_rule_slip(
         if not triggers:
             continue
         metrics = prec.get(rule_id) or {}
-        h1 = bool(metrics.get("enough_support")) and float(metrics.get("fp_rate") or 0) > fp_cap
+        h1 = (
+            bool(metrics.get("enough_support"))
+            and float(metrics.get("fp_rate") or 0) > fp_cap
+        )
         miss_n = 0
         for r in current:
             if resolve_y(r, by_trace, by_entity) == "1" and rule_id not in _hits(r):
@@ -173,7 +188,9 @@ def sanitize_rule_id(rule_id: str) -> str:
     return _SAFE.sub("_", (rule_id or "").strip())[:80] or "rule"
 
 
-def find_live_rule(rule_id: str, packs: Sequence[Mapping[str, Any]]) -> dict[str, Any] | None:
+def find_live_rule(
+    rule_id: str, packs: Sequence[Mapping[str, Any]]
+) -> dict[str, Any] | None:
     want = (rule_id or "").strip()
     for pack in packs:
         if str(pack.get("mode") or "active") not in {"active", ""}:
@@ -191,7 +208,9 @@ def find_live_rule(rule_id: str, packs: Sequence[Mapping[str, Any]]) -> dict[str
     return None
 
 
-def existing_slip_slot(live_rule_id: str, packs: Sequence[Mapping[str, Any]]) -> str | None:
+def existing_slip_slot(
+    live_rule_id: str, packs: Sequence[Mapping[str, Any]]
+) -> str | None:
     want = (live_rule_id or "").strip()
     for p in packs:
         ev = p.get("evidence") if isinstance(p.get("evidence"), Mapping) else {}
@@ -216,7 +235,9 @@ def slip_draft_would_clobber(
     return bool(lid and existing_slip_slot(lid, shadow_packs))
 
 
-def build_retire_pack(rule_id: str, when: list, *, fp_rate: Any, triggers: list[str]) -> dict[str, Any]:
+def build_retire_pack(
+    rule_id: str, when: list, *, fp_rate: Any, triggers: list[str]
+) -> dict[str, Any]:
     safe = sanitize_rule_id(rule_id)
     return {
         "version": 1,
@@ -275,7 +296,9 @@ def build_successor_pack(
 
 def write_slip_pack(pack: Mapping[str, Any]) -> str:
     kind = str((pack.get("evidence") or {}).get("slip_kind") or "slip")
-    safe = sanitize_rule_id(str((pack.get("evidence") or {}).get("live_rule_id") or "rule"))
+    safe = sanitize_rule_id(
+        str((pack.get("evidence") or {}).get("live_rule_id") or "rule")
+    )
     path = Path(settings.rules_path)
     path.mkdir(parents=True, exist_ok=True)
     fname = f"slip_{kind}_{safe}.json"
@@ -310,7 +333,9 @@ def successor_mix(
             candidates.append((field, value, count))
     if not candidates:
         return None
-    field, value, _ = max(candidates, key=lambda item: (item[2], MIX_FIELDS.index(item[0])))
+    field, value, _ = max(
+        candidates, key=lambda item: (item[2], MIX_FIELDS.index(item[0]))
+    )
     return field, value
 
 
@@ -321,7 +346,9 @@ def load_y_maps(tenant_id: str) -> tuple[dict, dict]:
     return dict(store.get("by_trace") or {}), dict(store.get("by_entity") or {})
 
 
-async def _load_slip_audit_rows(tenant_id: str, session: Any = None) -> list[dict[str, Any]]:
+async def _load_slip_audit_rows(
+    tenant_id: str, session: Any = None
+) -> list[dict[str, Any]]:
     from sqlalchemy import select
 
     from decision_api.models import AuditRecord
@@ -350,12 +377,16 @@ async def _load_slip_audit_rows(tenant_id: str, session: Any = None) -> list[dic
             for rec in records
         ]
 
-    if session is not None:
-        return await _run(session)
-    from decision_api.db import SessionLocal
+    try:
+        if session is not None:
+            return await _run(session)
+        from decision_api.db import SessionLocal
 
-    async with SessionLocal() as sess:
-        return await _run(sess)
+        async with SessionLocal() as sess:
+            return await _run(sess)
+    except Exception:
+        # ponytail: tick/tests may have no decision_audit; empty window is fail-closed.
+        return []
 
 
 async def maybe_park_live_rule_slip(
@@ -368,13 +399,23 @@ async def maybe_park_live_rule_slip(
     if not tid:
         return {"parked": [], "skipped": [{"rule_id": "", "reason": "no_tenant"}]}
     by_trace, by_entity = load_y_maps(tid)
-    from decision_api.json_rules import get_active_packs_snapshot, get_shadow_packs, load_rules
+    from decision_api.json_rules import (
+        get_active_packs_snapshot,
+        get_shadow_packs,
+        load_rules,
+    )
     from decision_api.leftover_promote_gate import leftover_caps_for_tenant
 
     _add, fp_cap, _min = leftover_caps_for_tenant(tid)
-    slip_rows = list(rows) if rows is not None else await _load_slip_audit_rows(tid, session)
+    slip_rows = (
+        list(rows) if rows is not None else await _load_slip_audit_rows(tid, session)
+    )
     slip = live_rule_slip(
-        slip_rows, by_trace=by_trace, by_entity=by_entity, fp_cap=fp_cap, parked=get_shadow_packs()
+        slip_rows,
+        by_trace=by_trace,
+        by_entity=by_entity,
+        fp_cap=fp_cap,
+        parked=get_shadow_packs(),
     )
     parked: list[str] = []
     skipped: list[dict[str, str]] = []
@@ -396,7 +437,10 @@ async def maybe_park_live_rule_slip(
                 skipped.append({"rule_id": rid, "reason": "no_live_when"})
                 continue
             pack = build_retire_pack(
-                rid, found["when"], fp_rate=row.get("fp_rate"), triggers=list(row.get("triggers") or [])
+                rid,
+                found["when"],
+                fp_rate=row.get("fp_rate"),
+                triggers=list(row.get("triggers") or []),
             )
         else:
             # ponytail: current half only — full slip_rows would inflate miss counts with prior
@@ -405,7 +449,11 @@ async def maybe_park_live_rule_slip(
                 skipped.append({"rule_id": rid, "reason": "no_legal_when"})
                 continue
             pack = build_successor_pack(
-                rid, mix[0], mix[1], miss_count=int(row.get("miss_count") or 0), triggers=list(row.get("triggers") or [])
+                rid,
+                mix[0],
+                mix[1],
+                miss_count=int(row.get("miss_count") or 0),
+                triggers=list(row.get("triggers") or []),
             )
             if pack is None:
                 skipped.append({"rule_id": rid, "reason": "no_legal_when"})

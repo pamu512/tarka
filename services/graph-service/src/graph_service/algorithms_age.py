@@ -247,7 +247,6 @@ async def find_shared_attributes(
     if not re.match(r"^[A-Za-z][A-Za-z0-9_]{0,63}$", attribute):
         raise ValueError(f"Invalid attribute name: {attribute!r}")
 
-
     q = f"""
     SELECT CAST(CAST(attr_value AS VARCHAR) AS JSON) as attr_value,
            CAST(CAST(entities AS VARCHAR) AS JSON) as entities,

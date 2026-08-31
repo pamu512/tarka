@@ -329,9 +329,7 @@ async def objects_attention(body: ObjectsAttentionRequest):
             continue
         seen.add(eid)
         rows.append(
-            await _attention_for_object(
-                body.tenant_id, eid, item.entity_type, item.on_this_event
-            )
+            await _attention_for_object(body.tenant_id, eid, item.entity_type, item.on_this_event)
         )
     rows.sort(key=lambda r: (-int(r.get("importance") or 0), str(r.get("entity_id") or "")))
     return {"tenant_id": body.tenant_id, "attention": rows}
