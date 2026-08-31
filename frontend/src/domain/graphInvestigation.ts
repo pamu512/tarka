@@ -30,6 +30,47 @@ export function decisionToastText(node: GraphNode | null | undefined): string | 
   return outcome || null;
 }
 
+export type LastOutcomeLabel = "deny" | "review" | "flag" | "allow" | "unknown";
+
+export function lastOutcomeLabel(
+  source:
+    | { properties?: Record<string, unknown> | null; last_outcome?: unknown }
+    | null
+    | undefined,
+): LastOutcomeLabel {
+  const raw = source?.last_outcome ?? source?.properties?.last_outcome;
+  const token = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  if (token === "deny" || token === "review" || token === "flag" || token === "allow") return token;
+  return "unknown";
+}
+
+/** Canvas class. Unknown is not the allow color. */
+export function outcomePaintClass(label: LastOutcomeLabel): string {
+  switch (label) {
+    case "deny":
+      return "hunt-outcome-deny";
+    case "review":
+    case "flag":
+      return "hunt-outcome-review";
+    case "allow":
+      return "hunt-outcome-allow";
+    default:
+      return "hunt-outcome-unknown";
+  }
+}
+
+export function graphLaggedEvaluate(
+  latest: { trace_id?: string | null } | null | undefined,
+  history: { last_trace_id?: string | null; trace_ids?: string[] } | null | undefined,
+): boolean {
+  const tid = String(latest?.trace_id || "").trim();
+  if (!tid) return false;
+  const last = String(history?.last_trace_id || "").trim();
+  if (tid === last) return false;
+  const ids = new Set((history?.trace_ids || []).map((x) => String(x || "").trim()).filter(Boolean));
+  return !ids.has(tid);
+}
+
 export function searchHitViaSubtitle(
   via: { entity_id: string; labels?: string[] | null } | null | undefined,
 ): string | null {
@@ -108,20 +149,28 @@ const HUNT_INSTRUMENT_LABELS = new Set(["Device", "Payment", "Document", "Licens
 const HUNT_HIERARCHY_EXPAND_CAP = 8;
 
 /** Mid-tier neighbors to fan out so Person Hunt sees IP + Decision (AGE is depth 1). */
-export function hierarchyInstrumentIds(seedId: string, nodes: GraphNode[], edges: GraphEdge[]): string[] {
+export function hierarchyInstrumentFanout(
+  seedId: string,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): { ids: string[]; total: number } {
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const ids: string[] = [];
   const seen = new Set<string>();
+  const all: string[] = [];
   for (const edge of edges) {
     const { from, to } = linkEndIds(edge);
     const other = from === seedId ? to : to === seedId ? from : "";
     if (!other || other === seedId || seen.has(other)) continue;
     if (!HUNT_INSTRUMENT_LABELS.has(primaryLabel(byId.get(other)?.labels))) continue;
     seen.add(other);
-    ids.push(other);
-    if (ids.length >= HUNT_HIERARCHY_EXPAND_CAP) break;
+    all.push(other);
   }
-  return ids.sort((a, b) => a.localeCompare(b));
+  const ids = [...all].sort((a, b) => a.localeCompare(b)).slice(0, HUNT_HIERARCHY_EXPAND_CAP);
+  return { ids, total: all.length };
+}
+
+export function hierarchyInstrumentIds(seedId: string, nodes: GraphNode[], edges: GraphEdge[]): string[] {
+  return hierarchyInstrumentFanout(seedId, nodes, edges).ids;
 }
 
 function filterPersonHuntNoise(

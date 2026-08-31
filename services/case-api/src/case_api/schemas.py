@@ -26,19 +26,22 @@ class CreateCaseRequest(BaseModel):
             "(GET /v1/investigation-templates), applied immediately after create."
         ),
     )
+    labels: list[str] = Field(default_factory=list)
+    last_outcome: str | None = None
 
 
 class ObjectActRequest(BaseModel):
     tenant_id: str
     action: str = "hold"
     trace_id: str | None = None
+    reason_code: str | None = None
 
     @field_validator("action", mode="before")
     @classmethod
-    def _hold_only(cls, v: object) -> str:
+    def _hold_release_resolve(cls, v: object) -> str:
         s = str(v or "hold").strip().lower() or "hold"
-        if s != "hold":
-            raise ValueError("only hold is supported")
+        if s not in {"hold", "release", "resolve"}:
+            raise ValueError("action must be hold, release, or resolve")
         return s
 
 

@@ -1421,6 +1421,44 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 // ── Decisions (decision-api :8000) ──────────────────────────────────
 
+export type LeftoverPromoteGate = {
+  schema_id?: string;
+  promote_allowed?: boolean;
+  blockers?: string[];
+  extra_review_or_deny?: number;
+  extra_leftover_mint?: number;
+  leftover_mint_on?: boolean;
+  cap?: number;
+  sla_breached_count?: number;
+  leftover_count?: number;
+  claimers?: string[];
+  ack_required?: boolean;
+  ack?: { draft_id?: string; acked_by?: string; acked_at?: string } | null;
+  helpfulness?: {
+    labeled_extras?: number;
+    extra_tp?: number;
+    extra_fp?: number;
+    fp_rate?: number | null;
+    fp_rate_cap?: number;
+    min_labeled_extras?: number;
+    underpowered?: boolean;
+  };
+  hint?: string;
+  draft_id?: string | null;
+};
+
+export type ShadowAutoPromoteProvision = {
+  schema_id?: string;
+  tenant_id?: string;
+  auto_promote?: boolean;
+  leftover_add_cap?: number;
+  leftover_fp_rate_cap?: number;
+  min_labeled_extras?: number;
+  provisioned_by?: string;
+  provisioned_at?: string;
+  version?: number;
+};
+
 export const decisions = {
   evaluate(payload: DecisionRequest) {
     return request<DecisionResponse>("/api/decisions/v1/decisions/evaluate", {
@@ -1706,11 +1744,12 @@ export const decisions = {
     });
   },
 
-  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2 + P0-CC). */
-  shadowPromoteGate(tenantId?: string) {
-    const q = tenantId?.trim()
-      ? `?tenant_id=${encodeURIComponent(tenantId.trim())}`
-      : "";
+  /** Desk-facing shadow promote-gate posture (Fraud Ops 4.2 + P0-CC + leftover HIL). */
+  shadowPromoteGate(tenantId?: string, draftId?: string) {
+    const q = new URLSearchParams();
+    if (tenantId?.trim()) q.set("tenant_id", tenantId.trim());
+    if (draftId?.trim()) q.set("draft_id", draftId.trim());
+    const qs = q.toString();
     return request<{
       schema_id: string;
       vertical?: string;
@@ -1748,6 +1787,8 @@ export const decisions = {
         blockers?: string[];
         requires?: string[];
       };
+      leftover_promote_gate?: LeftoverPromoteGate;
+      shadow_drafts?: Array<{ name?: string; is_ai_authored?: boolean; mode?: string }>;
       champion_challenger?: {
         rows_with_policy_routing?: number;
         decision_agreement_rate?: number | null;
@@ -1763,7 +1804,44 @@ export const decisions = {
       recipe_path?: string;
       smoke?: string;
       honesty?: string;
-    }>(`/api/decisions/v1/calibration/shadow-promote-gate${q}`);
+    }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
+  },
+
+  getShadowAutoPromoteProvision(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<ShadowAutoPromoteProvision>(
+      `/api/decisions/v1/rules/shadow-auto-promote-provision?${q}`,
+    );
+  },
+
+  putShadowAutoPromoteProvision(body: {
+    tenant_id: string;
+    auto_promote: boolean;
+    leftover_add_cap: number;
+    leftover_fp_rate_cap: number;
+    min_labeled_extras: number;
+  }) {
+    return request<ShadowAutoPromoteProvision>("/api/decisions/v1/rules/shadow-auto-promote-provision", {
+      method: "PUT",
+      headers: { "X-Actor": deskActor() },
+      body: JSON.stringify(body),
+    });
+  },
+
+  promoteShadowPack(draftId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      promoted?: boolean;
+      draft_id?: string;
+      file?: string;
+      mode?: string;
+      detail?: string;
+      desk_promote_gate?: { promote_allowed?: boolean; blockers?: string[] };
+      leftover_promote_gate?: LeftoverPromoteGate;
+    }>(`/api/decisions/v1/rules/shadow-packs/${encodeURIComponent(draftId)}/promote?${q}`, {
+      method: "POST",
+      headers: { "X-Actor": deskActor() },
+    });
   },
 
   championChallengerAudit(tenantId: string, limit = 200) {
@@ -2387,6 +2465,21 @@ export function omniSearch(params: { q: string; tenant_id?: string | null }, sig
 
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
+export type LeftoverRow = {
+  case_id: string;
+  entity_id: string;
+  origin: "hold" | "evaluate" | "both";
+  last_outcome: "deny" | "review" | null;
+  last_act: "held" | "released" | "resolved" | null;
+  claimed_by: string | null;
+  sla_breached: boolean;
+  trace_id: string;
+};
+
+export function deskActor(): string {
+  return (typeof localStorage !== "undefined" && localStorage.getItem("tarka.desk_actor")) || "analyst-web";
+}
+
 export const cases = {
   health() {
     return request<CaseApiHealthResponse>("/api/cases/v1/health");
@@ -2412,7 +2505,50 @@ export const cases = {
     });
   },
 
-  actOnEntity(body: { tenant_id: string; entity_id: string; action?: "hold"; trace_id?: string }) {
+  listLeftovers(tenantId: string, freeOnly = false) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (freeOnly) q.set("free_only", "1");
+    return request<{ leftovers: LeftoverRow[]; truncated: boolean }>(`/api/cases/v1/leftovers?${q}`);
+  },
+
+  claimLeftover(caseId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<LeftoverRow>(`/api/cases/v1/leftovers/${encodeURIComponent(caseId)}/claim?${q}`, {
+      method: "POST",
+      headers: { "X-Actor-Id": deskActor() },
+    });
+  },
+
+  leftoverPromoteAckGet(tenantId: string, draftId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId, draft_id: draftId });
+    return request<{
+      ack: { draft_id?: string; acked_by?: string; acked_at?: string } | null;
+      claimers: string[];
+      required: boolean;
+    }>(`/api/cases/v1/leftovers/promote-ack?${q}`, {
+      headers: { "X-Actor-Id": deskActor() },
+    });
+  },
+
+  leftoverPromoteAckPost(tenantId: string, draftId: string) {
+    return request<{
+      ack: { draft_id?: string; acked_by?: string; acked_at?: string } | null;
+      claimers: string[];
+      required: boolean;
+    }>("/api/cases/v1/leftovers/promote-ack", {
+      method: "POST",
+      headers: { "X-Actor-Id": deskActor() },
+      body: JSON.stringify({ tenant_id: tenantId, draft_id: draftId }),
+    });
+  },
+
+  actOnEntity(body: {
+    tenant_id: string;
+    entity_id: string;
+    action?: "hold" | "release" | "resolve";
+    trace_id?: string;
+    reason_code?: string;
+  }) {
     return request<{
       entity_id: string;
       action: string;
@@ -2422,10 +2558,12 @@ export const cases = {
       trace_id: string;
     }>(`/api/cases/v1/entities/${encodeURIComponent(body.entity_id)}/act`, {
       method: "POST",
+      headers: { "X-Actor-Id": deskActor() },
       body: JSON.stringify({
         tenant_id: body.tenant_id,
         action: body.action || "hold",
         trace_id: body.trace_id,
+        reason_code: body.reason_code,
       }),
     });
   },
@@ -2765,6 +2903,7 @@ export type GraphSearchHit = {
   labels: string[];
   scored: boolean;
   risk_score: number | null;
+  last_outcome?: string | null;
   matched_on?: GraphSearchMatchedOn;
   via?: { entity_id: string; labels: string[] } | null;
 };

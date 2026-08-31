@@ -12,7 +12,8 @@ import {
 } from "../api/client";
 import { PackWhyStrip } from "./CaseView/PackWhyStrip";
 import { DeviceIntegrityStrip } from "./CaseView/DeviceIntegrityStrip";
-import { rankRelatedLinks } from "../domain/graphInvestigation";
+import { graphLaggedEvaluate, lastOutcomeLabel, rankRelatedLinks } from "../domain/graphInvestigation";
+import { DISPOSITION_REASON_CODES } from "../config/dispositionReasonCodes";
 import { DEVICE_CLUSTER_GRAPH_LABEL } from "../utils/entityDeviceClustering";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
 import { PACK_WHY_MISSING, resolvePackWhy } from "../utils/packWhy";
@@ -163,6 +164,10 @@ export function GraphContextPanel({
   const [errMsg, setErrMsg] = useState("");
   const [actBusy, setActBusy] = useState(false);
   const [actMsg, setActMsg] = useState("");
+  const [latestEval, setLatestEval] = useState<{ trace_id?: string | null } | null>(null);
+  const [reasonCode, setReasonCode] = useState<(typeof DISPOSITION_REASON_CODES)[number]["code"]>(
+    "FALSE_POSITIVE",
+  );
 
   useEffect(() => {
     if (!open) {
@@ -173,6 +178,7 @@ export function GraphContextPanel({
       setHistory(null);
       setReceipts([]);
       setHold(null);
+      setLatestEval(null);
       setErrMsg("");
       setActMsg("");
     }
@@ -180,12 +186,13 @@ export function GraphContextPanel({
 
   const loadObject = useCallback(async () => {
     if (!entityId || !tenantId) return;
-    const [obj, linkRow, hist, ctx, disposition] = await Promise.all([
+    const [obj, linkRow, hist, ctx, disposition, latest] = await Promise.all([
       graph.getEntity(entityId, tenantId),
       graph.entityLinks(entityId, tenantId),
       graph.entityHistory(entityId, tenantId),
       graph.entityDeepContext(entityId, tenantId),
       graph.latestDisposition(entityId, tenantId),
+      graph.latestEvaluate(entityId, tenantId),
     ]);
     if (!obj && !linkRow && !hist && !ctx) {
       setState("not_found");
@@ -197,6 +204,7 @@ export function GraphContextPanel({
     setData(ctx);
     setReceipts(await loadMinimalReceipts(tenantId, receiptTraceIds(hist)));
     setHold(holdForStory(obj?.properties?.last_act ?? hist?.properties?.last_act, disposition));
+    setLatestEval(latest);
     setState("ready");
   }, [entityId, tenantId]);
 
@@ -251,6 +259,41 @@ export function GraphContextPanel({
     }
   }
 
+  async function releasePerson() {
+    if (!entityId || !tenantId || actBusy) return;
+    setActBusy(true);
+    setActMsg("");
+    try {
+      const row = await cases.actOnEntity({ tenant_id: tenantId, entity_id: entityId, action: "release" });
+      setActMsg(row.outcome === "released" ? "Released." : String(row.outcome || "Released."));
+      await loadObject();
+    } catch (e) {
+      setActMsg(toUserFacingError(e, { subject: "Release", action: "release this person" }));
+    } finally {
+      setActBusy(false);
+    }
+  }
+
+  async function resolvePerson() {
+    if (!entityId || !tenantId || actBusy) return;
+    setActBusy(true);
+    setActMsg("");
+    try {
+      const row = await cases.actOnEntity({
+        tenant_id: tenantId,
+        entity_id: entityId,
+        action: "resolve",
+        reason_code: reasonCode,
+      });
+      setActMsg(row.outcome === "resolved" ? "Resolved." : String(row.outcome || "Resolved."));
+      await loadObject();
+    } catch (e) {
+      setActMsg(toUserFacingError(e, { subject: "Resolve", action: "resolve this leftover" }));
+    } finally {
+      setActBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -292,6 +335,14 @@ export function GraphContextPanel({
             <p className="text-xs text-gray-500 font-mono truncate mt-0.5" title={entityId}>
               {entityId}
             </p>
+            <p className="text-[11px] text-gray-400 mt-1" data-testid="last-outcome">
+              {lastOutcomeLabel(objectNode ?? nodeHint)}
+            </p>
+            {graphLaggedEvaluate(latestEval, history) ? (
+              <p className="text-[11px] text-amber-200/90 mt-1" role="status">
+                Graph lagged this evaluate. Receipt is source of truth.
+              </p>
+            ) : null}
             {nodeHint?.labels?.length ? (
               <p className="text-[11px] text-gray-500 mt-1">
                 Graph labels:{" "}
@@ -300,14 +351,52 @@ export function GraphContextPanel({
             ) : null}
             {isPerson && state === "ready" ? (
               <div className="mt-2 space-y-1">
-                <button
-                  type="button"
-                  disabled={actBusy}
-                  onClick={() => void holdPerson()}
-                  className="px-2 py-1 text-[11px] font-medium rounded-lg bg-amber-800/80 hover:bg-amber-700 disabled:opacity-50 text-amber-50"
-                >
-                  Hold this person
-                </button>
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    disabled={actBusy}
+                    onClick={() => void holdPerson()}
+                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-amber-800/80 hover:bg-amber-700 disabled:opacity-50 text-amber-50"
+                  >
+                    Hold this person
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actBusy}
+                    onClick={() => void releasePerson()}
+                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-surface-700 hover:bg-surface-600 disabled:opacity-50 text-gray-100"
+                  >
+                    Release
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1 items-center">
+                  <label className="sr-only" htmlFor="leftover-reason">
+                    Resolve reason
+                  </label>
+                  <select
+                    id="leftover-reason"
+                    value={reasonCode}
+                    disabled={actBusy}
+                    onChange={(e) =>
+                      setReasonCode(e.target.value as (typeof DISPOSITION_REASON_CODES)[number]["code"])
+                    }
+                    className="bg-surface-800 border border-surface-600 text-[11px] text-gray-200 rounded px-1 py-1"
+                  >
+                    {DISPOSITION_REASON_CODES.map((r) => (
+                      <option key={r.code} value={r.code}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={actBusy}
+                    onClick={() => void resolvePerson()}
+                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-sky-800/80 hover:bg-sky-700 disabled:opacity-50 text-sky-50"
+                  >
+                    Resolve
+                  </button>
+                </div>
                 {actMsg ? <p className="text-[11px] text-gray-400">{actMsg}</p> : null}
               </div>
             ) : null}

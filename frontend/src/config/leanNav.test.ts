@@ -45,10 +45,11 @@ describe("leanNav", () => {
     vi.resetModules();
     const { isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
     expect(isProductionSurfacePath("/cases")).toBe(true);
+    expect(isProductionSurfacePath("/leftovers")).toBe(true);
     expect(isProductionSurfacePath("/cases/abc")).toBe(true);
     expect(isProductionSurfacePath("/ops/qa")).toBe(true);
     expect(isProductionSurfacePath("/ops/calibration")).toBe(true);
-    expect(isProductionSurfacePath("/ops/shadow")).toBe(false);
+    expect(isProductionSurfacePath("/ops/shadow")).toBe(true);
     expect(isProductionSurfacePath("/disputes/x")).toBe(true);
     expect(isProductionSurfacePath("/decisions")).toBe(true);
     expect(isProductionSurfacePath("/decisions/tr-abc")).toBe(true);
@@ -58,7 +59,7 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/403-unauthorized")).toBe(true);
     expect(isProductionSurfacePath("/login")).toBe(true);
     expect(isProductionSurfacePath("/auth/callback")).toBe(true);
-    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/decisions")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);
@@ -93,6 +94,7 @@ describe("leanNav", () => {
     expect(planeForPath("/graph/mule-path")).toBe("graph");
     expect(planeForPath("/investigation/shadow-llm")).toBe("advise");
     expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/leftovers")).toBe(false);
     expect(isNavItemVisible("/investigation/shadow-llm")).toBe(false);
     expect(isNavItemVisible("/ops/calibration")).toBe(false);
     expect(isNavItemVisible("/ops/counters")).toBe(false);
@@ -104,6 +106,16 @@ describe("leanNav", () => {
     expect(visibleLeanNavPaths()).not.toContain("/cases");
     expect(visibleLeanNavPaths()).toContain("/decisions");
     expect(visibleLeanNavPaths()).toContain("/rules");
+  });
+
+  it("shows /ops/shadow when VITE_SIGNAL_API_URL is empty", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_SIGNAL_API_URL", "");
+    vi.resetModules();
+    const { isNavItemVisible, planeForPath } = await loadLeanNav();
+    expect(isNavItemVisible("/ops/shadow")).toBe(true);
+    expect(planeForPath("/ops/shadow")).toBe(null);
+    expect(planeForPath("/ops/shadow")).not.toBe("signals");
   });
 
   it("shows Graph / Advise / signal chrome when plane URLs are set", async () => {
@@ -118,6 +130,7 @@ describe("leanNav", () => {
     expect(isPlaneEnabled("signals")).toBe(true);
     expect(isNavItemVisible("/graph")).toBe(true);
     expect(isNavItemVisible("/graph/mule-path")).toBe(false);
+    expect(isNavItemVisible("/leftovers")).toBe(true);
     expect(isNavItemVisible("/cases")).toBe(false);
     expect(isNavItemVisible("/ops/calibration")).toBe(true);
     expect(isNavItemVisible("/investigation")).toBe(false);

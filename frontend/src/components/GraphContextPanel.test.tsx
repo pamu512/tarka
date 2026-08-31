@@ -281,5 +281,41 @@ describe("GraphContextPanel object dossier", () => {
     expect(await screen.findByText("Held.")).toBeInTheDocument();
     expect(screen.queryByText(/Leftover/)).not.toBeInTheDocument();
     expect(screen.queryByText(/11111111/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(vi.mocked(graph.getEntity).mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+    expect(screen.queryByRole("link", { name: /cases/i })).not.toBeInTheDocument();
+  });
+
+  it("labels missing last_outcome as unknown and shows lag when evaluate is ahead of the object", async () => {
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-lag",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({ entity_id: "buyer-lag", nodes: [], edges: [] });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-lag",
+      last_trace_id: "tr-old",
+      trace_ids: ["tr-old"],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+    vi.mocked(graph.latestEvaluate).mockResolvedValue({ trace_id: "tr-new", outcome: "deny" });
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-lag"
+        embedded
+      />,
+    );
+
+    expect(await screen.findByTestId("last-outcome")).toHaveTextContent("unknown");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /Graph lagged this evaluate\. Receipt is source of truth/,
+    );
   });
 });

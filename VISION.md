@@ -55,7 +55,9 @@ Device is a node, not the person. ATO victims stay good.
 
 Owned JSON packs + native SDK evidence + in-tenant / VPC stack.
 
-The demo beat is **"AI wrote this rule"** into Observe / canary — not a caption on `device_signals`, not a CRM ticket queue.
+The first desk beat is evaluate writes a Person you Hunt (`/graph`). Receipts stay a plane at `/decisions`.
+
+Add-on: a scout writes a rule into Observe / canary — not a caption on `device_signals`, not a CRM ticket queue.
 
 ---
 

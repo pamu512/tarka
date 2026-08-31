@@ -25,7 +25,8 @@ import {
   typeHistogram,
   buildPersonHuntGraph,
   decisionToastText,
-  hierarchyInstrumentIds,
+  hierarchyInstrumentFanout,
+  lastOutcomeLabel,
   pickHomePerson,
   readLastPersonEntity,
   writeLastPersonEntity,
@@ -82,7 +83,11 @@ const EMPTY_FILTER: WorkspaceFilter = {
 
 function paintStoredRisk(nodes: GraphNode[]): LinkAnalysisGraphNode[] {
   const stored = new Map(nodes.map((n) => [n.id, storedDisplayRisk(n)]));
-  return nodes.map((n) => ({ ...n, displayRisk: stored.get(n.id) ?? null }));
+  return nodes.map((n) => ({
+    ...n,
+    displayRisk: stored.get(n.id) ?? null,
+    lastOutcome: lastOutcomeLabel(n),
+  }));
 }
 
 function pruneBanner(originalNodeCount: number, prunedNodeCount: number, rawNodeCount: number): string {
@@ -131,6 +136,7 @@ export default function GraphInvestigationPage() {
   const [expanding, setExpanding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pruneNote, setPruneNote] = useState("");
+  const [instrumentCapNote, setInstrumentCapNote] = useState("");
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
   const [minRiskText, setMinRiskText] = useState("");
@@ -284,6 +290,7 @@ export default function GraphInvestigationPage() {
       if (!entityId) {
         setLoaded(null);
         setPruneNote("");
+        setInstrumentCapNote("");
         setSelectedId(null);
         setSelectedNode(null);
         setHighlightIds(undefined);
@@ -297,6 +304,7 @@ export default function GraphInvestigationPage() {
     setLoading(true);
     setError(null);
     setPruneNote("");
+    setInstrumentCapNote("");
     setHighlightIds(undefined);
     setHighlightLinkKeys(undefined);
     setDossierMessage(null);
@@ -304,7 +312,11 @@ export default function GraphInvestigationPage() {
       try {
         const sub = await graph.subgraph(entityId, tenantId, depth);
         if (cancelled) return;
-        const instrumentIds = hierarchyInstrumentIds(entityId, sub.nodes, sub.edges);
+        const fanout = hierarchyInstrumentFanout(entityId, sub.nodes, sub.edges);
+        const instrumentIds = fanout.ids;
+        setInstrumentCapNote(
+          fanout.total > 8 ? `Showing 8 of ${fanout.total} instruments` : "",
+        );
         const extras: typeof sub[] = [];
         if (instrumentIds.length > 0) {
           const settled = await Promise.allSettled(
@@ -502,6 +514,7 @@ export default function GraphInvestigationPage() {
                       {hit.scored && hit.risk_score != null ? (
                         <span className="text-amber-300/90 ml-2 font-mono">{hit.risk_score.toFixed(0)}</span>
                       ) : null}
+                      <span className="text-gray-400 ml-2">{lastOutcomeLabel(hit)}</span>
                       {viaLine ? (
                         <div className="text-[11px] text-gray-500 mt-0.5">{viaLine}</div>
                       ) : null}
@@ -573,6 +586,11 @@ export default function GraphInvestigationPage() {
       {pruneNote ? (
         <p className="text-xs text-amber-200/90 border border-amber-500/30 rounded-md px-3 py-2 bg-amber-500/10">
           {pruneNote}
+        </p>
+      ) : null}
+      {instrumentCapNote ? (
+        <p className="text-xs text-gray-400" data-testid="instrument-cap">
+          {instrumentCapNote}
         </p>
       ) : null}
 

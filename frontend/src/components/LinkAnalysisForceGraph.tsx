@@ -29,6 +29,14 @@ function riskFill(score: number | null): string {
   return "rgba(239, 68, 68, 0.95)";
 }
 
+function outcomeFill(label: LinkAnalysisGraphNode["lastOutcome"]): string | null {
+  if (!label) return null;
+  if (label === "deny") return "rgba(185, 28, 28, 0.95)";
+  if (label === "review" || label === "flag") return "rgba(217, 119, 6, 0.95)";
+  if (label === "allow") return "rgba(21, 128, 61, 0.95)";
+  return "rgba(100, 116, 139, 0.95)";
+}
+
 export type LinkAnalysisForceGraphProps = {
   graphData: { nodes: LinkAnalysisGraphNode[]; links: LinkAnalysisForceLink[] };
   /** When true, reduce simulation work for very large pruned graphs. */
@@ -102,7 +110,7 @@ export function LinkAnalysisForceGraph({
       const r = Math.max(4, 6 / g);
       ctx.beginPath();
       ctx.arc(x, y, r, 0, 2 * Math.PI, false);
-      ctx.fillStyle = riskFill(node.displayRisk);
+      ctx.fillStyle = outcomeFill(node.lastOutcome) ?? riskFill(node.displayRisk);
       ctx.fill();
       const highlighted = Boolean(highlightIds && highlightIds.size > 0 && highlightIds.has(String(node.id)));
       ctx.strokeStyle = highlighted ? "#60a5fa" : "rgba(15, 23, 42, 0.85)";

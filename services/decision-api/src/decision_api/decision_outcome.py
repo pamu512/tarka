@@ -355,6 +355,8 @@ async def maybe_create_case_for_outcome(
         "entity_id": ctx.entity_id,
         "trace_id": ctx.trace_id,
         "priority": priority,
+        "labels": ["origin:evaluate"],
+        "last_outcome": ctx.decision,
     }
     try:
         r = await http.post(f"{base}/v1/cases", json=body, headers=headers, timeout=5.0)

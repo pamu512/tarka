@@ -15,6 +15,8 @@ docker compose -f infra/deploy/docker-compose.lite.yml up --build
 # + investigation / + signals / full desk: see the SRE runbook
 ```
 
+Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
+
 - [Author a pack](docs/docs/guides/rules.md) — JSON rule packs (strategy analyst)
 - [First evaluate](docs/docs/guides/oss-15-minute-first-decision.md) — `POST /decisions/v1/decisions/evaluate`
 

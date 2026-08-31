@@ -190,6 +190,14 @@ def _can_use_local_fallback(exc: Exception) -> bool:
     return exc.__class__.__module__.startswith("alembic")
 
 
+async def _ensure_audit_trail() -> None:
+    table = Base.metadata.tables.get("audit_trail")
+    if table is None:
+        return
+    async with engine.begin() as conn:
+        await conn.run_sync(lambda sync_conn: table.create(sync_conn, checkfirst=True))
+
+
 async def init_db() -> None:
     global _fallback_reason, _bootstrap_mode
     from case_api import models as _models  # noqa: F401
@@ -206,6 +214,7 @@ async def init_db() -> None:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             _bootstrap_mode = "sqlite_direct"
+            await _ensure_audit_trail()
             return
 
         os.environ["ALEMBIC_SYNC_DATABASE_URL"] = sync_url_for_alembic(_active_database_url)
@@ -218,6 +227,7 @@ async def init_db() -> None:
         cfg = Config(str(cfg_path))
         await asyncio.to_thread(command.upgrade, cfg, "head")
         _bootstrap_mode = "alembic_head"
+        await _ensure_audit_trail()
     except Exception as exc:
         # Local resilience: only DB bootstrap/migration failures trigger sqlite fallback.
         # Production profile / Helm prod / CASE_API_PRODUCTION_MODE refuse the fallback.
@@ -228,3 +238,4 @@ async def init_db() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         _bootstrap_mode = "sqlite_fallback"
+        await _ensure_audit_trail()

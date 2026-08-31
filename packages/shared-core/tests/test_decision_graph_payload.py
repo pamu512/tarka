@@ -244,7 +244,8 @@ def test_build_human_disposition_payload_edges():
     assert payload["edges"][0]["relationship"] == "CAUSED"
     persons = [o["external_id"] for o in payload["objects"] if o["entity_type"] == "Person"]
     assert persons == ["acct-1"]
-    assert any(lk["relationship"] == "ACTED_ON" and lk["from_external_id"] == "acct-1" for lk in payload["object_links"])
+    assert payload["objects"][0]["properties"]["last_act"] == "escalated"
+    assert payload["object_links"] == []
 
 
 def test_agent_advise_payload_has_tenant_and_not_observe_shadow():

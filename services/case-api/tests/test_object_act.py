@@ -66,6 +66,33 @@ def test_hold_works_without_api_key_on_insecure_desk(case_client: TestClient, mo
     assert r.json()["outcome"] == "held"
 
 
+def test_hold_writes_audit_trail_when_table_exists(case_client: TestClient, monkeypatch):
+    import asyncio
+
+    from case_api.db import SessionLocal
+    from case_api.main import AuditRecord
+    from sqlalchemy import func, select
+
+    monkeypatch.setattr("case_api.main._maybe_record_human_disposition_decision", lambda **_k: None)
+    r = case_client.post(
+        "/v1/entities/buyer-audit-ok/act",
+        json={"tenant_id": "demo", "action": "hold"},
+        headers=_api_headers(),
+    )
+    assert r.status_code == 200, r.text
+
+    async def _count() -> int:
+        async with SessionLocal() as session:
+            n = await session.scalar(
+                select(func.count())
+                .select_from(AuditRecord)
+                .where(AuditRecord.action == "object_act_hold")
+            )
+            return int(n or 0)
+
+    assert asyncio.run(_count()) >= 1
+
+
 def test_hold_returns_200_when_audit_trail_missing(case_client: TestClient, monkeypatch):
     from sqlalchemy.exc import SQLAlchemyError
 

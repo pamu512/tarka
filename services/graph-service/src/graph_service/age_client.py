@@ -599,6 +599,17 @@ async def list_entity_risk_top(
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
 ) -> tuple[list[dict[str, Any]], bool]:
+    from .search_keys import search_prefix
+
+    sql = await search_prefix(tenant_id, q, label=label, limit=limit)
+    if sql is None:
+        return [], False
+    return sql
+
+
+async def _search_entities_scan_fallback(
+    tenant_id: str, q: str, label: str | None = None, limit: int = 20
+) -> tuple[list[dict[str, Any]], bool]:
     from .entity_risk_score import (
         cap_identifier_owners,
         clamp_search_limit,

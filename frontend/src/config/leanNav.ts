@@ -69,6 +69,7 @@ export function planeForPath(path: string): PlaneId | null {
  */
 export const LEAN_NAV_PATHS = new Set<string>([
   "/cases",
+  "/leftovers",
   "/decisions",
   "/disputes",
   "/graph",
@@ -76,6 +77,7 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/analytics/rule-performance",
   "/ops/calibration",
   "/ops/qa",
+  "/ops/shadow",
   "/ops/dispute-deadlines",
   "/ops/counters",
   "/ops/sar-transport",
@@ -106,6 +108,8 @@ export function isNavItemVisible(path: string): boolean {
   if (LEAN_NAV && !isProductionSurfacePath(path)) return false;
   // Leftover Hold still deep-links to /cases/:id. The queue is not the job.
   if (LEAN_NAV && path === "/cases") return false;
+  // Leftovers without Hunt is a ticket queue.
+  if (path === "/leftovers" && !isPlaneEnabled("graph")) return false;
   // Brochure fund-flow page. Lean desk is Hunt; this route redirects to /graph.
   if (LEAN_NAV && path === "/graph/mule-path") return false;
   const plane = planeForPath(path);

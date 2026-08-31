@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 
 from .config import settings
+
+log = logging.getLogger("graph-service.runtime")
 
 """Dispatch graph persistence to Neo4j, JanusGraph, or AGE based on GRAPH_BACKEND (no HTTP API changes)."""
 
@@ -68,7 +71,14 @@ async def upsert_entity(
     properties: dict[str, Any],
     tags: list[str] | None = None,
 ) -> str:
-    return await _store().upsert_entity(tenant_id, entity_type, external_id, properties, tags=tags)
+    gid = await _store().upsert_entity(tenant_id, entity_type, external_id, properties, tags=tags)
+    try:
+        from .search_keys import upsert_search_keys
+
+        await upsert_search_keys(tenant_id, entity_type, external_id, properties)
+    except Exception:
+        log.warning("search_keys_upsert_failed entity=%s", external_id, exc_info=True)
+    return gid
 
 
 async def update_tags(tenant_id: str, external_id: str, tags: list[str]) -> list[str]:
@@ -163,7 +173,15 @@ def _store():
 async def search_entities(
     tenant_id: str, q: str, label: str | None = None, limit: int = 20
 ) -> tuple[list[dict[str, Any]], bool]:
-    return await _store().search_entities(tenant_id, q, label=label, limit=limit)
+    from .search_keys import search_prefix
+
+    sql = await search_prefix(tenant_id, q, label=label, limit=limit)
+    if settings.graph_backend == "age":
+        return sql if sql is not None else ([], False)
+    if sql is not None:
+        return sql
+    rows, _trunc = await _store().search_entities(tenant_id, q, label=label, limit=limit)
+    return rows, True
 
 
 async def list_entity_risk_top(

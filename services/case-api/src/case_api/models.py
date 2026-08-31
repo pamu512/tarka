@@ -31,6 +31,10 @@ class Case(Base):
     assigned_team: Mapped[str | None] = mapped_column(String(128), nullable=True, default=None)
     labels: Mapped[list] = mapped_column(JSON, default=list)
     default_owner: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
+    claimed_by: Mapped[str | None] = mapped_column(String(256), nullable=True, default=None)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    last_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
+    last_act: Mapped[str | None] = mapped_column(String(32), nullable=True, default=None)
     sla_hours_override: Mapped[int | None] = mapped_column(nullable=True, default=None)
     applied_template_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
@@ -45,6 +49,17 @@ class Case(Base):
     comments: Mapped[list["CaseComment"]] = relationship(
         back_populates="case", cascade="all, delete-orphan"
     )
+
+
+class LeftoverPromoteAck(Base):
+    __tablename__ = "leftover_promote_acks"
+    __table_args__ = (UniqueConstraint("tenant_id", "draft_id", name="uq_leftover_promote_acks_tenant_draft"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(128), index=True)
+    draft_id: Mapped[str] = mapped_column(String(256))
+    acked_by: Mapped[str] = mapped_column(String(256))
+    acked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class InvestigationTemplate(Base):

@@ -474,13 +474,6 @@ def build_human_disposition_payload(
                 "properties": {"last_act": str(status)},
             }
         )
-        object_links.append(
-            {
-                "from_external_id": person_id,
-                "to_external_id": "",
-                "relationship": "ACTED_ON",
-            }
-        )
     return {
         "tenant_id": tenant_id,
         "kind": "human_disposition",

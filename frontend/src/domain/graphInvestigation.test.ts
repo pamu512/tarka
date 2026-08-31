@@ -5,7 +5,10 @@ import {
   buildPersonHuntGraph,
   decisionToastText,
   filterWorkspaceNodes,
+  graphLaggedEvaluate,
+  hierarchyInstrumentFanout,
   hierarchyInstrumentIds,
+  lastOutcomeLabel,
   mergeSubgraphs,
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
@@ -366,5 +369,42 @@ describe("decisionToastText", () => {
       ),
     ).toBe("deny");
     expect(decisionToastText(n("dev-1", { labels: ["Device"], properties: {} }))).toBeNull();
+  });
+});
+
+describe("lastOutcomeLabel", () => {
+  it("labels missing last_outcome as unknown, not allow", () => {
+    expect(lastOutcomeLabel(n("p", { properties: {} }))).toBe("unknown");
+    expect(lastOutcomeLabel(n("p", { properties: { last_outcome: "deny" } }))).toBe("deny");
+    expect(lastOutcomeLabel({ last_outcome: "allow" })).toBe("allow");
+  });
+});
+
+describe("hierarchyInstrumentFanout", () => {
+  it("counts instruments before the cap", () => {
+    const nodes = [
+      n("buyer", { labels: ["Person"] }),
+      ...Array.from({ length: 10 }, (_, i) => n(`dev-${i}`, { labels: ["Device"] })),
+    ];
+    const edges = Array.from({ length: 10 }, (_, i) => ({
+      from_id: "buyer",
+      to_id: `dev-${i}`,
+      type: "USES_DEVICE",
+    }));
+    const r = hierarchyInstrumentFanout("buyer", nodes, edges);
+    expect(r.total).toBe(10);
+    expect(r.ids).toHaveLength(8);
+  });
+});
+
+describe("graphLaggedEvaluate", () => {
+  it("lags when latest trace is not on the object", () => {
+    expect(
+      graphLaggedEvaluate({ trace_id: "tr-new" }, { last_trace_id: "tr-old", trace_ids: ["tr-old"] }),
+    ).toBe(true);
+    expect(
+      graphLaggedEvaluate({ trace_id: "tr-old" }, { last_trace_id: "tr-old", trace_ids: ["tr-old"] }),
+    ).toBe(false);
+    expect(graphLaggedEvaluate(null, { last_trace_id: "tr-old", trace_ids: [] })).toBe(false);
   });
 });

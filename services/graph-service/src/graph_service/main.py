@@ -215,8 +215,8 @@ async def health():
 @app.get("/v1/entities/search")
 async def entities_search(tenant_id: str, q: str = "", label: str | None = None, limit: int = 20):
     needle = (q or "").strip()[:256]
-    if not needle:
-        return {"entities": []}
+    if len(needle) < 2:
+        return {"entities": [], "truncated": False}
     lab = (label or "").strip() or None
     rows, truncated = await search_entities(
         tenant_id, q=needle, label=lab, limit=clamp_search_limit(limit)

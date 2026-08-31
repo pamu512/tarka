@@ -23,6 +23,7 @@ import { TarkaRbacRole } from "./security/rbacConstants";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const TarkaCommandCenter = lazy(() => import("./pages/TarkaCommandCenter"));
 const Cases = lazy(() => import("./pages/Cases"));
+const Leftovers = lazy(() => import("./pages/Leftovers"));
 const Decisions = lazy(() => import("./pages/Decisions"));
 const WorkloadBalancer = lazy(() => import("./pages/WorkloadBalancer"));
 const BulkTriage = lazy(() => import("./pages/BulkTriage"));
@@ -97,6 +98,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
     label: "Operations",
     items: [
       { to: "/graph", label: "Hunt", module: "graph" },
+      { to: "/leftovers", label: "Leftovers", module: "cases" },
       { to: "/decisions", label: "Decisions", module: "dashboard" },
       { to: "/command-center", label: "Command Center", module: "dashboard" },
       { to: "/dashboard", label: "Classic dashboard", module: "dashboard" },
@@ -330,6 +332,7 @@ export default function App() {
             <Route path="/auth/callback" element={<OidcCallback />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/cases" element={<Cases />} />
+            <Route path="/leftovers" element={isPlaneEnabled("graph") ? <Leftovers /> : <PlaneOff plane="graph" />} />
             <Route path="/decisions" element={<Decisions />} />
             <Route path="/decisions/:traceId" element={<Decisions />} />
             <Route path="/cases/bulk-triage" element={<BulkTriage />} />

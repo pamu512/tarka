@@ -110,11 +110,13 @@ export default function Help() {
       </Section>
 
       <Section id="cases" title="Cases">
-        <Sub title="Leftover (/cases)">
+        <Sub title="Leftover (/leftovers)">
           <p>
-            Hold can leave a case. The queue at <code className="text-gray-500">/cases</code> is that leftover, not
-            intake — lean nav hides it. Deep link <code className="text-gray-500">/cases/:id</code> still works. Approve
-            / Close stay on <code className="text-gray-500">cases.update</code>.
+            Hold or an evaluate mint can leave a leftover. The queue is{" "}
+            <code className="text-gray-500">/leftovers</code> when Hunt is on — work happens on{" "}
+            <code className="text-gray-500">/graph</code>. Lean nav still hides{" "}
+            <code className="text-gray-500">/cases</code>. Deep link <code className="text-gray-500">/cases/:id</code>{" "}
+            stays for SAR / dispute. Approve / Close stay on <code className="text-gray-500">cases.update</code>.
           </p>
         </Sub>
         <Sub title="Case detail (/cases/:id)">
