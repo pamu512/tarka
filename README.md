@@ -46,8 +46,6 @@ Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation over
 
 **15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 
-Honesty ledger: [`docs/STUB_REGISTER.md`](docs/STUB_REGISTER.md).
-
 ---
 
 ## Performance

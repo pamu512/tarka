@@ -26,7 +26,6 @@ _ENFORCE_PATH_PREFIXES: tuple[str, ...] = (
     "crates/",
     "proto/",
     "packages/",
-    "legacy_attic/fuzz/",
 )
 
 # Files that legitimately embed the legacy package name (compiled artifacts or legacy schemas).

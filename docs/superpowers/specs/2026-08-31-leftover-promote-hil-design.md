@@ -1,7 +1,7 @@
 # Leftover cost + labeled helpfulness on named-draft promote (A3)
 
 **Date:** 2026-08-31  
-**Status:** Approved. Implementation plan: `docs/superpowers/plans/2026-08-31-leftover-promote-hil.md`.  
+**Status:** Shipped on `master` (leftover cost + helpfulness + desk Promote + provisioned auto-promote). **Not shipped:** shadow-first create/edit, `POST …/force-live` (plan Task 9). Plan: `docs/superpowers/plans/2026-08-31-leftover-promote-hil.md`.  
 **Approach:** A3 (blast radius + SLA/cap hard floor + ack-if-claimed) **plus** leftover-extra FP gate.  
 **Related:** [leftover + Hunt production](./2026-08-31-leftover-hunt-production-design.md), [Observe brain wire](./2026-08-31-observe-brain-wire-design.md), VISION.md (LLM authors, humans own live packs via gates), `GET /v1/calibration/shadow-promote-gate`, `GET /v1/leftovers`, `y_label_store`.
 
@@ -15,7 +15,7 @@ Scout / the LLM **cannot** promote. After the user’s **first review** provisio
 
 This slice is **not** a leftover 3.8 or Hunt 4.0 rescore. Those stay on the leftover/Hunt spec.
 
-This slice is leftover-lead HIL on Observe promote: cost **and** “did the extras help evaluate.” Seed theater without the witnesses below is a **3**. Do not quote Marble no-code because a dashboard row appeared.
+This slice is leftover-lead HIL on Observe promote: cost **and** “did the extras help evaluate.” Seed theater without the witnesses below is a **3**. Do not quote no-code because a dashboard row appeared.
 
 ## Philosophy (unchanged)
 
@@ -23,28 +23,26 @@ This slice is leftover-lead HIL on Observe promote: cost **and** “did the extr
 - Evaluate never waits on graph. Leftover list never calls graph.
 - ALLOW / `flag` never mint leftovers.
 - LLM / Scout writes `mode=shadow` only (`PACK_AUTHOR.md` hard stop). Auto-promote is a **host** action after user provision, not an author action.
-- **Shadow-first:** `POST /v1/rules` and `PUT /v1/rules/{file}` always persist `mode=shadow`. Missing `mode` must not default to live (`json_rules` / `pack_evaluator` treat omitted mode as `active` today). The only paths to `active` are desk Promote, provisioned host auto-promote, or **force-live** (below). Scout / assist cannot force-live.
+- **Shadow-first (lock, HTTP not shipped):** intended: `POST /v1/rules` and `PUT /v1/rules/{file}` always persist `mode=shadow`. Today omitted `mode` still loads as `active`. Force-live is specified, not implemented. Scout / assist cannot force-live.
 - Humans own the live bar. AI may *propose* gate numbers in pack `evidence`; they never evaluate and never auto-promote until the user copies them into provision (first review).
 - Pack lifecycle is not a signals job. `/ops/shadow` is always-on lean, not behind empty `VITE_SIGNAL_API_URL`.
 - Not a maker-checker role system. Not draft knobs (B). Not a node editor. Not a Tarka-branded model.
 
-## What already exists
+## In the tree
 
-- `desk_promote_gate` = labels + McNemar + drift. No leftover cost. Labeled CC F1 is **diagnostic** (not a leftover-extra gate).
-- `rule_precision_after_labels` joins `y_label` `0`/`1` onto rule hits. Not wired to promote.
-- Leftover Hunt resolve already POSTs `y_label` (`CONFIRMED_FRAUD` → `1`, `FALSE_POSITIVE` / `CUSTOMER_CLEARED` / `INSUFFICIENT_EVIDENCE` → `0`) via `_persist_disposition_y_label`.
-- `PUT /v1/rules/{filename}/mode` flips `shadow` → `active` with a governance secret. No leftover check.
-- `POST /v1/rules` and `PUT /v1/rules/{file}` omit `mode`. Loaders treat omitted mode as `active` (`json_rules`, `pack_evaluator`). That is the live-on-create hole.
-- Scout `POST /v1/rules/scout-pack` writes `mode=shadow` without reading leftover labels (brain wire is the next spec).
-- Observe champion/challenger lives on audit `policy_routing` (same 500-row scan as shadow-promote-gate).
-- Leftovers: `GET /v1/leftovers`, claim, `claimed_by`, `is_sla_breached`. Evaluate mint only when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **off**).
-- `/ops/shadow` is brochure (`LEAN_NAV_PATHS` excludes it). L3 ledger chrome stays; this slice adds a leftover card + Promote, it does not delete L3.
+- `desk_promote_gate` requires leftover cost + leftover-extra helpfulness plus labels / McNemar / drift.
+- `GET /v1/calibration/shadow-promote-gate` returns `leftover_promote_gate` and `live_rule_slip`.
+- Desk `/ops/shadow` leftover card + provision + Promote. Lean always-on.
+- Provisioned host auto-promote after first review. Scout still writes `mode=shadow`.
+- `PUT …/mode=active` leftover floor is in the leftover HIL plan; **shadow-first / force-live is not shipped** — create/update can still omit `mode` (loaders treat omitted as `active`).
+- Scout `POST /v1/rules/scout-pack` still does not read leftover helpfulness (brain wire is the next spec).
+- Leftovers: `GET /v1/leftovers`, claim, promote-ack. Evaluate mint only when `CASE_CREATE_ON_DENY_REVIEW` is on (lite default **off**).
 
 ## Non-goals
 
 - B: PATCH `score_delta` / outcome band / leftover destination on the draft.
 - Forcing Scout / recommender to **read** this gate before authoring (that is [brain wire](./2026-08-31-observe-brain-wire-design.md)).
-- VisualRuleBuilder, Marble data-model no-code, NL rule writer.
+- VisualRuleBuilder, data-model no-code, NL rule writer.
 - New leftover-lead role when the queue is empty.
 - Letting Scout or the LLM set `mode=active`, call desk Promote, or call force-live.
 - Auto-promoting Wasm / trend drafts (`409 never_auto_promote` stays).

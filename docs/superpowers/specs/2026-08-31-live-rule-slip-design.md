@@ -1,7 +1,7 @@
 # Live-rule slip (host critic)
 
 **Date:** 2026-08-31  
-**Status:** Draft. Plan: `docs/superpowers/plans/2026-08-31-live-rule-slip.md`. Implement **after** [leftover promote HIL](./2026-08-31-leftover-promote-hil-design.md). Sibling of [Observe brain wire](./2026-08-31-observe-brain-wire-design.md) (does not rewrite it).  
+**Status:** Shipped on `master`. Plan: `docs/superpowers/plans/2026-08-31-live-rule-slip.md` (do not re-execute as greenfield). Sibling of [Observe brain wire](./2026-08-31-observe-brain-wire-design.md) (does not rewrite it).  
 **Related:** `rule_precision_after_labels`, `GET /v1/calibration/shadow-promote-gate`, leftover HIL tick, `/ops/shadow`.
 
 ## Goal

@@ -5,8 +5,8 @@
 ## Prerequisites
 
 - Docker + Docker Compose v2
-- ~3 GB RAM free for evaluate-only images (Linux VM or any Docker host; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
-- Ports free: `8000`, `3000`, `5432`, `6379`
+- ~4 GB RAM free for lite images (evaluate + AGE + graph-service; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
+- Ports free: `8000`, `8001`, `3000`, `5432`, `6379`
 
 ## Steps
 
@@ -25,7 +25,7 @@ cp infra/deploy/env/community.env.example infra/deploy/.env
 # Local try-it: allow unauthenticated evaluate (never use in production)
 echo 'ALLOW_INSECURE_NO_AUTH=true' >> infra/deploy/.env
 
-# Evaluate-only (+ optional fraud-desk overlay for lean nav + desk-strict)
+# Lite = evaluate + AGE graph (+ optional fraud-desk overlay for lean nav + desk-strict)
 docker compose \
   -f infra/deploy/docker-compose.lite.yml \
   -f infra/deploy/docker-compose.fraud-desk.yml \
@@ -67,6 +67,8 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — first paint is `/graph` 
 
 | Topic | Guide |
 |-------|--------|
+| Leftovers + Hunt | [Feature data flows §3](./feature-data-flows.md#3-leftovers-hunt-brief-sar) |
+| Observe / promote | [shadow-and-ab-testing.md](./shadow-and-ab-testing.md) |
 | Community vs Pro profiles | [deployment-profiles-community-vs-pro.md](./deployment.md) |
 | Production hardening | `infra/deploy/docker-compose.production-hardening.yml` + [tls-pinning-and-signed-requests.md](./tls-pinning-and-signed-requests.md) |
 | Counter replay parity | [counter-replay-parity.md](./counter-replay-parity.md) |

@@ -1,5 +1,7 @@
 # Leftover cost + labeled helpfulness on named-draft promote Implementation Plan
 
+> **Shipped on `master` except Task 9 (shadow-first / force-live).** Do not re-execute Tasks 1–8 as greenfield.
+>
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop a named-draft promote when leftover cost or leftover-extra helpfulness fails, and allow host auto-promote only after the user provisions gates on first review.

@@ -17,8 +17,6 @@ _INDEX_PATHS = [
     "docs/compliance/CLAIM_LOCK.md",
     "docs/compliance/partner-fusion-proof.stable.sha256",
     "docs/compliance/partner-fusion-proof.live.status",
-    "docs/STUB_REGISTER.md",
-    "docs/TIER_1_HONESTY_PROGRAM.md",
     "docs/docs/guides/feature-serving-contract.md",
     "docs/docs/guides/partner-enrichment-fusion.md",
     "scripts/audit_stubs.py",

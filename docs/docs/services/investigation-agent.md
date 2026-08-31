@@ -20,7 +20,7 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 !!! note "Contracts & guides"
 
     OpenAPI: `contracts/openapi/investigation-agent.yaml`  
-    [Feature data flows](../guides/feature-data-flows.md) · [intended use](../guides/investigation-agent-intended-use-and-data-flows.md) · [LLM data flow](../guides/investigation-agent-llm-data-flow.md) · [honesty](../honesty.md)
+    [Feature data flows](../guides/feature-data-flows.md) · [intended use](../guides/investigation-agent-intended-use-and-data-flows.md) · [LLM data flow](../guides/investigation-agent-llm-data-flow.md)
 
 ---
 
