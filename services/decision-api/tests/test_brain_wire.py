@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from decision_api.brain_wire import HELPFULNESS_DROP, brain_wire_verdict
+from decision_api.brain_wire import brain_wire_verdict
 
 
 def _h(*, blockers=(), underpowered=False, labeled=5, tp=0, fp=5):

@@ -56,10 +56,14 @@ class TestEvaluateRequest:
 
     def test_blank_entity_id_rejected(self):
         with pytest.raises(ValidationError, match="entity_id"):
-            EvaluateRequest(tenant_id="t1", event_type="login", entity_id="  ", payload={})
+            EvaluateRequest(
+                tenant_id="t1", event_type="login", entity_id="  ", role="member", payload={}
+            )
 
     def test_entity_id_stripped(self):
-        r = EvaluateRequest(tenant_id="t1", event_type="login", entity_id="  u1  ", payload={})
+        r = EvaluateRequest(
+            tenant_id="t1", event_type="login", entity_id="  u1  ", role="member", payload={}
+        )
         assert r.entity_id == "u1"
 
     def test_all_event_types(self):

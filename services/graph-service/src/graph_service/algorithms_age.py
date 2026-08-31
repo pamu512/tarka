@@ -389,7 +389,7 @@ async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
 def entity_risk_sql(hop_depth: int) -> str:
     # ponytail: AGE 1.6 has no [*1..n]; community_size is 1-hop degree + 1.
     _ = hop_depth
-    return f"""
+    return """
     SELECT CAST(CAST(tags AS VARCHAR) AS JSON) as tags,
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
            CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,

@@ -67,7 +67,9 @@ def _gate(
         "extra_fp": fp,
         "fp_rate_cap": fp_cap,
     }
-    leftover_blockers = list(leftover_blockers if leftover_blockers is not None else helpfulness["blockers"])
+    leftover_blockers = list(
+        leftover_blockers if leftover_blockers is not None else helpfulness["blockers"]
+    )
     return {
         "leftover_promote_gate": {
             "blockers": leftover_blockers,

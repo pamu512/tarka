@@ -37,7 +37,7 @@ def case_client():
 
 
 def _case(**kw):
-    base = dict(status="open", entity_id="buyer-1", labels=["act:hold"])
+    base = {"status": "open", "entity_id": "buyer-1", "labels": ["act:hold"]}
     base.update(kw)
     return SimpleNamespace(**base)
 

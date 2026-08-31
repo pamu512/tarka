@@ -35,7 +35,11 @@ except ImportError:  # ponytail: one copy; upgrade is a shared wheel
         h = helpfulness if isinstance(helpfulness, Mapping) else {}
         blockers = {str(b) for b in (h.get("blockers") or []) if b}
         drop = next(
-            (b for b in ("leftover_extras_fp_over_cap", "leftover_extras_no_lift") if b in blockers),
+            (
+                b
+                for b in ("leftover_extras_fp_over_cap", "leftover_extras_no_lift")
+                if b in blockers
+            ),
             None,
         )
         if drop:
@@ -371,9 +375,7 @@ async def publish_scout_burst_packs(
                 continue
 
             actor = authored_by or "scout_coordinated_burst"
-            gate = await leftover_gate_payload(
-                tid, decision_api_url=decision_api_url, actor=actor
-            )
+            gate = await leftover_gate_payload(tid, decision_api_url=decision_api_url, actor=actor)
             if gate is None:
                 dropped.append({"fingerprint": fk, "reason": "leftover_helpfulness_unavailable"})
                 continue

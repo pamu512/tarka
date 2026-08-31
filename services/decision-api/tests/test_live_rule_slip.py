@@ -11,7 +11,6 @@ from decision_api.live_rule_slip import (
     mix_value,
     resolve_y,
     sanitize_rule_id,
-    split_window,
     successor_mix,
     write_slip_pack,
 )
