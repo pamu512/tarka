@@ -688,4 +688,59 @@ mod tests {
         .unwrap();
         assert!(eval_ast(&shipped_uses_device_ast(), &hop));
     }
+
+    fn shipped_instrument_ast() -> AstNode {
+        let pack: Value = serde_json::from_str(include_str!(
+            "../../../services/decision-api/rules/graph_v1_has_instrument_v1.json"
+        ))
+        .unwrap();
+        parse_ast_strict_in_rule(&pack["rules"][0]["when_ast"], "when_ast", "has_instrument")
+            .unwrap()
+    }
+
+    fn instrument_hop_features() -> Map<String, Value> {
+        json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "email:sold@x.com", "type": "HAS_EMAIL"}
+                ],
+                "multi_id_user_ids": ["bob"],
+                "sibling_flags": {"bob": "1"},
+                "signed_etypes": ["HAS_EMAIL", "HAS_PHONE", "HAS_CARD"]
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap()
+    }
+
+    #[test]
+    fn shipped_instrument_pack_flags_email_plus_multi_id() {
+        assert!(eval_ast(&shipped_instrument_ast(), &instrument_hop_features()));
+    }
+
+    #[test]
+    fn shipped_instrument_pack_misses_on_graph_missing() {
+        let missing = json!({
+            "_graph_hop_v1": {"status": "graph:missing", "named_edges": [], "multi_id_user_ids": []}
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&shipped_instrument_ast(), &missing));
+    }
+
+    #[test]
+    fn shipped_instrument_pack_replay_reads_stored_hop_fields() {
+        let ast = shipped_instrument_ast();
+        let live = instrument_hop_features();
+        let stored = live.get("_graph_hop_v1").cloned().unwrap();
+        let replay = json!({ "_graph_hop_v1": stored })
+            .as_object()
+            .cloned()
+            .unwrap();
+        assert_eq!(eval_ast(&ast, &live), eval_ast(&ast, &replay));
+        assert!(eval_ast(&ast, &live));
+    }
 }

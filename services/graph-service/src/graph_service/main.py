@@ -468,11 +468,15 @@ async def get_entity_tags(external_id: str, tenant_id: str):
 
 
 @app.get("/v1/entities/{external_id}/deep-context")
-async def entity_deep_context(external_id: str, tenant_id: str):
+async def entity_deep_context(external_id: str, tenant_id: str, request: Request):
     """Deep neighborhood context for analysts (transactions, IPs, risk snapshot).
 
     Returns ``404`` when the entity is not present in the graph database for the tenant.
+    Hunt Decision ACL: no intersecting markings → 404, same as GET /entities.
     """
+    gated = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
+    if _entity_from_subgraph(gated, external_id) is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
     data = await query_entity_deep_context(tenant_id, external_id)
     if data is None:
         raise HTTPException(status_code=404, detail="entity_not_found")

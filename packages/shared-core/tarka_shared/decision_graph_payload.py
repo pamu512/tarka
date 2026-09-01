@@ -276,7 +276,7 @@ def build_evaluate_objects(
         card_oid = _instrument_id("card", card)
         _obj(card_oid, "Card", {"card_id": card.strip().lower()})
         links.append(
-            {"from_external_id": person_id, "to_external_id": card_oid, "relationship": "USED"}
+            {"from_external_id": person_id, "to_external_id": card_oid, "relationship": "HAS_CARD"}
         )
 
     acct = _trim(pl.get("account_id"))
@@ -434,6 +434,9 @@ def normalize_markings(raw: Any) -> list[str]:
         s = str(item or "").strip().lower()
         if s and s not in out:
             out.append(s)
+    # Explicit [] stays hidden. None / garbage still default to desk.
+    if isinstance(raw, list):
+        return out
     return out or list(DEFAULT_MARKINGS)
 
 
