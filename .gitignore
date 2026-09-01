@@ -86,3 +86,6 @@ docs/site/
 
 # Brainstorm visual companion sessions (local mockups)
 .superpowers/
+
+# Local buyer script — not public product copy
+buyer-demo-5min.md

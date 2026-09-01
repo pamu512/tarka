@@ -121,6 +121,69 @@ def test_evaluate_objects_write_satisfies_uses_device_atom():
     assert eval_graph_v1("has_etype", hop, etype="SEEN_FROM_IP", tenant_id="t1") is True
 
 
+def test_shared_email_is_multi_id_bridge_and_signed_etype():
+    from graph_contract import graph_answers_from_neighborhood
+
+    answers = graph_answers_from_neighborhood(
+        "acct-old",
+        [
+            {"id": "acct-old", "labels": ["Person"]},
+            {"id": "acct-new", "labels": ["Person"]},
+            {"id": "email:sold@x.com", "labels": ["Email"]},
+        ],
+        [
+            {"from_id": "acct-old", "to_id": "email:sold@x.com", "type": "HAS_EMAIL"},
+            {"from_id": "acct-new", "to_id": "email:sold@x.com", "type": "HAS_EMAIL"},
+        ],
+    )
+    assert "acct-new" in answers["multi_id_user_ids"]
+    hop = hop_view_from_graph_meta(
+        answers,
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="acct-old",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="HAS_EMAIL", tenant_id="t1") is True
+    assert eval_graph_v1("has_multi_id", hop, tenant_id="t1") is True
+    assert require_pack_etype("t1", "HAS_EMAIL") == "HAS_EMAIL"
+    assert require_pack_etype("t1", "HAS_CARD") == "HAS_CARD"
+
+
+def test_evaluate_objects_write_satisfies_instrument_atoms():
+    from tarka_shared.decision_graph_payload import build_evaluate_objects
+
+    objects, links = build_evaluate_objects(
+        trace_id="tr-1",
+        entity_id="alice",
+        event_type="login",
+        payload={
+            "email": "sold@x.com",
+            "phone": "+15550199",
+            "card_id": "cardtok-1",
+        },
+    )
+    rels = {lk["relationship"] for lk in links}
+    assert "HAS_EMAIL" in rels
+    assert "HAS_PHONE" in rels
+    assert "HAS_CARD" in rels
+    assert not any(
+        lk["relationship"] == "USED" and str(lk["to_external_id"]).startswith("card:")
+        for lk in links
+    )
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": links,
+            "vertices": [{"id": o["external_id"], "labels": [o["entity_type"]]} for o in objects],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="alice",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="HAS_EMAIL", tenant_id="t1") is True
+    assert eval_graph_v1("has_etype", hop, etype="HAS_PHONE", tenant_id="t1") is True
+    assert eval_graph_v1("has_etype", hop, etype="HAS_CARD", tenant_id="t1") is True
+
+
 def test_empty_url_does_not_fire_and_says_graph_missing():
     hop = hop_view_from_graph_meta(
         _shared_device_hop(),

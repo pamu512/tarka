@@ -80,6 +80,7 @@ ALLOWED_RELS = frozenset(
         "USES_DEVICE",
         "HAS_EMAIL",
         "HAS_PHONE",
+        "HAS_CARD",
         "SEEN_FROM_IP",
         "PAYS_WITH",
         "RESULTED_IN",

@@ -27,6 +27,7 @@ async def test_mirror_upserts_typed_objects_and_fills_resulted_in(monkeypatch):
         "PERFORMED_LOGIN",
         "HAS_EMAIL",
         "HAS_PHONE",
+        "HAS_CARD",
         "RESULTED_IN",
         "BASED_ON",
         "SUPERSEDES",

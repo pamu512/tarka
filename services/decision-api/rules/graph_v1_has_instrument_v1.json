@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "name": "graph_v1_has_instrument_v1",
+  "mode": "shadow",
+  "description": "FLAG when the as-of hop has signed HAS_EMAIL / HAS_PHONE / HAS_CARD and (has_multi_id or sibling_prior_flag). Missing hop does not fire. Observe by default — flip mode to active after review.",
+  "rules": [
+    {
+      "id": "has_instrument_multi_or_sibling",
+      "when_ast": {
+        "type": "and",
+        "children": [
+          {
+            "type": "or",
+            "children": [
+              { "type": "graph_v1", "atom": "has_etype", "etype": "HAS_EMAIL" },
+              { "type": "graph_v1", "atom": "has_etype", "etype": "HAS_PHONE" },
+              { "type": "graph_v1", "atom": "has_etype", "etype": "HAS_CARD" }
+            ]
+          },
+          {
+            "type": "or",
+            "children": [
+              { "type": "graph_v1", "atom": "has_multi_id" },
+              { "type": "graph_v1", "atom": "sibling_prior_flag" }
+            ]
+          }
+        ]
+      },
+      "tags": ["FLAG", "graph:has_etype:HAS_EMAIL"],
+      "score_delta": 18,
+      "description": "Signed instrument hop plus multi-id or sibling prior FLAG"
+    }
+  ],
+  "tag_rules": []
+}
