@@ -23,7 +23,11 @@ spec:
             - name: GRAPH_BACKEND
               value: {{ .Values.graphService.graphBackend | default "age" | quote }}
             - name: DATABASE_URL
-              {{- if .Values.global.externalServices.postgres.enabled }}
+              {{- if .Values.graphService.databaseUrl }}
+              value: {{ .Values.graphService.databaseUrl | quote }}
+              {{- else if .Values.agePostgres.enabled }}
+              value: "postgresql://{{ .Values.agePostgres.auth.username }}:{{ .Values.agePostgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}:5432/{{ .Values.agePostgres.auth.database }}"
+              {{- else if .Values.global.externalServices.postgres.enabled }}
               value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
               {{- else }}
               value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
@@ -59,4 +63,16 @@ spec:
   ports:
     - port: {{ .Values.graphService.servicePort }}
       targetPort: {{ .Values.graphService.servicePort }}
+{{- if and .Values.graphService.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "tarka.fullname" . }}-graph-service
+spec:
+  minAvailable: {{ .Values.graphService.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-graph-service
+{{- end }}
 {{- end }}

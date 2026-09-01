@@ -45,6 +45,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set",
                 "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
                 "--set-string",
                 "coreApi.extraEnv.OIDC_ISSUER=https://idp.example.com",
             ]
@@ -110,6 +112,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 str(_CHART / "values.yaml"),
                 "--set",
                 "global.environment=prod",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
             ]
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
@@ -132,6 +136,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set",
                 "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
                 "--set",
                 "investigationAgent.enabled=true",
             ]
@@ -176,6 +182,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "coreApi.extraEnv.TARKA_DEPLOYMENT_PROFILE=production",
                 "--set",
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=false",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
             ]
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
@@ -190,6 +198,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "global.environment=prod",
                 "--set",
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
             ]
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
@@ -211,6 +221,8 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
                 "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
                 "--set",
                 "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+                "--set",
+                "coreApi.extraEnv.SAR_TRANSPORT=off",
             ]
         )
         self.assertNotEqual(r.returncode, 0, r.stdout)
@@ -220,6 +232,44 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         r = _helm(["-f", str(_CHART / "presets" / "full-on-k8s.yaml")])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("INGEST_REQUIRE_IDEMPOTENCY_KEY", r.stdout)
+
+    def test_enterprise_desk_templates_age_and_graph(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "enterprise-desk.values.yaml"
+            subprocess.run(
+                [
+                    "python3",
+                    str(_GEN),
+                    "--preset",
+                    "enterprise-desk-on-k8s",
+                    "--image-registry",
+                    "registry.example.com/tarka",
+                    "--db-url",
+                    "postgresql+asyncpg://fraud:pw@rds.internal:5432/fraud",
+                    "--redis-url",
+                    "rediss://elasticache:6379/0",
+                    "--output",
+                    str(out),
+                ],
+                cwd=str(_REPO),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            r = _helm(
+                [
+                    "-f",
+                    str(out),
+                    "--set",
+                    "global.appSecretsName=tarka-app-secrets",
+                ]
+            )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("age-postgres", r.stdout)
+        self.assertIn("graph-service", r.stdout)
+        self.assertIn("TARKA_AGE_POSTGRES_SERVICE", r.stdout)
+        self.assertIn("RULE_FORCE_LIVE_TWO_PERSON", r.stdout)
+        self.assertIn("RULE_GOVERNANCE_SECRET", r.stdout)
 
 
 if __name__ == "__main__":

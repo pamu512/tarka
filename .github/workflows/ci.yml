@@ -1015,3 +1015,21 @@ jobs:
             --redis-url 'redis://redis.internal:6379/0' \
             --output /tmp/prod-on-k8s.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml
+      - name: Helm template (generated enterprise-desk preset)
+        run: |
+          python3 infra/scripts/deploy/generate_cloud_values.py \
+            --preset enterprise-desk-on-k8s \
+            --image-registry registry.example.com/tarka \
+            --db-url 'postgresql+asyncpg://fraud:pw@rds.internal:5432/fraud' \
+            --redis-url 'rediss://elasticache:6379/0' \
+            --output /tmp/enterprise-desk.values.yaml
+          helm template tarka infra/deploy/helm/fraud-stack \
+            -f /tmp/enterprise-desk.values.yaml \
+            --set global.appSecretsName=tarka-app-secrets \
+            >/tmp/tarka-enterprise-desk.yaml
+          grep -q age-postgres /tmp/tarka-enterprise-desk.yaml
+          grep -q graph-service /tmp/tarka-enterprise-desk.yaml
+      - name: AGE restore drill contract
+        run: python3 infra/scripts/ci/test_age_restore_drill.py
+      - name: AGE restore drill (docker)
+        run: bash scripts/oss/age_restore_drill.sh

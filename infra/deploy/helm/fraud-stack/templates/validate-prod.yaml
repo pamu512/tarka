@@ -4,9 +4,11 @@
      PDB/HPA off) where the prod-on-k8s block below does not run. Empty OIDC_ISSUER
      stays valid (API keys remain the machine path). */ -}}
 {{- $extraEnv := ((.Values.coreApi).extraEnv | default dict) }}
-{{- $oidcIssuer := "" }}
+{{- $oidcIssuer := trim (toString (((.Values.coreApi).oidc).issuer | default "")) }}
+{{- if eq $oidcIssuer "" }}
 {{- if hasKey $extraEnv "OIDC_ISSUER" }}
 {{- $oidcIssuer = trim (toString (index $extraEnv "OIDC_ISSUER")) }}
+{{- end }}
 {{- end }}
 {{- $deployProfile := "" }}
 {{- if hasKey $extraEnv "TARKA_DEPLOYMENT_PROFILE" }}
@@ -27,6 +29,19 @@
 {{- end }}
 {{- if or (eq $redisResolved "") (contains "__" $redisResolved) }}
 {{- fail "OIDC_ISSUER is set in production but REDIS_URL is missing or still a placeholder — Redis is required for desk SSO (no in-process OIDC state fallback)" }}
+{{- end }}
+{{- end }}
+{{- if $prodProfile }}
+{{- $sar := "" }}
+{{- if hasKey $extraEnv "SAR_TRANSPORT" }}
+{{- $sar = lower (trim (toString (index $extraEnv "SAR_TRANSPORT"))) }}
+{{- end }}
+{{- $sarHost := "" }}
+{{- if hasKey $extraEnv "FINCEN_BSA_SFTP_HOST" }}
+{{- $sarHost = trim (toString (index $extraEnv "FINCEN_BSA_SFTP_HOST")) }}
+{{- end }}
+{{- if and (ne $sar "off") (ne $sar "disabled") (ne $sar "0") (ne $sar "false") (eq $sarHost "") }}
+{{- fail "SAR_TRANSPORT must be 'off' or FINCEN_BSA_SFTP_HOST must be set in production" }}
 {{- end }}
 {{- end }}
 {{- /* Python production_profile already requires TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY
@@ -147,5 +162,11 @@
 {{- end }}
 {{- if ((.Values.coreApi).apiKeyTenantMapOptional) }}
 {{- fail "global.environment=prod forbids optional API_KEY_TENANT_MAP (coreApi.apiKeyTenantMapOptional)" }}
+{{- end }}
+{{- if .Values.agePostgres.enabled }}
+{{- $ageName := .Values.agePostgres.serviceName | default "age-postgres" }}
+{{- if contains $ageName $dbUrl }}
+{{- fail "SoR databaseUrl must not point at Tarka AGE Hunt postgres (split-plane: buyer Postgres for SoR)" }}
+{{- end }}
 {{- end }}
 {{- end }}
