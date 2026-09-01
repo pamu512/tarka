@@ -191,6 +191,9 @@ def test_queryable_ids_are_shared_instruments_not_person_merge():
     }
     assert _link(la, "HAS_EMAIL", src="acct-old", dst="email:sold@x.com")
     assert _link(lb, "HAS_EMAIL", src="acct-new", dst="email:sold@x.com")
+    assert _link(la, "HAS_PHONE", src="acct-old", dst="phone:+15550199")
+    assert _link(la, "HAS_CARD", src="acct-old", dst="card:cardtok-1")
+    assert _link(lb, "HAS_CARD", src="acct-new", dst="card:cardtok-1")
 
 
 def test_email_change_writes_new_mailbox_keeps_person():
@@ -370,6 +373,29 @@ def test_evaluate_payload_stamps_source_and_desk_markings():
     dec = next(o for o in payload["objects"] if o["entity_type"] == "Decision")
     assert dec["properties"]["source"] == "dispute"
     assert dec["properties"]["markings"] == ["desk"]
+
+
+def test_empty_markings_stay_hidden():
+    """None → desk default. Explicit empty list stays empty (Hunt hides it)."""
+    mod = _load_payload()
+    assert mod.normalize_markings(None) == ["desk"]
+    assert mod.normalize_markings([]) == []
+    payload = mod.build_evaluate_payload(
+        tenant_id="t1",
+        trace_id="tr-hidden",
+        entity_id="acct-1",
+        event_type="payment",
+        decision="deny",
+        score=0.9,
+        rule_hits=[],
+        fallback_reason=None,
+        payload={"payment_id": "pay-1"},
+        metadata={"markings": []},
+        decision_log_record=None,
+        shadow_request=False,
+    )
+    dec = next(o for o in payload["objects"] if o["entity_type"] == "Decision")
+    assert dec["properties"]["markings"] == []
 
 
 def test_allow_decision_ids_over_cap_keeps_material_and_newest_allows():

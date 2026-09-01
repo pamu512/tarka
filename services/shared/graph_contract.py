@@ -219,7 +219,13 @@ def _is_user_node(node: dict[str, Any]) -> bool:
 
 def _is_bridge_node(node: dict[str, Any]) -> bool:
     labels = {str(x).lower() for x in _labels_of(node)}
-    return bool(labels & (BRIDGE_VTYPES | {"session", "document", "licenseplate"}))
+    return bool(
+        labels
+        & (
+            BRIDGE_VTYPES
+            | {"session", "document", "licenseplate", "email", "card", "address"}
+        )
+    )
 
 
 def graph_answers_from_neighborhood(
