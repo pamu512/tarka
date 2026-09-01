@@ -17,7 +17,9 @@ def test_entity_deep_context_404(client, monkeypatch):
         "graph_service.main.query_subgraph",
         AsyncMock(return_value={"nodes": [], "edges": []}),
     )
-    monkeypatch.setattr("graph_service.main.query_entity_deep_context", AsyncMock(return_value=None))
+    monkeypatch.setattr(
+        "graph_service.main.query_entity_deep_context", AsyncMock(return_value=None)
+    )
     r = client.get("/v1/entities/ghost-entity/deep-context", params={"tenant_id": "demo"})
     assert r.status_code == 404
     assert r.json().get("detail") == "entity_not_found"

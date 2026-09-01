@@ -127,7 +127,10 @@ def test_observe_load_does_not_activate_pack(tmp_path, monkeypatch):
 def test_instrument_plus_multi_id_flags(etype):
     _install(_pack())
     hits, tags, _, files = _eval(
-        _features(_hop_blob(multi_id=True, sibling=False, etype=etype), graph_url="http://graph.test")
+        _features(
+            _hop_blob(multi_id=True, sibling=False, etype=etype),
+            graph_url="http://graph.test",
+        )
     )
     assert "has_instrument_multi_or_sibling" in hits
     assert "FLAG" in tags
