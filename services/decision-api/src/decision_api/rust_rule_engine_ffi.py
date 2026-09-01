@@ -33,7 +33,8 @@ def _rust() -> Any | None:
 
 
 def rust_json_rules_engine_available() -> bool:
-    return _rust() is not None
+    tre = _rust()
+    return tre is not None and callable(getattr(tre, "evaluate_json_rules_rust", None))
 
 
 def parse_ast_malformed_detail(exc: BaseException) -> dict[str, Any] | None:

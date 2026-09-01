@@ -43,7 +43,7 @@ def rust_rule_engine_importable() -> bool:
     try:
         import tarka_rule_engine  # noqa: F401
 
-        return True
+        return callable(getattr(tarka_rule_engine, "evaluate_json_rules_rust", None))
     except ImportError:
         return False
 
@@ -95,7 +95,9 @@ def check_sor_not_age_postgres(env: Mapping[str, str]) -> list[str]:
     except Exception:
         host = ""
     marker = age_svc.strip().lower()
-    if marker and (marker in db_url.lower() or marker == host or host.endswith(f".{marker}")):
+    if marker and (
+        marker in db_url.lower() or marker == host or host.endswith(f".{marker}")
+    ):
         return [
             "DATABASE_URL must not point at Tarka AGE Hunt postgres in production "
             f"(split-plane: SoR is buyer Postgres; found AGE service {age_svc!r})"
