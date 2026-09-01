@@ -53,6 +53,7 @@ _DEFAULT_ENTITY_TYPES = [
     "Phone",
     "Address",
     "Card",
+    "List",
     "Custom",
 ]
 _DEFAULT_RELATIONSHIP_TYPES = [
@@ -66,6 +67,7 @@ _DEFAULT_RELATIONSHIP_TYPES = [
     "HAS_EMAIL",
     "HAS_PHONE",
     "HAS_CARD",
+    "HAS_LIST",
     "SEEN_FROM_IP",
     "PAYS_WITH",
     "REDEEMS",

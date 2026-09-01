@@ -743,4 +743,59 @@ mod tests {
         assert_eq!(eval_ast(&ast, &live), eval_ast(&ast, &replay));
         assert!(eval_ast(&ast, &live));
     }
+
+    fn shipped_list_ast() -> AstNode {
+        let pack: Value = serde_json::from_str(include_str!(
+            "../../../services/decision-api/rules/graph_v1_has_list_v1.json"
+        ))
+        .unwrap();
+        parse_ast_strict_in_rule(&pack["rules"][0]["when_ast"], "when_ast", "has_list")
+            .unwrap()
+    }
+
+    fn list_hop_features() -> Map<String, Value> {
+        json!({
+            "_graph_hop_v1": {
+                "status": "graph:ok",
+                "named_edges": [
+                    {"from_id": "alice", "to_id": "list:NK-1", "type": "HAS_LIST"}
+                ],
+                "multi_id_user_ids": ["bob"],
+                "sibling_flags": {"bob": "1"},
+                "signed_etypes": ["HAS_LIST"]
+            }
+        })
+        .as_object()
+        .cloned()
+        .unwrap()
+    }
+
+    #[test]
+    fn shipped_list_pack_flags_list_plus_multi_id() {
+        assert!(eval_ast(&shipped_list_ast(), &list_hop_features()));
+    }
+
+    #[test]
+    fn shipped_list_pack_misses_on_graph_missing() {
+        let missing = json!({
+            "_graph_hop_v1": {"status": "graph:missing", "named_edges": [], "multi_id_user_ids": []}
+        })
+        .as_object()
+        .cloned()
+        .unwrap();
+        assert!(!eval_ast(&shipped_list_ast(), &missing));
+    }
+
+    #[test]
+    fn shipped_list_pack_replay_reads_stored_hop_fields() {
+        let ast = shipped_list_ast();
+        let live = list_hop_features();
+        let stored = live.get("_graph_hop_v1").cloned().unwrap();
+        let replay = json!({ "_graph_hop_v1": stored })
+            .as_object()
+            .cloned()
+            .unwrap();
+        assert_eq!(eval_ast(&ast, &live), eval_ast(&ast, &replay));
+        assert!(eval_ast(&ast, &live));
+    }
 }

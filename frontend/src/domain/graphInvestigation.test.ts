@@ -358,6 +358,7 @@ describe("seedInstrumentFanout", () => {
         n("passport-9", { labels: ["Document"] }),
         n("card:tok", { labels: ["Card"] }),
         n("addr:12 oak", { labels: ["Address"] }),
+        n("list:NK-1", { labels: ["List"] }),
         n("login:tr", { labels: ["Login"] }),
       ],
       [
@@ -366,6 +367,7 @@ describe("seedInstrumentFanout", () => {
         { from_id: "buyer", to_id: "passport-9", type: "USED" },
         { from_id: "buyer", to_id: "card:tok", type: "USED" },
         { from_id: "buyer", to_id: "addr:12 oak", type: "USED" },
+        { from_id: "buyer", to_id: "list:NK-1", type: "HAS_LIST" },
         { from_id: "buyer", to_id: "login:tr", type: "PERFORMED_LOGIN" },
       ],
       null,
@@ -378,6 +380,7 @@ describe("seedInstrumentFanout", () => {
         "passport-9",
         "card:tok",
         "addr:12 oak",
+        "list:NK-1",
       ]),
     );
     expect(r.ids).not.toContain("login:tr");
@@ -407,6 +410,7 @@ describe("huntFetchTypes", () => {
   it("includes Person so an Email seed can show both owners", () => {
     expect(huntFetchTypes()).toContain("Person");
     expect(huntFetchTypes()).toContain("Email");
+    expect(huntFetchTypes()).toContain("List");
     expect(huntFetchTypes()).toContain("Decision");
   });
 });
