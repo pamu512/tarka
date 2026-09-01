@@ -93,6 +93,21 @@ spec:
               value: {{ .Values.coreApi.edgeSecurity.botScoreBlockThreshold | default 25 | quote }}
             - name: EDGE_BOT_SCORE_REVIEW_THRESHOLD
               value: {{ .Values.coreApi.edgeSecurity.botScoreReviewThreshold | default 50 | quote }}
+            {{- $oidcIssuer := trim (toString (((.Values.coreApi).oidc).issuer | default "")) }}
+            {{- if $oidcIssuer }}
+            - name: OIDC_ISSUER
+              value: {{ $oidcIssuer | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ (((.Values.coreApi).oidc).audience | default "tarka") | quote }}
+            - name: OIDC_JWKS_URL
+              value: {{ (((.Values.coreApi).oidc).jwksUrl | default "") | quote }}
+            - name: OIDC_ROLES_CLAIM
+              value: {{ (((.Values.coreApi).oidc).rolesClaim | default "roles") | quote }}
+            {{- end }}
+            {{- if .Values.agePostgres.enabled }}
+            - name: TARKA_AGE_POSTGRES_SERVICE
+              value: {{ printf "%s-%s" (include "tarka.fullname" .) (.Values.agePostgres.serviceName | default "age-postgres") | quote }}
+            {{- end }}
             {{- range $k, $v := .Values.coreApi.extraEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}
@@ -109,6 +124,12 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: EVIDENCE_SIGNING_SECRET
+                  optional: true
+            - name: RULE_GOVERNANCE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: RULE_GOVERNANCE_SECRET
                   optional: true
             - name: OIDC_CLIENT_SECRET
               valueFrom:

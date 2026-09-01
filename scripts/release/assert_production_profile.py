@@ -46,7 +46,12 @@ def main() -> int:
     if not args.env_file.is_file():
         print(f"FAIL: env file not found: {args.env_file}", file=sys.stderr)
         return 2
-    errors = check_production_env(_load_env_file(args.env_file))
+    errors = check_production_env(
+        _load_env_file(args.env_file),
+        # Fixture gate validates env fail-closed keys. Rust wheel presence is
+        # asserted separately by the core-api image build.
+        rust_available=True,
+    )
     if args.expect_fail:
         if errors:
             print(f"OK: expected failures ({len(errors)}):")

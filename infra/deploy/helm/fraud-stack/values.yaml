@@ -86,6 +86,12 @@ coreApi:
   allowInsecureNoAuth: false
   tenantBindingRequired: true
   apiKeyTenantMap: ""
+  # First-class desk SSO (optional). Empty issuer keeps API keys as the machine path.
+  oidc:
+    issuer: ""
+    audience: "tarka"
+    jwksUrl: ""
+    rolesClaim: "roles"
   resources: {}
   podDisruptionBudget:
     enabled: false
@@ -103,6 +109,30 @@ coreApi:
     botScoreReviewThreshold: 50
   extraEnv: {}
 
+# Tarka-shipped Apache AGE for Hunt only (SoR stays on buyer Postgres / chart postgres).
+# Enterprise desk enables this while postgres.enabled=false and externalServices.postgres=true.
+agePostgres:
+  enabled: false
+  image: apache/age:release_PG16_1.6.0
+  auth:
+    username: fraud
+    password: fraud
+    database: fraud
+  serviceName: age-postgres
+
+graphService:
+  enabled: false
+  image: tarka-graph-service
+  tag: latest
+  replicaCount: 1
+  servicePort: 8001
+  graphBackend: age
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  # When set, overrides SoR DATABASE_URL for the graph plane (AGE split-plane).
+  databaseUrl: ""
+
 # Chart default is evaluate / core-only. signal-api, investigation-agent, and
 # integration-ingress stay off until a preset or --set turns them on.
 # Compose equivalent: docker-compose.lite.yml (see presets/evaluate-only.yaml).
@@ -119,14 +149,6 @@ signalApi:
   locationDataVolume:
     enabled: false
     claimName: ""
-
-graphService:
-  enabled: false
-  image: tarka-graph-service
-  tag: latest
-  replicaCount: 1
-  servicePort: 8001
-  graphBackend: age
 
 triton:
   enabled: false
