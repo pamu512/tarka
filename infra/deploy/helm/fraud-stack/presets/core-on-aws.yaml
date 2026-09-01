@@ -27,6 +27,7 @@ coreApi:
     TARKA_DEPLOYMENT_PROFILE: production
     TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
     CASE_API_PRODUCTION_MODE: "true"
+    SAR_TRANSPORT: "off"
 
 signalApi:
   enabled: true

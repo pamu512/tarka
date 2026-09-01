@@ -187,6 +187,62 @@ async def test_force_live_requires_actor_and_reason(client):
 
 
 @pytest.mark.asyncio
+async def test_force_live_two_person_requires_distinct_approver(client, monkeypatch):
+    monkeypatch.setenv("RULE_FORCE_LIVE_TWO_PERSON", "1")
+    created = await client.post("/v1/rules", json=_pack_body("two_person_pack"))
+    assert created.status_code == 201, created.text
+    fname = created.json()["file"]
+
+    missing = await client.post(
+        f"/v1/rules/{fname}/force-live",
+        json={"reason": "incident-99 need live with maker checker"},
+        headers={"X-Actor": "ops-lead"},
+    )
+    assert missing.status_code == 403, missing.text
+    assert missing.json()["detail"] == "force_live_approver_required"
+    assert _on_disk(client, fname)["mode"] == "shadow"
+
+    same = await client.post(
+        f"/v1/rules/{fname}/force-live",
+        json={"reason": "incident-99 need live with maker checker"},
+        headers={"X-Actor": "ops-lead", "X-Force-Live-Approver": "ops-lead"},
+    )
+    assert same.status_code == 403, same.text
+    assert same.json()["detail"] == "force_live_approver_must_differ"
+
+    scout_approver = await client.post(
+        f"/v1/rules/{fname}/force-live",
+        json={"reason": "incident-99 need live with maker checker"},
+        headers={
+            "X-Actor": "ops-lead",
+            "X-Force-Live-Approver": "scout_bot",
+        },
+    )
+    assert scout_approver.status_code == 403, scout_approver.text
+    assert scout_approver.json()["detail"] == "force_live_human_only"
+
+    ok = await client.post(
+        f"/v1/rules/{fname}/force-live",
+        json={"reason": "incident-99 need live with maker checker"},
+        headers={
+            "X-Actor": "ops-lead",
+            "X-Force-Live-Approver": "sec-lead",
+        },
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["approver"] == "sec-lead"
+    assert _on_disk(client, fname)["mode"] == "active"
+
+    log = await client.get("/v1/rules/change-log")
+    row = next(
+        item
+        for item in log.json()["items"]
+        if item.get("action") == "rule_force_live" and item.get("file") == fname
+    )
+    assert row["detail"]["approver"] == "sec-lead"
+
+
+@pytest.mark.asyncio
 async def test_put_mode_active_is_shadow_first(client, monkeypatch):
     created = await client.post("/v1/rules", json=_pack_body("quiet_active"))
     assert created.status_code == 201, created.text

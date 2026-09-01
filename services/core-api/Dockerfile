@@ -1,3 +1,23 @@
+# Context: repository root
+#   docker build -f services/core-api/Dockerfile -t tarka-core-api:dev .
+
+FROM python:3.12-slim AS rust-wheel
+
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends build-essential curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && . "$HOME/.cargo/env" \
+    && pip install --no-cache-dir "maturin>=1.7,<2.0"
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+WORKDIR /build
+COPY packages/tarka-rule-engine /build/packages/tarka-rule-engine
+WORKDIR /build/packages/tarka-rule-engine
+RUN maturin build --release --out /wheels \
+    && ls -la /wheels/*.whl
+
 FROM python:3.12-slim
 
 RUN apt-get update \
@@ -35,17 +55,19 @@ COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 COPY services/core-api/config/decision_alembic.ini /app/config/decision_alembic.ini
 COPY services/core-api/config/decision_alembic.ini /app/alembic.ini
 COPY services/core-api/config/case_alembic.ini /app/config/case_alembic.ini
+COPY --from=rust-wheel /wheels /wheels
 RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
     && sed -i \
         -e 's|file:../core|file:/app/core|g' \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
+    && pip install --no-cache-dir /wheels/*.whl \
     && pip install --no-cache-dir -e . \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
     && rm -f /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \
     && find /usr/local/lib -path '*/pip/_vendor/vendor.txt' -exec sed -i -E '/^(setuptools|msgpack)==/d' {} + \
-    && rm -rf /root/.cache /tmp/pip-* \
+    && rm -rf /root/.cache /tmp/pip-* /wheels \
     && python - <<'PY'
 import pathlib, re, sys
 bad = []
@@ -71,6 +93,19 @@ for root in roots:
 bom = next(pathlib.Path("/usr/local/lib").rglob("pip/_vendor/bom.cdx.json"), None)
 if bom is not None:
     bad.append((str(bom), "pip vendor CycloneDX present"))
+try:
+    import tarka_rule_engine  # noqa: F401
+
+    if not callable(getattr(tarka_rule_engine, "evaluate_json_rules_rust", None)):
+        print(
+            "FAIL tarka_rule_engine missing evaluate_json_rules_rust",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+except ImportError as exc:
+    print("FAIL tarka_rule_engine missing:", exc, file=sys.stderr)
+    raise SystemExit(1)
+print("OK tarka_rule_engine import")
 if bad:
     print("FAIL stale packages:", bad, file=sys.stderr)
     raise SystemExit(1)

@@ -7,7 +7,14 @@ from pathlib import Path
 
 """Smoke-check cloud preset generation for Helm values."""
 
-PRESETS = ("core-on-aws", "investigation-on-aws", "core-on-gcp", "full-on-k8s", "prod-on-k8s")
+PRESETS = (
+    "core-on-aws",
+    "investigation-on-aws",
+    "core-on-gcp",
+    "full-on-k8s",
+    "prod-on-k8s",
+    "enterprise-desk-on-k8s",
+)
 SCRIPT = Path("infra/scripts/deploy/generate_cloud_values.py")
 OUTPUT_DIR = Path("infra/deploy/generated")
 

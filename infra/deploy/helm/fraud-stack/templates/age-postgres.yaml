@@ -1,0 +1,46 @@
+{{- if .Values.agePostgres.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}
+    spec:
+      containers:
+        - name: age-postgres
+          image: {{ .Values.agePostgres.image | quote }}
+          args: ["postgres", "-c", "shared_preload_libraries=age"]
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.agePostgres.auth.username | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.agePostgres.auth.password | default "fraud" | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.agePostgres.auth.database | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+{{- end }}
