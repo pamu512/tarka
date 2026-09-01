@@ -16,6 +16,7 @@ import {
   rankRelatedLinks,
   searchHitMatchedOn,
   searchHitViaSubtitle,
+  huntFetchTypes,
   seedInstrumentFanout,
   storedDisplayRisk,
   typeHistogram,
@@ -380,6 +381,33 @@ describe("seedInstrumentFanout", () => {
       ]),
     );
     expect(r.ids).not.toContain("login:tr");
+  });
+
+  it("Person seed ring does not pick neighboring Persons", () => {
+    const r = seedInstrumentFanout(
+      "acct-old",
+      [
+        n("acct-old", { labels: ["Person"] }),
+        n("acct-new", { labels: ["Person"] }),
+        n("email:sold@x.com", { labels: ["Email"] }),
+      ],
+      [
+        { from_id: "acct-old", to_id: "email:sold@x.com", type: "HAS_EMAIL" },
+        { from_id: "acct-new", to_id: "email:sold@x.com", type: "HAS_EMAIL" },
+      ],
+      null,
+      { nowMs: now, lookbackDays: 90, max: 25 },
+    );
+    expect(r.ids).toContain("email:sold@x.com");
+    expect(r.ids).not.toContain("acct-new");
+  });
+});
+
+describe("huntFetchTypes", () => {
+  it("includes Person so an Email seed can show both owners", () => {
+    expect(huntFetchTypes()).toContain("Person");
+    expect(huntFetchTypes()).toContain("Email");
+    expect(huntFetchTypes()).toContain("Decision");
   });
 });
 
