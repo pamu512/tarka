@@ -261,10 +261,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.auth_user = user
             if tenant_binding_required():
                 await enforce_tenant_access(request, allowed_tenants=user.tenant_ids)
-        except HTTPException:
-            raise
+        except HTTPException as exc:
+            # BaseHTTPMiddleware does not map raised HTTPException to a response.
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
         except Exception as e:
-            raise HTTPException(401, str(e))
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=401, content={"detail": str(e)})
         return await call_next(request)
 
 

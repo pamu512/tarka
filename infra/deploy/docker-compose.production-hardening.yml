@@ -32,6 +32,9 @@ services:
       ALLOW_INSECURE_NO_AUTH: "false"
       TENANT_BINDING_REQUIRED: "true"
       TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
+      # Required in production (set via secrets manager — do not commit real values):
+      # RULE_GOVERNANCE_SECRET: "${RULE_GOVERNANCE_SECRET}"
+      SAR_TRANSPORT: ${SAR_TRANSPORT:-off}
       # Fraud spine Phase 2 — fail-closed catalog/freshness + CQRS lag budget on evaluate
       FEATURE_CATALOG_FAIL_CLOSED_EVENT_TYPES: "payment"
       GRAPH_RISK_FRESHNESS_DEFAULT_POLICY: "warn"

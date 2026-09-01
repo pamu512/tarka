@@ -178,6 +178,30 @@ def _require_force_live_human(x_actor: str | None) -> str:
     return actor[:256]
 
 
+def _force_live_two_person_required() -> bool:
+    return (os.environ.get("RULE_FORCE_LIVE_TWO_PERSON") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _require_force_live_approver(actor: str, x_approver: str | None) -> str | None:
+    """Optional maker-checker: X-Force-Live-Approver must differ from X-Actor."""
+    if not _force_live_two_person_required():
+        return None
+    approver = (x_approver or "").strip()
+    if not approver:
+        raise HTTPException(403, "force_live_approver_required")
+    low = approver.lower()
+    if low.startswith("scout") or "assist" in low:
+        raise HTTPException(403, "force_live_human_only")
+    if low == actor.strip().lower():
+        raise HTTPException(403, "force_live_approver_must_differ")
+    return approver[:256]
+
+
 class ForceLiveBody(BaseModel):
     reason: str = Field(min_length=8, max_length=2000)
 
@@ -576,31 +600,45 @@ async def force_live_pack(
     filename: str,
     body: ForceLiveBody,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_force_live_approver: str | None = Header(
+        default=None, alias="X-Force-Live-Approver"
+    ),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
     ),
 ):
-    """Skip leftover + science. Human actor + reason only. Scout / assist 403."""
+    """Skip leftover + science. Human actor + reason only. Scout / assist 403.
+
+    When ``RULE_FORCE_LIVE_TWO_PERSON`` is on, require ``X-Force-Live-Approver``
+    distinct from the actor (stretch maker-checker).
+    """
     _require_rule_governance(x_rule_governance_secret)
     actor = _require_force_live_human(x_actor)
+    approver = _require_force_live_approver(actor, x_force_live_approver)
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     prior_mode = str(pack.get("mode") or "active")
     pack["mode"] = "active"
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
+    detail: dict = {
+        "actor": actor,
+        "reason": body.reason,
+        "file": filename,
+        "prior_mode": prior_mode,
+    }
+    if approver is not None:
+        detail["approver"] = approver
     _append_rule_change(
         "rule_force_live",
         filename,
         actor=actor,
-        detail={
-            "actor": actor,
-            "reason": body.reason,
-            "file": filename,
-            "prior_mode": prior_mode,
-        },
+        detail=detail,
     )
-    return {"mode": "active", "forced": True, "file": filename}
+    out: dict = {"mode": "active", "forced": True, "file": filename}
+    if approver is not None:
+        out["approver"] = approver
+    return out
 
 
 @router.get("/{filename}")
