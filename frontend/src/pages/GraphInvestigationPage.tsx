@@ -28,6 +28,7 @@ import {
   HUNT_LOOKBACK_DEFAULT_DAYS,
   HUNT_LOOKBACK_MAX_DAYS,
   HUNT_SEED_MAX,
+  huntFetchTypes,
   lastOutcomeLabel,
   pickHomePerson,
   readLastPersonEntity,
@@ -80,20 +81,6 @@ const FALLBACK_SCHEMA_TYPES = [
   "Place",
   "Address",
   "Card",
-];
-
-const SEED_EXPAND_TYPES = [
-  "Device",
-  "Place",
-  "Payment",
-  "Ip",
-  "Document",
-  "LicensePlate",
-  "Email",
-  "Phone",
-  "Card",
-  "Address",
-  "Decision",
 ];
 
 const EMPTY_FILTER: WorkspaceFilter = {
@@ -165,7 +152,7 @@ export default function GraphInvestigationPage() {
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
   const [minRiskText, setMinRiskText] = useState("");
-  const [expandTypes, setExpandTypes] = useState<string[]>(SEED_EXPAND_TYPES);
+  const [expandTypes, setExpandTypes] = useState<string[]>(huntFetchTypes());
   const [expandMax, setExpandMax] = useState(HUNT_SEED_MAX);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -350,7 +337,7 @@ export default function GraphInvestigationPage() {
         const [sub, links] = await Promise.all([
           graph.subgraph(entityId, tenantId, depth, {
             lookbackDays,
-            types: SEED_EXPAND_TYPES,
+            types: huntFetchTypes(),
           }),
           graph.entityLinks(entityId, tenantId),
         ]);
@@ -375,7 +362,7 @@ export default function GraphInvestigationPage() {
         if (instrumentIds.length > 0) {
           const settled = await Promise.allSettled(
             instrumentIds.map((id) =>
-              graph.subgraph(id, tenantId, 1, { lookbackDays, types: SEED_EXPAND_TYPES }),
+              graph.subgraph(id, tenantId, 1, { lookbackDays, types: huntFetchTypes() }),
             ),
           );
           if (cancelled) return;
@@ -881,7 +868,7 @@ export default function GraphInvestigationPage() {
             {selectedId ? (
               <div className="shrink-0 border-b border-surface-800 px-2 py-2 space-y-2">
                 <div className="flex flex-wrap gap-1">
-                  {[...SEED_EXPAND_TYPES, "Login", "Session"].map((t) => {
+                  {[...huntFetchTypes(), "Login", "Session"].map((t) => {
                     const on = expandTypes.includes(t);
                     return (
                       <button

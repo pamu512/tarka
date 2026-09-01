@@ -11,6 +11,7 @@ Hunt grows like an investigation graph (selective expand, caps, receipt lookback
 Person (or leftover `/graph?entity_id=`) opens with a small ring:
 
 - Durable instruments only: Device, Place, Payment, Ip, Document, LicensePlate, Email, Phone, Card, Address
+- Expand / identifier seed also fetches Person (mailbox owners). Person stays off the Person-seed auto-ring.
 - At most one Decision (latest visible / leftover if `decision_id` is on the URL)
 - No Login or Session auto-dump
 - Cap 25, ranked: `attend_pack` > attention importance > deny/review/flag > recency

@@ -12,6 +12,24 @@ export const HUNT_LOOKBACK_DEFAULT_DAYS = 90;
 export const HUNT_LOOKBACK_MAX_DAYS = 2555;
 export const HUNT_SEED_MAX = 25;
 
+/** Subgraph / expand allow-list. Person is here so an Email seed can show owners. */
+export function huntFetchTypes(): string[] {
+  return [
+    "Device",
+    "Place",
+    "Payment",
+    "Ip",
+    "Document",
+    "LicensePlate",
+    "Email",
+    "Phone",
+    "Card",
+    "Address",
+    "Decision",
+    "Person",
+  ];
+}
+
 export function parseGraphWorkspaceParams(
   sp: URLSearchParams,
   defaultTenant: string,
