@@ -44,6 +44,7 @@ ALLOWED_LABELS = frozenset(
         "Place",
         "Address",
         "Card",
+        "List",
         "Custom",
     }
 )
@@ -64,6 +65,7 @@ ALLOWED_RELS = frozenset(
         "HAS_EMAIL",
         "HAS_PHONE",
         "HAS_CARD",
+        "HAS_LIST",
         "SEEN_FROM_IP",
         "PAYS_WITH",
         "RESULTED_IN",

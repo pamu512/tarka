@@ -62,6 +62,7 @@ const NODE_COLORS: Record<string, string> = {
   Place: "#10b981",
   Address: "#84cc16",
   Card: "#f43f5e",
+  List: "#0ea5e9",
 };
 
 const FALLBACK_SCHEMA_TYPES = [
@@ -81,6 +82,7 @@ const FALLBACK_SCHEMA_TYPES = [
   "Place",
   "Address",
   "Card",
+  "List",
 ];
 
 const EMPTY_FILTER: WorkspaceFilter = {

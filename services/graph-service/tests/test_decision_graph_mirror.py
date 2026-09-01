@@ -18,6 +18,7 @@ async def test_mirror_upserts_typed_objects_and_fills_resulted_in(monkeypatch):
         "Place",
         "Address",
         "Card",
+        "List",
     } <= ALLOWED_LABELS
     assert {
         "USED_DEVICE",
@@ -28,6 +29,7 @@ async def test_mirror_upserts_typed_objects_and_fills_resulted_in(monkeypatch):
         "HAS_EMAIL",
         "HAS_PHONE",
         "HAS_CARD",
+        "HAS_LIST",
         "RESULTED_IN",
         "BASED_ON",
         "SUPERSEDES",
