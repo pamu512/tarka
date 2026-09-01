@@ -266,10 +266,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             from fastapi.responses import JSONResponse
 
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-        except Exception as e:
+        except Exception:
             from fastapi.responses import JSONResponse
 
-            return JSONResponse(status_code=401, content={"detail": str(e)})
+            # Do not leak exception text / stack to clients (CodeQL).
+            return JSONResponse(status_code=401, content={"detail": "authentication failed"})
         return await call_next(request)
 
 

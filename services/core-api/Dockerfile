@@ -95,6 +95,13 @@ if bom is not None:
     bad.append((str(bom), "pip vendor CycloneDX present"))
 try:
     import tarka_rule_engine  # noqa: F401
+
+    if not callable(getattr(tarka_rule_engine, "evaluate_json_rules_rust", None)):
+        print(
+            "FAIL tarka_rule_engine missing evaluate_json_rules_rust",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 except ImportError as exc:
     print("FAIL tarka_rule_engine missing:", exc, file=sys.stderr)
     raise SystemExit(1)

@@ -45,9 +45,7 @@ def test_missing_keys_and_idempotency_fail():
 
 def test_assert_raises():
     with pytest.raises(RuntimeError, match="production profile"):
-        assert_production_env(
-            {"ALLOW_INSECURE_NO_AUTH": "1"}, rust_available=True
-        )
+        assert_production_env({"ALLOW_INSECURE_NO_AUTH": "1"}, rust_available=True)
 
 
 def test_deployment_profile_flag():

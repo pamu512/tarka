@@ -7,6 +7,17 @@ pub mod hot_reload;
 pub mod nats_watcher;
 pub mod ruleset;
 
+#[cfg(feature = "python")]
+mod error;
+#[cfg(feature = "python")]
+mod logging_bridge;
+#[cfg(feature = "python")]
+mod pack_ffi;
+#[cfg(feature = "python")]
+mod pack_json_ast;
+#[cfg(feature = "python")]
+mod python;
+
 pub use ruleset::{EvaluationResult, RuleSet};
 
 pub fn evaluate_rules_json(
@@ -15,9 +26,6 @@ pub fn evaluate_rules_json(
 ) -> EvaluationResult {
     ruleset::evaluate_rules_json(rules, features)
 }
-
-#[cfg(feature = "python")]
-mod python;
 
 #[cfg(test)]
 mod tests {

@@ -79,5 +79,6 @@ fn tarka_rule_engine_native(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResul
     m.add_class::<EvaluationContext>()?;
     m.add_class::<RuleEngine>()?;
     m.add_function(wrap_pyfunction!(evaluate_observation_rules_json, m)?)?;
+    crate::pack_ffi::register_pack_ffi(m)?;
     Ok(())
 }
