@@ -28,7 +28,9 @@ HOP_FEATURE_KEY = "_graph_hop_v1"
 PACK_HOP_ETYPES = frozenset(
     {
         "USES_DEVICE",
+        "HAS_EMAIL",
         "HAS_PHONE",
+        "HAS_CARD",
         "SEEN_FROM_IP",
         "SEEN_AT",
         "PAYS_WITH",
