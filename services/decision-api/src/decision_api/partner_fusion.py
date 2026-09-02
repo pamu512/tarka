@@ -52,6 +52,10 @@ def signals_to_feature_tags(
             features["vendor_incognia_risk"] = score
             if meta.get("place_id"):
                 features["vendor_incognia_place_id"] = str(meta["place_id"])[:256]
+        if vendor == "opensanctions":
+            list_id = str(meta.get("top_id") or "").strip()
+            if list_id:
+                features["vendor_opensanctions_list_id"] = list_id[:128]
     return features, tags, evidence
 
 
@@ -145,6 +149,32 @@ def graph_writeback_hints(
                     },
                 }
             )
+    list_id = str(features.get("vendor_opensanctions_list_id") or "").strip()
+    if list_id:
+        lid = f"list:{list_id[:128]}"
+        vertices.append(
+            {
+                "label": "List",
+                "id": lid,
+                "props": {
+                    "source": "opensanctions",
+                    "tenant_id": tenant_id,
+                    "list_id": list_id[:128],
+                },
+            }
+        )
+        edges.append(
+            {
+                "type": "HAS_LIST",
+                "from": {"label": "Entity", "id": entity_id},
+                "to": {"label": "List", "id": lid},
+                "props": {
+                    "observed_at": "evaluate",
+                    "transaction_id": transaction_id,
+                    "source": "opensanctions",
+                },
+            }
+        )
     return {
         "schema_id": "tarka.partner_graph_writeback/v1",
         "vertices": vertices,

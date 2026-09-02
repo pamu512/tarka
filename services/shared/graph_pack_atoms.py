@@ -31,6 +31,7 @@ PACK_HOP_ETYPES = frozenset(
         "HAS_EMAIL",
         "HAS_PHONE",
         "HAS_CARD",
+        "HAS_LIST",
         "SEEN_FROM_IP",
         "SEEN_AT",
         "PAYS_WITH",

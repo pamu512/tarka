@@ -678,16 +678,25 @@ async def run_evaluate_decision(
             entity_id=body.entity_id,
         )
 
-        # Host device clusters → graph writeback (no vendor LIVE required)
-        if features.get("device_cluster_ids"):
+        # Host device clusters / list ids → graph writeback (no vendor LIVE required)
+        if features.get("device_cluster_ids") or features.get(
+            "vendor_opensanctions_list_id"
+        ):
             from decision_api.partner_fusion import graph_writeback_hints
 
+            host_wb: dict[str, Any] = {}
+            if features.get("device_cluster_ids"):
+                host_wb["device_cluster_ids"] = features["device_cluster_ids"]
+            if features.get("vendor_opensanctions_list_id"):
+                host_wb["vendor_opensanctions_list_id"] = features[
+                    "vendor_opensanctions_list_id"
+                ]
             cluster_hints = graph_writeback_hints(
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
                 transaction_id=str(trace_id),
                 tags=[],
-                features={"device_cluster_ids": features["device_cluster_ids"]},
+                features=host_wb,
             )
             if partner_graph_hints is None:
                 partner_graph_hints = cluster_hints

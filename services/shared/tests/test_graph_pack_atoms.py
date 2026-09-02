@@ -147,6 +147,33 @@ def test_shared_email_is_multi_id_bridge_and_signed_etype():
     assert eval_graph_v1("has_multi_id", hop, tenant_id="t1") is True
     assert require_pack_etype("t1", "HAS_EMAIL") == "HAS_EMAIL"
     assert require_pack_etype("t1", "HAS_CARD") == "HAS_CARD"
+    assert require_pack_etype("t1", "HAS_LIST") == "HAS_LIST"
+
+
+def test_shared_list_is_multi_id_bridge_and_signed_etype():
+    from graph_contract import graph_answers_from_neighborhood
+
+    answers = graph_answers_from_neighborhood(
+        "acct-old",
+        [
+            {"id": "acct-old", "labels": ["Person"]},
+            {"id": "acct-new", "labels": ["Person"]},
+            {"id": "list:NK-1", "labels": ["List"]},
+        ],
+        [
+            {"from_id": "acct-old", "to_id": "list:NK-1", "type": "HAS_LIST"},
+            {"from_id": "acct-new", "to_id": "list:NK-1", "type": "HAS_LIST"},
+        ],
+    )
+    assert "acct-new" in answers["multi_id_user_ids"]
+    hop = hop_view_from_graph_meta(
+        answers,
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="acct-old",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="HAS_LIST", tenant_id="t1") is True
+    assert eval_graph_v1("has_multi_id", hop, tenant_id="t1") is True
 
 
 def test_evaluate_objects_write_satisfies_instrument_atoms():

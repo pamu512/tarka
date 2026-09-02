@@ -25,6 +25,7 @@ export function huntFetchTypes(): string[] {
     "Phone",
     "Card",
     "Address",
+    "List",
     "Decision",
     "Person",
   ];
@@ -183,6 +184,7 @@ const HUNT_INSTRUMENT_LABELS = new Set([
   "Phone",
   "Card",
   "Address",
+  "List",
 ]);
 const HUNT_HIERARCHY_EXPAND_CAP = 8;
 const HUNT_RECEIPT_LABELS = new Set(["Login", "Session", "Decision"]);
