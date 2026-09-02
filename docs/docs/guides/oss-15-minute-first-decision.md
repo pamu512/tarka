@@ -2,6 +2,8 @@
 
 **Goal:** From a clean checkout, get a live evaluate response (and optional UI) in about 15 minutes using **Tarka Lite**.
 
+Self-hosting Tarka on your own metal or VPC for your own operations is allowed under Elastic License 2.0; providing Tarka to third parties as a hosted or managed service is not.
+
 ## Prerequisites
 
 - Docker + Docker Compose v2

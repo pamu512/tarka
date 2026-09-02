@@ -1,6 +1,6 @@
 # fraud-sdk-android (Kotlin)
 
-Apache-2.0. **`io.tarka.sdk`** — Decision API client with **`device_context`**, optional **Play Integrity** (`com.google.android.play:integrity`), OkHttp.
+Elastic-2.0. **`io.tarka.sdk`** — Decision API client with **`device_context`**, optional **Play Integrity** (`com.google.android.play:integrity`), OkHttp.
 
 ## Module layout
 

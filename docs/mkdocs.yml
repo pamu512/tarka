@@ -1,5 +1,5 @@
 site_name: "Tarka Documentation"
-site_description: "Modular, open-source fraud detection — real-time decisions, graph, cases, and local-first forensics."
+site_description: "Modular, source-available fraud detection — real-time decisions, graph, cases, and local-first forensics."
 site_url: https://tarka.dev
 
 repo_name: pamu512/tarka

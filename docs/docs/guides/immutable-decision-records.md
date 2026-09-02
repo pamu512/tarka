@@ -12,7 +12,7 @@ Tarka writes a canonical decision record for every evaluate call using schema `t
 - `artifact_manifest` with rule-pack fingerprint, schema/runtime versions, model/checkpoint metadata, and connector providers.
 - `record_hash` and `previous_record_hash` chain links for tamper-evident append checks.
 
-## OSS storage mode
+## Default storage mode
 
 By default, Decision API appends JSONL records to:
 

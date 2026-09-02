@@ -1,4 +1,4 @@
-# Investigation Copilot — integration contract (OSS reference)
+# Investigation Copilot — integration contract (reference)
 
 This document describes the **machine-readable integration surface** of `services/investigation-agent`, aligned with an **adapter-first** strategy: third parties implement **their** APIs behind a stable **logical tool surface** and declare a **`profile_id`**.
 

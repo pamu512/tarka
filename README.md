@@ -76,4 +76,6 @@ Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py). Publis
 
 ## License
 
-Application code is **Apache-2.0** unless a subdirectory states otherwise. Third-party graph/database runtimes carry their own licenses — see [`LICENSE-DEPENDENCIES.md`](LICENSE-DEPENDENCIES.md) when you enable them.
+Tarka application code is **source-available** under the **Elastic License 2.0**. You may `git clone`, modify, and run Tarka on your own metal or VPC for your own fraud operations. You may not provide Tarka to third parties as a hosted or managed service.
+
+Third-party graph/database runtimes (Apache AGE, Postgres, optional Janus/Neo4j) keep their own licenses — see [`LICENSE-DEPENDENCIES.md`](LICENSE-DEPENDENCIES.md). See [`LICENSE`](LICENSE) for the full ELv2 text.

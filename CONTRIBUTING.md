@@ -20,6 +20,8 @@ Maintainers may label issues, request more detail, or close duplicates.
 
 ## Submitting pull requests
 
+Contributions are under the Elastic License 2.0. Sign off commits (`git commit -s` / `Signed-off-by`) per the [Developer Certificate of Origin](https://developercertificate.org/).
+
 ### 1. One logical change per PR
 
 Keep each pull request focused on a single concern (one bug, one feature, or one docs/tooling update). Split unrelated edits into separate PRs.
