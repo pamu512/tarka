@@ -885,20 +885,28 @@ async def sanctions_screening_journal(
 
 @app.post("/v1/ops/sanctions-screening-refresh")
 async def sanctions_screening_refresh(
+    request: Request,
     force_download: bool = True,
     _user: AuthUser = Depends(require_role("admin")),
 ):
     """Reload OpenSanctions FtM cache into memory (admin). Does not forge LIVE partner pins."""
-    from integration_ingress.sanctions import _get_screener, record_refresh_stamp
+    from integration_ingress.sanctions import (
+        _get_screener,
+        record_refresh_stamp,
+        replay_journal_list_hits,
+    )
 
     screener = _get_screener()
     await screener.load(force_download=force_download)
     actor = getattr(_user, "sub", None) or getattr(_user, "user_id", None) or "admin"
     stamp = record_refresh_stamp(actor=str(actor), force_download=bool(force_download))
+    http = getattr(request.app.state, "http", None)
+    graph_ingest = await replay_journal_list_hits(http)
     out = screener.screening_ops_posture()
     out["refreshed"] = True
     out["force_download"] = bool(force_download)
     out["refresh_stamp"] = stamp
+    out["graph_ingest"] = graph_ingest
     return out
 
 
