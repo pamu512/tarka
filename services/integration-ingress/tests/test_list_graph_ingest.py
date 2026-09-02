@@ -46,6 +46,14 @@ def test_plan_skips_synthetic_or_empty_join():
         )
         is None
     )
+    assert (
+        plan_list_hit_ingest(
+            tenant_id="acme",
+            subject_id="OPS:acme:Alice",
+            list_id="NK-1",
+        )
+        is None
+    )
 
 
 @pytest.mark.asyncio
@@ -177,7 +185,60 @@ async def test_replay_journal_ingests_hits_skips_synthetic(tmp_path, monkeypatch
     http = SimpleNamespace()
     out = await replay_journal_list_hits(http)
     assert out["ingested"] == 1
-    assert out["skipped"] >= 2
+    assert out["skipped"] == 1
     ingest.assert_awaited_once()
     assert ingest.await_args.kwargs["subject_id"] == "alice"
     assert ingest.await_args.kwargs["list_id"] == "NK-1"
+
+
+@pytest.mark.asyncio
+async def test_replay_hits_survive_a_window_of_misses(tmp_path, monkeypatch):
+    journal = tmp_path / "j.jsonl"
+    monkeypatch.setenv("SANCTIONS_SCREENING_JOURNAL_PATH", str(journal))
+    from integration_ingress.sanctions import append_screening_journal
+
+    append_screening_journal(
+        {
+            "tenant_id": "acme",
+            "subject_id": "alice",
+            "match_found": True,
+            "list_id": "NK-1",
+        }
+    )
+    for i in range(500):
+        append_screening_journal(
+            {
+                "tenant_id": "acme",
+                "subject_id": f"miss-{i}",
+                "match_found": False,
+            }
+        )
+    ingest = AsyncMock(return_value={"status": "ok"})
+    monkeypatch.setattr("integration_ingress.sanctions.maybe_ingest_list_hit", ingest)
+    out = await replay_journal_list_hits(SimpleNamespace())
+    assert out["ingested"] == 1
+    ingest.assert_awaited_once()
+    assert ingest.await_args.kwargs["subject_id"] == "alice"
+
+
+@pytest.mark.asyncio
+async def test_verify_sanctions_match_survives_ingest_failure(monkeypatch):
+    ingest = AsyncMock(side_effect=RuntimeError("graph down"))
+    monkeypatch.setattr("integration_ingress.sanctions.maybe_ingest_list_hit", ingest)
+    monkeypatch.setattr(
+        "integration_ingress.sanctions._persist_screening_log",
+        AsyncMock(return_value=__import__("uuid").uuid4()),
+    )
+
+    class _S:
+        def dataset_cache_meta(self):
+            return {}
+
+        async def screen(self, name, country=None, dob=None):
+            return [{"id": "NK-1", "score": 0.91}]
+
+    monkeypatch.setattr("integration_ingress.sanctions._get_screener", lambda: _S())
+    out = await verify_sanctions("acme", "alice", {"name": "Alice"})
+    assert out["pep_sanctions_match"] is True
+    assert out["status"] == "verified"
+    assert out["details"]["graph_ingest"]["status"] == "graph:write_failed"
