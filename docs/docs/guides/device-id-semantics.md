@@ -2,7 +2,7 @@
 
 ## What `device_id` is
 
-- **Not** a hardware IMEI/serial from Tarka OSS SDKs.
+- **Not** a hardware IMEI/serial from Tarka SDKs.
 - A **tenant-agnostic, install-scoped stable string** derived from privacy-preserving inputs (e.g. hashed Android ID, hashed iOS `identifierForVendor`, web fingerprint components).
 - Used as **`device_context.device_id`** on `POST /v1/decisions/evaluate` and stored under graph **`Device.external_id`** when graph is enabled.
 

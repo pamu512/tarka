@@ -1,6 +1,6 @@
 # Investigation Copilot — assurance modes (operational guide)
 
-This guide describes **optional** controls that make the OSS copilot **more conservative**. None of this is legal or regulatory certification; it reduces *some* classes of silent failure and gives analysts **server-derived** facts separate from model prose.
+This guide describes **optional** controls that make the copilot **more conservative**. None of this is legal or regulatory certification; it reduces *some* classes of silent failure and gives analysts **server-derived** facts separate from model prose.
 
 ## Policy knobs (environment)
 
