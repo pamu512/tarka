@@ -1,6 +1,6 @@
 # Support
 
-Tarka is **Apache-2.0** open source. Support is **community-only**.
+Tarka is **source-available** under the **Elastic License 2.0**. Support is **community-only**.
 
 There is **no SLA**, **no paid channel**, **no on-call**, and **no incident bridge**. Response time is whatever a volunteer maintainer can give.
 

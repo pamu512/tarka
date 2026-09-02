@@ -584,7 +584,7 @@ def _build_markdown(
     lines.append("## Benchmark linking")
     lines.append("")
     lines.append(
-        "Per-rule Criterion URLs are optional: the OSS repo publishes **suite-level** "
+        "Per-rule Criterion URLs are optional: this repo publishes **suite-level** "
         "`tarka-core` benches (see workflow above). Copy `docs/benchmark-links.example.json` "
         "to a manifest path your team controls, add `per_rule` URLs (CI artifacts, Grafana, "
         "internal perf dashboards), and pass `--benchmark-manifest` when generating this page."
