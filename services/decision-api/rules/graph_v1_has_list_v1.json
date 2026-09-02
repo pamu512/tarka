@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "name": "graph_v1_has_list_v1",
+  "mode": "shadow",
+  "description": "FLAG when the as-of hop has signed HAS_LIST and (has_multi_id or sibling_prior_flag). Missing hop does not fire. Observe by default — flip mode to active after review.",
+  "rules": [
+    {
+      "id": "has_list_multi_or_sibling",
+      "when_ast": {
+        "type": "and",
+        "children": [
+          { "type": "graph_v1", "atom": "has_etype", "etype": "HAS_LIST" },
+          {
+            "type": "or",
+            "children": [
+              { "type": "graph_v1", "atom": "has_multi_id" },
+              { "type": "graph_v1", "atom": "sibling_prior_flag" }
+            ]
+          }
+        ]
+      },
+      "tags": ["FLAG", "graph:has_etype:HAS_LIST"],
+      "score_delta": 18,
+      "description": "Signed list hop plus multi-id or sibling prior FLAG"
+    }
+  ],
+  "tag_rules": []
+}
