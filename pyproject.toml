@@ -1,9 +1,9 @@
 [project]
 name = "tarka"
 version = "1.0.2"
-description = "Open-source modular fraud detection platform — prove every signal."
+description = "Source-available modular fraud detection platform — prove every signal."
 readme = "README.md"
-license = {text = "Apache-2.0"}
+license = {text = "Elastic-2.0"}
 requires-python = ">=3.11"
 keywords = ["fraud", "detection", "osint", "ml", "graph", "rules-engine", "aml"]
 classifiers = [
@@ -11,7 +11,6 @@ classifiers = [
     "Framework :: FastAPI",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Security",
