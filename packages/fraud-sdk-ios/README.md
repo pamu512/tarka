@@ -1,6 +1,6 @@
 # fraud-sdk-ios (Swift Package)
 
-Apache-2.0. **`TarkaSDK`** — `DecisionClient` + **`DeviceSignalCollector`** + optional **App Attest** (`DCAppAttestService`).
+Elastic-2.0. **`TarkaSDK`** — `DecisionClient` + **`DeviceSignalCollector`** + optional **App Attest** (`DCAppAttestService`).
 
 Add local path `packages/fraud-sdk-ios` in Xcode SPM.
 

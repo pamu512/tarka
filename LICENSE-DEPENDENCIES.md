@@ -1,5 +1,7 @@
 # Third-party licenses and compliance notes
 
+Tarka **application code** is source-available under the **Elastic License 2.0** (see [`LICENSE`](LICENSE)). This file is only for **third-party runtimes and libraries** (Apache AGE, Postgres, optional JanusGraph / Neo4j, drivers, SDKs). Those keep their own licenses. AGE is Apache-2.0; it is not ELv2.
+
 This file highlights **license implications** for major runtime dependencies and **default deployment choices**. It does not replace the full SPDX / lockfile inventory—use your organization’s SBOM process for audits.
 
 ## Graph database (Neo4j)
@@ -10,9 +12,9 @@ The **full** `infra/deploy/docker-compose.yml` stack can run **Neo4j** (`neo4j` 
 - **Neo4j Enterprise** is commercial.
 - The **Python driver** (`neo4j` PyPI package) used by `graph-service` is **Apache License 2.0**—the driver license is not the same as the database license.
 
-### Apache-2.0–friendly alternatives (recommended for strict OSS stacks)
+### Permissive-licensed graph runtimes (AGE / JanusGraph)
 
-If AGPL is incompatible with your policy:
+These alternatives are about **dependency** licenses, not Tarka’s. If Neo4j AGPL is incompatible with your policy:
 
 1. **`infra/deploy/docker-compose.lite.yml`** — **Apache AGE** (`apache/age`, `GRAPH_BACKEND=age`) on the same Postgres as evaluate. No Neo4j, no Janus JVM. Helm `fraud-stack` defaults to the same backend.
 2. **JanusGraph** — Apache-2.0; still available via `GRAPH_BACKEND=janusgraph` on the full compose / Gremlin overlay.

@@ -1,6 +1,6 @@
 # Investigation Copilot — Intended use, out of scope, and data flows
 
-This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the OSS **investigation-agent** is meant to be used, what it must **not** be relied upon for, and **where data moves**—including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
+This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the **investigation-agent** is meant to be used, what it must **not** be relied upon for, and **where data moves**—including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
 
 > **Not legal advice.** Intended use and scope must be validated against your **sector**, **jurisdiction**, **contracts**, and **DPA** with qualified counsel and your DPO. Regional builds (`AI_GOVERNANCE_PROFILE`) adjust **prompt wording and deployment defaults**; they do **not** constitute certification or a legal determination of compliance.
 
@@ -106,7 +106,7 @@ flowchart LR
 | Feedback + turn metadata | `INVESTIGATION_DATA_DIR` + `COPILOT_FEEDBACK_DB_NAME` | Ratings, `record_turn` row |
 | Human sign-off | `INVESTIGATION_DATA_DIR` + `COPILOT_REVIEW_DB_NAME` | Approved/rejected records |
 
-**Encryption at rest** for these files is **environment-dependent** (disk encryption, volume policies)—not enforced by the application layer in the OSS reference.
+**Encryption at rest** for these files is **environment-dependent** (disk encryption, volume policies)—not enforced by the application layer in the reference deployment.
 
 ## 6. Third-party LLM (subprocessor)
 
@@ -125,7 +125,7 @@ Structured logs may include **operational identifiers** (tenant, analyst, case i
 ## 8. Related documents
 
 - [Investigation Copilot — integration contract](investigation-agent-integration-contract.md) — `GET /v1/integration`, tool families, `profile_id`
-- [Investigation Agent Project](../services/investigation-agent.md) — capabilities and OSS limitations
+- [Investigation Agent Project](../services/investigation-agent.md) — capabilities and limitations
 - [Investigation Copilot — LLM data flow](investigation-agent-llm-data-flow.md) — subprocessor-oriented detail
 - [Investigation Copilot — assurance modes](investigation-agent-assurance-modes.md) — strict refusal, derived facts, review API
 - [Security scanning](security-scanning.md) · [SECURITY.md](../../../SECURITY.md)
