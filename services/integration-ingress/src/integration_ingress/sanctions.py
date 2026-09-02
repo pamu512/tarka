@@ -72,8 +72,12 @@ def append_screening_journal(record: dict[str, Any]) -> None:
         log.debug("sanctions_screening_journal_append_failed", exc_info=True)
 
 
-def read_screening_journal(*, limit: int = 50) -> list[dict[str, Any]]:
-    """Tail recent journal rows (newest last in file → returned newest-first)."""
+def read_screening_journal(*, limit: int = 50, hits_only: bool = False) -> list[dict[str, Any]]:
+    """Tail recent journal rows (newest last in file → returned newest-first).
+
+    ``hits_only`` applies the cap to match rows so a miss-heavy tail cannot
+    bury list hits used by refresh replay.
+    """
     lim = max(1, min(int(limit or 50), 500))
     path = screening_journal_path()
     if not path.is_file():
@@ -91,8 +95,11 @@ def read_screening_journal(*, limit: int = 50) -> list[dict[str, Any]]:
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(row, dict):
-            out.append(row)
+        if not isinstance(row, dict):
+            continue
+        if hits_only and not row.get("match_found"):
+            continue
+        out.append(row)
         if len(out) >= lim:
             break
     return out
@@ -240,7 +247,7 @@ def plan_list_hit_ingest(*, tenant_id: str, subject_id: str, list_id: str) -> di
     lid = (list_id or "").strip()
     if not tid or not person or not lid:
         return None
-    if person.startswith(_SYNTHETIC_SUBJECT_PREFIX):
+    if person.lower().startswith(_SYNTHETIC_SUBJECT_PREFIX):
         return None
     object_id = lid if lid.startswith("list:") else f"list:{lid[:128]}"
     return {
@@ -263,7 +270,11 @@ async def maybe_ingest_list_hit(
     subject_id: str,
     list_id: str,
 ) -> dict[str, Any]:
-    """POST /v1/ingest/objects. Empty GRAPH_SERVICE_URL or graph miss is fail-soft."""
+    """POST /v1/ingest/objects. Empty GRAPH_SERVICE_URL or HTTP failure is fail-soft.
+
+    A successful POST upserts Person on the join key (same as mapped ingest).
+    ``ops:`` subjects never reach this POST.
+    """
     body = plan_list_hit_ingest(tenant_id=tenant_id, subject_id=subject_id, list_id=list_id)
     if body is None:
         return {"status": "skipped"}
@@ -280,7 +291,7 @@ async def maybe_ingest_list_hit(
             return {"status": "graph:write_failed", "http_status": r.status_code}
         return {"status": "ok"}
     except Exception:
-        log.debug("list ingest failed", exc_info=True)
+        log.warning("list ingest failed", exc_info=True)
         return {"status": "graph:write_failed"}
     finally:
         if own:
@@ -288,15 +299,17 @@ async def maybe_ingest_list_hit(
 
 
 async def replay_journal_list_hits(http: httpx.AsyncClient | None) -> dict[str, Any]:
-    """Refresh path: replay journaled hits onto AGE. Evaluate is not in this pipe."""
+    """Refresh path: replay journaled hits onto AGE. Evaluate is not in this pipe.
+
+    Cap is 500 hits, not 500 mixed lines. Rows without list_id (pre-#373
+    journal) skip. graph:unconfigured stops the loop — every remaining POST
+    would fail the same way.
+    """
     ingested = 0
     skipped = 0
     failed = 0
     seen: set[tuple[str, str, str]] = set()
-    for row in read_screening_journal(limit=500):
-        if not isinstance(row, dict) or not row.get("match_found"):
-            skipped += 1
-            continue
+    for row in read_screening_journal(limit=500, hits_only=True):
         tid = str(row.get("tenant_id") or "").strip()
         sid = str(row.get("subject_id") or "").strip()
         lid = _list_id_from_match_details(row)
@@ -312,7 +325,10 @@ async def replay_journal_list_hits(http: httpx.AsyncClient | None) -> dict[str, 
         status = str(out.get("status") or "")
         if status == "ok":
             ingested += 1
-        elif status in {"graph:unconfigured", "skipped"}:
+        elif status == "graph:unconfigured":
+            skipped += 1
+            break
+        elif status == "skipped":
             skipped += 1
         else:
             failed += 1
@@ -679,13 +695,17 @@ async def verify_sanctions(
 
     ingest_out: dict[str, Any] = {"status": "skipped"}
     if has_match:
-        lid = str((matches[0] or {}).get("id") or "").strip() if matches else ""
-        ingest_out = await maybe_ingest_list_hit(
-            None,
-            tenant_id=tenant_id,
-            subject_id=subject_id,
-            list_id=lid,
-        )
+        lid = _list_id_from_match_details(match_details)
+        try:
+            ingest_out = await maybe_ingest_list_hit(
+                None,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                list_id=lid,
+            )
+        except Exception:
+            log.warning("list ingest raised after persist", exc_info=True)
+            ingest_out = {"status": "graph:write_failed"}
 
     return {
         "status": "verified",

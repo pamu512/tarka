@@ -889,7 +889,7 @@ async def sanctions_screening_refresh(
     force_download: bool = True,
     _user: AuthUser = Depends(require_role("admin")),
 ):
-    """Reload OpenSanctions FtM cache into memory (admin). Does not forge LIVE partner pins."""
+    """Reload OpenSanctions FtM cache, then replay journaled list hits onto AGE."""
     from integration_ingress.sanctions import (
         _get_screener,
         record_refresh_stamp,
