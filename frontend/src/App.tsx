@@ -342,6 +342,7 @@ export default function App() {
             <Route path="/disputes/:id" element={<DisputeReviewByIdPage />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
+            <Route path="/shadow" element={<ShadowMode />} />
             <Route
               path="/rules/visual"
               element={
@@ -382,7 +383,6 @@ export default function App() {
             {INCLUDE_DEMO_SURFACE ? (
               <>
                 <Route path="/command-center" element={<TarkaCommandCenter />} />
-                <Route path="/shadow" element={<ShadowMode />} />
                 <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
                 <Route path="/ops/workload" element={<WorkloadBalancer />} />
                 <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <MulePathVisualizer /> : <PlaneOff plane="graph" />} />
@@ -411,7 +411,6 @@ export default function App() {
             ) : (
               <>
                 <Route path="/command-center" element={<Navigate to={leanHomePath()} replace />} />
-                <Route path="/shadow" element={<Navigate to="/ops/shadow" replace />} />
                 <Route path="/exec-dashboards" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/ops/workload" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <Navigate to="/graph" replace /> : <PlaneOff plane="graph" />} />

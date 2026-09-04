@@ -40,7 +40,7 @@ describe("leanNav", () => {
     expect(leanHomePath()).toBe("/command-center");
   });
 
-  it("keeps desk core paths and excludes brochure simulation/shadow", async () => {
+  it("keeps desk core paths and excludes brochure simulation", async () => {
     vi.stubEnv("VITE_LEAN_NAV", "true");
     vi.resetModules();
     const { isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
@@ -65,13 +65,13 @@ describe("leanNav", () => {
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/payout-delay")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
-    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/investigation/shadow-llm")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/admin")).toBe(false);
     expect(isProductionSurfacePath("/command-center")).toBe(false);
     expect(isProductionSurfacePath("/simulation")).toBe(false);
-    expect(isProductionSurfacePath("/shadow")).toBe(false);
+    expect(isProductionSurfacePath("/shadow")).toBe(true);
   });
 
   it("treats empty plane URLs as off and hides Graph / Advise / signal chrome", async () => {
@@ -116,6 +116,15 @@ describe("leanNav", () => {
     expect(isNavItemVisible("/ops/shadow")).toBe(true);
     expect(planeForPath("/ops/shadow")).toBe(null);
     expect(planeForPath("/ops/shadow")).not.toBe("signals");
+  });
+
+  it("shows Observe pack promote (/shadow) on the lean desk", async () => {
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.resetModules();
+    const { isNavItemVisible, isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
+    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(true);
+    expect(isProductionSurfacePath("/shadow")).toBe(true);
+    expect(isNavItemVisible("/shadow")).toBe(true);
   });
 
   it("shows Graph / Advise / signal chrome when plane URLs are set", async () => {

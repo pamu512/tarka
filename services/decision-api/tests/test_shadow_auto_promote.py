@@ -454,7 +454,7 @@ async def test_tick_promotes_ai_shadow_when_provisioned_and_green(
 
 
 @pytest.mark.asyncio
-async def test_set_mode_active_409_on_sla(desk_client, tmp_path, monkeypatch):
+async def test_set_mode_active_requires_human_even_when_leftover_sla(desk_client, tmp_path, monkeypatch):
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
     from decision_api.rule_api import settings as rule_settings
@@ -476,12 +476,28 @@ async def test_set_mode_active_409_on_sla(desk_client, tmp_path, monkeypatch):
         json={"mode": "active"},
         headers={"X-Rule-Governance-Secret": "gov-secret"},
     )
-    assert r.status_code == 409, r.text
-    assert r.json()["detail"] == "shadow_first"
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == "force_live_human_only"
     on_disk = json.loads(
         (desk_client._rules_dir / "sla_pack.json").read_text(encoding="utf-8")
     )
     assert on_disk["mode"] == "shadow"
+
+    ok = await desk_client.put(
+        "/v1/rules/sla_pack.json/mode",
+        params={"tenant_id": "t1"},
+        json={"mode": "active"},
+        headers={
+            "X-Rule-Governance-Secret": "gov-secret",
+            "X-Actor": "ops-lead",
+        },
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["mode"] == "active"
+    assert (
+        json.loads((desk_client._rules_dir / "sla_pack.json").read_text(encoding="utf-8"))["mode"]
+        == "active"
+    )
 
 
 def _provision_auto_on(tenant_id: str = "t1") -> None:
