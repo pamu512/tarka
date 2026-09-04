@@ -23,11 +23,11 @@ vi.mock("@/api/client", async (importOriginal) => {
   };
 });
 
-function wrap(ui: ReactElement, path = "/shadow") {
+function wrap(ui: ReactElement, path = "/observe") {
   return (
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/shadow" element={ui} />
+        <Route path="/observe" element={ui} />
       </Routes>
     </MemoryRouter>
   );

@@ -65,7 +65,8 @@ export function planeForPath(path: string): PlaneId | null {
  * Graph / Advise / signal-api chrome are in this set so deep links can render an
  * honest "plane off" page; `isNavItemVisible` hides them from the sidebar when
  * the plane URL is empty. Simulation / brochure ops stay behind
- * VITE_LEAN_NAV=false. Observe pack modes (`/shadow`) stay on the lean desk.
+ * VITE_LEAN_NAV=false. Observe pack modes live at `/observe` (not brochure
+ * `/shadow` — audit_prod_desk_mocks forbids that path on lean).
  */
 export const LEAN_NAV_PATHS = new Set<string>([
   "/cases",
@@ -74,7 +75,7 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/disputes",
   "/graph",
   "/rules",
-  "/shadow",
+  "/observe",
   "/analytics/rule-performance",
   "/ops/calibration",
   "/ops/qa",

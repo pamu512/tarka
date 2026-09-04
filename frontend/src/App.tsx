@@ -144,7 +144,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/rules", label: "Rules", module: "rules" },
       { to: "/rules/visual", label: "Visual rule builder", module: "rules" },
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
-      { to: "/shadow", label: "Observe", module: "shadow" },
+      { to: "/observe", label: "Observe", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },
       { to: "/ops/backtest", label: "Backtest jobs", module: "rules" },
     ],
@@ -342,7 +342,8 @@ export default function App() {
             <Route path="/disputes/:id" element={<DisputeReviewByIdPage />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
-            <Route path="/shadow" element={<ShadowMode />} />
+            <Route path="/observe" element={<ShadowMode />} />
+            <Route path="/shadow" element={<Navigate to="/observe" replace />} />
             <Route
               path="/rules/visual"
               element={

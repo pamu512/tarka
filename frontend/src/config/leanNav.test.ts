@@ -65,13 +65,15 @@ describe("leanNav", () => {
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/payout-delay")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
-    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/observe")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/investigation/shadow-llm")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/admin")).toBe(false);
     expect(isProductionSurfacePath("/command-center")).toBe(false);
     expect(isProductionSurfacePath("/simulation")).toBe(false);
-    expect(isProductionSurfacePath("/shadow")).toBe(true);
+    expect(isProductionSurfacePath("/shadow")).toBe(false);
+    expect(isProductionSurfacePath("/observe")).toBe(true);
   });
 
   it("treats empty plane URLs as off and hides Graph / Advise / signal chrome", async () => {
@@ -118,13 +120,14 @@ describe("leanNav", () => {
     expect(planeForPath("/ops/shadow")).not.toBe("signals");
   });
 
-  it("shows Observe pack promote (/shadow) on the lean desk", async () => {
+  it("shows Observe pack promote (/observe) on the lean desk", async () => {
     vi.stubEnv("VITE_LEAN_NAV", "true");
     vi.resetModules();
     const { isNavItemVisible, isProductionSurfacePath, LEAN_NAV_PATHS } = await loadLeanNav();
-    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(true);
-    expect(isProductionSurfacePath("/shadow")).toBe(true);
-    expect(isNavItemVisible("/shadow")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/observe")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(isProductionSurfacePath("/observe")).toBe(true);
+    expect(isNavItemVisible("/observe")).toBe(true);
   });
 
   it("shows Graph / Advise / signal chrome when plane URLs are set", async () => {
