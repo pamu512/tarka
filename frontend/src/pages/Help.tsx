@@ -164,7 +164,9 @@ export default function Help() {
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
-            <code className="text-gray-500">/analytics/rule-performance</code>.
+            <code className="text-gray-500">/analytics/rule-performance</code>. Observe pack modes
+            (including <strong className="text-gray-400">Promote to Active</strong>) live at{" "}
+            <code className="text-gray-500">/observe</code>.
           </p>
         </Sub>
       </Section>

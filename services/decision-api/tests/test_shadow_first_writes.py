@@ -243,7 +243,7 @@ async def test_force_live_two_person_requires_distinct_approver(client, monkeypa
 
 
 @pytest.mark.asyncio
-async def test_put_mode_active_is_shadow_first(client, monkeypatch):
+async def test_put_mode_active_human_actor(client, monkeypatch):
     created = await client.post("/v1/rules", json=_pack_body("quiet_active"))
     assert created.status_code == 201, created.text
     fname = created.json()["file"]
@@ -261,6 +261,22 @@ async def test_put_mode_active_is_shadow_first(client, monkeypatch):
         json={"mode": "active"},
         headers={"X-Actor": "ops-lead"},
     )
-    assert r.status_code == 409, r.text
-    assert r.json()["detail"] == "shadow_first"
+    assert r.status_code == 200, r.text
+    assert r.json()["mode"] == "active"
+    assert _on_disk(client, fname)["mode"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_put_mode_active_rejects_scout(client):
+    created = await client.post("/v1/rules", json=_pack_body("scout_quiet"))
+    assert created.status_code == 201, created.text
+    fname = created.json()["file"]
+
+    r = await client.put(
+        f"/v1/rules/{fname}/mode",
+        json={"mode": "active"},
+        headers={"X-Actor": "scout_coordinated_burst"},
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == "force_live_human_only"
     assert _on_disk(client, fname)["mode"] == "shadow"

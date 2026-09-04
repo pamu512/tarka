@@ -152,7 +152,7 @@ export default function ShadowMode() {
       )}
 
       {/* Rule Pack Mode Toggles */}
-      <div className="bg-surface-900 border border-surface-700 rounded-xl p-5">
+      <div className="bg-surface-900 border border-surface-700 rounded-xl p-5" data-testid="rule-pack-modes">
         <h2 className="text-sm font-semibold text-gray-300 mb-4">Rule Pack Modes</h2>
         {packs.length === 0 ? (
           <p className="text-sm text-gray-500">No rule packs found</p>
@@ -166,15 +166,18 @@ export default function ShadowMode() {
                 <div
                   key={file || pack.name}
                   className="flex items-center justify-between bg-surface-800 rounded-lg px-4 py-3"
+                  data-testid={`pack-mode-row-${file || pack.name}`}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <ModeIndicator mode={currentMode} />
                       <span className="text-sm text-gray-200 font-medium truncate">
-                        {pack.name}
+                        {pack.name || file}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-500 ml-5">{file}</span>
+                    {pack.name && file ? (
+                      <span className="text-xs text-gray-500 ml-5">{file}</span>
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-2 ml-4 flex-shrink-0">
@@ -204,6 +207,7 @@ export default function ShadowMode() {
                       <button
                         onClick={() => handleModeChange(file, "active")}
                         disabled={isBusy}
+                        data-testid={`promote-to-active-${file}`}
                         className="ml-2 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
                       >
                         Promote to Active

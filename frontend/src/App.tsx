@@ -144,7 +144,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/rules", label: "Rules", module: "rules" },
       { to: "/rules/visual", label: "Visual rule builder", module: "rules" },
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
-      { to: "/shadow", label: "Observe", module: "shadow" },
+      { to: "/observe", label: "Observe", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },
       { to: "/ops/backtest", label: "Backtest jobs", module: "rules" },
     ],
@@ -342,6 +342,8 @@ export default function App() {
             <Route path="/disputes/:id" element={<DisputeReviewByIdPage />} />
             <Route path="/disputes" element={<Disputes />} />
             <Route path="/rules" element={<Rules />} />
+            <Route path="/observe" element={<ShadowMode />} />
+            <Route path="/shadow" element={<Navigate to="/observe" replace />} />
             <Route
               path="/rules/visual"
               element={
@@ -382,7 +384,6 @@ export default function App() {
             {INCLUDE_DEMO_SURFACE ? (
               <>
                 <Route path="/command-center" element={<TarkaCommandCenter />} />
-                <Route path="/shadow" element={<ShadowMode />} />
                 <Route path="/exec-dashboards" element={<ExecutiveDashboards />} />
                 <Route path="/ops/workload" element={<WorkloadBalancer />} />
                 <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <MulePathVisualizer /> : <PlaneOff plane="graph" />} />
@@ -411,7 +412,6 @@ export default function App() {
             ) : (
               <>
                 <Route path="/command-center" element={<Navigate to={leanHomePath()} replace />} />
-                <Route path="/shadow" element={<Navigate to="/ops/shadow" replace />} />
                 <Route path="/exec-dashboards" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/ops/workload" element={<Navigate to={leanHomePath()} replace />} />
                 <Route path="/graph/mule-path" element={isPlaneEnabled("graph") ? <Navigate to="/graph" replace /> : <PlaneOff plane="graph" />} />
