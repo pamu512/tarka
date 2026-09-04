@@ -1045,8 +1045,14 @@ async def set_pack_mode(
     fpath = _existing_pack_path(filename)
     if body.mode not in ("active", "shadow", "disabled"):
         raise HTTPException(400, "mode must be 'active', 'shadow', or 'disabled'")
-    if body.mode == "active":
-        raise HTTPException(409, "shadow_first")
+    # Observe pack promote uses this PUT. Scout / assist cannot flip live
+    # (same human fingerprint as force-live). Leftover + science stay on
+    # POST …/shadow-packs/{draft_id}/promote.
+    actor = (
+        _require_force_live_human(x_actor)
+        if body.mode == "active"
+        else _actor_from_headers(x_actor)
+    )
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
@@ -1054,7 +1060,7 @@ async def set_pack_mode(
     _append_rule_change(
         "set_mode",
         filename,
-        actor=_actor_from_headers(x_actor),
+        actor=actor,
         detail={"mode": body.mode},
     )
     return {"file": filename, "mode": body.mode}
