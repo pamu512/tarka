@@ -103,7 +103,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
   },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
-  { to: "/shadow", label: "Observe", module: "shadow", keywords: "dry run observe shadow mode" },
+  { to: "/observe", label: "Observe", module: "shadow", keywords: "dry run observe shadow mode" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
   { to: "/ops/backtest", label: "Backtest jobs", module: "rules", keywords: "warehouse olap streaming" },
   {
