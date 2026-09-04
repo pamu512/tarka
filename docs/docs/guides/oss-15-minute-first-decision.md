@@ -2,6 +2,8 @@
 
 **Goal:** From a clean checkout, get a live evaluate response (and optional UI) in about 15 minutes using **Tarka Lite**.
 
+The one-command front door is [`make demo`](./clone-demo.md). This page is the longer compose / curl / smoke path.
+
 Self-hosting Tarka on your own metal or VPC for your own operations is allowed under Elastic License 2.0; providing Tarka to third parties as a hosted or managed service is not.
 
 ## Prerequisites
@@ -12,7 +14,7 @@ Self-hosting Tarka on your own metal or VPC for your own operations is allowed u
 
 ## Steps
 
-One command (same path as below):
+One command (desk + receipt walk — same as `make demo`):
 
 ```bash
 bash scripts/oss/up_desk.sh

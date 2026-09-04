@@ -4,16 +4,19 @@ Tarka is a local-first fraud OS: evaluate packs + audit trail + analyst desk.
 
 **Status:** beta. There is no GA tag. Development is on `master`.
 
-## Day-1 (compose)
+## Day-1 (clone and run)
 
-Lite is evaluate + graph (Rust packs + `core-api` + Apache AGE). Wire your own graph by pointing `GRAPH_SERVICE_URL` / `GRAPH_BACKEND` at it. Thin desk overlay is optional. Same path as [`docs/INDEX.md`](docs/INDEX.md) and the [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Tarka application code is **source-available** under the **Elastic License 2.0** (not open-source). After `git clone`:
 
 ```bash
-docker compose -f infra/deploy/docker-compose.lite.yml up --build
-# thin desk (Hunt /graph + /rules; receipts at /decisions):
-#   -f infra/deploy/docker-compose.fraud-desk.yml
-# + investigation / + signals / full desk: see the SRE runbook
+make demo
 ```
+
+That is one command: Lite + fraud-desk compose, then an honest evaluate walk. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
+
+Then open http://127.0.0.1:3000 (`/graph` Hunt when graph is on, `/decisions` receipts, `/ops/shadow` Observe).
+
+Same script: `bash scripts/oss/up_desk.sh`. What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
 
@@ -44,7 +47,7 @@ Manifesto, evaluate-first product lock, Advise / local inference, and entity-sta
 
 Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation overlay, signals overlay, local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
-**15-minute first decision:** [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
+**15-minute first decision** (deeper than `make demo`): [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 
 ---
 

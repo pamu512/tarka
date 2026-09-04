@@ -4,7 +4,7 @@ Day-1 path for engineers joining Tarka.
 
 ## Recommended (Docker)
 
-Follow [`docs/docs/quickstart.md`](docs/quickstart.md): lite compose (evaluate + AGE), then `python3 scripts/oss/first_decision_smoke.py`. Desk home is Hunt (`/graph`). Leftovers are `/leftovers`. Observe is `/ops/shadow`.
+`make demo` (see [`docs/docs/guides/clone-demo.md`](docs/guides/clone-demo.md)): lite + fraud-desk + honest evaluate walk. Desk home is Hunt (`/graph`). Receipts are `/decisions`. Leftovers are `/leftovers`. Observe is `/ops/shadow`. Deeper path: [`docs/docs/quickstart.md`](docs/quickstart.md) and `python3 scripts/oss/first_decision_smoke.py`.
 
 ## Docs map
 
