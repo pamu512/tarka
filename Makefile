@@ -10,10 +10,15 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-.PHONY: build up down logs policy-check contract-check trend-tick help
+.PHONY: build up down logs policy-check contract-check trend-tick demo help
 
 help:
-	@echo "Targets: build up down logs policy-check contract-check trend-tick"
+	@echo "Targets: demo build up down logs policy-check contract-check trend-tick"
+	@echo "  demo  clone-and-run: lite+desk up, honest evaluate walk, printed next steps"
+
+# Public clone-and-run path (lite + fraud-desk + receipt walk). See docs/docs/guides/clone-demo.md
+demo:
+	bash "$(ROOT)/scripts/oss/up_desk.sh"
 
 # Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
 policy-check:
