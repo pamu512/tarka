@@ -166,6 +166,8 @@ jobs:
         run: python infra/scripts/ci/check_import_style_consistency.py
       - name: Demo vertical contract unit tests (stdlib)
         run: python3 infra/scripts/ci/test_demo_vertical_contracts.py
+      - name: Clone-demo receipt walk unit tests (stdlib)
+        run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
       - name: Q2 Wave 4 contract unit tests (stdlib)
         run: |
           pip install pyyaml
