@@ -454,7 +454,9 @@ async def test_tick_promotes_ai_shadow_when_provisioned_and_green(
 
 
 @pytest.mark.asyncio
-async def test_set_mode_active_requires_human_even_when_leftover_sla(desk_client, tmp_path, monkeypatch):
+async def test_set_mode_active_requires_human_even_when_leftover_sla(
+    desk_client, tmp_path, monkeypatch
+):
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
     from decision_api.rule_api import settings as rule_settings
@@ -495,7 +497,9 @@ async def test_set_mode_active_requires_human_even_when_leftover_sla(desk_client
     assert ok.status_code == 200, ok.text
     assert ok.json()["mode"] == "active"
     assert (
-        json.loads((desk_client._rules_dir / "sla_pack.json").read_text(encoding="utf-8"))["mode"]
+        json.loads(
+            (desk_client._rules_dir / "sla_pack.json").read_text(encoding="utf-8")
+        )["mode"]
         == "active"
     )
 
