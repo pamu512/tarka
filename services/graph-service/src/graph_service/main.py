@@ -34,6 +34,11 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import clamp_search_limit, is_found_payload
+from .growth_policy import (
+    count_growth,
+    incident_edge_timestamps,
+    parse_growth_windows,
+)
 from .decision_markings import filter_subgraph_for_read, parse_caller_markings
 from .object_attention import attention_for_node, score_object_attention, stats_from_subgraph
 from .entity_risk_writeback import (
@@ -197,6 +202,25 @@ class BenchmarkRunRequest(BaseModel):
     graph_scores: list[float]
 
 
+def _configured_growth_windows() -> list[tuple[str, int]]:
+    return parse_growth_windows(os.environ.get("GRAPH_GROWTH_WINDOWS"))
+
+
+def _requested_growth_windows(windows: str | None) -> list[tuple[str, int]]:
+    configured = _configured_growth_windows()
+    if not (windows or "").strip():
+        return configured
+    by_window = {w: t for w, t in configured}
+    out: list[tuple[str, int]] = []
+    seen: set[str] = set()
+    for token in windows.split(","):
+        key = token.strip()
+        if key in by_window and key not in seen:
+            out.append((key, by_window[key]))
+            seen.add(key)
+    return out
+
+
 @app.get("/v1/health")
 async def health():
     from .decision_context_api import decision_graph_enabled
@@ -212,6 +236,16 @@ async def health():
             "db_path": str(db_path),
             "db_exists": db_path.exists(),
         },
+    }
+
+
+@app.get("/v1/graph/growth-policy")
+async def growth_policy():
+    return {
+        "windows": [
+            {"window": window, "threshold": threshold}
+            for window, threshold in _configured_growth_windows()
+        ]
     }
 
 
@@ -362,6 +396,26 @@ async def get_entity_links(external_id: str, tenant_id: str, request: Request):
         "edges": data.get("edges") or [],
         "attention": _attention_for_neighbors(external_id, data),
     }
+
+
+@app.get("/v1/entities/{entity_id}/relation-growth")
+async def entity_relation_growth(
+    entity_id: str, tenant_id: str, request: Request, windows: str | None = None
+):
+    pairs = _requested_growth_windows(windows)
+    data = _subgraph_for_read(await query_subgraph(tenant_id, entity_id, 1), request)
+    found = _entity_from_subgraph(data, entity_id) is not None
+    stamps = incident_edge_timestamps(entity_id, data.get("edges") or []) if found else None
+    rows: list[dict[str, Any]] = []
+    for window, threshold in pairs:
+        rows.append(
+            {
+                "window": window,
+                "count": None if stamps is None else count_growth(stamps, window),
+                "threshold": threshold,
+            }
+        )
+    return {"entity_id": entity_id, "tenant_id": tenant_id, "windows": rows}
 
 
 @app.post("/v1/objects/attention")

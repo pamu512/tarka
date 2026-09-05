@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PageTitle } from "../components/PageTitle";
 import { TarkaLogo } from "../components/TarkaLogo";
-import { LEAN_NAV, isPlaneEnabled, visibleLeanNavPaths } from "../config/leanNav";
+import { LEAN_NAV, isPlaneEnabled, visibleDeskNavPaths } from "../config/leanNav";
 
 function Section({
   id,
@@ -29,7 +29,7 @@ function Sub({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-const DESK_PATHS = visibleLeanNavPaths();
+const DESK_PATHS = visibleDeskNavPaths();
 
 export default function Help() {
   return (

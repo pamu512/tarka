@@ -17,7 +17,10 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { rules, shadow } from "../../api/client";
+import { CATALOG_HOPS, type AuthorCatalog } from "../../domain/authorCatalog";
+import { fallbackAuthorCatalog } from "../../domain/authorCatalogFallback";
 import type { VisualAstPack } from "../../types/rules";
+import { compileHopEtypeFromCanvas } from "./compileHopEtype";
 import {
   compileToAST,
   compileVisualToDeployedJsonPack,
@@ -30,7 +33,8 @@ import {
 import { connectionCreatesDirectedCycle } from "./graphCycle";
 import { defaultPackNameFromCanvas, readRuleRootMeta } from "./compileFlowToJsonAst";
 import { tryCompileFlowToJsonAst, validateCanvasForAstSave } from "./validateRuleBuilderCanvas";
-import { FeatureNode } from "./nodes/FeatureNode";
+import { FeatureCatalogContext, FeatureNode } from "./nodes/FeatureNode";
+import { HopEtypeNode } from "./nodes/HopEtypeNode";
 import { GraphRiskNode } from "./nodes/GraphRiskNode";
 import { LogicAndNode } from "./nodes/LogicAndNode";
 import { LogicOrNode } from "./nodes/LogicOrNode";
@@ -81,6 +85,7 @@ const RULE_CANVAS_NODE_DIM: Record<string, { width: number; height: number }> = 
   [NODE_TYPES.feature]: { width: 216, height: 148 },
   [NODE_TYPES.operator]: { width: 204, height: 132 },
   [NODE_TYPES.graphRisk]: { width: 184, height: 104 },
+  [NODE_TYPES.hopEtype]: { width: 200, height: 104 },
   [NODE_TYPES.logicAnd]: { width: 132, height: 92 },
   [NODE_TYPES.logicOr]: { width: 132, height: 92 },
   [NODE_TYPES.ruleRoot]: { width: 236, height: 168 },
@@ -90,6 +95,7 @@ const nodeTypes = {
   [NODE_TYPES.feature]: FeatureNode,
   [NODE_TYPES.operator]: OperatorNode,
   [NODE_TYPES.graphRisk]: GraphRiskNode,
+  [NODE_TYPES.hopEtype]: HopEtypeNode,
   [NODE_TYPES.logicAnd]: LogicAndNode,
   [NODE_TYPES.logicOr]: LogicOrNode,
   [NODE_TYPES.ruleRoot]: RuleRootNode,
@@ -104,9 +110,17 @@ export type RuleBuilderCanvasProps = {
   variant?: "page" | "modal";
   /** When set, Save updates this rule inside the pack instead of creating a new pack. */
   persistTarget?: { packFile: string; ruleId: string } | null;
+  catalog?: AuthorCatalog;
+  fromLeftover?: boolean;
 };
 
-function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<RuleBuilderCanvasProps, "resetKey">) {
+function CanvasInner({
+  initialGraph,
+  variant = "page",
+  persistTarget,
+  catalog = fallbackAuthorCatalog(),
+  fromLeftover = false,
+}: Omit<RuleBuilderCanvasProps, "resetKey">) {
   const seedNodes = initialGraph?.nodes ?? DEFAULT_SEED_NODES;
   const seedEdges = initialGraph?.edges ?? DEFAULT_SEED_EDGES;
   const [nodes, setNodes, onNodesChange] = useNodesState(seedNodes);
@@ -181,17 +195,27 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
       setSaveErr(v.errors.join("\n"));
       return;
     }
-    const built = tryCompileFlowToJsonAst(nodes, edges);
-    if (!built.ok) {
-      setSaveErr(built.errors.join("\n"));
-      return;
-    }
+    const hop = compileHopEtypeFromCanvas(nodes, edges);
+    let whenAst: unknown;
+    let tags: string[];
     let meta: ReturnType<typeof readRuleRootMeta>;
     try {
       meta = readRuleRootMeta(nodes);
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : String(e));
       return;
+    }
+    if (hop.ok) {
+      whenAst = hop.when_ast;
+      tags = hop.tags;
+    } else {
+      const built = tryCompileFlowToJsonAst(nodes, edges);
+      if (!built.ok) {
+        setSaveErr(built.errors.join("\n"));
+        return;
+      }
+      whenAst = built.ast;
+      tags = meta.tags;
     }
     setSaveBusy(true);
     try {
@@ -204,8 +228,8 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
             ...(r as object),
             id: meta.ruleId,
             when: [] as { field: string; op: string; value: unknown }[],
-            when_ast: built.ast,
-            tags: meta.tags,
+            when_ast: whenAst,
+            tags,
             score_delta: meta.scoreDelta,
             description: meta.description,
           };
@@ -220,7 +244,11 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
           rules: nextRules,
           tag_rules: full.tag_rules ?? [],
         });
-        setSaveOk(`Updated rule "${persistTarget.ruleId}" in ${persistTarget.packFile}. Reload rules on the server if required.`);
+        setSaveOk(
+          fromLeftover
+            ? "Saved as Observe draft. Promote is not here."
+            : `Updated rule "${persistTarget.ruleId}" in ${persistTarget.packFile}. Reload rules on the server if required.`,
+        );
         return;
       }
 
@@ -231,21 +259,25 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
           {
             id: meta.ruleId,
             when: [],
-            tags: meta.tags,
+            tags,
             score_delta: meta.scoreDelta,
             description: meta.description,
-            when_ast: built.ast,
+            when_ast: whenAst,
           },
         ],
         tag_rules: [],
       })) as { file?: string };
-      setSaveOk(`Pack created: ${out.file ?? "ok"}. Rules reload on the server.`);
+      setSaveOk(
+        fromLeftover
+          ? "Saved as Observe draft. Promote is not here."
+          : `Pack created: ${out.file ?? "ok"}. Rules reload on the server.`,
+      );
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : String(e));
     } finally {
       setSaveBusy(false);
     }
-  }, [edges, nodes, packName, persistTarget]);
+  }, [edges, fromLeftover, nodes, packName, persistTarget]);
 
   const handleCompileServer = useCallback(async () => {
     setServerErr("");
@@ -341,6 +373,13 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
         >
           Graph risk
         </button>
+        <button
+          type="button"
+          className="px-2 py-1 rounded bg-surface-800 border border-surface-600"
+          onClick={() => addNode(NODE_TYPES.hopEtype, { etype: CATALOG_HOPS[0] })}
+        >
+          Hop etype
+        </button>
         <button type="button" className="px-2 py-1 rounded bg-surface-800 border border-surface-600" onClick={() => addNode(NODE_TYPES.logicAnd, {})}>
           AND
         </button>
@@ -374,20 +413,22 @@ function CanvasInner({ initialGraph, variant = "page", persistTarget }: Omit<Rul
         <pre className="text-xs bg-red-950/40 border border-red-900/50 rounded p-2 text-red-200 overflow-auto">{serverErr}</pre>
       ) : null}
       <div className={`${flowHeightClass} w-full rounded-lg border border-surface-700 bg-surface-950`}>
-        <ReactFlow
-          nodes={nodesWithViewportDims}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          fitView
-          onlyRenderVisibleElements
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-          <Controls />
-        </ReactFlow>
+        <FeatureCatalogContext.Provider value={catalog}>
+          <ReactFlow
+            nodes={nodesWithViewportDims}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={nodeTypes}
+            fitView
+            onlyRenderVisibleElements
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+            <Controls />
+          </ReactFlow>
+        </FeatureCatalogContext.Provider>
       </div>
       {variant === "modal" ? (
         <details className="rounded-lg border border-surface-700 bg-surface-900/50 px-3 py-2">

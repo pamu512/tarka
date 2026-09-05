@@ -1,9 +1,10 @@
 import type { ReactElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as client from "@/api/client";
+import { fallbackAuthorCatalog } from "@/domain/authorCatalogFallback";
 import { TenantEnvironmentProvider } from "@/context/TenantEnvironmentContext";
 import Rules from "@/pages/Rules";
 
@@ -17,6 +18,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       changeLog: vi.fn(),
       telemetry: vi.fn(),
       verticalPacks: vi.fn(),
+      authorCatalog: vi.fn(),
     },
   };
 });
@@ -50,13 +52,28 @@ const SHADOW_PACK = {
   tag_rules: [],
 };
 
+const memory: Record<string, string> = {};
+
 describe("Rules workspace tabs", () => {
   beforeEach(() => {
+    for (const k of Object.keys(memory)) delete memory[k];
+    vi.stubGlobal("localStorage", {
+      getItem: (k: string) => (k in memory ? memory[k] : null),
+      setItem: (k: string, v: string) => {
+        memory[k] = v;
+      },
+      removeItem: (k: string) => {
+        delete memory[k];
+      },
+    });
+
     vi.mocked(client.rules.list).mockReset();
     vi.mocked(client.rules.changeLog).mockReset();
     vi.mocked(client.rules.telemetry).mockReset();
     vi.mocked(client.rules.verticalPacks).mockReset();
+    vi.mocked(client.rules.authorCatalog).mockReset();
 
+    vi.mocked(client.rules.authorCatalog).mockResolvedValue(fallbackAuthorCatalog());
     vi.mocked(client.rules.list).mockResolvedValue({ packs: [SHADOW_PACK] });
     vi.mocked(client.rules.verticalPacks).mockResolvedValue({ vertical_packs: {} });
     vi.mocked(client.rules.telemetry).mockResolvedValue({
@@ -78,6 +95,10 @@ describe("Rules workspace tabs", () => {
         },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("defaults to the pack builder and keeps telemetry/changelog one click away", async () => {
@@ -130,5 +151,13 @@ describe("Rules workspace tabs", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: /Recent changes/i }));
     expect(screen.getByText(/No pack changes recorded yet/i)).toBeInTheDocument();
+  });
+
+  it("lists event_count_7d and avg_amount_1h from the author catalog picker", async () => {
+    render(wrap(<Rules />));
+    await screen.findByRole("heading", { name: "shadow_payment_probe_v1" });
+    fireEvent.click(screen.getByRole("button", { name: /Show field catalog/i }));
+    expect(await screen.findByText("event_count_7d")).toBeInTheDocument();
+    expect(screen.getByText("avg_amount_1h")).toBeInTheDocument();
   });
 });

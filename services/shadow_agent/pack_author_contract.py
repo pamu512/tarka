@@ -15,9 +15,11 @@ Usage::
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Literal
 
+from author_catalog import ai_allowed_fields, build_author_catalog
 from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
@@ -36,42 +38,11 @@ def load_contract_text() -> str:
 # Allowed values (mirrored from PACK_AUTHOR.md — single source of truth)
 # ---------------------------------------------------------------------------
 
-ALLOWED_FIELDS: frozenset[str] = frozenset(
-    {
-        # event type / identity
-        "event_type",
-        "entity_id",
-        "session_id",
-        "acc_id",
-        "user_id",
-        # device-context signals
-        "device_fingerprint",
-        "canvas_hash",
-        "webgl_vendor",
-        "user_agent",
-        "screen_resolution",
-        "timezone_offset",
-        "language",
-        "platform",
-        "vendor",
-        # velocity / counters
-        "tx_count_1h",
-        "tx_count_24h",
-        "tx_amount_1h",
-        "tx_amount_24h",
-        "distinct_devices_24h",
-        "distinct_ips_24h",
-        # fingerprint / biometric
-        "vendor_fingerprint_score",
-        "vendor_incognia_risk",
-        "ip_address",
-        "ip_risk_score",
-        "geo_country",
-        "geo_city",
-        # payment
-        "amount",
-        "currency",
-    }
+ALLOWED_FIELDS: frozenset[str] = ai_allowed_fields(
+    build_author_catalog(
+        graph_url=os.environ.get("GRAPH_SERVICE_URL") or "",
+        growth_windows=None,
+    )
 )
 
 ALLOWED_OPS: frozenset[str] = frozenset(

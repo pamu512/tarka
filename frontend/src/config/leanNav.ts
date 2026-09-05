@@ -1,23 +1,23 @@
 /**
- * Production default: lean analyst surface (evaluate-only / thin desk).
- * Sales / full brochure demo: build with `VITE_LEAN_NAV=false`.
+ * Production default: product analyst surface (visual / backtest / lists).
+ * Demo skin (first-hour pages): `VITE_DESK_PROFILE=demo` or legacy `VITE_LEAN_NAV=true`.
+ * Sales / full brochure: `VITE_DESK_PROFILE=brochure` or `VITE_LEAN_NAV=false`.
  *
  * Empty Advise / signals URL = plane off (modular). Graph is required for the
  * desk: Tarka AGE (lite) or a graph the operator wires in. Empty
  * VITE_GRAPH_SERVICE_URL is not the product default — home falls back to
  * /decisions and Hunt is hidden.
  *
- * - Production image (frontend/Dockerfile): `ARG VITE_LEAN_NAV=true` — brochure
- *   routes are not registered; deep links to unknown paths redirect to home.
- * - Demo: `docker compose … --build-arg VITE_LEAN_NAV=false` or merge
- *   `infra/deploy/docker-compose.demo-vertical.yml` (sets the build arg).
+ * - Production image (frontend/Dockerfile): `ARG VITE_DESK_PROFILE=product`.
+ * - Demo compose (fraud-desk): `VITE_DESK_PROFILE=demo`.
+ * - Brochure overlay: `VITE_DESK_PROFILE=brochure` or merge
+ *   `infra/deploy/docker-compose.demo-vertical.yml`.
  */
-export const INCLUDE_DEMO_SURFACE =
-  ((import.meta.env.VITE_LEAN_NAV as string | undefined) ?? "true").trim().toLowerCase() ===
-  "false";
+import { resolveDeskProfile, type DeskProfile } from "./deskProfile";
 
-/** Inverse of INCLUDE_DEMO_SURFACE — default on. */
-export const LEAN_NAV = !INCLUDE_DEMO_SURFACE;
+export const DESK_PROFILE: DeskProfile = resolveDeskProfile();
+export const INCLUDE_DEMO_SURFACE = DESK_PROFILE === "brochure";
+export const LEAN_NAV = DESK_PROFILE === "demo";
 
 export type PlaneId = "graph" | "advise" | "signals";
 
@@ -84,17 +84,28 @@ export const LEAN_NAV_PATHS = new Set<string>([
   "/ops/counters",
   "/ops/sar-transport",
   "/settings",
+  "/notifications",
   "/help",
+]);
+
+export const PRODUCT_JOB_PATHS = new Set<string>([
+  ...LEAN_NAV_PATHS,
+  "/rules/visual",
+  "/ops/backtest",
+  "/entity-lists",
+  "/simulation",
+  "/analytics",
 ]);
 
 /** Hunt when graph is wired. Receipts only if graph URL is empty. */
 export function leanHomePath(): string {
-  if (!LEAN_NAV) return "/command-center";
+  if (DESK_PROFILE === "brochure") return "/command-center";
   return isPlaneEnabled("graph") ? "/graph" : "/decisions";
 }
 
 /** True when this path is part of the production lean surface (or a case/dispute deep link). */
 export function isProductionSurfacePath(path: string): boolean {
+  if (DESK_PROFILE === "product" && PRODUCT_JOB_PATHS.has(path)) return true;
   if (LEAN_NAV_PATHS.has(path)) return true;
   if (path === "/403-unauthorized") return true;
   if (path === "/login" || path === "/auth/callback") return true;
@@ -102,24 +113,28 @@ export function isProductionSurfacePath(path: string): boolean {
   if (path.startsWith("/disputes/")) return true;
   if (path === "/decisions" || path.startsWith("/decisions/")) return true;
   if (path === "/graph" || path.startsWith("/graph/")) return true;
+  if (DESK_PROFILE === "product" && path.startsWith("/rules/")) return true;
   return false;
 }
 
 /** Sidebar / command-palette visibility. Empty plane URL hides the item (no "coming soon"). */
 export function isNavItemVisible(path: string): boolean {
-  if (LEAN_NAV && !isProductionSurfacePath(path)) return false;
-  // Leftover Hold still deep-links to /cases/:id. The queue is not the job.
-  if (LEAN_NAV && path === "/cases") return false;
-  // Leftovers without Hunt is a ticket queue.
+  if (DESK_PROFILE === "demo" && !isProductionSurfacePath(path)) return false;
+  if (DESK_PROFILE === "product" && !PRODUCT_JOB_PATHS.has(path) && !isProductionSurfacePath(path)) {
+    return false;
+  }
+  if ((DESK_PROFILE === "demo" || DESK_PROFILE === "product") && path === "/cases") return false;
   if (path === "/leftovers" && !isPlaneEnabled("graph")) return false;
-  // Brochure fund-flow page. Lean desk is Hunt; this route redirects to /graph.
-  if (LEAN_NAV && path === "/graph/mule-path") return false;
+  if ((DESK_PROFILE === "demo" || DESK_PROFILE === "product") && path === "/graph/mule-path") return false;
   const plane = planeForPath(path);
   if (plane && !isPlaneEnabled(plane)) return false;
   return true;
 }
 
-/** Lean help list: production paths that are actually on this build. */
-export function visibleLeanNavPaths(): string[] {
-  return [...LEAN_NAV_PATHS].filter((path) => isNavItemVisible(path)).sort();
+/** Desk help list: production paths that are actually on this build. */
+export function visibleDeskNavPaths(): string[] {
+  const set = DESK_PROFILE === "product" ? PRODUCT_JOB_PATHS : LEAN_NAV_PATHS;
+  return [...set].filter((path) => isNavItemVisible(path)).sort();
 }
+
+export const visibleLeanNavPaths = visibleDeskNavPaths;

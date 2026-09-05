@@ -5,7 +5,7 @@ import { useAnalystWorkspace } from "../context/AnalystWorkspaceContext";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { parseCaseDetailRoute, parseCaseOpenInput } from "../utils/caseOpenQuery";
 import { ModuleIcon, type ModuleId } from "./ModuleIcon";
-import { LEAN_NAV, isNavItemVisible } from "../config/leanNav";
+import { INCLUDE_DEMO_SURFACE, isNavItemVisible } from "../config/leanNav";
 
 type CommandItem = {
   id: string;
@@ -18,7 +18,7 @@ type CommandItem = {
 
 type PaletteSection = { title: string; items: CommandItem[] };
 
-const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
+export const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; keywords: string; tenantQuery?: boolean }> = [
   {
     to: "/command-center",
     label: "Tarka Command Center",
@@ -102,6 +102,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
     keywords: "audit log warehouse decisions millions virtual scroll search trace",
   },
   { to: "/rules", label: "Rules", module: "rules", keywords: "policy" },
+  { to: "/rules/visual", label: "Visual rule builder", module: "rules", keywords: "visual builder graph canvas dsl" },
   { to: "/entity-lists", label: "Entity lists", module: "entity-lists", keywords: "block allow" },
   { to: "/observe", label: "Observe", module: "shadow", keywords: "dry run observe shadow mode" },
   { to: "/simulation", label: "Simulation", module: "simulation", keywords: "ab test" },
@@ -188,6 +189,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
     keywords: "payout hold mule score janusgraph funds release automation",
   },
   { to: "/admin", label: "Admin panel", module: "admin", keywords: "platform" },
+  { to: "/notifications", label: "Notifications", module: "notifications", keywords: "observe promote slip" },
   { to: "/settings", label: "Settings", module: "settings", keywords: "theme appearance" },
   { to: "/help", label: "Help & guide", module: "help", keywords: "docs" },
 ];
@@ -408,7 +410,7 @@ export function CommandPalette() {
           },
         });
       }
-      if (!LEAN_NAV) {
+      if (INCLUDE_DEMO_SURFACE) {
         contextual.push({
           id: "ctx:copilot-this-case",
           label: "Investigation Copilot (full page)",
@@ -421,7 +423,7 @@ export function CommandPalette() {
           },
         });
       }
-    } else if (openCases[0] && !LEAN_NAV) {
+    } else if (openCases[0] && INCLUDE_DEMO_SURFACE) {
       const t = openCases[0];
       contextual.push({
         id: "ctx:copilot-latest-tab",

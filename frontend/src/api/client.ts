@@ -1,3 +1,4 @@
+import type { AuthorCatalog } from "../domain/authorCatalog";
 import type { AccessGroupId, AccessModuleId, ModuleCatalogEntry } from "../config/accessModuleCatalog";
 import {
   type ConfidenceTier,
@@ -640,6 +641,24 @@ export interface GraphNode {
   relation_growth_1h?: number | null;
   relation_growth_24h?: number | null;
 }
+
+export type GrowthPolicyWindow = { window: string; threshold: number };
+
+export type GrowthPolicyResponse = {
+  windows: GrowthPolicyWindow[];
+};
+
+export type RelationGrowthWindow = {
+  window: string;
+  count: number | null;
+  threshold: number;
+};
+
+export type RelationGrowthResponse = {
+  entity_id: string;
+  tenant_id: string;
+  windows: RelationGrowthWindow[];
+};
 
 export interface GraphEdge {
   from_id: string;
@@ -1830,6 +1849,44 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
   },
 
+  listObserveNotify(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      notifications: Array<{
+        id: string;
+        type: string;
+        title: string;
+        body: string;
+        href: string;
+        subject_id: string;
+        created_at: string;
+        read_at: string | null;
+      }>;
+      unread: number;
+    }>(`/api/decisions/v1/observe-notify?${q}`);
+  },
+
+  markObserveNotifyRead(tenantId: string, notifyId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{ id: string; read_at?: string }>(
+      `/api/decisions/v1/observe-notify/${encodeURIComponent(notifyId)}/read?${q}`,
+      { method: "POST" },
+    );
+  },
+
+  byomStatus() {
+    return request<{ connected: boolean; backend: string; model: string }>(
+      "/api/decisions/v1/ops/byom-status",
+    );
+  },
+
+  byomTest() {
+    return request<{ connected: boolean; backend: string; model: string; ok?: boolean; hint?: string }>(
+      "/api/decisions/v1/ops/byom-test",
+      { method: "POST" },
+    );
+  },
+
   getShadowAutoPromoteProvision(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<ShadowAutoPromoteProvision>(
@@ -2508,6 +2565,9 @@ export type LeftoverRow = {
   claimed_by: string | null;
   sla_breached: boolean;
   trace_id: string;
+  pack_id?: string;
+  rule_hits?: string[];
+  brief?: string;
 };
 
 export function deskActor(): string {
@@ -3081,6 +3141,18 @@ export const graph = {
     }>(`/api/graph/v1/decisions/latest?${q}`);
   },
 
+  growthPolicy() {
+    return request<GrowthPolicyResponse>("/api/graph/v1/graph/growth-policy");
+  },
+
+  relationGrowth(tenantId: string, entityId: string, windows?: string[]) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (windows?.length) q.set("windows", windows.join(","));
+    return request<RelationGrowthResponse>(
+      `/api/graph/v1/entities/${encodeURIComponent(entityId)}/relation-growth?${q}`,
+    );
+  },
+
   pathExplain(params: {
     tenant_id: string;
     subject: string;
@@ -3233,6 +3305,10 @@ const _ruleActorHeaders = (): HeadersInit => {
 };
 
 export const rules = {
+  authorCatalog() {
+    return request<AuthorCatalog>("/api/decisions/v1/rules/author-catalog");
+  },
+
   list() {
     return request<{ packs: RulePack[] }>("/api/decisions/v1/rules");
   },
@@ -3257,6 +3333,21 @@ export const rules = {
       method: "POST",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
+    });
+  },
+
+  createScoutPack(data: {
+    name: string;
+    mode?: string;
+    rules: unknown[];
+    tenant_id: string;
+    authored_by?: string;
+    is_ai_authored?: boolean;
+  }) {
+    return request<unknown>("/api/decisions/v1/rules/scout-pack", {
+      method: "POST",
+      headers: _ruleActorHeaders(),
+      body: JSON.stringify({ mode: "shadow", is_ai_authored: true, authored_by: "desk", ...data }),
     });
   },
 

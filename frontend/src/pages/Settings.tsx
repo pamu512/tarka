@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import { PageTitle } from "../components/PageTitle";
 import { useTheme, type ThemePreference } from "../context/ThemeContext";
 import { decisions } from "../api/v1/decisions";
@@ -43,7 +44,11 @@ export default function Settings() {
     <div className="p-6 space-y-8 max-w-2xl animate-fade-in">
       <PageTitle module="settings">Settings</PageTitle>
       <p className="text-sm text-gray-500 -mt-4">
-        Theme and local UI preferences ship in-tree. SSO, tenant provisioning, and notification routing are deployment-specific — wire them via your IdP and environment (see deployment docs).
+        Theme and local UI preferences ship in-tree. Observe events (ready to Promote, live-rule slip) are on{" "}
+        <Link to="/notifications" className="text-brand-300 hover:underline">
+          /notifications
+        </Link>
+        . Optional outbound copy is <span className="font-mono">TARKA_OBSERVE_NOTIFY_WEBHOOK_URL</span>. SSO and tenant provisioning stay deployment-specific.
       </p>
 
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-4">

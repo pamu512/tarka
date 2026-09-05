@@ -1078,6 +1078,7 @@ from decision_api.micro_dev_onboarding import router as micro_dev_onboarding_rou
 from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
+from decision_api.observe_notify import router as observe_notify_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
 from decision_api.ast_rule_api import router as ast_rules_router  # noqa: E402
 from decision_api.rule_compiler_api import (  # noqa: E402
@@ -1097,6 +1098,7 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 )
 
 app.include_router(rule_router)
+app.include_router(observe_notify_router)
 app.include_router(ast_rules_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)

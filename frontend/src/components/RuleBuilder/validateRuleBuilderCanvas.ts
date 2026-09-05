@@ -2,6 +2,7 @@ import { getIncomers, type Edge, type Node } from "@xyflow/react";
 
 import { MAX_AST_DEPTH, MAX_AST_FIELD_LEN, MAX_AST_NODES, MAX_AST_VALUE_LEN, astDepth, astNodeCount, type JsonAstNode } from "../../types/jsonAst";
 import { graphHasDirectedCycle } from "./graphCycle";
+import { compileHopEtypeFromCanvas } from "./compileHopEtype";
 import { CompileToAstError, NODE_TYPES } from "./compileToAST";
 import { compileFlowToJsonAst } from "./compileFlowToJsonAst";
 
@@ -80,6 +81,10 @@ export function validateCanvasForAstSave(nodes: Node[], edges: Edge[]): CanvasVa
   }
 
   if (errors.length) return { ok: false, errors };
+
+  if (compileHopEtypeFromCanvas(nodes, edges).ok) {
+    return { ok: true };
+  }
 
   try {
     const ast = compileFlowToJsonAst(nodes, edges);

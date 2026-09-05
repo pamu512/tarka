@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import time
 from collections.abc import Callable
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import redis.asyncio as redis
@@ -47,6 +50,79 @@ DISTINCT_FIELDS = frozenset(
         "original_currency",
     }
 )
+_FEATURE_KINDS = frozenset({"event_count", "sum", "avg", "distinct"})
+# ponytail: fallback if the bundled manifest is missing or all rows skip; upgrade is ship the JSON with this module
+DEFAULT_FEATURE_OUTPUTS: list[dict] = [
+    {"name": "event_count_5m", "kind": "event_count", "window_seconds": 300},
+    {"name": "event_count_1h", "kind": "event_count", "window_seconds": 3600},
+    {"name": "event_count_24h", "kind": "event_count", "window_seconds": 86400},
+    {"name": "event_count_7d", "kind": "event_count", "window_seconds": 604800},
+    {"name": "sum_amount_1h", "kind": "sum", "field": "amount", "window_seconds": 3600},
+    {"name": "avg_amount_1h", "kind": "avg", "field": "amount", "window_seconds": 3600},
+    {"name": "sum_amount_24h", "kind": "sum", "field": "amount", "window_seconds": 86400},
+    {"name": "avg_amount_24h", "kind": "avg", "field": "amount", "window_seconds": 86400},
+    {
+        "name": "distinct_ip_address_24h",
+        "kind": "distinct",
+        "field": "ip_address",
+        "window_seconds": 86400,
+    },
+    {
+        "name": "distinct_device_id_24h",
+        "kind": "distinct",
+        "field": "device_id",
+        "window_seconds": 86400,
+    },
+    {
+        "name": "distinct_session_id_24h",
+        "kind": "distinct",
+        "field": "session_id",
+        "window_seconds": 86400,
+    },
+]
+
+
+def valid_feature_output_rows(raw: list | None) -> list[dict]:
+    """Keep rows with name, known kind, and window_seconds in (0, MAX_WINDOW]."""
+    kept: list[dict] = []
+    for row in raw or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        kind = row.get("kind")
+        try:
+            window = int(row.get("window_seconds", 0))
+        except (TypeError, ValueError):
+            continue
+        if name and kind in _FEATURE_KINDS and 0 < window <= MAX_WINDOW:
+            kept.append(row)
+    return kept
+
+
+@lru_cache
+def _bundled_manifest_feature_outputs() -> tuple[dict, ...] | None:
+    path = (
+        Path(__file__).resolve().parent.parent
+        / "decision-api"
+        / "src"
+        / "decision_api"
+        / "data"
+        / "counter_manifest_v1.json"
+    )
+    if not path.is_file():
+        return None
+    raw = json.loads(path.read_text(encoding="utf-8")).get("feature_outputs")
+    if not isinstance(raw, list):
+        return None
+    return tuple(row for row in raw if isinstance(row, dict))
+
+
+def _rows_for_compute(feature_outputs: list[dict] | None) -> list[dict]:
+    raw: list | None = feature_outputs
+    if raw is None:
+        bundled = _bundled_manifest_feature_outputs()
+        raw = list(bundled) if bundled is not None else None
+    return valid_feature_output_rows(raw) or list(DEFAULT_FEATURE_OUTPUTS)
 
 
 class AggregateStore:
@@ -155,50 +231,31 @@ class AggregateStore:
         tenant_id: str,
         entity_id: str,
         fields: dict[str, Any],
+        feature_outputs: list[dict] | None = None,
     ) -> dict[str, Any]:
-        """Compute standard aggregate features and return them as a dict."""
+        """Compute aggregate features from validated manifest rows."""
         features: dict[str, Any] = {}
-        for window_label, window_secs in [
-            ("5m", 300),
-            ("1h", 3600),
-            ("24h", 86400),
-            ("7d", 604800),
-        ]:
-            features[f"event_count_{window_label}"] = await self.count(
-                tenant_id, entity_id, window_secs
-            )
-
-        for field in ("amount",):
-            if field in fields:
-                for window_label, window_secs in [("1h", 3600), ("24h", 86400)]:
-                    features[f"sum_{field}_{window_label}"] = await self.sum_field(
-                        tenant_id, entity_id, field, window_secs
-                    )
-                    features[f"avg_{field}_{window_label}"] = await self.avg_field(
-                        tenant_id, entity_id, field, window_secs
-                    )
-
-        for field in ("ip_address", "device_id", "session_id"):
-            if fields.get(field):
-                features[f"distinct_{field}_24h"] = await self.distinct_count(
-                    tenant_id, entity_id, field, 86400
-                )
-
+        for row in _rows_for_compute(feature_outputs):
+            name = str(row["name"]).strip()
+            kind = row["kind"]
+            window = int(row["window_seconds"])
+            if kind == "event_count":
+                features[name] = await self.count(tenant_id, entity_id, window)
+                continue
+            field = row.get("field")
+            if kind in ("sum", "avg"):
+                if field is None or field not in fields:
+                    continue
+                if kind == "sum":
+                    features[name] = await self.sum_field(tenant_id, entity_id, field, window)
+                else:
+                    features[name] = await self.avg_field(tenant_id, entity_id, field, window)
+                continue
+            if kind == "distinct" and field and fields.get(field):
+                features[name] = await self.distinct_count(tenant_id, entity_id, field, window)
         return features
 
 
 def normalized_velocity_key_names() -> tuple[str, ...]:
-    """Stable ordering for rule authors / docs (matches compute_features when all branches apply)."""
-    return (
-        "event_count_5m",
-        "event_count_1h",
-        "event_count_24h",
-        "event_count_7d",
-        "sum_amount_1h",
-        "avg_amount_1h",
-        "sum_amount_24h",
-        "avg_amount_24h",
-        "distinct_ip_address_24h",
-        "distinct_device_id_24h",
-        "distinct_session_id_24h",
-    )
+    """Manifest names in file order (valid rows only)."""
+    return tuple(str(row["name"]).strip() for row in _rows_for_compute(None))
