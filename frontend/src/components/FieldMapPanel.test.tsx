@@ -1,14 +1,13 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { clearSessionTokens, setSessionTokens } from "@/api/authSession";
 import * as client from "@/api/client";
+import { TarkaRbacRole } from "@/security/rbacConstants";
 
 vi.mock("@/config/leanNav", () => ({ DESK_PROFILE: "product" }));
-
-vi.mock("@/components/rbac/RequireRole", () => ({
-  RequireRole: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -26,12 +25,37 @@ vi.mock("@/api/client", async (importOriginal) => {
 
 import { FieldMapPanel } from "./FieldMapPanel";
 
+function encodeTestJwt(payload: Record<string, unknown>): string {
+  const enc = (obj: object): string =>
+    btoa(JSON.stringify(obj))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  return `${enc({ alg: "none", typ: "JWT" })}.${enc(payload)}.sig`;
+}
+
 function renderPanel(ui: ReactElement = <FieldMapPanel tenantId="t1" />) {
-  return render(ui);
+  return render(
+    <MemoryRouter initialEntries={["/rules"]}>
+      <Routes>
+        <Route path="/rules" element={ui} />
+        <Route path="/login" element={<div data-testid="login-page">login</div>} />
+        <Route path="/403-unauthorized" element={<div data-testid="forbidden-page">forbidden</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function expectStayedOnRules() {
+  expect(screen.queryByTestId("login-page")).toBeNull();
+  expect(screen.queryByTestId("forbidden-page")).toBeNull();
 }
 
 describe("FieldMapPanel (product)", () => {
   beforeEach(() => {
+    clearSessionTokens();
+    setSessionTokens(encodeTestJwt({ sub: "u1", roles: [TarkaRbacRole.RiskArchitect] }), null);
+
     vi.mocked(client.fields.list).mockReset();
     vi.mocked(client.fields.maps).mockReset();
     vi.mocked(client.fields.upsert).mockReset();
@@ -59,9 +83,37 @@ describe("FieldMapPanel (product)", () => {
     });
   });
 
+  afterEach(() => {
+    clearSessionTokens();
+  });
+
   it("shows panel on product", async () => {
     renderPanel();
     expect(await screen.findByTestId("field-map-panel")).toBeTruthy();
+    expectStayedOnRules();
+  });
+
+  it("hides without navigating when JWT is FraudAnalyst", async () => {
+    clearSessionTokens();
+    setSessionTokens(encodeTestJwt({ sub: "u1", roles: [TarkaRbacRole.FraudAnalyst] }), null);
+    renderPanel();
+    expect(screen.queryByTestId("field-map-panel")).toBeNull();
+    expectStayedOnRules();
+    await waitFor(() => {
+      expect(client.fields.list).not.toHaveBeenCalled();
+      expect(client.fields.maps).not.toHaveBeenCalled();
+    });
+  });
+
+  it("hides without navigating when there is no token", async () => {
+    clearSessionTokens();
+    renderPanel();
+    expect(screen.queryByTestId("field-map-panel")).toBeNull();
+    expectStayedOnRules();
+    await waitFor(() => {
+      expect(client.fields.list).not.toHaveBeenCalled();
+      expect(client.fields.maps).not.toHaveBeenCalled();
+    });
   });
 
   it("lists seed name amount", async () => {
