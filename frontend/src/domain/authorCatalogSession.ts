@@ -4,9 +4,9 @@ import { fallbackAuthorCatalog } from "./authorCatalogFallback";
 
 let lastOk: AuthorCatalog | null = null;
 
-export async function loadAuthorCatalog(): Promise<AuthorCatalog> {
+export async function loadAuthorCatalog(tenantId?: string): Promise<AuthorCatalog> {
   try {
-    lastOk = await rules.authorCatalog();
+    lastOk = await rules.authorCatalog(tenantId);
     return lastOk;
   } catch {
     return lastOk ?? fallbackAuthorCatalog();

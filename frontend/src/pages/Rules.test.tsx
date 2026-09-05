@@ -20,6 +20,13 @@ vi.mock("@/api/client", async (importOriginal) => {
       verticalPacks: vi.fn(),
       authorCatalog: vi.fn(),
     },
+    fields: {
+      list: vi.fn(),
+      maps: vi.fn(),
+      upsert: vi.fn(),
+      putMap: vi.fn(),
+      discover: vi.fn(),
+    },
   };
 });
 
@@ -72,7 +79,14 @@ describe("Rules workspace tabs", () => {
     vi.mocked(client.rules.telemetry).mockReset();
     vi.mocked(client.rules.verticalPacks).mockReset();
     vi.mocked(client.rules.authorCatalog).mockReset();
+    vi.mocked(client.fields.list).mockReset();
+    vi.mocked(client.fields.maps).mockReset();
+    vi.mocked(client.fields.upsert).mockReset();
+    vi.mocked(client.fields.putMap).mockReset();
+    vi.mocked(client.fields.discover).mockReset();
 
+    vi.mocked(client.fields.list).mockResolvedValue([]);
+    vi.mocked(client.fields.maps).mockResolvedValue([]);
     vi.mocked(client.rules.authorCatalog).mockResolvedValue(fallbackAuthorCatalog());
     vi.mocked(client.rules.list).mockResolvedValue({ packs: [SHADOW_PACK] });
     vi.mocked(client.rules.verticalPacks).mockResolvedValue({ vertical_packs: {} });
