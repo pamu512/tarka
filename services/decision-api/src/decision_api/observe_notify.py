@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlparse
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from decision_api.shared_path import ensure_services_shared_on_path
+
+ensure_services_shared_on_path()
+from auth_rbac import require_role_or_insecure_desk  # noqa: E402
+
 log = logging.getLogger("decision-api.observe_notify")
 
 NOTIFY_SCHEMA = "tarka.observe_notify/v1"
@@ -362,13 +369,6 @@ async def emit_after_observe_tick(
     except Exception:
         log.debug("observe_notify_tick_failed", exc_info=True)
 
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-
-from decision_api.shared_path import ensure_services_shared_on_path
-
-ensure_services_shared_on_path()
-from auth_rbac import require_role_or_insecure_desk  # noqa: E402
 
 router = APIRouter(tags=["observe-notify"])
 

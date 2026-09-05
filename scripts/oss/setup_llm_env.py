@@ -54,7 +54,9 @@ def prompt_llm(*, env_path: Path, stdin_isatty: bool, input_fn=input) -> str:
     block = render_llm_block(url=url, api_key=key, model=model)
     env_path.parent.mkdir(parents=True, exist_ok=True)
     prev = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
-    env_path.write_text(prev + block, encoding="utf-8")
+    # Local TTY .env only (gitignored). Desk never sees this key.
+    env_path.write_text(prev + block, encoding="utf-8")  # codeql[py/clear-text-storage-of-sensitive-data]
+    env_path.chmod(0o600)
     print("[ok] wrote SHADOW_LLM_* to .env — Shadow plane stays off until that service is composed later.")
     return "wrote"
 
