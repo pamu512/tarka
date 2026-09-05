@@ -49,6 +49,21 @@ class TestSetupLlmEnv(unittest.TestCase):
                 "already",
             )
 
+    def test_wrote_env_is_owner_read_write_only(self) -> None:
+        answers = iter(["http://vllm:8000/v1", "sekrit", "gpt-4"])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".env"
+            self.assertEqual(
+                setup_llm_env.prompt_llm(
+                    env_path=path,
+                    stdin_isatty=True,
+                    input_fn=lambda _p: next(answers),
+                ),
+                "wrote",
+            )
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertIn("SHADOW_LLM_API_KEY=sekrit", path.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

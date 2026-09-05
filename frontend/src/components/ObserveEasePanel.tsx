@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import { decisions, rules } from "../api/client";
+import { decisions, rules, shadow } from "../api/client";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Draft = { name?: string; file?: string; is_ai_authored?: boolean };
@@ -90,7 +90,7 @@ export function ObserveEasePanel({
     setBusy(true);
     setMsg("");
     try {
-      await rules.setPackMode(file, "shadow");
+      await shadow.setPackMode(file, "shadow");
       setMsg("Human PUT set that pack to Observe. A model did not turn live off.");
     } catch (e) {
       setMsg(toUserFacingError(e, { subject: "Observe", action: "set pack mode to shadow" }));
