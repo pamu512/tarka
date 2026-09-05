@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.author_catalog import ai_allowed_fields, build_author_catalog
+from field_registry import seed_names
 from decision_api.backtest_promote_gate import backtest_before_promote_gate
 from decision_api.config import settings
 from decision_api.db import get_session
@@ -279,16 +280,56 @@ def _fetch_growth_windows(graph_url: str) -> list[dict] | None:
     return windows if isinstance(windows, list) else None
 
 
-def _live_author_catalog() -> dict[str, Any]:
+def when_field_errors(pack: dict, allowed: frozenset[str]) -> list[str]:
+    errors: list[str] = []
+    for rule in pack.get("rules") or []:
+        if not isinstance(rule, dict):
+            continue
+        rid = rule.get("id", "unknown")
+        for cond in rule.get("when") or []:
+            if not isinstance(cond, dict):
+                continue
+            field = cond.get("field") or ""
+            if field and field not in allowed:
+                errors.append(
+                    f"rule {rid}: unknown field '{field}'; map it or add a registry row"
+                )
+    return errors
+
+
+async def _overlay_names_or_empty(tenant_id: str) -> frozenset[str]:
+    """Load tenant overlay names. Fail → empty (seed-only catalog)."""
+    try:
+        from decision_api.db import SessionLocal
+        from decision_api.field_store import list_overlay
+
+        async with SessionLocal() as session:
+            rows = await list_overlay(session, tenant_id)
+        return frozenset(r.name for r in rows if getattr(r, "name", None))
+    except Exception:
+        logger.exception("field_overlay_load_failed tenant_id=%s", tenant_id)
+        return frozenset()
+
+
+async def _live_author_catalog(tenant_id: str | None = None) -> dict[str, Any]:
     graph_url = (settings.graph_service_url or "").strip()
     windows = _fetch_growth_windows(graph_url) if graph_url else None
-    return build_author_catalog(graph_url=graph_url, growth_windows=windows)
+    tid = (tenant_id or "").strip() or None
+    if not tid:
+        return build_author_catalog(graph_url=graph_url, growth_windows=windows)
+    overlay = await _overlay_names_or_empty(tid)
+    return build_author_catalog(
+        graph_url=graph_url,
+        growth_windows=windows,
+        registry_names=seed_names() | overlay,
+        overlay_names=overlay,
+    )
 
 
 @router.get("/author-catalog")
-async def get_author_catalog():
+async def get_author_catalog(tenant_id: str | None = Query(default=None)):
     """Desk + AI field catalog. Same auth as other /v1/rules reads."""
-    return _live_author_catalog()
+    return await _live_author_catalog(tenant_id)
 
 
 def _install_vertical_pack_core(
@@ -690,6 +731,7 @@ async def get_rule_pack(filename: str):
 @router.post("", status_code=201)
 async def create_rule_pack(
     body: RulePackIn,
+    tenant_id: str | None = Query(default=None),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -718,6 +760,11 @@ async def create_rule_pack(
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
+    ferr = when_field_errors(
+        pack, ai_allowed_fields(await _live_author_catalog(tenant_id))
+    )
+    if ferr:
+        raise HTTPException(422, detail={"validation_errors": ferr})
     fpath = _new_pack_path("pack")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
@@ -734,6 +781,7 @@ async def create_rule_pack(
 async def update_rule_pack(
     filename: str,
     body: RulePackIn,
+    tenant_id: str | None = Query(default=None),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -754,6 +802,11 @@ async def update_rule_pack(
     errors = _validate_rule_pack(pack)
     if errors:
         raise HTTPException(422, detail={"validation_errors": errors})
+    ferr = when_field_errors(
+        pack, ai_allowed_fields(await _live_author_catalog(tenant_id))
+    )
+    if ferr:
+        raise HTTPException(422, detail={"validation_errors": ferr})
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
     _append_rule_change(
@@ -822,9 +875,9 @@ class ScoutPackIn(BaseModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 
-def _ai_pack_allowed_fields() -> frozenset[str]:
+async def _ai_pack_allowed_fields(tenant_id: str | None = None) -> frozenset[str]:
     """Live catalog (graph policy when URL set) ∪ identity ∪ legacy aliases."""
-    return ai_allowed_fields(_live_author_catalog())
+    return ai_allowed_fields(await _live_author_catalog(tenant_id))
 
 
 _AI_PACK_ALLOWED_OPS: frozenset[str] = frozenset(
@@ -850,7 +903,7 @@ _AI_PACK_SCORE_DELTA_MIN = 5.0
 _AI_PACK_SCORE_DELTA_MAX = 30.0
 
 
-def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
+async def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
     """Enforce the AI pack-author contract on a scout pack."""
     errors: list[str] = []
     if pack.get("mode") != "shadow":
@@ -860,7 +913,9 @@ def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
     rules = pack.get("rules") or []
     if not rules:
         errors.append("rules must not be empty")
-    allowed_fields = _ai_pack_allowed_fields()
+    tid = (pack.get("tenant_id") or "").strip() or None
+    allowed_fields = await _ai_pack_allowed_fields(tid)
+    errors.extend(when_field_errors(pack, allowed_fields))
     for rule in rules:
         if not isinstance(rule, dict):
             continue
@@ -878,10 +933,7 @@ def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
         for cond in rule.get("when") or []:
             if not isinstance(cond, dict):
                 continue
-            field = cond.get("field", "")
             op = cond.get("op", "eq")
-            if field and field not in allowed_fields:
-                errors.append(f"rule {rid}: unknown field '{field}'")
             if op not in _AI_PACK_ALLOWED_OPS:
                 errors.append(f"rule {rid}: disallowed op '{op}'")
     return errors
@@ -963,7 +1015,7 @@ async def create_scout_pack(
     fp = fingerprint_from_pack(pack)
     if fp and fp in load_killed_fingerprints(tid):
         raise HTTPException(409, "leftover_helpfulness_killed")
-    ai_errors = _validate_ai_authored_pack(pack)
+    ai_errors = await _validate_ai_authored_pack(pack)
     if ai_errors:
         raise HTTPException(
             422,
