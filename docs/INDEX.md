@@ -6,8 +6,9 @@ Canonical operator docs.
 
 | Audience | Start here |
 |----------|------------|
-| **Strategy analyst** — author and promote packs (JSON rules) | [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
-| **Investigator** — work the Person on Hunt; leftovers are the thin station | [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
+| **Clone and run** — desk + real receipts | [`make demo`](docs/guides/clone-demo.md) |
+| **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
+| **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
 
 Investigators do not author rules; strategy analysts do. Work **arrives** on `/leftovers`. Work **happens** on Hunt (`/graph`). Fat `/cases` stays hidden in lean. ALLOW never becomes a leftover.
 
@@ -41,7 +42,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 ## Compose (one story)
 
 ```bash
-docker compose -f infra/deploy/docker-compose.lite.yml up --build
+make demo
 ```
 
-Lite Day-1 is evaluate **plus** AGE graph (same as the README). Thin desk: add `-f infra/deploy/docker-compose.fraud-desk.yml` (Hunt home `/graph`, leftovers, `/ops/shadow`). Investigation / signals / Janus overlay: [SRE compose profiles](docs/operations/sre-compose-profiles.md). Lab files (`v2-ingest`, graph-wire) live under `infra/deploy/archive/`.
+That is the Day-1 path (Lite + fraud-desk + honest evaluate walk). Same as the README. [clone-and-run desk](docs/guides/clone-demo.md). Compose-only: `docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up --build`. Investigation / signals / Janus overlay: [SRE compose profiles](docs/operations/sre-compose-profiles.md). Lab files (`v2-ingest`, graph-wire) live under `infra/deploy/archive/`.

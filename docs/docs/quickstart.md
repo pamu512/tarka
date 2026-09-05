@@ -8,20 +8,21 @@ Get a Tarka desk stack running and evaluate a first decision.
 - Python 3.11+ (optional CLI)
 - Git
 
-## Day-1: evaluate-only (recommended)
+## Day-1: `make demo` (recommended)
 
 ```bash
 git clone https://github.com/pamu512/tarka.git
 cd tarka
-
-docker compose -f infra/deploy/docker-compose.lite.yml up --build
+make demo
 ```
+
+That starts Lite + fraud-desk and walks a few real evaluate events. Receipts land on `/decisions`. See [clone-and-run desk](guides/clone-demo.md).
 
 This brings up **Postgres (Apache AGE)**, **Redis**, **graph-service**, **core-api** (decision-api + case-api), and the **frontend**. It does **not** start investigation-agent, signal-api, or integration-ingress. Desk home is `/graph` when the graph URL is set. Receipts stay at `/decisions`. Leftovers are `/leftovers`.
 
-Thin desk (lean nav + desk-strict): also merge `infra/deploy/docker-compose.fraud-desk.yml`. Full desk / +investigation / +signals: [SRE compose profiles](operations/sre-compose-profiles.md).
+Compose-only (no walk): `docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up --build`. Full desk / +investigation / +signals: [SRE compose profiles](operations/sre-compose-profiles.md).
 
-**15-minute first decision:** [oss-15-minute-first-decision](guides/oss-15-minute-first-decision.md)
+**15-minute first decision** (deeper): [oss-15-minute-first-decision](guides/oss-15-minute-first-decision.md)
 
 ```bash
 python3 scripts/oss/first_decision_smoke.py

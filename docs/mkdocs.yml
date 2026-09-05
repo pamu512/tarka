@@ -83,6 +83,7 @@ nav:
       - Calibration ops: guides/calibration-ops-runbook.md
       - Rules: guides/rules.md
       - Backtest before promote: guides/backtest-before-promote.md
+      - Clone-and-run desk: guides/clone-demo.md
       - OSS 15-minute first decision: guides/oss-15-minute-first-decision.md
   - Releases:
       - 1.3.0-beta: releases/v1.3.0-beta.md
