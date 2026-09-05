@@ -11,7 +11,10 @@ import pytest
 
 from circuit import CircuitOpenError
 from decision_api.evaluate import enrichment
-from decision_api.evaluate.enrichment import attach_growth_to_features, fetch_relation_growth
+from decision_api.evaluate.enrichment import (
+    attach_growth_to_features,
+    fetch_relation_growth,
+)
 
 
 def test_attach_growth_writes_int_omits_null():
@@ -58,7 +61,9 @@ def _bind(*, circuit: Any | None = None) -> None:
 
 
 class _CountingHttp:
-    def __init__(self, body: dict[str, Any] | Exception, status_code: int = 200) -> None:
+    def __init__(
+        self, body: dict[str, Any] | Exception, status_code: int = 200
+    ) -> None:
         self.body = body
         self.status_code = status_code
         self.calls: list[dict[str, Any]] = []
@@ -87,7 +92,9 @@ async def test_fetch_growth_empty_url_omits_all_keys(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
-async def test_fetch_growth_graph_missing_omits_request(monkeypatch: pytest.MonkeyPatch):
+async def test_fetch_growth_graph_missing_omits_request(
+    monkeypatch: pytest.MonkeyPatch,
+):
     _bind()
     monkeypatch.setattr(enrichment.settings, "graph_service_url", "http://graph.test")
     http = _CountingHttp({"windows": [{"window": "1h", "count": 3}]})
@@ -124,7 +131,9 @@ async def test_fetch_growth_disabled_omits_request(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.asyncio
-async def test_fetch_growth_request_fail_omits_all_keys(monkeypatch: pytest.MonkeyPatch):
+async def test_fetch_growth_request_fail_omits_all_keys(
+    monkeypatch: pytest.MonkeyPatch,
+):
     _bind()
     monkeypatch.setattr(enrichment.settings, "graph_service_url", "http://graph.test")
     http = _CountingHttp(httpx.HTTPError("boom"))
@@ -144,7 +153,9 @@ async def test_fetch_growth_request_fail_omits_all_keys(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
-async def test_fetch_growth_circuit_open_omits_all_keys(monkeypatch: pytest.MonkeyPatch):
+async def test_fetch_growth_circuit_open_omits_all_keys(
+    monkeypatch: pytest.MonkeyPatch,
+):
     class _Open:
         async def call(self, fn):
             raise CircuitOpenError("graph")
@@ -166,7 +177,9 @@ async def test_fetch_growth_circuit_open_omits_all_keys(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
-async def test_fetch_growth_success_copies_int_omits_null(monkeypatch: pytest.MonkeyPatch):
+async def test_fetch_growth_success_copies_int_omits_null(
+    monkeypatch: pytest.MonkeyPatch,
+):
     _bind()
     monkeypatch.setattr(enrichment.settings, "graph_service_url", "http://graph.test")
     payload = {
@@ -190,7 +203,13 @@ async def test_fetch_growth_success_copies_int_omits_null(monkeypatch: pytest.Mo
 
 
 def test_pipeline_attaches_growth_after_hop():
-    src = Path(enrichment.__file__).resolve().parents[0].joinpath("pipeline.py").read_text()
+    src = (
+        Path(enrichment.__file__)
+        .resolve()
+        .parents[0]
+        .joinpath("pipeline.py")
+        .read_text()
+    )
     hop = src.index("attach_hop_to_features(features, graph_hop_v1)")
     fetch = src.index("fetch_relation_growth")
     attach = src.index("attach_growth_to_features(features")

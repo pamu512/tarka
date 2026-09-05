@@ -117,17 +117,13 @@ def test_relation_growth_counts_incident_coalesced_stamps(client, monkeypatch):
                         "from_id": "u1",
                         "to_id": "d1",
                         "type": "USES_DEVICE",
-                        "properties": {
-                            "observed_at": (now - timedelta(minutes=10)).isoformat()
-                        },
+                        "properties": {"observed_at": (now - timedelta(minutes=10)).isoformat()},
                     },
                     {
                         "from_id": "u1",
                         "to_id": "d2",
                         "type": "USES_DEVICE",
-                        "properties": {
-                            "created_at": (now - timedelta(hours=3)).isoformat()
-                        },
+                        "properties": {"created_at": (now - timedelta(hours=3)).isoformat()},
                     },
                     {
                         "from_id": "u1",
