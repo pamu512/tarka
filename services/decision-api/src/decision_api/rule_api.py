@@ -582,9 +582,7 @@ async def auto_promote_tick(
     try:
         from decision_api.observe_notify import emit_after_observe_tick
 
-        await emit_after_observe_tick(
-            tenant_id, desk=out.get("desk_promote_gate")
-        )
+        await emit_after_observe_tick(tenant_id, desk=out.get("desk_promote_gate"))
     except Exception:
         logger.exception("observe_notify tick failed tenant=%s", tenant_id)
     try:
@@ -1033,7 +1031,10 @@ async def create_scout_pack(
             from decision_api.observe_notify import emit_after_observe_tick
 
             await emit_after_observe_tick(
-                tid, desk=auto_out.get("desk_promote_gate") if isinstance(auto_out, dict) else None
+                tid,
+                desk=auto_out.get("desk_promote_gate")
+                if isinstance(auto_out, dict)
+                else None,
             )
         except Exception:
             logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)

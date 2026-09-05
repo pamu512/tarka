@@ -58,7 +58,9 @@ def test_leftover_both():
 
 def test_leftover_row_reads_pack_and_hits_from_labels():
     row = leftover_row(
-        _case(id="c1", labels=["origin:evaluate", "pack:device_signals", "hit:sdk_bot"], trace_id="tr"),
+        _case(
+            id="c1", labels=["origin:evaluate", "pack:device_signals", "hit:sdk_bot"], trace_id="tr"
+        ),
         sla_breached=False,
     )
     assert row["pack_id"] == "device_signals"
@@ -70,9 +72,9 @@ def test_leftover_brief_from_pack_hits_and_case_brief():
     assert leftover_brief(["origin:evaluate", "pack:device_signals", "hit:sdk_bot"]) == (
         "Pack device_signals — hits sdk_bot"
     )
-    assert leftover_brief(["origin:evaluate"], brief_comment="# Case brief (deterministic)\n\n- x") == (
-        "# Case brief (deterministic)\n\n- x"
-    )
+    assert leftover_brief(
+        ["origin:evaluate"], brief_comment="# Case brief (deterministic)\n\n- x"
+    ) == ("# Case brief (deterministic)\n\n- x")
     assert leftover_brief(["origin:evaluate"], brief_comment="System: case brief unreachable") == ""
     row = leftover_row(
         _case(id="c1", labels=["origin:evaluate", "pack:device_signals", "hit:sdk_bot"]),

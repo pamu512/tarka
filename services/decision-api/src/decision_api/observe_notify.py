@@ -52,7 +52,9 @@ def notify_path() -> Path:
         return Path("./rules") / "observe_notify.jsonl"
 
 
-def english_copy(event_type: str, subject_id: str, draft_id: str = "") -> dict[str, str]:
+def english_copy(
+    event_type: str, subject_id: str, draft_id: str = ""
+) -> dict[str, str]:
     sid = (subject_id or "").strip() or "draft"
     href = f"/ops/shadow?draft={draft_id or sid}"
     if event_type == EVENT_READY_TO_PROMOTE:
@@ -130,7 +132,10 @@ def mark_read(tenant_id: str, notify_id: str) -> dict[str, Any]:
         rows = _load_rows()
         found: dict[str, Any] | None = None
         for row in rows:
-            if str(row.get("id") or "") == nid and str(row.get("tenant_id") or "") == tid:
+            if (
+                str(row.get("id") or "") == nid
+                and str(row.get("tenant_id") or "") == tid
+            ):
                 if not row.get("read_at"):
                     row["read_at"] = ts
                 found = dict(row)
@@ -338,7 +343,12 @@ def byom_ping(http: Any | None = None) -> dict[str, Any]:
             "origin": _safe_origin(url),
         }
     except Exception:
-        return {**status, "ok": False, "hint": "ping_failed", "origin": _safe_origin(url)}
+        return {
+            **status,
+            "ok": False,
+            "hint": "ping_failed",
+            "origin": _safe_origin(url),
+        }
 
 
 async def emit_after_observe_tick(
@@ -354,7 +364,9 @@ async def emit_after_observe_tick(
     try:
         if desk is None:
             from decision_api.db import SessionLocal
-            from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+            from decision_api.leftover_promote_gate import (
+                compute_desk_and_leftover_gates,
+            )
 
             async with SessionLocal() as session:
                 gates = await compute_desk_and_leftover_gates(
@@ -396,10 +408,14 @@ def post_observe_notify_read(
 
 
 @router.get("/v1/ops/byom-status")
-def get_byom_status(_user=Depends(require_role_or_insecure_desk("analyst"))) -> dict[str, Any]:
+def get_byom_status(
+    _user=Depends(require_role_or_insecure_desk("analyst")),
+) -> dict[str, Any]:
     return byom_status()
 
 
 @router.post("/v1/ops/byom-test")
-def post_byom_test(_user=Depends(require_role_or_insecure_desk("analyst"))) -> dict[str, Any]:
+def post_byom_test(
+    _user=Depends(require_role_or_insecure_desk("analyst")),
+) -> dict[str, Any]:
     return byom_ping()

@@ -33,7 +33,9 @@ def valid_feature_outputs(raw: list | None) -> list[dict]:
 
 def expected_feature_names() -> frozenset[str]:
     m = load_counter_manifest_v1()
-    return frozenset(str(x["name"]).strip() for x in valid_feature_outputs(m.get("feature_outputs")))
+    return frozenset(
+        str(x["name"]).strip() for x in valid_feature_outputs(m.get("feature_outputs"))
+    )
 
 
 def validate_feature_dict(features: dict[str, Any]) -> list[str]:

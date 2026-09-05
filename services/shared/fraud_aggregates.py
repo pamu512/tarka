@@ -61,9 +61,24 @@ DEFAULT_FEATURE_OUTPUTS: list[dict] = [
     {"name": "avg_amount_1h", "kind": "avg", "field": "amount", "window_seconds": 3600},
     {"name": "sum_amount_24h", "kind": "sum", "field": "amount", "window_seconds": 86400},
     {"name": "avg_amount_24h", "kind": "avg", "field": "amount", "window_seconds": 86400},
-    {"name": "distinct_ip_address_24h", "kind": "distinct", "field": "ip_address", "window_seconds": 86400},
-    {"name": "distinct_device_id_24h", "kind": "distinct", "field": "device_id", "window_seconds": 86400},
-    {"name": "distinct_session_id_24h", "kind": "distinct", "field": "session_id", "window_seconds": 86400},
+    {
+        "name": "distinct_ip_address_24h",
+        "kind": "distinct",
+        "field": "ip_address",
+        "window_seconds": 86400,
+    },
+    {
+        "name": "distinct_device_id_24h",
+        "kind": "distinct",
+        "field": "device_id",
+        "window_seconds": 86400,
+    },
+    {
+        "name": "distinct_session_id_24h",
+        "kind": "distinct",
+        "field": "session_id",
+        "window_seconds": 86400,
+    },
 ]
 
 
@@ -232,18 +247,12 @@ class AggregateStore:
                 if field is None or field not in fields:
                     continue
                 if kind == "sum":
-                    features[name] = await self.sum_field(
-                        tenant_id, entity_id, field, window
-                    )
+                    features[name] = await self.sum_field(tenant_id, entity_id, field, window)
                 else:
-                    features[name] = await self.avg_field(
-                        tenant_id, entity_id, field, window
-                    )
+                    features[name] = await self.avg_field(tenant_id, entity_id, field, window)
                 continue
             if kind == "distinct" and field and fields.get(field):
-                features[name] = await self.distinct_count(
-                    tenant_id, entity_id, field, window
-                )
+                features[name] = await self.distinct_count(tenant_id, entity_id, field, window)
         return features
 
 

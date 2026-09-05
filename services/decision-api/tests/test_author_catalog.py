@@ -18,7 +18,9 @@ from decision_api.rule_api import router as rules_router
 
 
 def test_catalog_growth_empty_when_graph_off():
-    cat = build_author_catalog(graph_url="", growth_windows=[{"window": "1h", "threshold": 5}])
+    cat = build_author_catalog(
+        graph_url="", growth_windows=[{"window": "1h", "threshold": 5}]
+    )
     assert cat["growth"] == []
     names = {r["name"] for r in cat["redis"]}
     assert "event_count_7d" in names
@@ -35,9 +37,15 @@ def test_catalog_growth_empty_when_graph_off():
 def test_catalog_growth_from_policy_when_graph_on():
     cat = build_author_catalog(
         graph_url="http://graph.test",
-        growth_windows=[{"window": "1h", "threshold": 5}, {"window": "24h", "threshold": 15}],
+        growth_windows=[
+            {"window": "1h", "threshold": 5},
+            {"window": "24h", "threshold": 15},
+        ],
     )
-    assert {g["name"] for g in cat["growth"]} == {"relation_growth_1h", "relation_growth_24h"}
+    assert {g["name"] for g in cat["growth"]} == {
+        "relation_growth_1h",
+        "relation_growth_24h",
+    }
     by_name = {g["name"]: g for g in cat["growth"]}
     assert by_name["relation_growth_1h"] == {
         "name": "relation_growth_1h",
@@ -143,7 +151,9 @@ async def test_get_author_catalog_not_swallowed_as_filename(rules_client, monkey
 
 
 @pytest.mark.asyncio
-async def test_get_author_catalog_does_not_require_counters_token(rules_client, monkeypatch):
+async def test_get_author_catalog_does_not_require_counters_token(
+    rules_client, monkeypatch
+):
     from decision_api import rule_api
 
     monkeypatch.setattr(rule_api.settings, "graph_service_url", "")
@@ -180,7 +190,9 @@ async def test_get_author_catalog_growth_from_graph_policy(rules_client, monkeyp
 
 
 @pytest.mark.asyncio
-async def test_get_author_catalog_growth_empty_when_policy_fails(rules_client, monkeypatch):
+async def test_get_author_catalog_growth_empty_when_policy_fails(
+    rules_client, monkeypatch
+):
     from decision_api import rule_api
 
     monkeypatch.setattr(rule_api.settings, "graph_service_url", "http://graph.test")
