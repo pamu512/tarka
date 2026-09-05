@@ -1,5 +1,7 @@
 # Ingest hardening, SDKs, and offline replay (onboarding)
 
+For buyer payload keys and registry mapping before rule authoring, see [Field registry onboarding](field-registry-onboarding.md).
+
 This guide ties together **high-volume ingestion**, **client SDKs**, **idempotency**, **consumer observability**, and the **v1.2 replay** script.
 
 Envelope fields, adapters, and error codes: [Ingest Contract v1](ingest-contract-v1.md).
