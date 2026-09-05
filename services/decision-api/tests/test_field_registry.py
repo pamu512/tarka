@@ -35,7 +35,7 @@ def test_validate_rejects_tx_prefix_and_bad_shape():
         raise AssertionError(bad)
 
 
-def test_apply_maps_fills_amount_without_clobber_or_zero():
+def test_apply_maps_fills_amount_without_clobber():
     out = apply_field_maps({"txn_amt": 9}, [("txn_amt", "amount")])
     assert out["amount"] == 9
     assert out["txn_amt"] == 9
@@ -43,6 +43,15 @@ def test_apply_maps_fills_amount_without_clobber_or_zero():
     assert both["amount"] == 4
     missing = apply_field_maps({"other": 1}, [("txn_amt", "amount")])
     assert "amount" not in missing
+
+
+def test_apply_maps_copies_present_zero_and_false():
+    zero = apply_field_maps({"txn_amt": 0}, [("txn_amt", "amount")])
+    assert zero["amount"] == 0
+    assert zero["txn_amt"] == 0
+    false = apply_field_maps({"is_fraud": False}, [("is_fraud", "fraud_flag")])
+    assert false["fraud_flag"] is False
+    assert false["is_fraud"] is False
 
 
 def test_discover_splits_named_mapped_candidates():
