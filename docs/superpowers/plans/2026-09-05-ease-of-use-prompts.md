@@ -1,4 +1,4 @@
-# Ease-of-use: three outcomes (Cursor prompts)
+# Ease-of-use: three outcomes
 
 > **Do not treat Downloads / Sep packs as the source of truth.** This file is the in-repo prompt pack. Extend existing surfaces. Do not rebuild evaluate, leftovers, Observe, or Hunt.
 
