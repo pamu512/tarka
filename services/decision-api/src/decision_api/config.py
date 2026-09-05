@@ -407,6 +407,9 @@ class Settings(BaseSettings):
     tarka_deployment_profile: str = (
         os.environ.get("TARKA_DEPLOYMENT_PROFILE", "").strip().lower()
     )
+    #: Desk skin. ``demo`` → field-registry PUTs 403 (maps persist on product Postgres).
+    tarka_desk_profile: str = ""
+
     # Audience-level explainability surface: "minimal" (external-safe), "analyst", or "full".
     explainability_tier_default: str = (
         os.environ.get("EXPLAINABILITY_TIER_DEFAULT", "analyst").strip().lower()
