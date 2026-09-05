@@ -49,6 +49,8 @@ _SCREENING_JOURNAL_SCHEMA = "tarka.sanctions_screening_journal/v1"
 _MAX_MATCH_ROWS_IN_LOG = 10
 _MAX_ENTITY_NAME_LEN = 512
 _MAX_TENANT_ID_LEN = 128
+_LIST_INGEST_SOURCE = "opensanctions"
+_SYNTHETIC_SUBJECT_PREFIX = "ops:"
 
 
 def screening_journal_path() -> Path:
@@ -70,8 +72,12 @@ def append_screening_journal(record: dict[str, Any]) -> None:
         log.debug("sanctions_screening_journal_append_failed", exc_info=True)
 
 
-def read_screening_journal(*, limit: int = 50) -> list[dict[str, Any]]:
-    """Tail recent journal rows (newest last in file → returned newest-first)."""
+def read_screening_journal(*, limit: int = 50, hits_only: bool = False) -> list[dict[str, Any]]:
+    """Tail recent journal rows (newest last in file → returned newest-first).
+
+    ``hits_only`` applies the cap to match rows so a miss-heavy tail cannot
+    bury list hits used by refresh replay.
+    """
     lim = max(1, min(int(limit or 50), 500))
     path = screening_journal_path()
     if not path.is_file():
@@ -89,8 +95,11 @@ def read_screening_journal(*, limit: int = 50) -> list[dict[str, Any]]:
             row = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(row, dict):
-            out.append(row)
+        if not isinstance(row, dict):
+            continue
+        if hits_only and not row.get("match_found"):
+            continue
+        out.append(row)
         if len(out) >= lim:
             break
     return out
@@ -202,6 +211,7 @@ async def _persist_screening_log(
                 },
             ) from e
     log_id = log_row.id
+    details = match_details if isinstance(match_details, dict) else {}
     append_screening_journal(
         {
             "schema_id": _SCREENING_JOURNAL_SCHEMA,
@@ -210,15 +220,119 @@ async def _persist_screening_log(
             "tenant_id": tid,
             "entity_name": ename,
             "match_found": bool(match_found),
-            "match_count": int(match_details.get("match_count") or 0)
-            if isinstance(match_details, dict)
-            else 0,
-            "subject_id": (match_details or {}).get("subject_id")
-            if isinstance(match_details, dict)
-            else None,
+            "match_count": int(details.get("match_count") or 0),
+            "subject_id": details.get("subject_id"),
+            "list_id": _list_id_from_match_details(details) or None,
         }
     )
     return log_id
+
+
+def _list_id_from_match_details(match_details: dict[str, Any] | None) -> str:
+    if not isinstance(match_details, dict):
+        return ""
+    raw = str(match_details.get("list_id") or "").strip()
+    if raw:
+        return raw[:128]
+    matches = match_details.get("matches")
+    if isinstance(matches, list) and matches and isinstance(matches[0], dict):
+        return str(matches[0].get("id") or "").strip()[:128]
+    return ""
+
+
+def plan_list_hit_ingest(*, tenant_id: str, subject_id: str, list_id: str) -> dict[str, Any] | None:
+    """Map a persisted list hit onto the same Person evaluate uses. No fuzzy join."""
+    tid = (tenant_id or "").strip()
+    person = (subject_id or "").strip()
+    lid = (list_id or "").strip()
+    if not tid or not person or not lid:
+        return None
+    if person.lower().startswith(_SYNTHETIC_SUBJECT_PREFIX):
+        return None
+    object_id = lid if lid.startswith("list:") else f"list:{lid[:128]}"
+    return {
+        "tenant_id": tid,
+        "source": _LIST_INGEST_SOURCE,
+        "mapping": {
+            "join_field": "entity_id",
+            "object_field": "list_id",
+            "object_type": "List",
+            "relationship": "HAS_LIST",
+        },
+        "record": {"entity_id": person, "list_id": object_id},
+    }
+
+
+async def maybe_ingest_list_hit(
+    http: httpx.AsyncClient | None,
+    *,
+    tenant_id: str,
+    subject_id: str,
+    list_id: str,
+) -> dict[str, Any]:
+    """POST /v1/ingest/objects. Empty GRAPH_SERVICE_URL or HTTP failure is fail-soft.
+
+    A successful POST upserts Person on the join key (same as mapped ingest).
+    ``ops:`` subjects never reach this POST.
+    """
+    body = plan_list_hit_ingest(tenant_id=tenant_id, subject_id=subject_id, list_id=list_id)
+    if body is None:
+        return {"status": "skipped"}
+    base = os.environ.get("GRAPH_SERVICE_URL", "").strip()
+    if not base:
+        return {"status": "graph:unconfigured"}
+    url = f"{base.rstrip('/')}/v1/ingest/objects"
+    own = http is None
+    client = http or httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=2.0))
+    try:
+        r = await client.post(url, json=body)
+        if r.status_code >= 400:
+            log.warning("list ingest failed status=%s body=%s", r.status_code, r.text[:200])
+            return {"status": "graph:write_failed", "http_status": r.status_code}
+        return {"status": "ok"}
+    except Exception:
+        log.warning("list ingest failed", exc_info=True)
+        return {"status": "graph:write_failed"}
+    finally:
+        if own:
+            await client.aclose()
+
+
+async def replay_journal_list_hits(http: httpx.AsyncClient | None) -> dict[str, Any]:
+    """Refresh path: replay journaled hits onto AGE. Evaluate is not in this pipe.
+
+    Cap is 500 hits, not 500 mixed lines. Rows without list_id (pre-#373
+    journal) skip. graph:unconfigured stops the loop — every remaining POST
+    would fail the same way.
+    """
+    ingested = 0
+    skipped = 0
+    failed = 0
+    seen: set[tuple[str, str, str]] = set()
+    for row in read_screening_journal(limit=500, hits_only=True):
+        tid = str(row.get("tenant_id") or "").strip()
+        sid = str(row.get("subject_id") or "").strip()
+        lid = _list_id_from_match_details(row)
+        key = (tid, sid, lid)
+        if key in seen:
+            skipped += 1
+            continue
+        seen.add(key)
+        if plan_list_hit_ingest(tenant_id=tid, subject_id=sid, list_id=lid) is None:
+            skipped += 1
+            continue
+        out = await maybe_ingest_list_hit(http, tenant_id=tid, subject_id=sid, list_id=lid)
+        status = str(out.get("status") or "")
+        if status == "ok":
+            ingested += 1
+        elif status == "graph:unconfigured":
+            skipped += 1
+            break
+        elif status == "skipped":
+            skipped += 1
+        else:
+            failed += 1
+    return {"ingested": ingested, "skipped": skipped, "failed": failed}
 
 
 def _levenshtein(s: str, t: str) -> int:
@@ -579,6 +693,20 @@ async def verify_sanctions(
         match_details,
     )
 
+    ingest_out: dict[str, Any] = {"status": "skipped"}
+    if has_match:
+        lid = _list_id_from_match_details(match_details)
+        try:
+            ingest_out = await maybe_ingest_list_hit(
+                None,
+                tenant_id=tenant_id,
+                subject_id=subject_id,
+                list_id=lid,
+            )
+        except Exception:
+            log.warning("list ingest raised after persist", exc_info=True)
+            ingest_out = {"status": "graph:write_failed"}
+
     return {
         "status": "verified",
         "adapter": "sanctions",
@@ -597,6 +725,7 @@ async def verify_sanctions(
             "matches": matches[:10],
             "screening_log_id": str(log_id),
             "screening_journal_path": str(screening_journal_path()),
+            "graph_ingest": ingest_out,
             **cache_meta,
             "index_scope": "process_memory_rebuilt_from_disk_cache",
             "explain_schema": "tarka.sanctions_match_explain/v1",
