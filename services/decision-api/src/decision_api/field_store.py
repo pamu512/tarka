@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.models import FieldMap, FieldRegistryRow
 from field_registry import SOURCES, seed_names, validate_registry_name
+
+log = logging.getLogger(__name__)
 
 
 class FieldRegistrySeedLocked(Exception):
@@ -90,6 +94,16 @@ async def list_maps(session: AsyncSession, tenant_id: str) -> list[FieldMap]:
         select(FieldMap).where(FieldMap.tenant_id == tenant_id)
     )
     return list(result.scalars().all())
+
+
+async def load_maps_or_empty(session, tenant_id) -> list[tuple[str, str]]:
+    """Load tenant maps. On any error return [] so evaluate does not fail."""
+    try:
+        rows = await list_maps(session, tenant_id)
+        return [(row.buyer_key, row.registry_name) for row in rows]
+    except Exception:
+        log.exception("field_maps_load_failed tenant_id=%s", tenant_id)
+        return []
 
 
 async def upsert_map(

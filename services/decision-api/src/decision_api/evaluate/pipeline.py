@@ -207,6 +207,16 @@ async def run_evaluate_decision(
         signal_tags.append("ingress:replay_payload")
         replay_rule_hits.append("ingress_replay_detected")
 
+    from field_registry import apply_field_maps
+    from decision_api.field_store import load_maps_or_empty
+
+    _maps = await load_maps_or_empty(session, body.tenant_id)
+    if _maps:
+        body.payload = apply_field_maps(
+            dict(body.payload) if isinstance(body.payload, dict) else {},
+            _maps,
+        )
+
     hmac_ok = getattr(request.state, "tarka_request_signature_ok", None)
     if hmac_ok is not True:
         hmac_ok = None
