@@ -2548,6 +2548,7 @@ export type LeftoverRow = {
   trace_id: string;
   pack_id?: string;
   rule_hits?: string[];
+  brief?: string;
 };
 
 export function deskActor(): string {

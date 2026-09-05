@@ -10,6 +10,8 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 make doctor && make demo
 ```
 
+`make demo` is the **demo** skin (first-hour pages). The frontend image default is **product**: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics. Product is not Command Center or executive brochure pages. Optional sales overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`.
+
 `make doctor` checks Docker Desktop (Compose v2), ports `8000` `8001` `3000` `5432` `6379`, and ~4 GB RAM. Each fail names the fix. Then `make demo` starts Lite + fraud-desk and runs the receipt walk.
 
 Same script: `bash scripts/oss/up_desk.sh`. First build is the long pole.

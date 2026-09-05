@@ -16,4 +16,11 @@ describe("sentencePack", () => {
     expect(rule.when_ast.etype).toBe("USES_DEVICE");
     expect(pack.mode).toBe("shadow");
   });
+
+  it("emits HAS_LIST from the shipped etype list", () => {
+    const pack = emitHopPack({ etype: "HAS_LIST" });
+    const rule = (pack.rules as Array<{ when_ast: { etype: string } }>)[0];
+    expect(rule.when_ast.etype).toBe("HAS_LIST");
+    expect(pack.mode).toBe("shadow");
+  });
 });

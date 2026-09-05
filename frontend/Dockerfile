@@ -7,8 +7,10 @@ COPY frontend/ .
 # Baked into the UI for regional AI governance banners (us | eu_uk | global).
 ARG VITE_AI_GOVERNANCE_PROFILE=global
 ENV VITE_AI_GOVERNANCE_PROFILE=${VITE_AI_GOVERNANCE_PROFILE}
-# Production default: lean nav (no brochure Command Center / ingress demo routes).
-# Sales demo image: --build-arg VITE_LEAN_NAV=false
+# Shipped stack: analyst jobs (visual / backtest / lists). Not brochure.
+ARG VITE_DESK_PROFILE=product
+ENV VITE_DESK_PROFILE=${VITE_DESK_PROFILE}
+# Legacy: true=demo, false=brochure. Ignored when VITE_DESK_PROFILE is set.
 ARG VITE_LEAN_NAV=true
 ENV VITE_LEAN_NAV=${VITE_LEAN_NAV}
 # Desk-strict: case/calibration/QA never auto-mock (missed-mark bridge)

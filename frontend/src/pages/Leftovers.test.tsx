@@ -41,6 +41,7 @@ const freeRow = {
   claimed_by: null,
   sla_breached: false,
   trace_id: "tr-1",
+  brief: "Pack device_signals — hits sdk_bot",
 };
 
 const takenRow = {
@@ -85,5 +86,13 @@ describe("Leftovers", () => {
     await screen.findByText("ana-b");
     expect(screen.queryByRole("button", { name: /work buyer-2/i })).not.toBeInTheDocument();
     expect(client.cases.claimLeftover).not.toHaveBeenCalled();
+  });
+
+  it("shows leftover brief or em dash", async () => {
+    render(wrap(<Leftovers />));
+    const cells = await screen.findAllByTestId("leftover-brief");
+    expect(cells).toHaveLength(2);
+    expect(cells[0]).toHaveTextContent("Pack device_signals — hits sdk_bot");
+    expect(cells[1]).toHaveTextContent("—");
   });
 });

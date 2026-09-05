@@ -53,7 +53,26 @@ def leftover_rule_hits(labels: list[str] | None) -> list[str]:
     return hits
 
 
-def leftover_row(case, *, sla_breached: bool) -> dict:
+def leftover_brief(labels: list[str] | None, brief_comment: str | None = None) -> str:
+    comment = str(brief_comment or "").strip()
+    if comment.startswith("System:"):
+        comment = ""
+    pack = leftover_pack_id(labels)
+    hits = leftover_rule_hits(labels)
+    bits: list[str] = []
+    if pack:
+        bits.append(f"Pack {pack}")
+    if hits:
+        bits.append("hits " + ", ".join(hits))
+    base = " — ".join(bits)
+    if comment and not base:
+        return comment[:500]
+    if comment and base:
+        return f"{base} — {comment[:240]}"
+    return base
+
+
+def leftover_row(case, *, sla_breached: bool, brief_comment: str | None = None) -> dict:
     labs = getattr(case, "labels", None)
     return {
         "case_id": str(case.id),
@@ -66,6 +85,7 @@ def leftover_row(case, *, sla_breached: bool) -> dict:
         "trace_id": getattr(case, "trace_id", "") or "",
         "pack_id": leftover_pack_id(labs),
         "rule_hits": leftover_rule_hits(labs),
+        "brief": leftover_brief(labs, brief_comment),
     }
 
 
