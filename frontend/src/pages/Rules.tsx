@@ -17,6 +17,7 @@ import {
 } from "../api/client";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
+import { FieldMapPanel } from "../components/FieldMapPanel";
 import { SentencePackPanel } from "../components/SentencePackPanel";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
@@ -288,13 +289,13 @@ export default function Rules() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadAuthorCatalog().then((row) => {
+    void loadAuthorCatalog(sandboxTenantDefault).then((row) => {
       if (!cancelled) setAuthorCatalog(row);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sandboxTenantDefault]);
 
   const fieldCatalog = useMemo(() => rulesPickerGroups(authorCatalog), [authorCatalog]);
   const commonFields = useMemo(() => Array.from(catalogFieldNames(authorCatalog)), [authorCatalog]);
@@ -788,6 +789,7 @@ export default function Rules() {
             ))}
           </div>
         )}
+        <FieldMapPanel tenantId={sandboxTenantDefault} />
       </div>
 
       {/* ── Body ────────────────────────────────────────────── */}
