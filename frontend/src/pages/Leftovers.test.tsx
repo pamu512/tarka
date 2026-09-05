@@ -1,11 +1,16 @@
 import type { ReactElement } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as client from "@/api/client";
 import { TenantEnvironmentProvider } from "@/context/TenantEnvironmentContext";
 import Leftovers from "@/pages/Leftovers";
+
+function HuntProbe() {
+  const { search } = useLocation();
+  return <div>hunt {search}</div>;
+}
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -25,7 +30,7 @@ function wrap(ui: ReactElement, path = "/leftovers") {
       <TenantEnvironmentProvider>
         <Routes>
           <Route path="/leftovers" element={ui} />
-          <Route path="/graph" element={<div>hunt</div>} />
+          <Route path="/graph" element={<HuntProbe />} />
         </Routes>
       </TenantEnvironmentProvider>
     </MemoryRouter>
@@ -42,6 +47,8 @@ const freeRow = {
   sla_breached: false,
   trace_id: "tr-1",
   brief: "Pack device_signals — hits sdk_bot",
+  pack_id: "device_signals",
+  rule_hits: ["event_count_1h", "sdk_bot"],
 };
 
 const takenRow = {
@@ -70,7 +77,14 @@ describe("Leftovers", () => {
     await waitFor(() => {
       expect(client.cases.claimLeftover).toHaveBeenCalledWith("c-free", "demo");
     });
-    expect(await screen.findByText("hunt")).toBeInTheDocument();
+    const hunt = await screen.findByText(/hunt/);
+    expect(hunt).toBeInTheDocument();
+    const q = new URLSearchParams(hunt.textContent?.replace(/^hunt\s*/, "") ?? "");
+    expect(q.get("leftover_id")).toBe("c-free");
+    expect(q.get("pack")).toBe("device_signals");
+    expect(q.get("hits")).toBe("event_count_1h,sdk_bot");
+    expect(q.get("entity_id")).toBe("buyer-1");
+    expect(q.get("decision_id")).toBe("dec:tr-1");
   });
 
   it("fail-closes when leftovers API is down", async () => {

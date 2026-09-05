@@ -7,6 +7,7 @@ import { cases, type LeftoverRow } from "../api/client";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { leftoverHuntSearch } from "../utils/leftoverVisualQuery";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Leftovers() {
@@ -38,12 +39,7 @@ export default function Leftovers() {
     setErr("");
     try {
       await cases.claimLeftover(row.case_id, tenantId || "demo");
-      const q = new URLSearchParams({
-        entity_id: row.entity_id,
-        tenant_id: tenantId || "demo",
-      });
-      if (row.trace_id) q.set("decision_id", `dec:${row.trace_id}`);
-      navigate(`/graph?${q}`);
+      navigate(`/graph?${leftoverHuntSearch({ ...row, tenant_id: tenantId || "demo" })}`);
     } catch (e) {
       setErr(toUserFacingError(e, { subject: "Leftover", action: "claim this leftover" }));
     } finally {

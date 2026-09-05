@@ -9,11 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from decision_api.author_catalog import ai_allowed_fields, build_author_catalog
 from decision_api.backtest_promote_gate import backtest_before_promote_gate
 from decision_api.config import settings
 from decision_api.db import get_session
@@ -257,6 +259,36 @@ async def list_rule_packs():
 @router.get("/vertical-packs")
 async def list_vertical_pack_catalog():
     return {"vertical_packs": list_vertical_packs()}
+
+
+def _fetch_growth_windows(graph_url: str) -> list[dict] | None:
+    """GET graph growth-policy. None on empty URL or any failure (empty growth)."""
+    base = (graph_url or "").strip().rstrip("/")
+    if not base:
+        return None
+    try:
+        r = httpx.get(
+            f"{base}/v1/graph/growth-policy",
+            timeout=settings.eval_step_graph_risk_timeout_seconds,
+        )
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return None
+    windows = data.get("windows") if isinstance(data, dict) else None
+    return windows if isinstance(windows, list) else None
+
+
+def _live_author_catalog() -> dict[str, Any]:
+    graph_url = (settings.graph_service_url or "").strip()
+    windows = _fetch_growth_windows(graph_url) if graph_url else None
+    return build_author_catalog(graph_url=graph_url, growth_windows=windows)
+
+
+@router.get("/author-catalog")
+async def get_author_catalog():
+    """Desk + AI field catalog. Same auth as other /v1/rules reads."""
+    return _live_author_catalog()
 
 
 def _install_vertical_pack_core(
@@ -792,47 +824,11 @@ class ScoutPackIn(BaseModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 
-# ponytail: mirrors pack_author_contract.validate_ai_authored_pack
-# from shadow_agent, kept inline so decision-api stays self-contained.
-_AI_PACK_ALLOWED_FIELDS: frozenset[str] = frozenset(
-    {
-        "event_type",
-        "entity_id",
-        "session_id",
-        "acc_id",
-        "user_id",
-        "device_fingerprint",
-        "canvas_hash",
-        "webgl_vendor",
-        "user_agent",
-        "screen_resolution",
-        "timezone_offset",
-        "language",
-        "platform",
-        "vendor",
-        "tx_count_1h",
-        "tx_count_24h",
-        "tx_amount_1h",
-        "tx_amount_24h",
-        "distinct_devices_24h",
-        "distinct_ips_24h",
-        "event_count_5m",
-        "event_count_1h",
-        "event_count_24h",
-        "sum_amount_1h",
-        "sum_amount_24h",
-        "distinct_device_id_24h",
-        "distinct_ip_address_24h",
-        "vendor_fingerprint_score",
-        "vendor_incognia_risk",
-        "ip_address",
-        "ip_risk_score",
-        "geo_country",
-        "geo_city",
-        "amount",
-        "currency",
-    }
-)
+def _ai_pack_allowed_fields() -> frozenset[str]:
+    """Live catalog (graph policy when URL set) ∪ identity ∪ legacy aliases."""
+    return ai_allowed_fields(_live_author_catalog())
+
+
 _AI_PACK_ALLOWED_OPS: frozenset[str] = frozenset(
     {
         "eq",
@@ -866,6 +862,7 @@ def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
     rules = pack.get("rules") or []
     if not rules:
         errors.append("rules must not be empty")
+    allowed_fields = _ai_pack_allowed_fields()
     for rule in rules:
         if not isinstance(rule, dict):
             continue
@@ -885,7 +882,7 @@ def _validate_ai_authored_pack(pack: dict[str, Any]) -> list[str]:
                 continue
             field = cond.get("field", "")
             op = cond.get("op", "eq")
-            if field and field not in _AI_PACK_ALLOWED_FIELDS:
+            if field and field not in allowed_fields:
                 errors.append(f"rule {rid}: unknown field '{field}'")
             if op not in _AI_PACK_ALLOWED_OPS:
                 errors.append(f"rule {rid}: disallowed op '{op}'")
