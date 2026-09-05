@@ -16,6 +16,7 @@ services:
       context: ../..
       dockerfile: frontend/Dockerfile
       args:
+        VITE_DESK_PROFILE: "demo"
         VITE_LEAN_NAV: "true"
         VITE_DESK_STRICT: "true"
         VITE_USE_API_MOCKS: "false"

@@ -73,6 +73,7 @@ export default function Leftovers() {
               <th className="px-3 py-2 font-medium">Origin</th>
               <th className="px-3 py-2 font-medium">Outcome</th>
               <th className="px-3 py-2 font-medium">Pack / hits</th>
+              <th className="px-3 py-2 font-medium">Brief</th>
               <th className="px-3 py-2 font-medium">Receipt</th>
               <th className="px-3 py-2 font-medium">Last act</th>
               <th className="px-3 py-2 font-medium">Claimed</th>
@@ -82,7 +83,7 @@ export default function Leftovers() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-gray-500">
+                <td colSpan={9} className="px-3 py-6 text-gray-500">
                   No leftovers. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
@@ -112,6 +113,9 @@ export default function Leftovers() {
                     {row.pack_id || row.rule_hits?.length
                       ? `${row.pack_id || "—"} ${row.rule_hits?.length ? row.rule_hits.join(", ") : ""}`.trim()
                       : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-gray-400" data-testid="leftover-brief">
+                    {row.brief || "—"}
                   </td>
                   <td className="px-3 py-2">
                     {row.trace_id ? (

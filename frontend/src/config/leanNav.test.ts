@@ -168,4 +168,44 @@ describe("leanNav", () => {
     expect(isNavItemVisible("/graph/mule-path")).toBe(false);
     expect(isNavItemVisible("/command-center")).toBe(true);
   });
+
+  it("product desk shows analyst jobs and hides brochure home", async () => {
+    vi.stubEnv("VITE_DESK_PROFILE", "product");
+    vi.stubEnv("VITE_LEAN_NAV", "true");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.resetModules();
+    const {
+      DESK_PROFILE,
+      INCLUDE_DEMO_SURFACE,
+      isNavItemVisible,
+      isProductionSurfacePath,
+      leanHomePath,
+      LEAN_NAV_PATHS,
+    } = await loadLeanNav();
+    expect(DESK_PROFILE).toBe("product");
+    expect(INCLUDE_DEMO_SURFACE).toBe(false);
+    expect(leanHomePath()).toBe("/graph");
+    expect(isNavItemVisible("/rules/visual")).toBe(true);
+    expect(isNavItemVisible("/ops/backtest")).toBe(true);
+    expect(isNavItemVisible("/entity-lists")).toBe(true);
+    expect(isNavItemVisible("/simulation")).toBe(true);
+    expect(isNavItemVisible("/analytics")).toBe(true);
+    expect(isNavItemVisible("/analytics/rule-performance")).toBe(true);
+    expect(isNavItemVisible("/command-center")).toBe(false);
+    expect(isNavItemVisible("/exec-dashboards")).toBe(false);
+    expect(isNavItemVisible("/cases")).toBe(false);
+    expect(isProductionSurfacePath("/rules/visual")).toBe(true);
+    expect(isProductionSurfacePath("/command-center")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
+  });
+
+  it("demo desk still hides visual builder and backtest", async () => {
+    vi.stubEnv("VITE_DESK_PROFILE", "demo");
+    vi.resetModules();
+    const { isNavItemVisible } = await loadLeanNav();
+    expect(isNavItemVisible("/rules/visual")).toBe(false);
+    expect(isNavItemVisible("/ops/backtest")).toBe(false);
+    expect(isNavItemVisible("/simulation")).toBe(false);
+    expect(isNavItemVisible("/rules")).toBe(true);
+  });
 });

@@ -10,7 +10,7 @@ export const VELOCITY_KEYS = [
   "distinct_ip_address_24h",
 ] as const;
 
-export const HOP_ETYPES = ["USES_DEVICE", "HAS_EMAIL", "HAS_PHONE", "HAS_CARD"] as const;
+export const HOP_ETYPES = ["USES_DEVICE", "HAS_EMAIL", "HAS_PHONE", "HAS_CARD", "HAS_LIST"] as const;
 
 export type VelocitySentence = {
   field: (typeof VELOCITY_KEYS)[number];
