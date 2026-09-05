@@ -204,3 +204,42 @@ async def test_get_author_catalog_growth_empty_when_policy_fails(
     r = await rules_client.get("/v1/rules/author-catalog")
     assert r.status_code == 200
     assert r.json()["growth"] == []
+
+
+def test_catalog_seed_only_payload_omits_entity_id():
+    cat = build_author_catalog(graph_url="", growth_windows=None)
+    payload = {p["name"] for p in cat["payload"]}
+    assert "amount" in payload
+    assert "entity_id" not in payload
+
+
+def test_catalog_overlay_name_appears_in_payload():
+    seed = __import__("field_registry", fromlist=["seed_names"]).seed_names()
+    cat = build_author_catalog(
+        graph_url="",
+        growth_windows=None,
+        registry_names=seed | frozenset({"order_channel"}),
+        overlay_names=frozenset({"order_channel"}),
+    )
+    assert "order_channel" in {p["name"] for p in cat["payload"]}
+    redis = {r["name"] for r in cat["redis"]}
+    assert "event_count_7d" in redis
+
+
+def test_catalog_restricted_registry_drops_redis_keeps_hops():
+    cat = build_author_catalog(
+        graph_url="http://g",
+        growth_windows=[{"window": "1h", "threshold": 5}],
+        registry_names=frozenset({"amount"}),
+        overlay_names=frozenset(),
+    )
+    assert {r["name"] for r in cat["redis"]} == set()
+    assert {p["name"] for p in cat["payload"]} == {"amount"}
+    assert {g["name"] for g in cat["growth"]} == {"relation_growth_1h"}
+    assert {h["etype"] for h in cat["hops"]} == {
+        "USES_DEVICE",
+        "HAS_EMAIL",
+        "HAS_PHONE",
+        "HAS_CARD",
+        "HAS_LIST",
+    }

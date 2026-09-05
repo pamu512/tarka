@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from field_registry import seed_names as _seed_names
 from fraud_aggregates import (
     DEFAULT_FEATURE_OUTPUTS,
     _bundled_manifest_feature_outputs,
@@ -120,16 +121,33 @@ def _growth_entries(windows: list[dict]) -> list[dict[str, Any]]:
     return out
 
 
-def build_author_catalog(*, graph_url: str, growth_windows: list[dict] | None) -> dict:
-    """redis from valid feature_outputs; growth=[] if not graph_url or growth_windows is None."""
+def build_author_catalog(
+    *,
+    graph_url: str,
+    growth_windows: list[dict] | None,
+    registry_names: frozenset[str] | None = None,
+    overlay_names: frozenset[str] | None = None,
+) -> dict:
+    """registry_names None → seed_names(). Empty frozenset → redis=[] and payload=[].
+    redis = manifest rows whose name ∈ registry_names.
+    payload = (PAYLOAD_FIELDS ∩ registry_names) ∪ (overlay_names − redis names).
+    growth/hops unchanged from #377.
+    """
+    names = _seed_names() if registry_names is None else frozenset(registry_names)
+    overlay = frozenset(overlay_names or ())
+    redis = [_redis_entry(r) for r in _redis_rows() if r["name"] in names]
+    redis_name_set = {r["name"] for r in redis}
+    payload_core = [n for n in PAYLOAD_FIELDS if n in names]
+    payload_extra = [n for n in sorted(overlay) if n not in redis_name_set and n not in payload_core]
+    payload = [{"name": n} for n in payload_core + payload_extra]
     growth: list[dict[str, Any]] = []
     if (graph_url or "").strip() and growth_windows is not None:
         growth = _growth_entries(growth_windows)
     return {
-        "redis": [_redis_entry(r) for r in _redis_rows()],
+        "redis": redis,
         "growth": growth,
         "hops": [{"etype": e} for e in CATALOG_HOPS],
-        "payload": [{"name": n} for n in PAYLOAD_FIELDS],
+        "payload": payload,
     }
 
 
