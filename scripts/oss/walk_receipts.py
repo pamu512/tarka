@@ -139,12 +139,17 @@ def summarize_outcomes(decisions: list[str]) -> str:
     return f"Evaluate returned {listed} (pack-controlled; not scripted)."
 
 
-def _print_next_steps() -> None:
+def first_click_url(entity_id: str) -> str:
+    q = str(entity_id or "").strip() or "clone-demo-bot-vpn"
+    return f"http://127.0.0.1:3000/graph?entity_id={q}"
+
+
+def _print_next_steps(entity_id: str) -> None:
     urls = desk_urls()
+    click = first_click_url(entity_id)
     print()
-    print("Next steps:")
-    print(f"  desk      {urls['desk']}")
-    print(f"  Hunt      {urls['hunt']}   (home when graph is on)")
+    print(f"NEXT: {click}")
+    print(f"  entity_id={entity_id or 'clone-demo-bot-vpn'}")
     print(f"  receipts  {urls['receipts']}")
     print(f"  Observe   {urls['observe']}")
     print()
@@ -219,7 +224,8 @@ def run_walk(
             print(f"  [warn] audit GET skipped/unavailable status={st_a}")
 
     print(summarize_outcomes(decisions))
-    _print_next_steps()
+    last_entity = str(WALK_CASES[-1]["body"]["entity_id"])
+    _print_next_steps(last_entity)
     print("Clone-and-run receipt walk: PASS")
     return 0
 

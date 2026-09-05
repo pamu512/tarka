@@ -8,6 +8,7 @@ import {
   type AuditRuleResult,
 } from "../api/client";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
 import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
@@ -202,6 +203,11 @@ export default function Decisions() {
     <div className="p-6 space-y-5 animate-fade-in" data-testid="decisions-queue">
       <div className="space-y-1">
         <PageTitle module="dashboard">Decisions</PageTitle>
+        <FirstHourHint
+          job="ALLOW means continue — no leftover. REVIEW or DENY means a human should look. The receipt is the pack, not a model."
+          nextTo="/leftovers"
+          nextLabel="Leftovers"
+        />
         <p className="text-sm text-gray-500">
           Journey decision stream — progressive friction from signup through login, payment, and
           beyond. Filter by event type to isolate any step. Empty until audit/recent returns live

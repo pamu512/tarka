@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from case_api.leftover import is_leftover, leftover_origin
+from case_api.leftover import is_leftover, leftover_origin, leftover_row
 from case_api.workflow import WorkflowContext
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
@@ -54,6 +54,16 @@ def test_leftover_evaluate_open():
 
 def test_leftover_both():
     assert leftover_origin(["act:hold", "origin:evaluate"]) == "both"
+
+
+def test_leftover_row_reads_pack_and_hits_from_labels():
+    row = leftover_row(
+        _case(id="c1", labels=["origin:evaluate", "pack:device_signals", "hit:sdk_bot"], trace_id="tr"),
+        sla_breached=False,
+    )
+    assert row["pack_id"] == "device_signals"
+    assert row["rule_hits"] == ["sdk_bot"]
+    assert row["trace_id"] == "tr"
 
 
 def test_not_leftover_blank_entity_or_allow_case_or_closed():

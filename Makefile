@@ -10,11 +10,16 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-.PHONY: build up down logs policy-check contract-check trend-tick demo help
+.PHONY: build up down logs policy-check contract-check trend-tick demo doctor help
 
 help:
-	@echo "Targets: demo build up down logs policy-check contract-check trend-tick"
-	@echo "  demo  clone-and-run: lite+desk up, honest evaluate walk, printed next steps"
+	@echo "Targets: doctor demo build up down logs policy-check contract-check trend-tick"
+	@echo "  doctor  preflight: Docker, day-1 ports, ~4 GB RAM"
+	@echo "  demo    clone-and-run: lite+desk up, honest evaluate walk, one printed click"
+
+# Day-1 preflight (no compose). See docs/docs/guides/clone-demo.md
+doctor:
+	python3 "$(ROOT)/scripts/oss/doctor.py"
 
 # Public clone-and-run path (lite + fraud-desk + receipt walk). See docs/docs/guides/clone-demo.md
 demo:

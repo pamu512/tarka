@@ -349,13 +349,18 @@ async def maybe_create_case_for_outcome(
     if not base:
         return
     priority = "high" if ctx.decision == "deny" else "medium"
+    labels = ["origin:evaluate"]
+    for hit in ctx.rule_hits[:12]:
+        token = str(hit or "").strip()
+        if token:
+            labels.append(f"hit:{token[:80]}")
     body = {
         "tenant_id": ctx.tenant_id,
         "title": f"Auto: {ctx.decision} {ctx.event_type} {ctx.entity_id}",
         "entity_id": ctx.entity_id,
         "trace_id": ctx.trace_id,
         "priority": priority,
-        "labels": ["origin:evaluate"],
+        "labels": labels,
         "last_outcome": ctx.decision,
     }
     try:

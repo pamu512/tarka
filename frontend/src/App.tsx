@@ -54,6 +54,7 @@ const FeatureTools = lazy(() => import("./pages/FeatureTools"));
 const EntityLists = lazy(() => import("./pages/EntityLists"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Notifications = lazy(() => import("./pages/Notifications"));
 const Help = lazy(() => import("./pages/Help"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const VisualRuleBuilder = lazy(() => import("./pages/VisualRuleBuilder"));
@@ -159,6 +160,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
       { to: "/ops/calibration", label: "Calibration & drift", module: "analytics" },
       { to: "/ops/qa", label: "QA sampling desk", module: "cases" },
       { to: "/ops/shadow", label: "Observe promote gate", module: "analytics" },
+      { to: "/notifications", label: "Notifications", module: "notifications" },
       { to: "/ops/integrity", label: "Integrity & challenge", module: "compliance" },
       { to: "/ops/counters", label: "Counters catalog", module: "compliance" },
       { to: "/ops/features", label: "Feature tools", module: "compliance" },
@@ -379,7 +381,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/help" element={<Help />} />
             <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/notifications" element={<Navigate to="/settings" replace />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/rules/version-control" element={<Navigate to="/rules" replace />} />
             {INCLUDE_DEMO_SURFACE ? (
               <>

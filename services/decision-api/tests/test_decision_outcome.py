@@ -215,6 +215,7 @@ def test_maybe_create_case_sends_origin_evaluate_and_last_outcome():
         decision="deny",
         score=90.0,
         tags=[],
+        rule_hits=["sdk_bot"],
     )
     asyncio.run(
         maybe_create_case_for_outcome(
@@ -224,7 +225,7 @@ def test_maybe_create_case_sends_origin_evaluate_and_last_outcome():
             headers={},
         )
     )
-    assert captured["json"]["labels"] == ["origin:evaluate"]
+    assert captured["json"]["labels"] == ["origin:evaluate", "hit:sdk_bot"]
     assert captured["json"]["last_outcome"] == "deny"
 
 

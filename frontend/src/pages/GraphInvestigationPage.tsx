@@ -11,6 +11,7 @@ import {
 } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { LinkAnalysisForceGraph } from "../components/LinkAnalysisForceGraph";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useFailoverPlanes } from "../context/FailoverPlaneContext";
@@ -515,6 +516,11 @@ export default function GraphInvestigationPage() {
       <div className="flex items-center justify-between gap-4">
         <PageTitle module="graph">Hunt</PageTitle>
       </div>
+      <FirstHourHint
+        job="Hunt is who is connected to this person. Edges come from the receipt. Empty graph URL means hops are off — missing, not invented."
+        nextTo="/leftovers"
+        nextLabel="Leftovers"
+      />
 
       {graphPlaneDisabled ? (
         <div className="text-sm text-rose-100/95 bg-rose-950/40 border border-rose-500/35 rounded-lg px-3 py-2.5 space-y-1">

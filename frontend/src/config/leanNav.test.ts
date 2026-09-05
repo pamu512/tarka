@@ -60,6 +60,7 @@ describe("leanNav", () => {
     expect(isProductionSurfacePath("/login")).toBe(true);
     expect(isProductionSurfacePath("/auth/callback")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/ops/shadow")).toBe(true);
+    expect(LEAN_NAV_PATHS.has("/notifications")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/decisions")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/analytics/promo-abuse")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/integrations/seller-integrity")).toBe(false);

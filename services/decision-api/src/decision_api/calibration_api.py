@@ -51,13 +51,18 @@ async def _tick_auto_promote(tenant_id: str) -> None:
     try:
         from decision_api.shadow_auto_promote import maybe_auto_promote_shadow
 
-        await maybe_auto_promote_shadow(tid)
+        auto_out = await maybe_auto_promote_shadow(tid)
         from decision_api.live_rule_slip import maybe_park_live_rule_slip
 
         await maybe_park_live_rule_slip(tid)
         from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
 
         await maybe_kill_leftover_fp_shadows(tid)
+        from decision_api.observe_notify import emit_after_observe_tick
+
+        await emit_after_observe_tick(
+            tid, desk=auto_out.get("desk_promote_gate") if isinstance(auto_out, dict) else None
+        )
     except Exception:
         logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
 

@@ -14,11 +14,13 @@ Self-hosting Tarka on your own metal or VPC for your own operations is allowed u
 
 ## Steps
 
-One command (desk + receipt walk — same as `make demo`):
+Front door (preflight + desk + receipt walk):
 
 ```bash
-bash scripts/oss/up_desk.sh
+make doctor && make demo
 ```
+
+Same compose script without doctor: `bash scripts/oss/up_desk.sh`.
 
 
 ### 1. Start Lite (≈5–10 min first build)

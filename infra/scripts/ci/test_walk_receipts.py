@@ -163,7 +163,10 @@ class TestWalkRunner(unittest.TestCase):
         self.assertIn("deny", out.lower())
         self.assertIn("http://127.0.0.1:3000", out)
         self.assertIn("/decisions", out)
+        self.assertIn("NEXT: http://127.0.0.1:3000/graph?entity_id=clone-demo-bot-vpn", out)
         self.assertNotIn("ALLOW $42", out)
+        self.assertNotIn("Unit21", out)
+        self.assertNotIn("Sardine", out)
 
     def test_run_walk_fails_closed_on_bad_health(self) -> None:
         def fake_request(method: str, url: str, **kwargs: Any) -> tuple[int, Any]:

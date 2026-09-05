@@ -168,6 +168,10 @@ jobs:
         run: python3 infra/scripts/ci/test_demo_vertical_contracts.py
       - name: Clone-demo receipt walk unit tests (stdlib)
         run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
+      - name: Day-1 doctor unit tests (stdlib)
+        run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_doctor.py
+      - name: Day-1 BYO LLM env prompt unit tests (stdlib)
+        run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_setup_llm_env.py
       - name: Q2 Wave 4 contract unit tests (stdlib)
         run: |
           pip install pyyaml
