@@ -10,6 +10,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 
 | Doc | Purpose |
 |-----|---------|
+| [Clone-and-run desk](guides/clone-demo.md) | `make demo` — Lite + desk + real receipts |
 | [Quickstart](quickstart.md) | Lite compose → first decision |
 | [Architecture](architecture.md) | Services and stores |
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
@@ -20,7 +21,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 
 ## Compose paths
 
-1. **Lite / day-1:** `infra/deploy/docker-compose.lite.yml` (optional fraud-desk overlay) → **core-api** + **graph-service** (Apache AGE) + thin desk (Hunt `/graph`, leftovers, `/ops/shadow`). Agent / signal-api / ingress / Janus are overlays.
+1. **Lite / day-1:** `make demo` (or `bash scripts/oss/up_desk.sh`) → lite + fraud-desk + honest evaluate walk. Compose files: `infra/deploy/docker-compose.lite.yml` + fraud-desk overlay → **core-api** + **graph-service** (Apache AGE) + thin desk (Hunt `/graph`, leftovers, `/ops/shadow`). Agent / signal-api / ingress / Janus are overlays.
 2. **Ingest rail (lab):** `infra/deploy/docker-compose.v2-ingest.yml` → orchestrator + shadow_agent. Not Day-1.
 3. **Trend loop (optional):** `--profile trend-tick` or `make trend-tick`
 
