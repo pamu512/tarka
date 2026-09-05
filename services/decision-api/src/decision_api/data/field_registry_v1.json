@@ -1,0 +1,217 @@
+[
+  {
+    "name": "acc_id",
+    "explanation": "Account identifier",
+    "source": "tarka_core"
+  },
+  {
+    "name": "amount",
+    "explanation": "Transaction amount on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "avg_amount_1h",
+    "explanation": "avg of amount, 1h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "avg_amount_24h",
+    "explanation": "avg of amount, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "canvas_hash",
+    "explanation": "Canvas fingerprint hash",
+    "source": "tarka_core"
+  },
+  {
+    "name": "country",
+    "explanation": "Country code on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "currency",
+    "explanation": "Transaction currency on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "device_fingerprint",
+    "explanation": "Device fingerprint hash",
+    "source": "tarka_core"
+  },
+  {
+    "name": "device_type",
+    "explanation": "Device type from client payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "distinct_countries_7d",
+    "explanation": "Distinct countries in 7d on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "distinct_device_id_24h",
+    "explanation": "distinct of device_id, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "distinct_ip_address_24h",
+    "explanation": "distinct of ip_address, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "distinct_session_id_24h",
+    "explanation": "distinct of session_id, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "email_domain",
+    "explanation": "Email domain on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "entity_id",
+    "explanation": "Primary entity identifier",
+    "source": "tarka_core"
+  },
+  {
+    "name": "event_count_1h",
+    "explanation": "event_count aggregate, 1h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "event_count_24h",
+    "explanation": "event_count aggregate, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "event_count_5m",
+    "explanation": "event_count aggregate, 5m window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "event_count_7d",
+    "explanation": "event_count aggregate, 7d window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "event_type",
+    "explanation": "Event type identity field",
+    "source": "tarka_core"
+  },
+  {
+    "name": "geo_city",
+    "explanation": "Geo city from IP",
+    "source": "tarka_core"
+  },
+  {
+    "name": "geo_country",
+    "explanation": "Geo country from IP",
+    "source": "tarka_core"
+  },
+  {
+    "name": "ip_address",
+    "explanation": "Client IP address",
+    "source": "tarka_core"
+  },
+  {
+    "name": "ip_is_proxy",
+    "explanation": "Proxy flag on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "ip_risk_score",
+    "explanation": "IP reputation risk score",
+    "source": "tarka_core"
+  },
+  {
+    "name": "is_bot",
+    "explanation": "Bot flag on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "is_emulator",
+    "explanation": "Emulator flag on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "is_rooted",
+    "explanation": "Rooted device flag on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "is_vpn",
+    "explanation": "VPN flag on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "language",
+    "explanation": "Browser language",
+    "source": "tarka_core"
+  },
+  {
+    "name": "platform",
+    "explanation": "Client platform",
+    "source": "tarka_core"
+  },
+  {
+    "name": "screen_resolution",
+    "explanation": "Screen resolution string",
+    "source": "tarka_core"
+  },
+  {
+    "name": "session_duration",
+    "explanation": "Session duration seconds on payload",
+    "source": "tarka_core"
+  },
+  {
+    "name": "session_id",
+    "explanation": "Session identifier",
+    "source": "tarka_core"
+  },
+  {
+    "name": "sum_amount_1h",
+    "explanation": "sum of amount, 1h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "sum_amount_24h",
+    "explanation": "sum of amount, 24h window",
+    "source": "tarka_core"
+  },
+  {
+    "name": "timezone_offset",
+    "explanation": "Timezone offset minutes",
+    "source": "tarka_core"
+  },
+  {
+    "name": "user_agent",
+    "explanation": "Browser user agent",
+    "source": "tarka_core"
+  },
+  {
+    "name": "user_id",
+    "explanation": "User identifier",
+    "source": "tarka_core"
+  },
+  {
+    "name": "vendor",
+    "explanation": "Device vendor name",
+    "source": "tarka_core"
+  },
+  {
+    "name": "vendor_fingerprint_score",
+    "explanation": "Vendor fingerprint risk score",
+    "source": "tarka_core"
+  },
+  {
+    "name": "vendor_incognia_risk",
+    "explanation": "Vendor incognia risk score",
+    "source": "tarka_core"
+  },
+  {
+    "name": "webgl_vendor",
+    "explanation": "WebGL vendor string",
+    "source": "tarka_core"
+  }
+]
