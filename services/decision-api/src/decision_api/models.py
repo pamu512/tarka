@@ -193,5 +193,64 @@ class EntitySignatureState(Base):
     )
 
 
+class FieldRegistryRow(Base):
+    """Tenant overlay row for a registry name (seed lives in field_registry_v1.json)."""
+
+    __tablename__ = "field_registry"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "name",
+            name="uq_field_registry_tenant_name",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    explanation: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
+class FieldMap(Base):
+    """Tenant buyer_key → registry_name map."""
+
+    __tablename__ = "field_maps"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "buyer_key",
+            name="uq_field_maps_tenant_buyer",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    buyer_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    registry_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 # Inference audit rows mirrored to ClickHouse (``tarka_core.models.InferenceLog``).
 from tarka_core.models import InferenceLog  # noqa: E402, F401
