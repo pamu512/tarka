@@ -419,6 +419,42 @@ paths:
       responses:
         "200":
           description: Downstream blast radius
+  /v1/graph/growth-policy:
+    get:
+      operationId: graphGrowthPolicy
+      summary: Configured relation-growth windows and thresholds
+      responses:
+        "200":
+          description: Parsed GRAPH_GROWTH_WINDOWS (unknown tokens dropped; empty parse is 1h:5,24h:15)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GrowthPolicyResponse"
+  /v1/entities/{entity_id}/relation-growth:
+    get:
+      operationId: entityRelationGrowth
+      summary: Incident-edge growth counts for configured windows
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: tenant_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: windows
+          in: query
+          required: false
+          schema: { type: string }
+          description: Comma-separated window tokens. Empty/omitted uses all configured windows. Unknown tokens omitted.
+      responses:
+        "200":
+          description: Per-window counts. Missing entity returns count null, not 0.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationGrowthResponse"
 components:
   schemas:
     UpsertEntityRequest:
@@ -667,3 +703,34 @@ components:
         neighbors:
           type: object
           additionalProperties: true
+    GrowthPolicyWindow:
+      type: object
+      required: [window, threshold]
+      properties:
+        window: { type: string }
+        threshold: { type: integer }
+    GrowthPolicyResponse:
+      type: object
+      required: [windows]
+      properties:
+        windows:
+          type: array
+          items:
+            $ref: "#/components/schemas/GrowthPolicyWindow"
+    RelationGrowthWindow:
+      type: object
+      required: [window, count, threshold]
+      properties:
+        window: { type: string }
+        count: { type: integer, nullable: true }
+        threshold: { type: integer }
+    RelationGrowthResponse:
+      type: object
+      required: [entity_id, tenant_id, windows]
+      properties:
+        entity_id: { type: string }
+        tenant_id: { type: string }
+        windows:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelationGrowthWindow"

@@ -9,6 +9,7 @@ export const NODE_TYPES = {
   feature: "feature",
   operator: "operator",
   graphRisk: GRAPH_RISK_NODE_TYPE,
+  hopEtype: "hopEtype",
   logicAnd: "logicAnd",
   logicOr: "logicOr",
   ruleRoot: "ruleRoot",
@@ -311,6 +312,13 @@ export function isValidRuleConnection(conn: Connection, nodes: Node[]): boolean 
   }
   if (s.type === NODE_TYPES.graphRisk) {
     if (conn.sourceHandle !== "gr-out") return false;
+    if (t.type === NODE_TYPES.logicAnd) return conn.targetHandle === "a-in";
+    if (t.type === NODE_TYPES.logicOr) return conn.targetHandle === "o-in";
+    if (t.type === NODE_TYPES.ruleRoot) return conn.targetHandle === "r-in";
+    return false;
+  }
+  if (s.type === NODE_TYPES.hopEtype) {
+    if (conn.sourceHandle !== "he-out") return false;
     if (t.type === NODE_TYPES.logicAnd) return conn.targetHandle === "a-in";
     if (t.type === NODE_TYPES.logicOr) return conn.targetHandle === "o-in";
     if (t.type === NODE_TYPES.ruleRoot) return conn.targetHandle === "r-in";

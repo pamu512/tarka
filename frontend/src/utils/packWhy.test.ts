@@ -32,7 +32,25 @@ describe("resolvePackWhy", () => {
     expect(view.packId).toBe("fintech");
     expect(view.packName).toBe("Fintech starter");
     expect(view.why).toBe("Velocity burst on this card");
+    expect(view.hop).toBeNull();
     expect(view.advise).toBeNull();
+  });
+
+  it("surfaces hop names from the receipt snapshot and never invents edges", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "graph_v1_uses_device_v1.json",
+      evaluate_payload: {
+        pack_why: { graph: { named: "has_etype:USES_DEVICE", status: "graph:ok", invented_edges: false } },
+      },
+    });
+    expect(view.hop).toBe("has_etype:USES_DEVICE");
+  });
+
+  it("shows graph:missing when the receipt says hops were off", () => {
+    const view = resolvePackWhy({
+      evaluate_payload: { pack_why: { graph: { status: "graph:missing", named: "graph:missing" } } },
+    });
+    expect(view.hop).toBe("graph:missing");
   });
 
   it("says missing when pack reason is absent — does not invent from ML or recommended action", () => {

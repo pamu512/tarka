@@ -1,5 +1,8 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useSearchParams } from 'react-router';
+import { catalogFieldNames, rulesPickerGroups, type AuthorCatalog } from "../domain/authorCatalog";
+import { fallbackAuthorCatalog } from "../domain/authorCatalogFallback";
+import { loadAuthorCatalog } from "../domain/authorCatalogSession";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import {
   rules as rulesApi,
@@ -12,7 +15,9 @@ import {
   type DecisionResponse,
   toUserFacingApiError,
 } from "../api/client";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
+import { SentencePackPanel } from "../components/SentencePackPanel";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -23,40 +28,6 @@ import {
 } from "../lib/verticalBenchmarkHistory";
 
 // ── Constants ────────────────────────────────────────────────────────
-
-/** N1: expanded no-code field catalog (datalist + picker). */
-const FIELD_CATALOG: { category: string; fields: string[] }[] = [
-  {
-    category: "Payments & velocity",
-    fields: [
-      "amount",
-      "currency",
-      "transaction_count_24h",
-      "failed_attempts_24h",
-      "hour_of_day",
-      "account_age_days",
-    ],
-  },
-  {
-    category: "Device & automation",
-    fields: [
-      "device_type",
-      "is_bot",
-      "is_emulator",
-      "is_rooted",
-      "is_vpn",
-      "session_duration",
-    ],
-  },
-  {
-    category: "Network & geo",
-    fields: ["country", "ip_is_proxy", "distinct_countries_7d", "email_domain"],
-  },
-];
-
-const COMMON_FIELDS: string[] = Array.from(
-  new Set(FIELD_CATALOG.flatMap((c) => c.fields)),
-);
 
 const OPERATORS: { value: string; label: string }[] = [
   { value: "eq", label: "= equals" },
@@ -291,6 +262,7 @@ export default function Rules() {
   >([]);
   const [ruleGovSecret, setRuleGovSecret] = useState("");
   const [showFieldCatalog, setShowFieldCatalog] = useState(false);
+  const [authorCatalog, setAuthorCatalog] = useState<AuthorCatalog>(fallbackAuthorCatalog);
   const [telemetryRows, setTelemetryRows] = useState<
     Array<{ pack_file: string; rule_id: string; kind: string; hits: number }>
   >([]);
@@ -313,6 +285,19 @@ export default function Rules() {
   useEffect(() => {
     fetchPacks();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadAuthorCatalog().then((row) => {
+      if (!cancelled) setAuthorCatalog(row);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fieldCatalog = useMemo(() => rulesPickerGroups(authorCatalog), [authorCatalog]);
+  const commonFields = useMemo(() => Array.from(catalogFieldNames(authorCatalog)), [authorCatalog]);
 
   useEffect(() => {
     const packQs = searchParams.get("pack");
@@ -692,6 +677,11 @@ export default function Rules() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
         <div>
           <PageTitle module="rules">Rule Builder</PageTitle>
+          <FirstHourHint
+            job="Create a pack here. It starts as Observe, not live. Sentences and JSON emit the same evaluate pack. Promote stays on Observe."
+            nextTo="/ops/shadow"
+            nextLabel="Observe"
+          />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {dirty && (
@@ -719,6 +709,7 @@ export default function Rules() {
           </button>
         </div>
       </div>
+      <SentencePackPanel onJson={() => undefined} />
 
       {error && (
         <DegradedModeBanner
@@ -776,9 +767,14 @@ export default function Rules() {
             {telemetryLoading ? "Refreshing…" : "Refresh rule telemetry"}
           </button>
         </div>
+        <datalist id="rule-fields">
+          {commonFields.map((f) => (
+            <option key={f} value={f} />
+          ))}
+        </datalist>
         {showFieldCatalog && (
           <div className="border border-surface-700 rounded-lg p-3 bg-surface-900/60 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {FIELD_CATALOG.map((cat) => (
+            {fieldCatalog.map((cat) => (
               <div key={cat.category}>
                 <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">{cat.category}</div>
                 <ul className="flex flex-wrap gap-1">
@@ -1471,11 +1467,6 @@ function ConditionRow({
           className="w-44 bg-surface-800 border border-surface-600 text-gray-200 text-xs rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500"
           placeholder="field"
         />
-        <datalist id="rule-fields">
-          {COMMON_FIELDS.map((f) => (
-            <option key={f} value={f} />
-          ))}
-        </datalist>
       </div>
 
       {/* Operator */}

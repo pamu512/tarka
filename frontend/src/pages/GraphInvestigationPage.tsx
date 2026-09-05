@@ -11,6 +11,7 @@ import {
 } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";
 import { LinkAnalysisForceGraph } from "../components/LinkAnalysisForceGraph";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useFailoverPlanes } from "../context/FailoverPlaneContext";
@@ -34,6 +35,7 @@ import {
   readLastPersonEntity,
   seedInstrumentFanout,
   writeLastPersonEntity,
+  type GrowthPolicyWindow,
   type WorkspaceFilter,
 } from "../domain/graphInvestigation";
 import {
@@ -135,6 +137,9 @@ export default function GraphInvestigationPage() {
   const depth = parsed.depth;
   const lookbackDays = parsed.lookbackDays;
   const decisionId = parsed.decisionId;
+  const leftoverId = params.get("leftover_id");
+  const leftoverPack = params.get("pack");
+  const leftoverHits = params.get("hits");
 
   const [searchQ, setSearchQ] = useState("");
   const [searchLabel, setSearchLabel] = useState<string | null>(null);
@@ -166,6 +171,7 @@ export default function GraphInvestigationPage() {
   const [communities, setCommunities] = useState<CommunityResult[]>([]);
   const [fraudRings, setFraudRings] = useState<FraudRingResult[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [growthWindows, setGrowthWindows] = useState<GrowthPolicyWindow[] | null>(null);
   const [tenantDraft, setTenantDraft] = useState(tenantId);
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
@@ -203,9 +209,13 @@ export default function GraphInvestigationPage() {
       if (lb !== HUNT_LOOKBACK_DEFAULT_DAYS) sp.set("lookback_days", String(lb));
       const dec = next.decisionId ?? decisionId;
       if (dec) sp.set("decision_id", dec);
+      const keepLeftover = leftoverId?.trim();
+      if (keepLeftover) sp.set("leftover_id", keepLeftover);
+      if (leftoverPack) sp.set("pack", leftoverPack);
+      if (leftoverHits) sp.set("hits", leftoverHits);
       setParams(sp, { replace: true });
     },
-    [decisionId, lookbackDays, setParams],
+    [decisionId, leftoverHits, leftoverId, leftoverPack, lookbackDays, setParams],
   );
 
   useEffect(() => {
@@ -486,6 +496,25 @@ export default function GraphInvestigationPage() {
     }
   }, [graphPlaneDisabled, tenantId]);
 
+  useEffect(() => {
+    if (graphPlaneDisabled) {
+      setGrowthWindows(null);
+      return;
+    }
+    let cancelled = false;
+    graph.growthPolicy().then(
+      (row) => {
+        if (!cancelled) setGrowthWindows(row.windows ?? null);
+      },
+      () => {
+        if (!cancelled) setGrowthWindows(null);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [graphPlaneDisabled, tenantId]);
+
   const highlightMembers = useCallback(
     (ids: string[]) => {
       if (!loaded) return;
@@ -500,12 +529,15 @@ export default function GraphInvestigationPage() {
 
   const graphData = useMemo(() => {
     if (!loaded) return null;
-    const filtered = filterWorkspaceNodes(loaded.nodes, loaded.edges, filter);
+    const filtered = filterWorkspaceNodes(loaded.nodes, loaded.edges, {
+      ...filter,
+      growthWindows,
+    });
     return {
       nodes: paintStoredRisk(filtered.nodes),
       links: toForceGraphLinks(filtered.edges),
     };
-  }, [filter, loaded]);
+  }, [filter, growthWindows, loaded]);
 
   const largeGraph = (graphData?.nodes.length ?? 0) > 800;
   const disabled = graphPlaneDisabled;
@@ -515,6 +547,11 @@ export default function GraphInvestigationPage() {
       <div className="flex items-center justify-between gap-4">
         <PageTitle module="graph">Hunt</PageTitle>
       </div>
+      <FirstHourHint
+        job="Hunt is who is connected to this person. Edges come from the receipt. Empty graph URL means hops are off — missing, not invented."
+        nextTo="/leftovers"
+        nextLabel="Leftovers"
+      />
 
       {graphPlaneDisabled ? (
         <div className="text-sm text-rose-100/95 bg-rose-950/40 border border-rose-500/35 rounded-lg px-3 py-2.5 space-y-1">
@@ -940,6 +977,11 @@ export default function GraphInvestigationPage() {
                 entityId={selectedId}
                 nodeHint={selectedNode ?? undefined}
                 onSelectEntity={selectEntity}
+                leftoverId={leftoverId}
+                leftoverPack={leftoverPack}
+                leftoverHits={leftoverHits}
+                decisionId={decisionId}
+                graphPlaneDisabled={graphPlaneDisabled}
               />
             </div>
           </aside>

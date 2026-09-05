@@ -13,6 +13,8 @@ export type PackWhyView = {
   packId: string;
   packName: string;
   why: string;
+  /** Named hop from the receipt snapshot. Null = do not render a hop slot. */
+  hop: string | null;
   /** LLM advise line. Null means do not render an Advise slot. */
   advise: string | null;
 };
@@ -157,5 +159,24 @@ export function resolvePackWhy(input: PackWhySource): PackWhyView {
     advise = adviseText;
   }
 
-  return { packId, packName, why, advise };
+  return { packId, packName, why, hop: hopWhyFromPayload(ep), advise };
+}
+
+function hopWhyFromPayload(ep: Record<string, unknown> | null): string | null {
+  const raw = ep?.pack_why;
+  if (!raw || typeof raw !== "object") return null;
+  const graph = (raw as { graph?: unknown }).graph;
+  if (!graph || typeof graph !== "object") return null;
+  const g = graph as Record<string, unknown>;
+  const named = trimStr(g.named);
+  const status = trimStr(g.status);
+  if (named && named !== "graph:ok") return named;
+  if (status === "graph:missing" || status === "graph:unavailable" || status === "graph:empty") {
+    return status;
+  }
+  const edges = g.named_edges;
+  if (Array.isArray(edges) && edges.length) {
+    return edges.map(String).join(", ");
+  }
+  return named;
 }

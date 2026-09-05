@@ -64,8 +64,11 @@ SDK device-context signals (already extracted):
 - `platform`, `vendor`
 
 Velocity / counter fields (already in packs):
-- `tx_count_1h`, `tx_count_24h`, `tx_amount_1h`, `tx_amount_24h`
-- `distinct_devices_24h`, `distinct_ips_24h`
+- `event_count_5m`, `event_count_1h`, `event_count_24h`
+- `sum_amount_1h`, `sum_amount_24h`
+- `distinct_device_id_24h`, `distinct_ip_address_24h`
+- `tx_count_1h`, `tx_count_24h`, `tx_amount_1h`, `tx_amount_24h` (legacy aliases)
+- `distinct_devices_24h`, `distinct_ips_24h` (legacy aliases)
 
 Fingerprint / biometric signals:
 - `vendor_fingerprint_score`, `vendor_incognia_risk`

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   cases,
   deskActor,
@@ -10,6 +11,8 @@ import {
 import { formatLiveRuleSlipLine } from "../domain/liveRuleSlip";
 import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
+import { FirstHourHint } from "../components/FirstHourHint";
+import { ObserveEasePanel } from "../components/ObserveEasePanel";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type ShadowPromoteGate = {
@@ -131,6 +134,7 @@ function todayUtcDate(): string {
 }
 
 export default function OpsShadow() {
+  const [searchParams] = useSearchParams();
   const [tenantId, setTenantId] = useState("demo");
   const [data, setData] = useState<ShadowPromoteGate | null>(null);
   const [typology, setTypology] = useState<TypologyTelemetry | null>(null);
@@ -189,7 +193,11 @@ export default function OpsShadow() {
       .then((gate) => {
         setData(gate);
         const names = (gate.shadow_drafts || []).map((d) => (d.name || "").trim()).filter(Boolean);
-        setDraftId((cur) => (cur && names.includes(cur) ? cur : names[0] || cur));
+        const fromUrl = (searchParams.get("draft") || "").trim();
+        setDraftId((cur) => {
+          if (fromUrl && names.includes(fromUrl)) return fromUrl;
+          return cur && names.includes(cur) ? cur : names[0] || cur;
+        });
       })
       .catch((e) => setErr(String(e)));
     void decisions
@@ -216,7 +224,7 @@ export default function OpsShadow() {
       .catch(() => setBacktestPosture(null));
     void refreshL3();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh L3 once + when promote tenant changes
-  }, [tenantId]);
+  }, [tenantId, searchParams]);
 
   useEffect(() => {
     if (!draftId.trim()) return;
@@ -426,6 +434,22 @@ export default function OpsShadow() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-gray-100">Observe vs primary</h1>
+      <FirstHourHint
+        job="Observe is a canary. Live packs still decide. A model never ALLOW, DENY, or REVIEW. If a draft says model drafted, you still own Promote."
+        nextTo="/analytics/rule-performance"
+        nextLabel="Rule performance"
+      />
+      <ObserveEasePanel
+        tenantId={tenantId}
+        drafts={data?.shadow_drafts || []}
+        promoteAllowed={Boolean(deskGate?.promote_allowed)}
+        blockers={deskGate?.blockers || []}
+        slipRules={data?.live_rule_slip?.rules || []}
+        selectedDraft={draftId}
+        onSelectDraft={setDraftId}
+        onPromote={() => void promoteDraft()}
+        canPromote={canPromote}
+      />
       <p className="text-sm text-gray-400">
         Outcome-loop surfaces: L3 live ledger + label/McNemar/drift desk promote. Sim never starts L3.
       </p>

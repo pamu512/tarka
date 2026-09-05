@@ -5,6 +5,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from fraud_aggregates import DEFAULT_FEATURE_OUTPUTS, valid_feature_output_rows
+
 """Load and validate the v1 counter manifest (online/offline parity contract)."""
 _MANIFEST_FILE = "counter_manifest_v1.json"
 
@@ -24,11 +26,16 @@ def manifest_version() -> str:
     return str(m.get("manifest_version", "0"))
 
 
+def valid_feature_outputs(raw: list | None) -> list[dict]:
+    """Keep rows with name, known kind, and window in (0, MAX_WINDOW]. Empty after skip → DEFAULT."""
+    return valid_feature_output_rows(raw) or list(DEFAULT_FEATURE_OUTPUTS)
+
+
 def expected_feature_names() -> frozenset[str]:
     m = load_counter_manifest_v1()
-    feats = m.get("feature_outputs") or []
-    names = [str(x.get("name", "")).strip() for x in feats if isinstance(x, dict)]
-    return frozenset(n for n in names if n)
+    return frozenset(
+        str(x["name"]).strip() for x in valid_feature_outputs(m.get("feature_outputs"))
+    )
 
 
 def validate_feature_dict(features: dict[str, Any]) -> list[str]:

@@ -247,3 +247,79 @@ async def fetch_object_attention_wrapped(
         if "graph:unavailable" not in degrade_tags:
             degrade_tags.append("graph:unavailable")
         return []
+
+
+async def fetch_relation_growth(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+) -> dict[str, Any] | None:
+    """None if graph URL empty / request fails. Do not invent 0."""
+    if not settings.graph_service_url:
+        return None
+    url = (
+        settings.graph_service_url.rstrip("/")
+        + f"/v1/entities/{entity_id}/relation-growth"
+    )
+    try:
+        r = await http.get(
+            url,
+            params={"tenant_id": tenant_id},
+            timeout=settings.eval_step_graph_risk_timeout_seconds,
+        )
+        await _maybe_await(r.raise_for_status())
+        data = await _maybe_await(r.json())
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+async def fetch_relation_growth_wrapped(
+    http: httpx.AsyncClient,
+    tenant_id: str,
+    entity_id: str,
+    degrade_tags: list[str],
+    tenant_flags: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Circuit / disable / graph:missing → None. Do not write growth keys as 0."""
+    rt = _require_rt()
+    if tenant_flag_enabled(tenant_flags, "disable_graph"):
+        return None
+    if "graph:missing" in degrade_tags:
+        return None
+    if tag_hop_unconfigured(degrade_tags, "graph"):
+        if "graph:missing" not in degrade_tags:
+            degrade_tags.append("graph:missing")
+        return None
+    try:
+        data = await rt.circuit_graph.call(
+            lambda: fetch_relation_growth(http, tenant_id, entity_id)
+        )
+    except CircuitOpenError:
+        rt.metrics_inc("tarka_circuit_open_total_graph")
+        if "graph:unavailable" not in degrade_tags:
+            degrade_tags.append("graph:unavailable")
+        return None
+    except Exception:
+        if "graph:unavailable" not in degrade_tags:
+            degrade_tags.append("graph:unavailable")
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def attach_growth_to_features(features: dict, payload: dict | None) -> None:
+    """Int count (including 0) → relation_growth_{window}. Null count → omit."""
+    if not isinstance(payload, dict):
+        return
+    windows = payload.get("windows")
+    if not isinstance(windows, list):
+        return
+    for row in windows:
+        if not isinstance(row, dict):
+            continue
+        window = row.get("window")
+        count = row.get("count")
+        if not isinstance(window, str) or not window:
+            continue
+        if type(count) is int:
+            features[f"relation_growth_{window}"] = count

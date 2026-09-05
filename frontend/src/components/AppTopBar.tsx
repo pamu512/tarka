@@ -142,6 +142,16 @@ export function AppTopBar() {
         <IconSearch />
       </button>
       <NavLink
+        to="/notifications"
+        className={({ isActive }: { isActive: boolean }) =>
+          `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`
+        }
+        aria-label="Notifications"
+        title="Notifications"
+      >
+        <ModuleIcon module="notifications" className="w-[1.25rem] h-[1.25rem]" aria-hidden />
+      </NavLink>
+      <NavLink
         to="/help"
         className={({ isActive }: { isActive: boolean }) =>
           `${iconBtn} ${isActive ? "text-brand-400 bg-brand-600/15 hover:bg-brand-600/20" : ""}`

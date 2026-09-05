@@ -10,6 +10,7 @@ import {
   hierarchyInstrumentFanout,
   lastOutcomeLabel,
   mergeSubgraphs,
+  nodeMeetsGrowthPolicy,
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
   pickHomePerson,
@@ -179,11 +180,69 @@ describe("filterWorkspaceNodes", () => {
     expect(only.nodes.map((x) => x.id)).toEqual(["p"]);
   });
 
-  it("growth toggle hides null growth", () => {
+  it("growthOnly fail-closes when policy or counts are missing", () => {
     const r = filterWorkspaceNodes(nodes, edges, {
       types: null, minRisk: null, scoredOnly: false, growthOnly: true,
     });
-    expect(r.nodes.map((x) => x.id)).toEqual(["p"]);
+    expect(r.nodes.map((x) => x.id)).toEqual([]);
+  });
+
+  it("growthOnly uses stored relation_growth_{window} and policy thresholds", () => {
+    const labeled = [
+      n("miss", { labels: ["Person"], relation_growth_1h: 4, relation_growth_24h: 10 }),
+      n("hit1h", { labels: ["Person"], relation_growth_1h: 6, relation_growth_24h: 0 }),
+      n("hit24h", { labels: ["Person"], relation_growth_1h: 0, relation_growth_24h: 20 }),
+    ];
+    const r = filterWorkspaceNodes(labeled, [], {
+      types: null,
+      minRisk: null,
+      scoredOnly: false,
+      growthOnly: true,
+      growthWindows: [
+        { window: "1h", threshold: 5 },
+        { window: "24h", threshold: 15 },
+      ],
+    });
+    expect(r.nodes.map((x) => x.id).sort()).toEqual(["hit1h", "hit24h"]);
+  });
+
+  it("growthOnly fail-closes for a window with no stored field", () => {
+    const labeled = [n("only1h", { labels: ["Person"], relation_growth_1h: 99, relation_growth_24h: 99 })];
+    const r = filterWorkspaceNodes(labeled, [], {
+      types: null,
+      minRisk: null,
+      scoredOnly: false,
+      growthOnly: true,
+      growthWindows: [{ window: "6h", threshold: 1 }],
+    });
+    expect(r.nodes).toEqual([]);
+  });
+
+  it("growthOnly uses policy thresholds not 5/15 literals", () => {
+    const labeled = [
+      n("low1h", { labels: ["Person"], relation_growth_1h: 6, relation_growth_24h: 0 }),
+      n("meet6h", { labels: ["Person"], relation_growth_1h: 0, relation_growth_24h: 0 }),
+    ];
+    const r = filterWorkspaceNodes(labeled, [], {
+      types: null,
+      minRisk: null,
+      scoredOnly: false,
+      growthOnly: true,
+      growthWindows: [{ window: "6h", threshold: 8 }],
+      growthCountsByNodeId: {
+        low1h: { "6h": 7 },
+        meet6h: { "6h": 8 },
+      },
+    });
+    expect(r.nodes.map((x) => x.id)).toEqual(["meet6h"]);
+  });
+});
+
+describe("nodeMeetsGrowthPolicy", () => {
+  it("growthOnly uses policy thresholds not 5/15 literals", () => {
+    expect(nodeMeetsGrowthPolicy({ "6h": 8 }, [{ window: "6h", threshold: 8 }])).toBe(true);
+    expect(nodeMeetsGrowthPolicy({ "6h": 7 }, [{ window: "6h", threshold: 8 }])).toBe(false);
+    expect(nodeMeetsGrowthPolicy({ "6h": null }, [{ window: "6h", threshold: 8 }])).toBe(false);
   });
 });
 

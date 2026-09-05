@@ -69,4 +69,28 @@ describe("compileToAST", () => {
     const c = { source: "f1", target: "r1", sourceHandle: "f-out", targetHandle: "r-in" };
     expect(isValidRuleConnection(c, nodes)).toBe(false);
   });
+
+  it("allows hopEtype he-out to the same targets as Graph risk", () => {
+    const hop: Node = { id: "h1", type: "hopEtype", position: { x: 0, y: 0 }, data: { etype: "HAS_LIST" } };
+    const and: Node = { id: "a1", type: NODE_TYPES.logicAnd, position: { x: 0, y: 0 }, data: {} };
+    const or: Node = { id: "o1", type: NODE_TYPES.logicOr, position: { x: 0, y: 0 }, data: {} };
+    const root: Node = {
+      id: "r1",
+      type: NODE_TYPES.ruleRoot,
+      position: { x: 0, y: 0 },
+      data: { ruleId: "h", tagsStr: "", scoreDeltaStr: "18", description: "" },
+    };
+    expect(isValidRuleConnection({ source: "h1", target: "r1", sourceHandle: "he-out", targetHandle: "r-in" }, [hop, root])).toBe(
+      true,
+    );
+    expect(isValidRuleConnection({ source: "h1", target: "a1", sourceHandle: "he-out", targetHandle: "a-in" }, [hop, and])).toBe(
+      true,
+    );
+    expect(isValidRuleConnection({ source: "h1", target: "o1", sourceHandle: "he-out", targetHandle: "o-in" }, [hop, or])).toBe(
+      true,
+    );
+    expect(isValidRuleConnection({ source: "h1", target: "r1", sourceHandle: "gr-out", targetHandle: "r-in" }, [hop, root])).toBe(
+      false,
+    );
+  });
 });

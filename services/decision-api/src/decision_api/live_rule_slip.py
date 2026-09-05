@@ -470,4 +470,10 @@ async def maybe_park_live_rule_slip(
         )
         parked.append(str(pack["name"]))
         shadows = get_shadow_packs()
+    try:
+        from decision_api.observe_notify import maybe_emit_slip_events
+
+        maybe_emit_slip_events(tid, slip=slip, parked=parked)
+    except Exception:
+        pass
     return {"parked": parked, "skipped": skipped}

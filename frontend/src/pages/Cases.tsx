@@ -11,7 +11,7 @@ import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { buildCaseComparisonHref } from "../utils/caseComparisonUrl";
 import { isHeroHotkeyEventIgnored } from "../utils/heroHotkeys";
-import { LEAN_NAV } from "../config/leanNav";
+import { INCLUDE_DEMO_SURFACE } from "../config/leanNav";
 
 function insertCaseSortedByQueue(list: Case[], row: Case): Case[] {
   const next = [...list, row];
@@ -240,7 +240,7 @@ export default function Cases() {
 
   const heroListApprove = useCallback(() => {
     if (selectedIds.size !== 1) {
-      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(INCLUDE_DEMO_SURFACE ? "Select exactly one case (checkbox) for hero keys A / R / S." : "Select exactly one case (checkbox) for hero keys A / R.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -255,7 +255,7 @@ export default function Cases() {
 
   const heroListReject = useCallback(async () => {
     if (selectedIds.size !== 1) {
-      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(INCLUDE_DEMO_SURFACE ? "Select exactly one case (checkbox) for hero keys A / R / S." : "Select exactly one case (checkbox) for hero keys A / R.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -281,7 +281,7 @@ export default function Cases() {
 
   const heroListShadow = useCallback(() => {
     if (selectedIds.size !== 1) {
-      toast(LEAN_NAV ? "Select exactly one case (checkbox) for hero keys A / R." : "Select exactly one case (checkbox) for hero keys A / R / S.", "info");
+      toast(INCLUDE_DEMO_SURFACE ? "Select exactly one case (checkbox) for hero keys A / R / S." : "Select exactly one case (checkbox) for hero keys A / R.", "info");
       return;
     }
     const id = [...selectedIds][0];
@@ -311,7 +311,7 @@ export default function Cases() {
         void heroListReject();
         return;
       }
-      if (k === "s" && !LEAN_NAV) {
+      if (k === "s" && INCLUDE_DEMO_SURFACE) {
         e.preventDefault();
         heroListShadow();
       }
@@ -383,7 +383,7 @@ export default function Cases() {
           </kbd>{" "}
           Close
         </span>
-        {!LEAN_NAV ? (
+        {INCLUDE_DEMO_SURFACE ? (
         <span>
           <kbd className="px-1.5 py-0.5 rounded border border-surface-600 bg-surface-900 font-mono text-[10px] text-gray-300">
             S

@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 
 import { analytics, type AuditEntry } from "../api/client";
 import { decisions } from "../api/v1/decisions";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
@@ -146,6 +147,11 @@ export default function RulePerformance() {
           </button>
         </div>
       </div>
+      <FirstHourHint
+        job="Which packs fired, which look noisy. Open a pack to edit. Promote stays on Observe — a model never decides live."
+        nextTo="/ops/shadow"
+        nextLabel="Observe"
+      />
 
       <p className="text-sm text-gray-400 max-w-3xl leading-relaxed">
         Compare which rules drive <span className="text-rose-300 font-medium">deny</span> outcomes (fraud blocked)

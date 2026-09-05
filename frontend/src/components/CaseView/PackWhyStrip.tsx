@@ -5,7 +5,7 @@
 
 import { PACK_WHY_MISSING, type PackWhyView } from "../../utils/packWhy";
 
-export function PackWhyStrip({ packId, packName, why, advise }: PackWhyView) {
+export function PackWhyStrip({ packId, packName, why, hop, advise }: PackWhyView) {
   const packLabel = packName !== PACK_WHY_MISSING && packName !== packId ? `${packName} (${packId})` : packId;
 
   return (
@@ -31,6 +31,12 @@ export function PackWhyStrip({ packId, packName, why, advise }: PackWhyView) {
             why
           )}
         </p>
+        {hop ? (
+          <p data-testid="pack-why-hop" className="text-xs text-gray-400 leading-snug mt-1">
+            <span className="font-semibold uppercase tracking-wide text-gray-500 mr-1.5">Hop</span>
+            {hop}
+          </p>
+        ) : null}
         {advise ? (
           <p data-testid="pack-why-advise" className="text-xs text-gray-400 leading-snug mt-1">
             <span className="font-semibold uppercase tracking-wide text-gray-500 mr-1.5">Advise</span>
