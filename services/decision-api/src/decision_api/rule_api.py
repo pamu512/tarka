@@ -548,6 +548,14 @@ async def auto_promote_tick(
     parked = await maybe_park_live_rule_slip(tenant_id)
     out["live_rule_slip_parked"] = parked
     try:
+        from decision_api.observe_notify import emit_after_observe_tick
+
+        await emit_after_observe_tick(
+            tenant_id, desk=out.get("desk_promote_gate")
+        )
+    except Exception:
+        logger.exception("observe_notify tick failed tenant=%s", tenant_id)
+    try:
         from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
 
         await maybe_kill_leftover_fp_shadows(tenant_id)
@@ -808,6 +816,13 @@ _AI_PACK_ALLOWED_FIELDS: frozenset[str] = frozenset(
         "tx_amount_24h",
         "distinct_devices_24h",
         "distinct_ips_24h",
+        "event_count_5m",
+        "event_count_1h",
+        "event_count_24h",
+        "sum_amount_1h",
+        "sum_amount_24h",
+        "distinct_device_id_24h",
+        "distinct_ip_address_24h",
         "vendor_fingerprint_score",
         "vendor_incognia_risk",
         "ip_address",
@@ -1015,9 +1030,14 @@ async def create_scout_pack(
         try:
             from decision_api.brain_wire import maybe_kill_leftover_fp_shadows
 
-            await maybe_auto_promote_shadow(tid)
+            auto_out = await maybe_auto_promote_shadow(tid)
             await maybe_park_live_rule_slip(tid)
             await maybe_kill_leftover_fp_shadows(tid)
+            from decision_api.observe_notify import emit_after_observe_tick
+
+            await emit_after_observe_tick(
+                tid, desk=auto_out.get("desk_promote_gate") if isinstance(auto_out, dict) else None
+            )
         except Exception:
             logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
     return {"file": fpath.name, "pack": pack, "mode": "shadow"}

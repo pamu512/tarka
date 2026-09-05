@@ -188,6 +188,7 @@ const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: ModuleId; ke
     keywords: "payout hold mule score janusgraph funds release automation",
   },
   { to: "/admin", label: "Admin panel", module: "admin", keywords: "platform" },
+  { to: "/notifications", label: "Notifications", module: "notifications", keywords: "observe promote slip" },
   { to: "/settings", label: "Settings", module: "settings", keywords: "theme appearance" },
   { to: "/help", label: "Help & guide", module: "help", keywords: "docs" },
 ];

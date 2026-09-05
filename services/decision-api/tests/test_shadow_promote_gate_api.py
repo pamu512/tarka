@@ -52,6 +52,19 @@ async def challenge_client(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_shadow_promote_gate_does_not_write_notify(
+    challenge_client, tmp_path, monkeypatch
+):
+    path = tmp_path / "observe_notify.jsonl"
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_PATH", str(path))
+    r = await challenge_client.get(
+        "/v1/calibration/shadow-promote-gate", params={"tenant_id": "demo"}
+    )
+    assert r.status_code == 200, r.text
+    assert not path.exists()
+
+
+@pytest.mark.asyncio
 async def test_shadow_promote_gate_endpoint(challenge_client):
     r = await challenge_client.get("/v1/calibration/shadow-promote-gate")
     assert r.status_code == 200, r.text

@@ -9,12 +9,12 @@ Tarka is a local-first fraud OS: evaluate packs + audit trail + analyst desk.
 Tarka application code is **source-available** under the **Elastic License 2.0** (not open-source). After `git clone`:
 
 ```bash
-make demo
+make doctor && make demo
 ```
 
-That is one command: Lite + fraud-desk compose, then an honest evaluate walk. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
+`make doctor` names Docker / port / RAM problems. `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
 
-Then open http://127.0.0.1:3000 (`/graph` Hunt when graph is on, `/decisions` receipts, `/ops/shadow` Observe).
+Open the printed `NEXT:` link (Hunt with that person when graph is on). Receipts stay at `/decisions`. Observe is `/ops/shadow`.
 
 Same script: `bash scripts/oss/up_desk.sh`. What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 

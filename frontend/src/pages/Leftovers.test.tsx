@@ -72,6 +72,14 @@ describe("Leftovers", () => {
     expect(await screen.findByText("hunt")).toBeInTheDocument();
   });
 
+  it("fail-closes when leftovers API is down", async () => {
+    vi.mocked(client.cases.listLeftovers).mockRejectedValue(new Error("down"));
+    render(wrap(<Leftovers />));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /work buyer-1/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/no leftovers/i)).not.toBeInTheDocument();
+  });
+
   it("does not claim a row owned by someone else", async () => {
     render(wrap(<Leftovers />));
     await screen.findByText("ana-b");

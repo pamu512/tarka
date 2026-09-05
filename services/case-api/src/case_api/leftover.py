@@ -34,16 +34,38 @@ def leftover_last_act(case) -> str | None:
     return None
 
 
+def leftover_pack_id(labels: list[str] | None) -> str:
+    for raw in labels or []:
+        token = str(raw or "")
+        if token.startswith("pack:"):
+            return token[5:].strip()
+    return ""
+
+
+def leftover_rule_hits(labels: list[str] | None) -> list[str]:
+    hits: list[str] = []
+    for raw in labels or []:
+        token = str(raw or "")
+        if token.startswith("hit:"):
+            hit = token[4:].strip()
+            if hit:
+                hits.append(hit)
+    return hits
+
+
 def leftover_row(case, *, sla_breached: bool) -> dict:
+    labs = getattr(case, "labels", None)
     return {
         "case_id": str(case.id),
         "entity_id": case.entity_id,
-        "origin": leftover_origin(getattr(case, "labels", None)),
+        "origin": leftover_origin(labs),
         "last_outcome": getattr(case, "last_outcome", None),
         "last_act": leftover_last_act(case),
         "claimed_by": getattr(case, "claimed_by", None),
         "sla_breached": bool(sla_breached),
         "trace_id": getattr(case, "trace_id", "") or "",
+        "pack_id": leftover_pack_id(labs),
+        "rule_hits": leftover_rule_hits(labs),
     }
 
 

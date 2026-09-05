@@ -12,7 +12,9 @@ import {
   type DecisionResponse,
   toUserFacingApiError,
 } from "../api/client";
+import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
+import { SentencePackPanel } from "../components/SentencePackPanel";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { RuleSandboxPanel } from "../components/RuleSandboxPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
@@ -31,10 +33,12 @@ const FIELD_CATALOG: { category: string; fields: string[] }[] = [
     fields: [
       "amount",
       "currency",
-      "transaction_count_24h",
-      "failed_attempts_24h",
-      "hour_of_day",
-      "account_age_days",
+      "event_count_5m",
+      "event_count_1h",
+      "event_count_24h",
+      "sum_amount_24h",
+      "distinct_device_id_24h",
+      "distinct_ip_address_24h",
     ],
   },
   {
@@ -692,6 +696,11 @@ export default function Rules() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
         <div>
           <PageTitle module="rules">Rule Builder</PageTitle>
+          <FirstHourHint
+            job="Create a pack here. It starts as Observe, not live. Sentences and JSON emit the same evaluate pack. Promote stays on Observe."
+            nextTo="/ops/shadow"
+            nextLabel="Observe"
+          />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {dirty && (
@@ -719,6 +728,7 @@ export default function Rules() {
           </button>
         </div>
       </div>
+      <SentencePackPanel onJson={() => undefined} />
 
       {error && (
         <DegradedModeBanner
