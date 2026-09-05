@@ -1,12 +1,46 @@
 import type { GraphEdge, GraphNode, GraphObjectAttention, GraphPathExplanation } from "../api/client";
 import { pruneSubgraphForLinkView, undirectedLinkKey } from "./linkAnalysisGraph";
 
+export type GrowthPolicyWindow = { window: string; threshold: number };
+
 export type WorkspaceFilter = {
   types: string[] | null;
   minRisk: number | null;
   scoredOnly: boolean;
   growthOnly: boolean;
+  growthWindows?: GrowthPolicyWindow[] | null;
+  growthCountsByNodeId?: Record<string, Record<string, number | null>> | null;
 };
+
+export function nodeMeetsGrowthPolicy(
+  counts: Record<string, number | null>,
+  windows: Array<{ window: string; threshold: number }>,
+): boolean {
+  return windows.some((w) => {
+    const n = counts[w.window];
+    return typeof n === "number" && Number.isFinite(n) && n >= w.threshold;
+  });
+}
+
+function readNumericField(node: GraphNode, key: string): number | null {
+  const rec = node as GraphNode & Record<string, unknown>;
+  const top = rec[key];
+  if (typeof top === "number" && Number.isFinite(top)) return top;
+  const nested = node.properties?.[key];
+  if (typeof nested === "number" && Number.isFinite(nested)) return nested;
+  return null;
+}
+
+export function growthCountsFromNode(
+  node: GraphNode,
+  windows: Array<{ window: string }>,
+): Record<string, number | null> {
+  const counts: Record<string, number | null> = {};
+  for (const w of windows) {
+    counts[w.window] = readNumericField(node, `relation_growth_${w.window}`);
+  }
+  return counts;
+}
 
 export const HUNT_LOOKBACK_DEFAULT_DAYS = 90;
 export const HUNT_LOOKBACK_MAX_DAYS = 2555;
@@ -136,14 +170,6 @@ export function typeHistogram(nodes: GraphNode[]): Array<{ label: string; count:
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-function readNumericField(node: GraphNode, key: "relation_growth_1h" | "relation_growth_24h"): number | null {
-  const top = node[key];
-  if (typeof top === "number" && Number.isFinite(top)) return top;
-  const nested = node.properties?.[key];
-  if (typeof nested === "number" && Number.isFinite(nested)) return nested;
-  return null;
-}
-
 function keepWorkspaceNode(node: GraphNode, opts: WorkspaceFilter): boolean {
   if (opts.types !== null && !opts.types.includes(primaryLabel(node.labels))) return false;
 
@@ -153,9 +179,10 @@ function keepWorkspaceNode(node: GraphNode, opts: WorkspaceFilter): boolean {
   if (opts.minRisk != null && !unscored && risk < opts.minRisk) return false;
 
   if (opts.growthOnly) {
-    const g1 = readNumericField(node, "relation_growth_1h");
-    const g24 = readNumericField(node, "relation_growth_24h");
-    if (!((g1 != null && g1 >= 5) || (g24 != null && g24 >= 15))) return false;
+    const windows = opts.growthWindows;
+    if (!windows?.length) return false;
+    const counts = opts.growthCountsByNodeId?.[node.id] ?? growthCountsFromNode(node, windows);
+    if (!nodeMeetsGrowthPolicy(counts, windows)) return false;
   }
   return true;
 }

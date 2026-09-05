@@ -50,3 +50,34 @@ class TestCounterManifest:
             },
         )
         assert set(feats.keys()) == expected_feature_names()
+
+
+@pytest.mark.asyncio
+async def test_compute_features_emits_extra_manifest_row(monkeypatch):
+    from decision_api.counter_manifest import valid_feature_outputs
+    from fraud_aggregates import DEFAULT_FEATURE_OUTPUTS
+
+    extra = list(DEFAULT_FEATURE_OUTPUTS) + [
+        {"name": "event_count_6h", "kind": "event_count", "window_seconds": 21600}
+    ]
+    fake = FakeRedis()
+    s = AggregateStore(redis_client=fake, clock=lambda: T0 + 120.0)
+    await s.record_event("t", "e", "ev1", {"amount": 1.0}, ts=T0 + 1.0)
+    feats = await s.compute_features("t", "e", {"amount": 1.0}, feature_outputs=extra)
+    assert "event_count_6h" in feats
+    assert "event_count_1h" in feats
+    assert valid_feature_outputs(extra)[-1]["name"] == "event_count_6h"
+
+
+@pytest.mark.asyncio
+async def test_compute_features_skips_invalid_row():
+    rows = [
+        {"name": "event_count_1h", "kind": "event_count", "window_seconds": 3600},
+        {"name": "nope", "kind": "rate", "window_seconds": 60},
+        {"name": "", "kind": "event_count", "window_seconds": 3600},
+    ]
+    fake = FakeRedis()
+    s = AggregateStore(redis_client=fake, clock=lambda: T0 + 120.0)
+    feats = await s.compute_features("t", "e", {}, feature_outputs=rows)
+    assert "event_count_1h" in feats
+    assert "nope" not in feats

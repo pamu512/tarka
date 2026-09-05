@@ -5,8 +5,10 @@ import math
 from datetime import UTC, datetime
 from typing import Any
 
-FAST_GROWTH_1H = 5
-FAST_GROWTH_24H = 15
+from .growth_policy import threshold_for
+
+FAST_GROWTH_1H = threshold_for("1h")
+FAST_GROWTH_24H = threshold_for("24h")
 _HIGH_RISK_TAGS = frozenset({"fraud", "suspicious", "flagged", "blocked", "chargedback"})
 
 
@@ -163,10 +165,10 @@ def score_entity_risk(
     elif conn_count >= 5:
         score += 5
         factors.append(f"moderate_connectivity:{conn_count}")
-    if relation_growth_1h >= FAST_GROWTH_1H:
+    if FAST_GROWTH_1H is not None and relation_growth_1h >= FAST_GROWTH_1H:
         score += 20
         factors.append(f"fast_growth_1h:{relation_growth_1h}")
-    if relation_growth_24h >= FAST_GROWTH_24H:
+    if FAST_GROWTH_24H is not None and relation_growth_24h >= FAST_GROWTH_24H:
         score += 15
         factors.append(f"fast_growth_24h:{relation_growth_24h}")
     score = min(round(score * float(multiplier)), 100)

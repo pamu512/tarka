@@ -868,6 +868,20 @@ async def run_evaluate_decision(
         )
         attach_hop_to_features(features, graph_hop_v1)
 
+        from decision_api.evaluate.enrichment import (
+            attach_growth_to_features,
+            fetch_relation_growth_wrapped,
+        )
+
+        growth = await fetch_relation_growth_wrapped(
+            http,
+            body.tenant_id,
+            body.entity_id,
+            degrade_tags,
+            tenant_flags,
+        )
+        attach_growth_to_features(features, growth)
+
         # Run rules + OPA + ML in parallel (OPA and ML don't need each other)
         rule_hits, rule_tags, score_delta, json_rule_pack_files = evaluate_json_rules(
             features,

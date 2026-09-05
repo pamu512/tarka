@@ -3,14 +3,13 @@ from __future__ import annotations
 import contextlib
 import logging
 from collections import defaultdict, deque
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import networkx as nx
 
 from .config import settings
 from .entity_risk_score import entity_not_found_payload, score_entity_risk
-from .graph_data_freshness import _parse_timestamp
+from .growth_policy import count_growth
 from .janusgraph_gremlin import get_traversal_source, run_in_gremlin_thread
 from .janusgraph_store import _vertex_external_id
 
@@ -48,18 +47,7 @@ def _coalesce_edge_ts(edge: Any) -> Any:
 
 
 def _count_edge_growth(timestamps: list[Any]) -> tuple[int, int]:
-    now = datetime.now(UTC)
-    g1 = g24 = 0
-    for ts in timestamps:
-        dt = _parse_timestamp(ts)
-        if dt is None:
-            continue
-        delta = now - dt
-        if delta <= timedelta(hours=1):
-            g1 += 1
-        if delta <= timedelta(hours=24):
-            g24 += 1
-    return g1, g24
+    return count_growth(timestamps, "1h"), count_growth(timestamps, "24h")
 
 
 async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:

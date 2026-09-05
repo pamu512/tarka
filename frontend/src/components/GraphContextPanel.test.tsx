@@ -1,8 +1,20 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { cases, decisions, graph } from "@/api/client";
+import { cases, decisions, graph, rules } from "@/api/client";
 import { GraphContextPanel } from "@/components/GraphContextPanel";
+import { fallbackAuthorCatalog } from "@/domain/authorCatalogFallback";
+import { leftoverVisualHref } from "@/utils/leftoverVisualQuery";
+
+const { mockDesk } = vi.hoisted(() => ({
+  mockDesk: { profile: "demo" as "demo" | "product" | "brochure" },
+}));
+
+vi.mock("@/config/leanNav", () => ({
+  get DESK_PROFILE() {
+    return mockDesk.profile;
+  },
+}));
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -16,6 +28,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       entityDeepContext: vi.fn(),
       latestEvaluate: vi.fn(),
       latestDisposition: vi.fn(),
+      relationGrowth: vi.fn(),
     },
     decisions: {
       ...actual.decisions,
@@ -25,11 +38,16 @@ vi.mock("@/api/client", async (importOriginal) => {
       ...actual.cases,
       actOnEntity: vi.fn(),
     },
+    rules: {
+      ...actual.rules,
+      authorCatalog: vi.fn(),
+    },
   };
 });
 
 describe("GraphContextPanel object dossier", () => {
   beforeEach(() => {
+    mockDesk.profile = "demo";
     vi.mocked(graph.getEntity).mockReset();
     vi.mocked(graph.entityLinks).mockReset();
     vi.mocked(graph.entityHistory).mockReset();
@@ -38,9 +56,17 @@ describe("GraphContextPanel object dossier", () => {
     vi.mocked(graph.latestEvaluate).mockResolvedValue(null);
     vi.mocked(graph.latestDisposition).mockReset();
     vi.mocked(graph.latestDisposition).mockResolvedValue(null);
+    vi.mocked(graph.relationGrowth).mockReset();
+    vi.mocked(graph.relationGrowth).mockResolvedValue({
+      entity_id: "buyer-demo",
+      tenant_id: "demo",
+      windows: [],
+    });
     vi.mocked(decisions.getAudit).mockReset();
     vi.mocked(decisions.getAudit).mockRejectedValue(new Error("no audit"));
     vi.mocked(cases.actOnEntity).mockReset();
+    vi.mocked(rules.authorCatalog).mockReset();
+    vi.mocked(rules.authorCatalog).mockResolvedValue(fallbackAuthorCatalog());
   });
 
   it("shows type, links, and last trace from the object APIs", async () => {
@@ -415,5 +441,260 @@ describe("GraphContextPanel object dossier", () => {
     expect(decisions.getAudit).not.toHaveBeenCalled();
     screen.getByTestId("object-decision-hop").querySelector("button")?.click();
     expect(onSelectEntity).toHaveBeenCalledWith("dec:tr-hop");
+  });
+
+  it("renders queried relation-growth windows without hardcoded hour labels", async () => {
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: null,
+      trace_ids: [],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+    vi.mocked(graph.relationGrowth).mockResolvedValue({
+      entity_id: "buyer-demo",
+      tenant_id: "demo",
+      windows: [
+        { window: "6h", count: 8, threshold: 8 },
+        { window: "7d", count: null, threshold: 3 },
+      ],
+    });
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        embedded
+      />,
+    );
+
+    const row = await screen.findByTestId("node-relation-growth");
+    expect(row).toHaveTextContent("6h 8");
+    expect(row).toHaveTextContent("7d —");
+    expect(graph.relationGrowth).toHaveBeenCalledWith("demo", "buyer-demo");
+  });
+
+  it("shows Draft Observe pack on product when leftover_id is on the Hunt query", async () => {
+    mockDesk.profile = "product";
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: null,
+      trace_ids: [],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        leftoverId="c-leftover"
+        leftoverPack="device_signals"
+        leftoverHits="event_count_1h"
+        decisionId="dec:tr-1"
+        embedded
+      />,
+    );
+
+    const link = await screen.findByTestId("draft-observe-pack");
+    expect(link).toHaveTextContent("Draft Observe pack");
+    expect(link.textContent).not.toMatch(/Promote/i);
+    expect(link).toHaveAttribute(
+      "href",
+      leftoverVisualHref(fallbackAuthorCatalog(), {
+        leftoverId: "c-leftover",
+        pack: "device_signals",
+        hits: "event_count_1h",
+        entityId: "buyer-demo",
+        tenantId: "demo",
+        decisionId: "dec:tr-1",
+      }),
+    );
+  });
+
+  it("hides Draft Observe pack on demo even with leftover_id", async () => {
+    mockDesk.profile = "demo";
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: null,
+      trace_ids: [],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        leftoverId="c-leftover"
+        embedded
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Person" });
+    expect(screen.queryByTestId("draft-observe-pack")).not.toBeInTheDocument();
+  });
+
+  it("hides Draft Observe pack when the graph plane is off", async () => {
+    mockDesk.profile = "product";
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: null,
+      trace_ids: [],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        leftoverId="c-leftover"
+        graphPlaneDisabled
+        embedded
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Person" });
+    expect(screen.queryByTestId("draft-observe-pack")).not.toBeInTheDocument();
+  });
+
+  it("shows Draft Observe pack on product when a pinned evaluate receipt is on the pane", async () => {
+    mockDesk.profile = "product";
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: "tr-flag",
+      trace_ids: ["tr-flag"],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+    vi.mocked(decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-flag",
+      entity_id: "buyer-demo",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 62,
+      tags: [],
+      rule_hits: ["sdk_rooted"],
+      rule_pack_file: "device_signals.json",
+      created_at: "2026-08-24T08:00:00Z",
+    });
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        embedded
+      />,
+    );
+
+    await screen.findByTestId("pack-why-strip");
+    expect(screen.getByTestId("draft-observe-pack")).toHaveTextContent("Draft Observe pack");
+  });
+
+  it("uses fallback catalog for Draft href when author catalog GET fails", async () => {
+    mockDesk.profile = "product";
+    vi.mocked(rules.authorCatalog).mockRejectedValue(new Error("catalog down"));
+    vi.mocked(graph.getEntity).mockResolvedValue({
+      id: "buyer-demo",
+      labels: ["Person"],
+      properties: {},
+    });
+    vi.mocked(graph.entityLinks).mockResolvedValue({
+      entity_id: "buyer-demo",
+      nodes: [],
+      edges: [],
+    });
+    vi.mocked(graph.entityHistory).mockResolvedValue({
+      entity_id: "buyer-demo",
+      last_trace_id: null,
+      trace_ids: [],
+      properties: {},
+    });
+    vi.mocked(graph.entityDeepContext).mockResolvedValue(null);
+
+    render(
+      <GraphContextPanel
+        open
+        onClose={() => undefined}
+        tenantId="demo"
+        entityId="buyer-demo"
+        leftoverId="c-leftover"
+        leftoverHits="event_count_1h"
+        embedded
+      />,
+    );
+
+    const link = await screen.findByTestId("draft-observe-pack");
+    expect(link).toHaveAttribute(
+      "href",
+      leftoverVisualHref(fallbackAuthorCatalog(), {
+        leftoverId: "c-leftover",
+        hits: "event_count_1h",
+        entityId: "buyer-demo",
+        tenantId: "demo",
+      }),
+    );
   });
 });

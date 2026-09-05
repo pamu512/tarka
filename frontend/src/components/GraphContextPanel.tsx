@@ -4,18 +4,24 @@ import {
   cases,
   decisions,
   graph,
+  rules,
   type AuditEntry,
   type GraphEdge,
   type GraphEntityDeepContext,
   type GraphNode,
   type GraphObjectAttention,
+  type RelationGrowthResponse,
 } from "../api/client";
 import { PackWhyStrip } from "./CaseView/PackWhyStrip";
 import { DeviceIntegrityStrip } from "./CaseView/DeviceIntegrityStrip";
+import { DESK_PROFILE } from "../config/leanNav";
+import type { AuthorCatalog } from "../domain/authorCatalog";
+import { fallbackAuthorCatalog } from "../domain/authorCatalogFallback";
 import { graphLaggedEvaluate, lastOutcomeLabel, rankRelatedLinks } from "../domain/graphInvestigation";
 import { DISPOSITION_REASON_CODES } from "../config/dispositionReasonCodes";
 import { DEVICE_CLUSTER_GRAPH_LABEL } from "../utils/entityDeviceClustering";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
+import { leftoverVisualHref } from "../utils/leftoverVisualQuery";
 import { PACK_WHY_MISSING, resolvePackWhy } from "../utils/packWhy";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
@@ -173,6 +179,11 @@ export type GraphContextPanelProps = {
   embedded?: boolean;
   /** Re-seed Hunt on a linked object. */
   onSelectEntity?: (entityId: string) => void;
+  leftoverId?: string | null;
+  leftoverPack?: string | null;
+  leftoverHits?: string | null;
+  decisionId?: string | null;
+  graphPlaneDisabled?: boolean;
 };
 
 /**
@@ -187,6 +198,11 @@ export function GraphContextPanel({
   nodeHint,
   embedded,
   onSelectEntity,
+  leftoverId,
+  leftoverPack,
+  leftoverHits,
+  decisionId,
+  graphPlaneDisabled,
 }: GraphContextPanelProps) {
   const titleId = useId();
   const [state, setState] = useState<LoadState>("idle");
@@ -216,6 +232,8 @@ export function GraphContextPanel({
   const [actBusy, setActBusy] = useState(false);
   const [actMsg, setActMsg] = useState("");
   const [latestEval, setLatestEval] = useState<{ trace_id?: string | null } | null>(null);
+  const [relationGrowth, setRelationGrowth] = useState<RelationGrowthResponse | null>(null);
+  const [catalog, setCatalog] = useState<AuthorCatalog | null>(null);
   const [reasonCode, setReasonCode] = useState<(typeof DISPOSITION_REASON_CODES)[number]["code"]>(
     "FALSE_POSITIVE",
   );
@@ -230,6 +248,7 @@ export function GraphContextPanel({
       setReceipts([]);
       setHold(null);
       setLatestEval(null);
+      setRelationGrowth(null);
       setErrMsg("");
       setActMsg("");
     }
@@ -237,13 +256,14 @@ export function GraphContextPanel({
 
   const loadObject = useCallback(async () => {
     if (!entityId || !tenantId) return;
-    const [obj, linkRow, hist, ctx, disposition, latest] = await Promise.all([
+    const [obj, linkRow, hist, ctx, disposition, latest, growth] = await Promise.all([
       graph.getEntity(entityId, tenantId),
       graph.entityLinks(entityId, tenantId),
       graph.entityHistory(entityId, tenantId),
       graph.entityDeepContext(entityId, tenantId),
       graph.latestDisposition(entityId, tenantId),
       graph.latestEvaluate(entityId, tenantId),
+      graph.relationGrowth(tenantId, entityId).catch(() => null),
     ]);
     if (!obj && !linkRow && !hist && !ctx) {
       setState("not_found");
@@ -257,6 +277,7 @@ export function GraphContextPanel({
     setReceipts(hops.length ? [] : await loadMinimalReceipts(tenantId, receiptTraceIds(hist)));
     setHold(holdForStory(obj?.properties?.last_act ?? hist?.properties?.last_act, disposition));
     setLatestEval(latest);
+    setRelationGrowth(growth);
     setState("ready");
   }, [entityId, tenantId]);
 
@@ -277,6 +298,7 @@ export function GraphContextPanel({
     setHistory(null);
     setReceipts([]);
     setHold(null);
+    setRelationGrowth(null);
     setErrMsg("");
     void (async () => {
       try {
@@ -291,6 +313,22 @@ export function GraphContextPanel({
       cancelled = true;
     };
   }, [open, entityId, tenantId, nodeHint?.labels, loadObject]);
+
+  useEffect(() => {
+    if (!open || DESK_PROFILE !== "product" || graphPlaneDisabled) return;
+    let cancelled = false;
+    rules.authorCatalog().then(
+      (row) => {
+        if (!cancelled) setCatalog(row);
+      },
+      () => {
+        if (!cancelled) setCatalog(fallbackAuthorCatalog());
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, graphPlaneDisabled]);
 
   const isPerson = Boolean(
     objectNode?.labels?.includes("Person") || nodeHint?.labels?.includes("Person"),
@@ -354,6 +392,29 @@ export function GraphContextPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  const hasPinnedReceipt = receipts.some((r) => isPackFiredDecision(r.decision));
+  const showDraft =
+    DESK_PROFILE === "product" &&
+    !graphPlaneDisabled &&
+    (Boolean(leftoverId?.trim()) || hasPinnedReceipt);
+  const pinnedReceipt = receipts.find((r) => isPackFiredDecision(r.decision)) ?? receipts[0];
+  const hopNamed = pinnedReceipt
+    ? resolvePackWhy({
+        rule_pack_file: pinnedReceipt.rule_pack_file,
+        rule_hits: pinnedReceipt.rule_hits,
+        evaluate_payload: pinnedReceipt.evaluate_payload ?? null,
+      }).hop
+    : null;
+  const draftHref = leftoverVisualHref(catalog ?? fallbackAuthorCatalog(), {
+    leftoverId,
+    pack: leftoverPack,
+    hits: leftoverHits,
+    hopNamed,
+    entityId,
+    tenantId,
+    decisionId,
+  });
 
   if (!open || !entityId) {
     if (embedded) {
@@ -451,6 +512,15 @@ export function GraphContextPanel({
                 </div>
                 {actMsg ? <p className="text-[11px] text-gray-400">{actMsg}</p> : null}
               </div>
+            ) : null}
+            {state === "ready" && showDraft ? (
+              <a
+                data-testid="draft-observe-pack"
+                href={draftHref}
+                className="inline-block mt-2 px-2 py-1 text-[11px] font-medium rounded-lg bg-sky-800/80 hover:bg-sky-700 text-sky-50"
+              >
+                Draft Observe pack
+              </a>
             ) : null}
           </div>
           <button
@@ -627,6 +697,19 @@ export function GraphContextPanel({
                   </section>
                 );
               })()}
+
+              {relationGrowth?.windows.length ? (
+                <section data-testid="node-relation-growth" className="space-y-1">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Relation growth
+                  </h3>
+                  {relationGrowth.windows.map((row) => (
+                    <span key={row.window} className="block text-xs text-gray-300" title={String(row.threshold)}>
+                      {row.window} {row.count ?? "—"}
+                    </span>
+                  ))}
+                </section>
+              ) : null}
 
               {links?.edges?.length ? (
                 <section data-testid="object-links">

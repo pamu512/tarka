@@ -1,3 +1,4 @@
+import type { AuthorCatalog } from "../domain/authorCatalog";
 import type { AccessGroupId, AccessModuleId, ModuleCatalogEntry } from "../config/accessModuleCatalog";
 import {
   type ConfidenceTier,
@@ -640,6 +641,24 @@ export interface GraphNode {
   relation_growth_1h?: number | null;
   relation_growth_24h?: number | null;
 }
+
+export type GrowthPolicyWindow = { window: string; threshold: number };
+
+export type GrowthPolicyResponse = {
+  windows: GrowthPolicyWindow[];
+};
+
+export type RelationGrowthWindow = {
+  window: string;
+  count: number | null;
+  threshold: number;
+};
+
+export type RelationGrowthResponse = {
+  entity_id: string;
+  tenant_id: string;
+  windows: RelationGrowthWindow[];
+};
 
 export interface GraphEdge {
   from_id: string;
@@ -3122,6 +3141,18 @@ export const graph = {
     }>(`/api/graph/v1/decisions/latest?${q}`);
   },
 
+  growthPolicy() {
+    return request<GrowthPolicyResponse>("/api/graph/v1/graph/growth-policy");
+  },
+
+  relationGrowth(tenantId: string, entityId: string, windows?: string[]) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    if (windows?.length) q.set("windows", windows.join(","));
+    return request<RelationGrowthResponse>(
+      `/api/graph/v1/entities/${encodeURIComponent(entityId)}/relation-growth?${q}`,
+    );
+  },
+
   pathExplain(params: {
     tenant_id: string;
     subject: string;
@@ -3274,6 +3305,10 @@ const _ruleActorHeaders = (): HeadersInit => {
 };
 
 export const rules = {
+  authorCatalog() {
+    return request<AuthorCatalog>("/api/decisions/v1/rules/author-catalog");
+  },
+
   list() {
     return request<{ packs: RulePack[] }>("/api/decisions/v1/rules");
   },
