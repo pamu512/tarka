@@ -101,10 +101,7 @@ def apply_field_maps(payload: dict, maps: list[tuple[str, str]]) -> dict:
             continue
         if registry_name in out:
             continue
-        value = out[buyer_key]
-        if value == 0:
-            continue
-        out[registry_name] = value
+        out[registry_name] = out[buyer_key]
     return out
 
 
