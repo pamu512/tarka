@@ -467,7 +467,9 @@ async def compute_desk_and_leftover_gates(
         ack=await fetch_promote_ack(tid, did or ""),
         draft_id=did,
     )
-    helpfulness = leftover_g.get("helpfulness") if isinstance(leftover_g, Mapping) else None
+    helpfulness = (
+        leftover_g.get("helpfulness") if isinstance(leftover_g, Mapping) else None
+    )
     fp_raw = helpfulness.get("fp_rate") if isinstance(helpfulness, Mapping) else None
     try:
         fp_rate = float(fp_raw) if fp_raw is not None else None

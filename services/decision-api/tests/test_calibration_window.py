@@ -13,9 +13,7 @@ GREEN = {"promote_allowed": True, "blockers": []}
 
 
 def test_zero_labels_blocks_window():
-    row = calibration_window(
-        first_label_at=None, label_count=0, fp_rate=None, now=NOW
-    )
+    row = calibration_window(first_label_at=None, label_count=0, fp_rate=None, now=NOW)
     assert row["ok"] is False
     assert "window_open" in row["blockers"]
     assert "thin_labels" in row["blockers"]
@@ -36,9 +34,7 @@ def test_warm_window_ok():
 
 def test_fp_above_cap_blocks_only_when_number():
     first = NOW - timedelta(days=10)
-    hot = calibration_window(
-        first_label_at=first, label_count=20, fp_rate=0.2, now=NOW
-    )
+    hot = calibration_window(first_label_at=first, label_count=20, fp_rate=0.2, now=NOW)
     assert hot["ok"] is False
     assert hot["blockers"] == ["fp_above_cap"]
     missing = calibration_window(

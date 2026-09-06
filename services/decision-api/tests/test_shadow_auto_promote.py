@@ -401,9 +401,7 @@ async def test_promote_409_when_leftover_blocked_200_when_green(
 
 
 @pytest.mark.asyncio
-async def test_promote_409_when_calibration_window_open(
-    desk_client, monkeypatch
-):
+async def test_promote_409_when_calibration_window_open(desk_client, monkeypatch):
     from decision_api.json_rules import load_rules
 
     _write_shadow_pack(
