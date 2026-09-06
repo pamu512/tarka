@@ -27,6 +27,7 @@ describe("leftoverVisualQuery", () => {
     expect(parseVelocityField(cat, "event_count_7d")).toBe("event_count_7d");
     expect(parseVelocityField(cat, "relation_growth_1h")).toBe("relation_growth_1h");
     expect(parseVelocityField(cat, "rate")).toBe(null);
+    expect(parseVelocityField(cat, "event_count_1h_share_24h")).toBe(null);
   });
 
   it("prefers hop over field on the visual href", () => {

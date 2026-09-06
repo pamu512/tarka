@@ -59,6 +59,7 @@ from decision_api.policy_routing import (
 from decision_api.schemas import EvaluateRequest, EvaluateResponse
 from decision_api.tags import derive_contextual_tags
 from decision_api.typology import evaluate_typologies, summarize_typologies
+from baseline_assist import attach_count_share_from_env
 from event_time import event_time_unix_for_evaluate
 from privacy import get_profile, mask_dict
 
@@ -788,6 +789,8 @@ async def run_evaluate_decision(
                 await agg_store.record_event(
                     body.tenant_id, body.entity_id, str(trace_id), features, ts=agg_ts
                 )
+
+        attach_count_share_from_env(features)
 
         geo_extra_tags: list[str] = []
         if body.device_context:
