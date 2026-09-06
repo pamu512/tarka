@@ -68,3 +68,16 @@ def test_envelope_accepts_allowed_refund():
         allowed=SEED_EVENT_TYPES | frozenset({"refund"}),
     )
     assert out["event_type"] == "refund"
+
+
+def test_ingest_contract_import_skips_audit_orm():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys; "
+        "from tarka_shared.ingest_contract_v1 import SEED_EVENT_TYPES; "
+        "assert SEED_EVENT_TYPES; "
+        "assert 'tarka_shared.audit_trail' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
