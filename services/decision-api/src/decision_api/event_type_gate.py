@@ -7,16 +7,17 @@ import os
 
 from fastapi import HTTPException
 
-from tarka_shared.ingest_contract_v1 import allowed_event_types, parse_env_event_types
+from tarka_shared.ingest_contract_v1 import parse_env_event_types
 
 log = logging.getLogger(__name__)
 _overlay_fail_logged = False
 
 
 def event_type_allow_list(overlay: frozenset[str] | None = None) -> frozenset[str]:
-    return allowed_event_types(
-        overlay,
-        parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
+    from decision_api.event_type_store import load_seed_event_types
+
+    return load_seed_event_types() | frozenset(overlay or ()) | parse_env_event_types(
+        os.environ.get("TARKA_EVENT_TYPES")
     )
 
 
