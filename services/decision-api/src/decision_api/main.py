@@ -2230,7 +2230,7 @@ async def _graph_upsert(
     objects, links = build_evaluate_objects(
         trace_id=trace_id,
         entity_id=body.entity_id,
-        event_type=body.event_type.value,
+        event_type=body.event_type,
         payload=payload,
         device_context=dc_dump,
         session_id=body.session_id,
@@ -2261,7 +2261,7 @@ async def _graph_upsert(
         tags: list[str] = []
         if etype == "Person":
             tags = merged_tags
-            props["last_event"] = body.event_type.value
+            props["last_event"] = body.event_type
         elif etype == "Device" and body.device_context:
             tags = device_tags
             props["platform"] = body.device_context.platform
@@ -2298,7 +2298,7 @@ async def _graph_upsert(
                 "relationship": rel,
                 "properties": {
                     "trace_id": trace_id,
-                    "event_type": body.event_type.value,
+                    "event_type": body.event_type,
                 },
             },
             headers=_upstream_headers(),
@@ -2351,7 +2351,7 @@ async def _graph_upsert(
                 "relationship": "SEEN_AT",
                 "properties": {
                     "trace_id": trace_id,
-                    "event_type": body.event_type.value,
+                    "event_type": body.event_type,
                 },
             },
             headers=_upstream_headers(),

@@ -166,6 +166,10 @@ async def run_evaluate_decision(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     tenant_flags = await _load_tenant_flags_for_evaluate(body.tenant_id)
 
+    from decision_api.event_type_gate import require_allowed_event_type
+
+    await require_allowed_event_type(session, body.tenant_id, body.event_type)
+
     # Extract SDK signal tags
     dc_dump = body.device_context.model_dump() if body.device_context else None
     signal_tags = extract_signal_tags(dc_dump)
@@ -185,7 +189,7 @@ async def run_evaluate_decision(
         _json.dumps(
             {
                 "tenant_id": body.tenant_id,
-                "event_type": body.event_type.value,
+                "event_type": body.event_type,
                 "entity_id": body.entity_id,
                 "session_id": body.session_id,
                 "payload": body.payload,
@@ -327,7 +331,7 @@ async def run_evaluate_decision(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
-                event_type=body.event_type.value,
+                event_type=body.event_type,
                 decision="allow",
                 score=0.0,
                 tags=["list:whitelist"],
@@ -396,7 +400,7 @@ async def run_evaluate_decision(
                 trace_id=trace_id,
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
-                event_type=body.event_type.value,
+                event_type=body.event_type,
                 decision="deny",
                 score=100.0,
                 tags=["list:blacklist"],
@@ -487,7 +491,7 @@ async def run_evaluate_decision(
             # Base score here is pre-graph: JSON rules + consortium + replay, no graph_delta yet.
             tentative_base = 10.0 + consortium_delta + (20.0 if is_replayed else 0.0)
             graph_routing = decide_graph_routing(
-                body.event_type.value, tentative_base, tags=signal_tags
+                body.event_type, tentative_base, tags=signal_tags
             )
             if graph_routing and graph_routing.get("graph_checkpoint"):
                 graph_checkpoint = str(graph_routing["graph_checkpoint"])
@@ -510,7 +514,7 @@ async def run_evaluate_decision(
                         degrade_tags,
                         tenant_flags,
                         graph_checkpoint,
-                        body.event_type.value,
+                        body.event_type,
                     ),
                     timeout_seconds=settings.eval_step_graph_risk_timeout_seconds,
                     max_attempts=settings.eval_step_graph_risk_max_attempts,
@@ -528,7 +532,7 @@ async def run_evaluate_decision(
                     refs = evaluate_related_object_refs(
                         trace_id=str(trace_id),
                         entity_id=body.entity_id,
-                        event_type=body.event_type.value,
+                        event_type=body.event_type,
                         payload=body.payload if isinstance(body.payload, dict) else {},
                         device_context=body.device_context.model_dump()
                         if body.device_context
@@ -629,7 +633,7 @@ async def run_evaluate_decision(
         )
         apply_feature_catalog_v1(
             features,
-            body.event_type.value,
+            body.event_type,
             degrade_tags,
             fail_closed_event_types=_fc_fail,
         )
@@ -928,7 +932,7 @@ async def run_evaluate_decision(
                     http,
                     body.tenant_id,
                     body.entity_id,
-                    body.event_type.value,
+                    body.event_type,
                     features,
                     degrade_tags,
                     tenant_flags,
@@ -1133,7 +1137,7 @@ async def run_evaluate_decision(
 
             _loyalty_meta = body.metadata if isinstance(body.metadata, dict) else None
             if should_call_loyalty_abuse(
-                metadata=_loyalty_meta, event_type=body.event_type.value
+                metadata=_loyalty_meta, event_type=body.event_type
             ):
                 loyalty_result = await maybe_call_loyalty_abuse_from_evaluate(
                     http=http,
@@ -1144,7 +1148,7 @@ async def run_evaluate_decision(
                     trace_id=str(trace_id),
                     payload=body.payload if isinstance(body.payload, dict) else None,
                     metadata=_loyalty_meta,
-                    event_type=body.event_type.value,
+                    event_type=body.event_type,
                     metrics_inc=_metrics_inc_safe,
                     timeout_seconds=settings.loyalty_abuse_timeout_seconds,
                     failure_threshold=settings.loyalty_abuse_circuit_failure_threshold,
@@ -1171,14 +1175,14 @@ async def run_evaluate_decision(
 
             _sib_meta = body.metadata if isinstance(body.metadata, dict) else None
             if should_invoke_refund_bridge(
-                metadata=_sib_meta, event_type=body.event_type.value
+                metadata=_sib_meta, event_type=body.event_type
             ):
                 refund_result = await maybe_invoke_refund_abuse(
                     http=http,
                     tenant_id=body.tenant_id,
                     entity_id=body.entity_id,
                     metadata=_sib_meta,
-                    event_type=body.event_type.value,
+                    event_type=body.event_type,
                     features=features if isinstance(features, dict) else None,
                     metrics_inc=_metrics_inc_safe,
                 )
@@ -1188,14 +1192,14 @@ async def run_evaluate_decision(
                     )
                 refund_bridge_evidence = refund_result.evidence()
             if should_invoke_cancel_bridge(
-                metadata=_sib_meta, event_type=body.event_type.value
+                metadata=_sib_meta, event_type=body.event_type
             ):
                 cancel_result = await maybe_invoke_offline_cancel(
                     http=http,
                     tenant_id=body.tenant_id,
                     entity_id=body.entity_id,
                     metadata=_sib_meta,
-                    event_type=body.event_type.value,
+                    event_type=body.event_type,
                     features=features if isinstance(features, dict) else None,
                     metrics_inc=_metrics_inc_safe,
                 )
@@ -1308,7 +1312,7 @@ async def run_evaluate_decision(
                 trace_id=str(trace_id),
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
-                event_type=body.event_type.value,
+                event_type=body.event_type,
                 decision=decision,
                 score=final_score,
                 tags=merged_tags,
@@ -1461,7 +1465,7 @@ async def run_evaluate_decision(
             trace_id=trace_id,
             tenant_id=body.tenant_id,
             entity_id=body.entity_id,
-            event_type=body.event_type.value,
+            event_type=body.event_type,
             decision=decision,
             score=final_score,
             tags=merged_tags,
@@ -1475,7 +1479,7 @@ async def run_evaluate_decision(
             trace_id=str(trace_id),
             tenant_id=body.tenant_id,
             entity_id=body.entity_id,
-            event_type=body.event_type.value,
+            event_type=body.event_type,
             decision=decision,
             score=final_score,
             tags=merged_tags,
@@ -1547,7 +1551,7 @@ async def run_evaluate_decision(
                 trace_id=str(trace_id),
                 tenant_id=body.tenant_id,
                 entity_id=body.entity_id,
-                event_type=body.event_type.value,
+                event_type=body.event_type,
                 decision=decision,
                 score=final_score,
                 tags=merged_tags,
