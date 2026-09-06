@@ -139,6 +139,63 @@ async def test_scout_pack_slip_name_returns_409(rules_client, tmp_path, monkeypa
     assert list(tmp_path.glob("scout_*.json")) == []
 
 
+def _successor_scout_body() -> dict:
+    return {
+        "name": "Scout: successor amount",
+        "mode": "shadow",
+        "rules": [
+            {
+                "id": "scout_r",
+                "when": [{"field": "amount", "op": "gt", "value": 0}],
+                "score_delta": 10.0,
+            }
+        ],
+        "authored_by": "scout_coordinated_burst",
+        "is_ai_authored": True,
+        "tenant_id": "t1",
+        "evidence": {"slip_kind": "successor", "live_rule_id": "r1"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_successor_suggest_403_when_env_off(rules_client, monkeypatch):
+    monkeypatch.delenv("TARKA_BYO_SUCCESSOR_SUGGEST", raising=False)
+    r = await rules_client.post("/v1/rules/scout-pack", json=_successor_scout_body())
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == "byo_successor_suggest_off"
+
+
+@pytest.mark.asyncio
+async def test_successor_suggest_201_when_env_on_rewrites_slip_critic(
+    rules_client, monkeypatch
+):
+    monkeypatch.setenv("TARKA_BYO_SUCCESSOR_SUGGEST", "1")
+
+    async def _allow(_tid, pack):
+        ids = [
+            str(r.get("id") or "").strip()
+            for r in (pack.get("rules") or [])
+            if isinstance(r, dict) and str(r.get("id") or "").strip()
+        ]
+        return {
+            "publish_allowed": True,
+            "reason": None,
+            "keep_rule_ids": ids,
+            "stamp_underpowered": False,
+            "should_kill": False,
+            "_helpfulness": {},
+        }
+
+    monkeypatch.setattr("decision_api.rule_api._scout_leftover_verdict", _allow)
+    body = _successor_scout_body()
+    body["authored_by"] = "slip_critic"
+    r = await rules_client.post("/v1/rules/scout-pack", json=body)
+    assert r.status_code == 201, r.text
+    pack = r.json()["pack"]
+    assert pack["mode"] == "shadow"
+    assert pack["authored_by"] == "scout_coordinated_burst"
+
+
 def test_promote_slip_does_not_strip_live_rule(tmp_path, monkeypatch):
     from decision_api.config import settings
     from decision_api.json_rules import load_rules

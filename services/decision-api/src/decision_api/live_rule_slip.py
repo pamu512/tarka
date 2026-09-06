@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -233,6 +234,21 @@ def slip_draft_would_clobber(
         return True
     lid = str((evidence or {}).get("live_rule_id") or "").strip()
     return bool(lid and existing_slip_slot(lid, shadow_packs))
+
+
+def is_slip_successor_suggest(
+    name: str, evidence: Mapping[str, Any] | None
+) -> bool:
+    n = (name or "").strip()
+    if n.startswith("slip_retire_") or n.startswith("slip_successor_"):
+        return True
+    kind = str((evidence or {}).get("slip_kind") or "").strip().lower()
+    return kind in {"successor", "retire"}
+
+
+def byo_successor_suggest_enabled() -> bool:
+    raw = (os.environ.get("TARKA_BYO_SUCCESSOR_SUGGEST") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def build_retire_pack(

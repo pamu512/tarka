@@ -5,8 +5,10 @@ import pytest
 from decision_api.live_rule_slip import (
     build_retire_pack,
     build_successor_pack,
+    byo_successor_suggest_enabled,
     existing_slip_slot,
     find_live_rule,
+    is_slip_successor_suggest,
     live_rule_slip,
     mix_value,
     resolve_y,
@@ -289,3 +291,14 @@ async def test_park_skips_ambiguous(tmp_path, monkeypatch):
     out = await maybe_park_live_rule_slip("demo", rows=rows)
     assert out["parked"] == []
     assert "ambiguous" in {s["reason"] for s in out["skipped"]}
+
+
+def test_successor_suggest_shape_and_env_default_off(monkeypatch):
+    assert is_slip_successor_suggest("Scout: canvas", None) is False
+    assert is_slip_successor_suggest("Scout: canvas", {"slip_kind": "successor"}) is True
+    assert is_slip_successor_suggest("Scout: canvas", {"slip_kind": "retire"}) is True
+    assert is_slip_successor_suggest("slip_successor_r1", {}) is True
+    monkeypatch.delenv("TARKA_BYO_SUCCESSOR_SUGGEST", raising=False)
+    assert byo_successor_suggest_enabled() is False
+    monkeypatch.setenv("TARKA_BYO_SUCCESSOR_SUGGEST", "1")
+    assert byo_successor_suggest_enabled() is True

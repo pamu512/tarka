@@ -140,7 +140,7 @@ export function ObserveEasePanel({
               <button type="button" className="text-brand-300 hover:underline" onClick={() => onSelectDraft(d.name || "")}>
                 {d.name}
               </button>
-              {d.is_ai_authored ? " · model drafted — you own live" : ""}
+              {d.is_ai_authored ? " · model drafted — you own Promote" : ""}
             </li>
           ))}
         </ul>
@@ -152,7 +152,7 @@ export function ObserveEasePanel({
           <p key={r.rule_id} className="mt-1 text-gray-300">
             {r.hypothesis === "retire"
               ? `Consider taking live rule ${r.rule_id} back to Observe.`
-              : `Consider this successor in Observe for ${r.rule_id}.`}{" "}
+              : `Consider this successor in Observe for ${r.rule_id}. Model suggested successor — you own Promote.`}{" "}
             <button type="button" className="text-brand-300 hover:underline" onClick={() => onSelectDraft(r.parked_draft || "")}>
               open draft
             </button>
