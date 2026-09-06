@@ -108,6 +108,10 @@ spec:
             - name: TARKA_AGE_POSTGRES_SERVICE
               value: {{ printf "%s-%s" (include "tarka.fullname" .) (.Values.agePostgres.serviceName | default "age-postgres") | quote }}
             {{- end }}
+            {{- if .Values.deskProvision.enabled }}
+            - name: TARKA_DESK_PROVISION_PATH
+              value: /etc/tarka/desk_provision.json
+            {{- end }}
             {{- range $k, $v := .Values.coreApi.extraEnv }}
             - name: {{ $k }}
               value: {{ $v | quote }}
@@ -158,6 +162,19 @@ spec:
           resources:
 {{ toYaml . | indent 12 }}
           {{- end }}
+          {{- if .Values.deskProvision.enabled }}
+          volumeMounts:
+            - name: desk-provision
+              mountPath: /etc/tarka/desk_provision.json
+              subPath: desk_provision.json
+              readOnly: true
+          {{- end }}
+      {{- if .Values.deskProvision.enabled }}
+      volumes:
+        - name: desk-provision
+          configMap:
+            name: {{ include "tarka.fullname" . }}-desk-provision
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
