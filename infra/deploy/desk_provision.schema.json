@@ -17,7 +17,11 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean", "default": true }
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Loader Hunt-off. Desk chrome matches only after bake: empty VITE_GRAPH_SERVICE_URL or VITE_HUNT_ENABLED=0 (TARKA_HUNT_ENABLED=0)."
+        }
       }
     },
     "graph": {
