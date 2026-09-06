@@ -260,3 +260,22 @@ async def test_put_legacy_distinct_alias_400(client):
         params={"tenant_id": "t1"},
     )
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_put_overlay_and_map_reject_computed_name(client):
+    r = await client.put(
+        "/v1/fields/event_count_1h_share_24h",
+        json={"explanation": "nope", "source": "new_feature"},
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code == 400
+    m = await client.put(
+        "/v1/fields/maps",
+        json={
+            "tenant_id": "t1",
+            "buyer_key": "x",
+            "registry_name": "event_count_1h_share_24h",
+        },
+    )
+    assert m.status_code == 400
