@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from baseline_assist import COMPUTED_EXPLANATION, COMPUTED_NAME
 from field_registry import LEGACY_ALIASES, seed_names as _seed_names
 from fraud_aggregates import (
     DEFAULT_FEATURE_OUTPUTS,
@@ -130,7 +131,9 @@ def build_author_catalog(
     redis = [_redis_entry(r) for r in _redis_rows() if r["name"] in names]
     redis_name_set = {r["name"] for r in redis}
     payload_core = [n for n in PAYLOAD_FIELDS if n in names]
-    payload_extra = [n for n in sorted(overlay) if n not in redis_name_set and n not in payload_core]
+    payload_extra = [
+        n for n in sorted(overlay) if n not in redis_name_set and n not in payload_core
+    ]
     payload = [{"name": n} for n in payload_core + payload_extra]
     growth: list[dict[str, Any]] = []
     if (graph_url or "").strip() and growth_windows is not None:
@@ -140,13 +143,14 @@ def build_author_catalog(
         "growth": growth,
         "hops": [{"etype": e} for e in CATALOG_HOPS],
         "payload": payload,
+        "computed": [{"name": COMPUTED_NAME, "explanation": COMPUTED_EXPLANATION}],
     }
 
 
 def catalog_field_names(catalog: dict) -> frozenset[str]:
-    """redis names + growth names + payload names."""
+    """redis names + growth names + payload names + computed names."""
     names: set[str] = set()
-    for key in ("redis", "growth", "payload"):
+    for key in ("redis", "growth", "payload", "computed"):
         for row in catalog.get(key) or []:
             if isinstance(row, dict) and row.get("name"):
                 names.add(str(row["name"]))
