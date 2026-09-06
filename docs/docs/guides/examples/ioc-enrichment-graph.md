@@ -13,7 +13,7 @@ cd deploy
 docker compose -f docker-compose.yml --profile core --profile graph --profile integration --profile cases --profile ui up -d --build
 ```
 
-Ports: Decision **8000**, Graph **8001**, Case **8002**, Ingress **8003**, Frontend **3000**, Neo4j browser **7474**.
+Ports: Decision **8000** (`/decisions`), Graph **8001**, Case **8000/cases**, Ingress **8003**, Frontend **3000**. Empty `GRAPH_SERVICE_URL` means Hunt is off.
 
 ## 1. OSINT on an IOC
 
