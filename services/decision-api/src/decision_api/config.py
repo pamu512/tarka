@@ -4,6 +4,19 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _flag_mints_leftover() -> bool:
+    try:
+        from desk_provision import leftover_flag
+    except ImportError:
+        return os.environ.get("TARKA_FLAG_MINTS_LEFTOVER", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+    return leftover_flag("TARKA_FLAG_MINTS_LEFTOVER", "flag_mints_leftover")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -249,9 +262,7 @@ class Settings(BaseSettings):
         "CASE_CREATE_ON_DENY_REVIEW", "true"
     ).strip().lower() not in ("0", "false", "no", "off")
     #: Opt-in. FLAG is residual; mint a leftover only when a named desk turns this on.
-    flag_mints_leftover: bool = os.environ.get(
-        "TARKA_FLAG_MINTS_LEFTOVER", ""
-    ).strip().lower() in ("1", "true", "yes", "on")
+    flag_mints_leftover: bool = _flag_mints_leftover()
     #: S2S token for internal case-api calls (sent as X-Internal-Token). Avoids
     #: requiring API_KEYS on the desk (which would 401 the viewer UI).
     case_internal_token: str = os.environ.get("CASE_INTERNAL_TOKEN", "").strip()

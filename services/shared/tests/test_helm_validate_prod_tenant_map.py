@@ -104,6 +104,14 @@ def test_validate_prod_fails_missing_ingest_idempotency():
     assert ingest_at < gate_at
 
 
+def test_core_api_mounts_desk_provision():
+    core = (HELM / "core-api.yaml").read_text(encoding="utf-8")
+    assert "TARKA_DESK_PROVISION_PATH" in core
+    assert "/etc/tarka/desk_provision.json" in core
+    provision = (HELM / "desk-provision.yaml").read_text(encoding="utf-8")
+    assert "tarka.desk_provision/v1" in provision
+
+
 def test_prod_presets_with_data_plane_set_ingest_idempotency():
     presets = ROOT / "infra" / "deploy" / "helm" / "fraud-stack" / "presets"
     for name in ("full-on-k8s.yaml", "investigation-on-aws.yaml", "tenant-binding-enforced.yaml"):
