@@ -763,7 +763,7 @@ jobs:
       - name: Pytest — event-ingest (Python)
         working-directory: services/event-ingest
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:../../packages/shared-core
         run: pytest tests -q --ignore=tests/test_ingest_dlq_loop_live.py
       - name: Pytest — data-plane ready/health
         working-directory: services/data-plane
@@ -780,7 +780,7 @@ jobs:
           pytest tests/test_ingest_dlq_loop_live.py -q
         working-directory: services/event-ingest
         env:
-          PYTHONPATH: src
+          PYTHONPATH: src:../../packages/shared-core
           NATS_URL: nats://127.0.0.1:4222
       - name: Stop JetStream
         if: always()
