@@ -82,25 +82,27 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
             />
           </>
         ) : (
-          <select
-            value={hopKind}
-            onChange={(e) => setHopKind(e.target.value === "trust" ? "trust" : "share")}
-            className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
-          >
-            <option value="share">Share-edge (has_etype)</option>
-            <option value="trust">Trust FLAG (sibling)</option>
-          </select>
-          <select
-            value={etype}
-            onChange={(e) => setEtype(e.target.value as HopSentence["etype"])}
-            className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
-          >
-            {HOP_ETYPES.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              value={hopKind}
+              onChange={(e) => setHopKind(e.target.value === "trust" ? "trust" : "share")}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
+            >
+              <option value="share">Share-edge (has_etype)</option>
+              <option value="trust">Trust FLAG (sibling)</option>
+            </select>
+            <select
+              value={etype}
+              onChange={(e) => setEtype(e.target.value as HopSentence["etype"])}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
+            >
+              {HOP_ETYPES.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </>
         )}
         <button
           type="button"
