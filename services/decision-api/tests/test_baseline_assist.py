@@ -1,7 +1,10 @@
+from pathlib import Path
+
 from baseline_assist import (
     COMPUTED_NAME,
     DEFAULT_WARMUP_24H,
     apply_count_share,
+    attach_count_share_from_env,
     resolve_warmup_24h,
 )
 
@@ -44,6 +47,23 @@ def test_idempotent_clears_stale_share():
     feats = {"event_count_1h": 1, "event_count_24h": 2, COMPUTED_NAME: 0.99}
     apply_count_share(feats, 10)
     assert COMPUTED_NAME not in feats
+
+
+def test_attach_from_env_uses_warmup(monkeypatch):
+    monkeypatch.setenv("TARKA_BASELINE_WARMUP_24H", "2")
+    feats = {"event_count_1h": 1, "event_count_24h": 2}
+    attach_count_share_from_env(feats)
+    assert feats[COMPUTED_NAME] == 0.5
+    monkeypatch.setenv("TARKA_BASELINE_WARMUP_24H", "10")
+    thin = {"event_count_1h": 1, "event_count_24h": 2}
+    attach_count_share_from_env(thin)
+    assert COMPUTED_NAME not in thin
+
+
+def test_pipeline_calls_attach_from_env():
+    pipeline = Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
+    text = pipeline.read_text(encoding="utf-8")
+    assert "attach_count_share_from_env(features)" in text
 
 
 def test_resolve_warmup():

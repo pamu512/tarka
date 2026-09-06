@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -41,6 +42,11 @@ def _as_number(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+def attach_count_share_from_env(features: dict) -> None:
+    """Evaluate hook: warmup from TARKA_BASELINE_WARMUP_24H."""
+    apply_count_share(features, resolve_warmup_24h(os.environ.get("TARKA_BASELINE_WARMUP_24H")))
 
 
 def apply_count_share(features: dict, warmup: int) -> None:
