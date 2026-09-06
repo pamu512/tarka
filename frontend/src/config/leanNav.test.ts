@@ -31,6 +31,27 @@ describe("leanNav", () => {
     expect(leanHomePath()).toBe("/decisions");
   });
 
+  it("hides Hunt when VITE_HUNT_ENABLED is off even if graph URL is set", async () => {
+    vi.stubEnv("VITE_DESK_PROFILE", "product");
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.stubEnv("VITE_HUNT_ENABLED", "0");
+    vi.resetModules();
+    const { isPlaneEnabled, isNavItemVisible, leanHomePath } = await loadLeanNav();
+    expect(isPlaneEnabled("graph")).toBe(false);
+    expect(isNavItemVisible("/graph")).toBe(false);
+    expect(isNavItemVisible("/leftovers")).toBe(false);
+    expect(leanHomePath()).toBe("/decisions");
+  });
+
+  it("keeps Hunt on when VITE_HUNT_ENABLED is unset and graph URL is set", async () => {
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.stubEnv("VITE_HUNT_ENABLED", "");
+    vi.resetModules();
+    const { isPlaneEnabled, isNavItemVisible } = await loadLeanNav();
+    expect(isPlaneEnabled("graph")).toBe(true);
+    expect(isNavItemVisible("/graph")).toBe(true);
+  });
+
   it("uses demo home /command-center when VITE_LEAN_NAV=false", async () => {
     vi.stubEnv("VITE_LEAN_NAV", "false");
     vi.resetModules();

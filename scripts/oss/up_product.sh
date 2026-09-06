@@ -19,6 +19,21 @@ python3 "$ROOT/scripts/oss/doctor.py" || {
   exit 1
 }
 python3 "$ROOT/scripts/oss/setup_llm_env.py" --env-file "$DEPLOY/.env" || true
+# Bake Hunt chrome from the provision file when TARKA_HUNT_ENABLED is unset.
+if [[ -z "${TARKA_HUNT_ENABLED:-}" ]]; then
+  TARKA_HUNT_ENABLED="$(
+    python3 -c "
+import json
+from pathlib import Path
+p = Path(r'$DEPLOY/desk_provision.example.json')
+data = json.loads(p.read_text()) if p.is_file() else {}
+hunt = data.get('hunt') if isinstance(data, dict) else None
+on = True if not isinstance(hunt, dict) or 'enabled' not in hunt else bool(hunt.get('enabled'))
+print('1' if on else '0')
+"
+  )"
+  export TARKA_HUNT_ENABLED
+fi
 compose_args=(
   docker compose
   -f "$DEPLOY/docker-compose.lite.yml"
