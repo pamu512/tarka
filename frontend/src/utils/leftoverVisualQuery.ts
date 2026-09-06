@@ -43,7 +43,7 @@ export function parseVelocityField(catalog: AuthorCatalog, ...raw: Array<string 
 }
 
 export function leftoverHuntSearch(row: {
-  case_id: string;
+  leftover_id: string;
   entity_id: string;
   tenant_id?: string;
   trace_id?: string;
@@ -52,7 +52,7 @@ export function leftoverHuntSearch(row: {
 }): URLSearchParams {
   const q = new URLSearchParams({
     entity_id: row.entity_id,
-    leftover_id: row.case_id,
+    leftover_id: row.leftover_id,
   });
   if (row.tenant_id) q.set("tenant_id", row.tenant_id);
   if (row.trace_id) q.set("decision_id", `dec:${row.trace_id}`);
