@@ -113,9 +113,7 @@ def test_hunt_defaults_true(monkeypatch):
 
 def test_shadow_agent_demo_never(monkeypatch):
     monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
-    assert (
-        shadow_agent_should_start(llm_url="http://llm", desk_profile="demo") is False
-    )
+    assert shadow_agent_should_start(llm_url="http://llm", desk_profile="demo") is False
 
 
 def test_shadow_agent_product_needs_llm_url(tmp_path, monkeypatch):
