@@ -110,6 +110,60 @@ async def test_apply_enforcement_webhook(monkeypatch, tmp_path) -> None:
     assert rows[-1]["enforcement_action"] == "step_up"
 
 
+@pytest.mark.asyncio
+async def test_apply_enforcement_allow_webhook(monkeypatch, tmp_path) -> None:
+    import json
+
+    from desk_provision import SCHEMA_ID
+
+    provision = tmp_path / "desk_provision.json"
+    provision.write_text(
+        json.dumps(
+            {
+                "schema_id": SCHEMA_ID,
+                "hooks": {"enforcement": {"url": "http://hooks.test/enf"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(provision))
+    monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv(
+        "TARKA_ENFORCEMENT_JOURNAL_PATH", str(tmp_path / "enforcement_delivery.jsonl")
+    )
+    posts: list[dict] = []
+
+    class _Resp:
+        status_code = 200
+
+    class _Http:
+        async def post(self, url, content=None, headers=None, timeout=None):
+            posts.append(
+                {"url": url, "content": content, "headers": dict(headers or {})}
+            )
+            return _Resp()
+
+    out = await apply_enforcement_adapters(
+        http=_Http(),
+        trace_id="tr-allow",
+        tenant_id="t1",
+        entity_id="e1",
+        event_type="payment",
+        decision="allow",
+        score=10.0,
+        tags=[],
+        metrics_inc=lambda *_a, **_k: None,
+    )
+    assert out["enforcement_action"] == "allow"
+    assert out["webhook"]["ok"] is True
+    body = json.loads(posts[0]["content"].decode("utf-8"))
+    assert body["schema_id"] == ENFORCEMENT_SCHEMA
+    assert body["enforcement_action"] == "allow"
+    assert body["score"] == 10.0
+    assert "friction_tier" not in body
+
+
 def test_schedule_enqueues_enforcement() -> None:
     class _Bg:
         def __init__(self) -> None:

@@ -10,7 +10,8 @@ After evaluate, Tarka exposes a **platform protect verb** so the calling stack c
 |-------|--------|---------|
 | `decision` | `allow` / `review` / `deny` | Risk decision |
 | `recommended_action` | e.g. `block`, `step_up_mfa`, `manual_review` | Policy hint |
-| `enforcement_action` | `allow` \| `step_up` \| `block` | **What the platform should do** |
+| `enforcement_action` | `allow` \| `step_up` \| `block` | **Act verb** — what the platform should do |
+| `score` | number | The one risk score. There is no `friction_tier`. |
 
 Mapping (also used by async webhooks):
 
@@ -22,10 +23,15 @@ Audit `payload_snapshot` and decision-log records include the same `enforcement_
 
 ## Async webhooks
 
-| Env | Schema | When |
-|-----|--------|------|
-| `TARKA_ENFORCEMENT_WEBHOOK_URL` (+ optional `TARKA_ENFORCEMENT_WEBHOOK_SECRET`) | `tarka.enforcement/v1` | Every evaluate outcome (background) |
+| Env / provision | Schema | When |
+|-----------------|--------|------|
+| `TARKA_ENFORCEMENT_WEBHOOK_URL` or `hooks.enforcement.url` (+ secret via `TARKA_ENFORCEMENT_WEBHOOK_SECRET` or `secret_env`) | `tarka.enforcement/v1` | Every evaluate that **reached** Tarka, including allow. No evaluate = no webhook. |
 | `TARKA_CHALLENGE_WEBHOOK_URL` (+ optional secret) | `tarka.challenge_webhook/v1` | Step-up class `recommended_action` only |
+| `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` or `hooks.observe_notify.url` | `tarka.observe_notify/v1` | Observe inbox events (not evaluate) |
+
+Empty URL = that sink off. Slack/email: point the URL at their incoming webhook — Tarka does not ship a first-party mailer.
+
+Product observe inbox (`profile=product` or `TARKA_OBSERVE_NOTIFY_STORE=postgres`) is a Postgres table. Demo keeps `observe_notify.jsonl`. Env store wins.
 
 Signature header: `x-tarka-signature` = hex HMAC-SHA256 of the raw body when secret is set.
 

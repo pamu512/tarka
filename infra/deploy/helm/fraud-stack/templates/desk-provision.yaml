@@ -16,6 +16,10 @@ data:
         "qa_queue_isolates": false,
         "receipt_brief_enabled": false
       },
-      "shadow_agent": { "start_when_llm_url": true }
+      "shadow_agent": { "start_when_llm_url": true },
+      "hooks": {
+        "enforcement": { "url": "", "secret_env": "TARKA_ENFORCEMENT_WEBHOOK_SECRET" },
+        "observe_notify": { "url": "", "secret_env": "TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET" }
+      }
     }
 {{- end }}

@@ -83,8 +83,24 @@ def resolve_enforcement_intent(
     )
 
 
+def _hook_url() -> str:
+    try:
+        from desk_provision import hook_url
+    except ImportError:
+        return os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_URL", "").strip()
+    return hook_url("enforcement")
+
+
+def _hook_secret() -> str:
+    try:
+        from desk_provision import hook_secret
+    except ImportError:
+        return os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_SECRET", "").strip()
+    return hook_secret("enforcement")
+
+
 def enforcement_webhook_configured() -> bool:
-    return bool(os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_URL", "").strip())
+    return bool(_hook_url())
 
 
 def enforcement_journal_path() -> Path:
@@ -211,7 +227,7 @@ async def apply_enforcement_adapters(
         except Exception:
             log.debug("enforcement_metric_failed", exc_info=True)
 
-    url = os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_URL", "").strip()
+    url = _hook_url()
     ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     base_journal: dict[str, Any] = {
         "schema_id": ENFORCEMENT_JOURNAL_SCHEMA,
@@ -248,7 +264,7 @@ async def apply_enforcement_adapters(
         "content-type": "application/json",
         "x-tarka-enforcement-event": intent.action,
     }
-    secret = os.environ.get("TARKA_ENFORCEMENT_WEBHOOK_SECRET", "").strip()
+    secret = _hook_secret()
     if secret:
         headers["x-tarka-signature"] = _sign(raw, secret)
 
