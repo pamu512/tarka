@@ -119,6 +119,7 @@ def schedule_decision_outcomes(
     metrics_inc: MetricsInc,
     case_api_url: str = "",
     case_create_on_deny_review: bool = False,
+    flag_mints_leftover: bool = False,
     case_internal_token: str = "",
     integration_ingress_url: str = "",
     ingress_internal_token: str = "",
@@ -225,10 +226,13 @@ def schedule_decision_outcomes(
     if shadow_evaluation is not None:
         add(shadow_evaluation, *shadow_args)
 
+    mint_decisions = (
+        ("deny", "review", "flag") if flag_mints_leftover else ("deny", "review")
+    )
     if (
         not ctx.shadow_request
         and case_create_on_deny_review
-        and ctx.decision in ("deny", "review")
+        and ctx.decision in mint_decisions
     ):
         _case_headers: dict[str, str] = dict(upstream_headers or {})
         if case_internal_token:

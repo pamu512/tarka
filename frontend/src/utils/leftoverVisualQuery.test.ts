@@ -78,7 +78,7 @@ describe("leftoverVisualQuery", () => {
 
   it("builds Hunt search with leftover_id pack hits and decision_id", () => {
     const q = leftoverHuntSearch({
-      case_id: "c1",
+      leftover_id: "c1",
       entity_id: "buyer-1",
       tenant_id: "demo",
       trace_id: "tr-1",
