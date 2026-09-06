@@ -6,7 +6,10 @@ from field_registry import (
     seed_names,
     validate_registry_name,
 )
-from fraud_aggregates import _bundled_manifest_feature_outputs, valid_feature_output_rows
+from fraud_aggregates import (
+    _bundled_manifest_feature_outputs,
+    valid_feature_output_rows,
+)
 
 
 def test_seed_has_core_names_not_growth_or_hops():
@@ -19,7 +22,10 @@ def test_seed_has_core_names_not_growth_or_hops():
 
 
 def test_seed_covers_manifest_payload_identity():
-    manifest = {r["name"] for r in valid_feature_output_rows(_bundled_manifest_feature_outputs())}
+    manifest = {
+        r["name"]
+        for r in valid_feature_output_rows(_bundled_manifest_feature_outputs())
+    }
     assert manifest <= seed_names()
     assert set(PAYLOAD_FIELDS) <= seed_names()
     assert set(IDENTITY_FIELDS) <= seed_names()
@@ -70,13 +76,21 @@ def test_discover_splits_named_mapped_candidates():
     )
     assert d["already_named"] == ["amount"]
     assert d["mapped"] == [{"buyer_key": "txn_amt", "registry_name": "amount"}]
-    assert d["candidates"] == [{"buyer_key": "order_channel", "suggested_source": "new_feature"}]
+    assert d["candidates"] == [
+        {"buyer_key": "order_channel", "suggested_source": "new_feature"}
+    ]
 
 
 def test_merge_overlay_wins_same_name():
     merged = merge_registry_rows(
         seed=[{"name": "amount", "explanation": "seed", "source": "tarka_core"}],
-        overlay=[{"name": "order_channel", "explanation": "who sold", "source": "new_feature"}],
+        overlay=[
+            {
+                "name": "order_channel",
+                "explanation": "who sold",
+                "source": "new_feature",
+            }
+        ],
     )
     names = {r["name"] for r in merged}
     assert names == {"amount", "order_channel"}
