@@ -274,7 +274,7 @@ def _patch_leftover_fetch(monkeypatch, leftovers):
     monkeypatch.setattr("decision_api.leftover_promote_gate.fetch_promote_ack", _ack)
 
 
-def _patch_desk_science_green(monkeypatch):
+def _patch_desk_science_green(monkeypatch, *, window_ok=True):
     def _green(*_a, **_k):
         return {"promote_allowed": True, "blockers": []}
 
@@ -287,6 +287,22 @@ def _patch_desk_science_green(monkeypatch):
     monkeypatch.setattr(
         "decision_api.champion_challenger_audit.drift_promote_gate", _green
     )
+    if window_ok:
+        monkeypatch.setattr(
+            "decision_api.leftover_promote_gate.calibration_window",
+            lambda **_k: {
+                "schema_id": "tarka.calibration_window/v1",
+                "ok": True,
+                "promote_allowed": True,
+                "blockers": [],
+                "min_days": 7,
+                "min_labels": 20,
+                "max_fp": 0.05,
+                "days": 7,
+                "label_count": 20,
+                "fp_rate": 0.01,
+            },
+        )
 
 
 @pytest.fixture
@@ -382,6 +398,122 @@ async def test_promote_409_when_leftover_blocked_200_when_green(
         (desk_client._rules_dir / "scout_draft_1.json").read_text(encoding="utf-8")
     )
     assert on_disk["mode"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_promote_409_when_calibration_window_open(desk_client, monkeypatch):
+    from decision_api.json_rules import load_rules
+
+    _write_shadow_pack(
+        desk_client._rules_dir,
+        name="window_draft",
+        filename="window_draft.json",
+        is_ai_authored=True,
+    )
+    load_rules()
+    _patch_desk_science_green(monkeypatch, window_ok=False)
+    _patch_leftover_fetch(monkeypatch, [])
+    blocked = await desk_client.post(
+        "/v1/rules/shadow-packs/window_draft/promote",
+        params={"tenant_id": "t1"},
+    )
+    assert blocked.status_code == 409, blocked.text
+    body = blocked.json()
+    assert body["detail"] == "promote_blocked"
+    assert "window_open" in body["desk_promote_gate"]["blockers"]
+    assert body["calibration_window"]["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_promote_window_override_admin_ok_analyst_403(
+    desk_client, tmp_path, monkeypatch
+):
+    from auth_rbac import AuthUser
+    from decision_api.calibration_api import router as calibration_router
+    from decision_api.config import settings
+    from decision_api.db import get_session
+    from decision_api.json_rules import load_rules
+    from decision_api.rule_api import router as rules_router
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    _write_shadow_pack(
+        desk_client._rules_dir,
+        name="window_override",
+        filename="window_override.json",
+        is_ai_authored=True,
+    )
+    load_rules()
+    _patch_desk_science_green(monkeypatch, window_ok=False)
+    _patch_leftover_fetch(monkeypatch, [])
+
+    denied = await desk_client.post(
+        "/v1/rules/shadow-packs/window_override/promote",
+        params={
+            "tenant_id": "t1",
+            "calibration_override_reason": "short",
+        },
+    )
+    assert denied.status_code == 403
+
+    ok = await desk_client.post(
+        "/v1/rules/shadow-packs/window_override/promote",
+        params={
+            "tenant_id": "t1",
+            "calibration_override_reason": "window still open",
+        },
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["promoted"] is True
+
+    rules_dir = tmp_path / "rules-analyst"
+    rules_dir.mkdir()
+    _write_shadow_pack(
+        rules_dir,
+        name="window_analyst",
+        filename="window_analyst.json",
+        is_ai_authored=True,
+    )
+    monkeypatch.setattr(settings, "rules_path", str(rules_dir))
+    load_rules()
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def _inject_auth(request, call_next):
+        request.state.auth_user = AuthUser(
+            "test-analyst", ["analyst"], "test", tenant_ids={"*"}
+        )
+        return await call_next(request)
+
+    app.include_router(rules_router)
+    app.include_router(calibration_router)
+
+    class _EmptyResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return []
+
+    class _EmptySession:
+        async def execute(self, *a, **k):
+            return _EmptyResult()
+
+    async def _session_override():
+        yield _EmptySession()
+
+    app.dependency_overrides[get_session] = _session_override
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        forbidden = await client.post(
+            "/v1/rules/shadow-packs/window_analyst/promote",
+            params={
+                "tenant_id": "t1",
+                "calibration_override_reason": "window still open",
+            },
+        )
+    app.dependency_overrides.clear()
+    assert forbidden.status_code == 403
 
 
 @pytest.mark.asyncio
