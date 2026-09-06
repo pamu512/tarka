@@ -72,9 +72,15 @@ async def test_create_pack_allows_legacy_alias(rules_client):
 
 
 @pytest.mark.asyncio
-async def test_create_pack_allows_overlay_field_with_tenant_query(rules_client, monkeypatch):
+async def test_create_pack_allows_overlay_field_with_tenant_query(
+    rules_client, monkeypatch
+):
     pytest.importorskip("aiosqlite")
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
     from sqlalchemy.pool import StaticPool
 
     from decision_api.db import Base

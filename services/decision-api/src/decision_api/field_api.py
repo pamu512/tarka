@@ -110,9 +110,7 @@ async def put_map(
     _refuse_demo_put()
     tid = _require_tenant_id(body.tenant_id)
     try:
-        row = await upsert_map(
-            session, tid, body.buyer_key, body.registry_name
-        )
+        row = await upsert_map(session, tid, body.buyer_key, body.registry_name)
         await session.commit()
     except FieldRegistryUnknownName as exc:
         raise HTTPException(400, str(exc)) from exc

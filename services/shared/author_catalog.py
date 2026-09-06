@@ -130,7 +130,9 @@ def build_author_catalog(
     redis = [_redis_entry(r) for r in _redis_rows() if r["name"] in names]
     redis_name_set = {r["name"] for r in redis}
     payload_core = [n for n in PAYLOAD_FIELDS if n in names]
-    payload_extra = [n for n in sorted(overlay) if n not in redis_name_set and n not in payload_core]
+    payload_extra = [
+        n for n in sorted(overlay) if n not in redis_name_set and n not in payload_core
+    ]
     payload = [{"name": n} for n in payload_core + payload_extra]
     growth: list[dict[str, Any]] = []
     if (graph_url or "").strip() and growth_windows is not None:
