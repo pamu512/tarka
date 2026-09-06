@@ -1,10 +1,10 @@
 import { getIncomers, type Edge, type Node } from "@xyflow/react";
 
 import { CATALOG_HOPS } from "../../domain/authorCatalog";
-import { emitHopPack, type HopSentence } from "../../utils/sentencePack";
+import { emitHopPack, type HopKind, type HopSentence } from "../../utils/sentencePack";
 import { NODE_TYPES } from "./compileToAST";
 
-export type HopEtypeWhenAst = { type: "graph_v1"; atom: "has_etype"; etype: string };
+export type HopEtypeWhenAst = Record<string, unknown>;
 
 export function compileHopEtypeFromCanvas(
   nodes: Node[],
@@ -18,11 +18,13 @@ export function compileHopEtypeFromCanvas(
   if (incomers.length !== 1) return { ok: false };
   const hop = incomers[0];
   if (hop.type !== NODE_TYPES.hopEtype) return { ok: false };
-  const etype = (hop.data as { etype?: unknown }).etype;
+  const data = hop.data as { etype?: unknown; kind?: unknown };
+  const etype = data.etype;
   if (typeof etype !== "string" || !(CATALOG_HOPS as readonly string[]).includes(etype)) {
     return { ok: false };
   }
-  const pack = emitHopPack({ etype: etype as HopSentence["etype"] });
+  const kind: HopKind = data.kind === "trust" ? "trust" : "share";
+  const pack = emitHopPack({ etype: etype as HopSentence["etype"], kind });
   const rule = (pack.rules as Array<{ when_ast?: HopEtypeWhenAst; tags?: string[] }>)[0];
   if (!rule?.when_ast || !rule.tags) return { ok: false };
   return { ok: true, etype, when_ast: rule.when_ast, tags: rule.tags };
