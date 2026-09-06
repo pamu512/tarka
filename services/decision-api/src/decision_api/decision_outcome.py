@@ -226,7 +226,9 @@ def schedule_decision_outcomes(
     if shadow_evaluation is not None:
         add(shadow_evaluation, *shadow_args)
 
-    mint_decisions = ("deny", "review", "flag") if flag_mints_leftover else ("deny", "review")
+    mint_decisions = (
+        ("deny", "review", "flag") if flag_mints_leftover else ("deny", "review")
+    )
     if (
         not ctx.shadow_request
         and case_create_on_deny_review
