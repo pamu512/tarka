@@ -25,6 +25,8 @@ interface ImportMetaEnv {
   readonly VITE_DESK_PROFILE?: string;
   /** Graph plane. Empty / absent = plane off (hide /graph, deep link shows Plane off). */
   readonly VITE_GRAPH_SERVICE_URL?: string;
+  /** Hunt chrome. Empty / unset = on. `0` / `false` / `off` hides Hunt the same as an empty graph URL. */
+  readonly VITE_HUNT_ENABLED?: string;
   /** Advise / investigation-agent plane. Empty = plane off. */
   readonly VITE_INVESTIGATION_AGENT_URL?: string;
   /** signal-api plane (features / ML / calibration). Empty = plane off. */

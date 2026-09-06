@@ -25,11 +25,21 @@ function envUrlOn(raw: string | undefined): boolean {
   return Boolean(raw?.trim());
 }
 
-/** Empty / absent URL means the plane is not deployed. */
+/** Unset / empty = on. Explicit 0 / false / off / no = Hunt chrome off. */
+function huntFlagOn(raw: string | undefined): boolean {
+  const token = (raw ?? "").trim().toLowerCase();
+  if (!token) return true;
+  return !["0", "false", "off", "no"].includes(token);
+}
+
+/** Empty / absent URL means the plane is not deployed. Hunt-off uses the same graph chrome. */
 export function isPlaneEnabled(plane: PlaneId): boolean {
   switch (plane) {
     case "graph":
-      return envUrlOn(import.meta.env.VITE_GRAPH_SERVICE_URL as string | undefined);
+      return (
+        envUrlOn(import.meta.env.VITE_GRAPH_SERVICE_URL as string | undefined) &&
+        huntFlagOn(import.meta.env.VITE_HUNT_ENABLED as string | undefined)
+      );
     case "advise":
       return envUrlOn(import.meta.env.VITE_INVESTIGATION_AGENT_URL as string | undefined);
     case "signals":
