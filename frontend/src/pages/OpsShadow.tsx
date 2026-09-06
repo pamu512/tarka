@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
+import { getAccessToken } from "../api/authSession";
 import {
   cases,
   deskActor,
@@ -13,7 +14,17 @@ import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { ObserveEasePanel } from "../components/ObserveEasePanel";
+import { decodeJwtPayload, extractRolesFromClaims } from "../security/jwtClaims";
+import { TarkaRbacRole } from "../security/rbacConstants";
 import { toUserFacingError } from "../utils/userFacingErrors";
+
+function jwtHasRiskArchitect(): boolean {
+  const token = getAccessToken();
+  if (!token) return false;
+  const claims = decodeJwtPayload(token);
+  if (!claims) return false;
+  return extractRolesFromClaims(claims).includes(TarkaRbacRole.RiskArchitect);
+}
 
 type ShadowPromoteGate = {
   schema_id: string;
@@ -50,6 +61,16 @@ type ShadowPromoteGate = {
     hint?: string | null;
   };
   leftover_promote_gate?: LeftoverPromoteGate;
+  calibration_window?: {
+    ok?: boolean;
+    blockers?: string[];
+    min_days?: number;
+    min_labels?: number;
+    max_fp?: number;
+    days?: number;
+    label_count?: number;
+    fp_rate?: number | null;
+  };
   live_rule_slip?: LiveRuleSlip;
   shadow_drafts?: Array<{
     name?: string;
@@ -161,6 +182,7 @@ export default function OpsShadow() {
   const [leftoverMsg, setLeftoverMsg] = useState("");
   const [leftoverBusy, setLeftoverBusy] = useState(false);
   const [forceReason, setForceReason] = useState("");
+  const [windowReason, setWindowReason] = useState("");
   const [lastForceLive, setLastForceLive] = useState<{
     ts?: string;
     actor?: string;
@@ -240,6 +262,7 @@ export default function OpsShadow() {
   const driftGate = data?.drift_promote_gate;
   const deskGate = data?.desk_promote_gate;
   const leftoverGate = data?.leftover_promote_gate;
+  const windowGate = data?.calibration_window;
   const draftNames = (data?.shadow_drafts || [])
     .map((d) => (d.name || "").trim())
     .filter(Boolean);
@@ -249,6 +272,12 @@ export default function OpsShadow() {
   const actor = deskActor();
   const canAck = Boolean(draftId) && (leftoverGate?.claimers || []).includes(actor);
   const canPromote = Boolean(draftId) && Boolean(deskGate?.promote_allowed);
+  const canOverrideWindow =
+    Boolean(draftId) &&
+    jwtHasRiskArchitect() &&
+    Boolean(windowGate) &&
+    windowGate?.ok === false &&
+    windowReason.trim().length >= 8;
   const canForceLive = Boolean(selectedDraftFile) && forceReason.trim().length >= 8;
   const helpfulness = leftoverGate?.helpfulness;
 
@@ -317,13 +346,18 @@ export default function OpsShadow() {
     }
   }
 
-  async function promoteDraft() {
-    if (!canPromote) return;
+  async function promoteDraft(overrideReason?: string) {
+    if (overrideReason) {
+      if (!canOverrideWindow) return;
+    } else if (!canPromote) {
+      return;
+    }
     setLeftoverBusy(true);
     setLeftoverMsg("");
     try {
-      const out = await decisions.promoteShadowPack(draftId, tenantId);
+      const out = await decisions.promoteShadowPack(draftId, tenantId, overrideReason);
       setLeftoverMsg(`Promoted ${out.draft_id || draftId} → ${out.mode || "active"}.`);
+      if (overrideReason) setWindowReason("");
       const gate = await decisions.shadowPromoteGate(tenantId, draftId);
       setData(gate);
     } catch (e) {
@@ -770,6 +804,32 @@ export default function OpsShadow() {
         >
           Promote
         </button>
+        {windowGate?.ok === false ? (
+          <div className="space-y-2 border-t border-surface-700 pt-3" data-testid="calibration-window-override">
+            <p className="text-[11px] text-gray-500">
+              Calibration window still open. RiskArchitect can Promote with a reason; leftover and science still apply.
+            </p>
+            <label className="block text-[10px] text-gray-500">
+              window reason
+              <input
+                type="text"
+                value={windowReason}
+                onChange={(e) => setWindowReason(e.target.value)}
+                minLength={8}
+                placeholder="why this draft can skip the dated window"
+                className="mt-1 w-full bg-surface-900 border border-surface-600 rounded-lg px-2 py-1.5 text-xs text-gray-200"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!canOverrideWindow || leftoverBusy}
+              onClick={() => void promoteDraft(windowReason.trim())}
+              className="text-[11px] px-2 py-1 rounded border border-surface-700 text-gray-400 hover:border-amber-500/60 hover:text-amber-200 disabled:opacity-50"
+            >
+              Override window
+            </button>
+          </div>
+        ) : null}
         <div className="space-y-2 border-t border-surface-700 pt-3" data-testid="force-live-override">
           <p className="text-[11px] text-gray-500">
             Override skips leftover and science. Human reason required. Smaller than Promote.
@@ -870,7 +930,7 @@ export default function OpsShadow() {
               {data.labeled_champion_challenger_f1.labeled_rows})
             </p>
           ) : null}
-          <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-3 font-mono">
+          <dl className="grid gap-1 text-xs text-gray-400 sm:grid-cols-2 lg:grid-cols-4 font-mono">
             <div>
               Labels:{" "}
               <span className={labelGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
@@ -888,6 +948,13 @@ export default function OpsShadow() {
               Drift: {driftGate?.drift_score ?? "n/a"} —{" "}
               <span className={driftGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {driftGate?.promote_allowed ? "ok" : "blocked"}
+              </span>
+            </div>
+            <div data-testid="calibration-window-status">
+              Window: {windowGate?.days ?? 0}/{windowGate?.min_days ?? 7}d ·{" "}
+              {windowGate?.label_count ?? 0}/{windowGate?.min_labels ?? 20} labels —{" "}
+              <span className={windowGate?.ok ? "text-emerald-400" : "text-amber-300"}>
+                {windowGate?.ok ? "ok" : (windowGate?.blockers || []).join(",") || "blocked"}
               </span>
             </div>
           </dl>

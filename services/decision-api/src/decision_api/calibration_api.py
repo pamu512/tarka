@@ -690,6 +690,7 @@ async def shadow_promote_gate(
     gates = await compute_desk_and_leftover_gates(tid, draft_id, session=session)
     leftover_g = gates["leftover_promote_gate"]
     desk_promote = gates["desk_promote_gate"]
+    window = gates.get("calibration_window") or {}
     live_promote = gates["label_gated_promote"]
     mcnemar = gates["mcnemar_promote_gate"]
     drift_gate = gates["drift_promote_gate"]
@@ -713,6 +714,7 @@ async def shadow_promote_gate(
         "drift_promote_gate": drift_gate,
         "desk_promote_gate": desk_promote,
         "leftover_promote_gate": leftover_g,
+        "calibration_window": window,
         "live_rule_slip": gates["live_rule_slip"],
         "rule_precision_after_labels": gates["rule_precision_after_labels"],
         "shadow_drafts": [
@@ -741,7 +743,7 @@ async def shadow_promote_gate(
         "borrowed_from": "Ojuri promote science (McNemar + PSI + CANDIDATE→SHADOW→ACTIVE)",
         "honesty": (
             "Demo blocked/allowed rows are kill_criteria smoke only. "
-            "desk_promote_gate requires real labels + McNemar mid-p + non-elevated drift/PSI. "
+            "desk_promote_gate requires real labels + McNemar mid-p + non-elevated drift/PSI + a calibration window. "
             "labeled F1 is diagnostic — not a substitute for desk gates."
         ),
     }

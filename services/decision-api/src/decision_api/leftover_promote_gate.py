@@ -5,6 +5,7 @@ from typing import Any, Mapping, Sequence
 
 import httpx
 
+from decision_api.calibration_window import calibration_window
 from decision_api.config import settings
 
 MINTING = frozenset({"deny", "review"})
@@ -264,10 +265,11 @@ def _desk_promote_from_parts(
     mcnemar: Mapping[str, Any],
     drift_gate: Mapping[str, Any],
     leftover_g: Mapping[str, Any],
+    window: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     combined: list[str] = []
     seen: set[str] = set()
-    for src in (live_promote, mcnemar, drift_gate, leftover_g):
+    for src in (live_promote, mcnemar, drift_gate, leftover_g, window or {}):
         for b in src.get("blockers") or []:
             if b and b not in seen:
                 seen.add(str(b))
@@ -281,6 +283,7 @@ def _desk_promote_from_parts(
             "mcnemar_promote_gate",
             "drift_promote_gate",
             "leftover_promote_gate",
+            "calibration_window",
         ],
     }
 
@@ -317,6 +320,7 @@ async def compute_desk_and_leftover_gates(
     y_by_entity: dict[str, str] = {}
     slip: dict[str, Any] = {"window": "underpowered", "fp_cap": 0.4, "rules": []}
     slip_rows: list[dict[str, Any]] = []
+    labeled_created_at: list[Any] = []
     scanned = False
     if tid and session is not None:
         try:
@@ -391,6 +395,12 @@ async def compute_desk_and_leftover_gates(
                 by_trace=y_by_trace,
                 by_entity=y_by_entity,
             )
+            for rec in records:
+                tid_r = str(rec.trace_id or "").strip()
+                eid = str(rec.entity_id or "").strip()
+                if (tid_r and tid_r in y_by_trace) or (eid and eid in y_by_entity):
+                    if rec.created_at is not None:
+                        labeled_created_at.append(rec.created_at)
             scanned = True
         except Exception:
             label_posture = {
@@ -457,12 +467,26 @@ async def compute_desk_and_leftover_gates(
         ack=await fetch_promote_ack(tid, did or ""),
         draft_id=did,
     )
+    helpfulness = (
+        leftover_g.get("helpfulness") if isinstance(leftover_g, Mapping) else None
+    )
+    fp_raw = helpfulness.get("fp_rate") if isinstance(helpfulness, Mapping) else None
+    try:
+        fp_rate = float(fp_raw) if fp_raw is not None else None
+    except (TypeError, ValueError):
+        fp_rate = None
+    window = calibration_window(
+        first_label_at=min(labeled_created_at) if labeled_created_at else None,
+        label_count=len(y_by_trace) + len(y_by_entity),
+        fp_rate=fp_rate,
+    )
     desk_promote = _desk_promote_from_parts(
-        live_promote, mcnemar, drift_gate, leftover_g
+        live_promote, mcnemar, drift_gate, leftover_g, window
     )
     return {
         "leftover_promote_gate": leftover_g,
         "desk_promote_gate": desk_promote,
+        "calibration_window": window,
         "label_gated_promote": live_promote,
         "mcnemar_promote_gate": mcnemar,
         "drift_promote_gate": drift_gate,
