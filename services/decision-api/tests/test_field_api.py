@@ -47,11 +47,7 @@ async def client():
 
 
 def test_maps_and_discover_registered_before_name():
-    paths = [
-        r.path
-        for r in field_router.routes
-        if isinstance(r, APIRoute)
-    ]
+    paths = [r.path for r in field_router.routes if isinstance(r, APIRoute)]
     assert paths.index("/v1/fields/maps") < paths.index("/v1/fields/{name}")
     assert paths.index("/v1/fields/discover") < paths.index("/v1/fields/{name}")
 
