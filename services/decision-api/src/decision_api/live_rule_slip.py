@@ -236,9 +236,7 @@ def slip_draft_would_clobber(
     return bool(lid and existing_slip_slot(lid, shadow_packs))
 
 
-def is_slip_successor_suggest(
-    name: str, evidence: Mapping[str, Any] | None
-) -> bool:
+def is_slip_successor_suggest(name: str, evidence: Mapping[str, Any] | None) -> bool:
     n = (name or "").strip()
     if n.startswith("slip_retire_") or n.startswith("slip_successor_"):
         return True

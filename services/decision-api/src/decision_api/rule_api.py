@@ -1029,7 +1029,10 @@ async def create_scout_pack(
     if slip_draft_would_clobber(body.name, body.evidence, get_shadow_packs()):
         raise HTTPException(409, "slip_draft_exists")
 
-    if is_slip_successor_suggest(body.name, body.evidence) and not byo_successor_suggest_enabled():
+    if (
+        is_slip_successor_suggest(body.name, body.evidence)
+        and not byo_successor_suggest_enabled()
+    ):
         raise HTTPException(403, "byo_successor_suggest_off")
     authored_by = (body.authored_by or "").strip() or "scout_coordinated_burst"
     if authored_by == "slip_critic":
