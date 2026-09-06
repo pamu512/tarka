@@ -292,7 +292,7 @@ def when_field_errors(pack: dict, allowed: frozenset[str]) -> list[str]:
             field = cond.get("field") or ""
             if field and field not in allowed:
                 errors.append(
-                    f"rule {rid}: unknown field '{field}'; map it or add a registry row"
+                    f"rule {rid}: unknown field '{field}'; map it or add a registry row via GET /v1/fields/discover"
                 )
     return errors
 
@@ -639,10 +639,15 @@ async def auto_promote_tick(
 async def promote_shadow_pack(
     draft_id: str,
     tenant_id: str = Query(..., min_length=1, max_length=128),
+    calibration_override_reason: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     _user=Depends(require_role("analyst")),
 ):
+    from decision_api.calibration_window import (
+        apply_window_override,
+        can_override_calibration_window,
+    )
     from decision_api.json_rules import get_shadow_packs
     from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
 
@@ -656,6 +661,19 @@ async def promote_shadow_pack(
     gates = await compute_desk_and_leftover_gates(tenant_id, want, session=session)
     leftover_g = gates["leftover_promote_gate"]
     desk = gates["desk_promote_gate"]
+    window = gates.get("calibration_window") or {}
+    override_reason = (calibration_override_reason or "").strip()
+    applied = False
+    if override_reason:
+        roles = getattr(_user, "roles", None) or []
+        if not can_override_calibration_window(roles, override_reason):
+            raise HTTPException(
+                403,
+                "RiskArchitect (or admin) plus a reason (min 8 chars) required to override the calibration window",
+            )
+        desk, applied = apply_window_override(
+            desk, window, reason=override_reason, roles=roles
+        )
     leftover_blockers = leftover_g.get("blockers") or []
     desk_blockers = desk.get("blockers") or []
     if leftover_blockers or desk_blockers or not desk.get("promote_allowed"):
@@ -665,12 +683,19 @@ async def promote_shadow_pack(
                 "detail": "promote_blocked",
                 "desk_promote_gate": desk,
                 "leftover_promote_gate": leftover_g,
+                "calibration_window": window,
             },
         )
+    detail = None
+    reason = "promote_shadow_pack"
+    if applied:
+        reason = "promote_shadow_pack_calibration_override"
+        detail = {"calibration_override_reason": override_reason}
     return activate_shadow_pack(
         want,
         actor=_actor_from_headers(x_actor),
-        reason="promote_shadow_pack",
+        reason=reason,
+        detail=detail,
     )
 
 
@@ -995,10 +1020,23 @@ async def create_scout_pack(
     if body.mode != "shadow":
         raise HTTPException(400, "scout packs must use mode='shadow'")
     from decision_api.json_rules import get_shadow_packs
-    from decision_api.live_rule_slip import slip_draft_would_clobber
+    from decision_api.live_rule_slip import (
+        byo_successor_suggest_enabled,
+        is_slip_successor_suggest,
+        slip_draft_would_clobber,
+    )
 
-    if slip_draft_would_clobber(body.name, None, get_shadow_packs()):
+    if slip_draft_would_clobber(body.name, body.evidence, get_shadow_packs()):
         raise HTTPException(409, "slip_draft_exists")
+
+    if (
+        is_slip_successor_suggest(body.name, body.evidence)
+        and not byo_successor_suggest_enabled()
+    ):
+        raise HTTPException(403, "byo_successor_suggest_off")
+    authored_by = (body.authored_by or "").strip() or "scout_coordinated_burst"
+    if authored_by == "slip_critic":
+        authored_by = "scout_coordinated_burst"
     pack: dict[str, Any] = {
         "version": 1,
         "name": body.name,
@@ -1008,7 +1046,7 @@ async def create_scout_pack(
         "canary_percent": None,
         "effective_at": None,
         "approved_by": None,
-        "authored_by": body.authored_by,
+        "authored_by": authored_by,
         "is_ai_authored": body.is_ai_authored,
         "scout_report_id": body.scout_report_id,
         "evidence": dict(body.evidence) if isinstance(body.evidence, dict) else {},
@@ -1066,14 +1104,14 @@ async def create_scout_pack(
     fpath = _new_pack_path("scout")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    actor = _actor_from_headers(x_actor) if x_actor else body.authored_by
+    actor = _actor_from_headers(x_actor) if x_actor else authored_by
     _append_rule_change(
         "create_scout_pack",
         fpath.name,
         actor=actor,
         detail={
             "name": body.name,
-            "authored_by": body.authored_by,
+            "authored_by": authored_by,
             "is_ai_authored": body.is_ai_authored,
             "scout_report_id": body.scout_report_id,
             "rule_count": len(body.rules),

@@ -1,15 +1,30 @@
 from __future__ import annotations
 
+import os
 from typing import Any
+
+from tarka_shared.ingest_contract_v1 import (
+    allowed_event_types,
+    parse_env_event_types,
+    validate_event_type_shape,
+)
 
 """Contract-first single/batch event body parsing (v1.2.5 E1).
 
 Supports optional v1 envelope ``{ "schema_version": "1", "event": { ... } }`` and validates
-``event_type`` against Decision API enum. See ``INGEST_ENVELOPE_MODE`` and
+``event_type`` against seed ∪ ``TARKA_EVENT_TYPES``. See ``INGEST_ENVELOPE_MODE`` and
 ``INGEST_REQUIRE_IDEMPOTENCY_KEY`` in config.
 """
-# Keep aligned with decision_api.schemas.EventType
+# Literal frozenset — schema_registry_compat.py parses this AST. Seed six only.
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
+
+
+def _ingest_allowed_event_types() -> frozenset[str]:
+    return allowed_event_types(
+        None,
+        parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
+    )
+
 
 # Registry / schema gate (infra/scripts/ci/schema_registry_compat.py parses these as frozenset(...) assignments).
 REGISTRY_SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1"})
@@ -112,11 +127,17 @@ def parse_ingest_event_body(
             ["ingest_event_type_empty"], "event_type is required and must be non-empty."
         )
 
-    et_s = str(et).strip()
-    if et_s not in VALID_EVENT_TYPES:
+    try:
+        et_s = validate_event_type_shape(et)
+    except ValueError:
         raise IngestContractError(
             ["ingest_event_type_invalid"],
-            f"event_type {et_s!r} is not a valid enum value.",
+            f"event_type {et!r} is not a valid name.",
+        ) from None
+    if et_s not in _ingest_allowed_event_types():
+        raise IngestContractError(
+            ["ingest_event_type_invalid"],
+            f"event_type {et_s!r} is not on the allow-list.",
         )
 
     out = dict(flat)

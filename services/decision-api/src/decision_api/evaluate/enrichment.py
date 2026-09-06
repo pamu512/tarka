@@ -56,7 +56,7 @@ def feature_snapshot_fallback(
     return {
         "tenant_id": body.tenant_id,
         "entity_id": body.entity_id,
-        "event_type": body.event_type.value,
+        "event_type": body.event_type,
         "features": dict(body.payload),
         "redis_tags": redis_tag_list,
     }
@@ -74,7 +74,7 @@ async def fetch_feature_snapshot(
         json={
             "tenant_id": body.tenant_id,
             "entity_id": body.entity_id,
-            "event_type": body.event_type.value,
+            "event_type": body.event_type,
             "payload": body.payload,
         },
         headers=rt.upstream_headers(),

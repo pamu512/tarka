@@ -46,25 +46,19 @@ async def test_upsert_overlay_lists_order_channel(session):
 @pytest.mark.asyncio
 async def test_upsert_overlay_seed_name_locked(session):
     with pytest.raises(FieldRegistrySeedLocked):
-        await upsert_overlay(
-            session, "acme", "event_count_1h", "nope", "new_feature"
-        )
+        await upsert_overlay(session, "acme", "event_count_1h", "nope", "new_feature")
 
 
 @pytest.mark.asyncio
 async def test_upsert_overlay_tx_prefix_rejected(session):
     with pytest.raises(ValueError):
-        await upsert_overlay(
-            session, "acme", "tx_count_1h", "legacy", "new_feature"
-        )
+        await upsert_overlay(session, "acme", "tx_count_1h", "legacy", "new_feature")
 
 
 @pytest.mark.asyncio
 async def test_upsert_overlay_rejects_tarka_core_source(session):
     with pytest.raises(ValueError, match="tarka_core"):
-        await upsert_overlay(
-            session, "acme", "order_channel", "who sold", "tarka_core"
-        )
+        await upsert_overlay(session, "acme", "order_channel", "who sold", "tarka_core")
 
 
 @pytest.mark.asyncio

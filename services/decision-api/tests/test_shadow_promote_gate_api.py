@@ -102,6 +102,9 @@ async def test_shadow_promote_gate_includes_leftover_gate(
     )
     assert "leftover_queue_unavailable" in body["leftover_promote_gate"]["blockers"]
     assert "leftover_promote_gate" in body["desk_promote_gate"]["requires"]
+    assert "calibration_window" in body["desk_promote_gate"]["requires"]
+    assert body["calibration_window"]["ok"] is False
+    assert "thin_labels" in body["calibration_window"]["blockers"]
     assert body["desk_promote_gate"]["promote_allowed"] is False
     assert isinstance(body.get("shadow_drafts"), list)
 

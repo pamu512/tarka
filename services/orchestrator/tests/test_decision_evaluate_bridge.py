@@ -68,6 +68,11 @@ def test_map_tx_metadata_overrides() -> None:
     assert body["payload"]["canvas_fingerprint"] == "ab" * 32
 
 
+def test_map_tx_keeps_refund_event_type() -> None:
+    body = map_tx_to_evaluate_request(_tx(tenant_id="t1", event_type="refund"))
+    assert body["event_type"] == "refund"
+
+
 def test_map_tx_passes_ingest_contract_v1() -> None:
     """Mapped body must satisfy shared Ingest Contract v1 identity fields."""
     from tarka_shared.ingest_contract_v1 import validate_required_envelope_fields
