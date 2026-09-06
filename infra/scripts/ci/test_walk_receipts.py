@@ -18,7 +18,22 @@ _OSS = _REPO / "scripts" / "oss"
 if str(_OSS) not in sys.path:
     sys.path.insert(0, str(_OSS))
 
+import first_decision_smoke  # noqa: E402
 import walk_receipts  # noqa: E402
+
+
+class TestAuditTenantQuery(unittest.TestCase):
+    def test_audit_url_requires_tenant_query(self) -> None:
+        url = first_decision_smoke.audit_url(
+            "http://127.0.0.1:8000/decisions",
+            "trace-1",
+            "demo",
+        )
+        self.assertEqual(
+            url,
+            "http://127.0.0.1:8000/decisions/v1/audit/trace-1?tenant_id=demo",
+        )
+        self.assertIn("tenant_id=", url)
 
 
 class TestWalkCases(unittest.TestCase):
@@ -167,6 +182,67 @@ class TestWalkRunner(unittest.TestCase):
         self.assertNotIn("ALLOW $42", out)
         self.assertNotIn("Unit21", out)
         self.assertNotIn("Sardine", out)
+
+    def test_run_walk_audit_passes_tenant_id_and_prints_ok(self) -> None:
+        canned = {
+            "clone-demo-clean": {
+                "trace_id": "t-clean",
+                "decision": "allow",
+                "score": 10.0,
+                "reasons": [],
+                "rule_hits": [],
+            },
+            "clone-demo-bot": {
+                "trace_id": "t-bot",
+                "decision": "review",
+                "score": 75.0,
+                "reasons": ["rules:sdk_bot"],
+                "rule_hits": ["sdk_bot"],
+            },
+            "clone-demo-bot-vpn": {
+                "trace_id": "t-deny",
+                "decision": "deny",
+                "score": 90.0,
+                "reasons": ["rules:sdk_bot,sdk_vpn"],
+                "rule_hits": ["sdk_bot", "sdk_vpn"],
+            },
+        }
+        seen_audit: list[str] = []
+
+        def fake_request(
+            method: str,
+            url: str,
+            *,
+            payload: dict[str, Any] | None = None,
+            api_key: str | None = None,
+            timeout: float = 30.0,
+        ) -> tuple[int, Any]:
+            if method == "GET" and url.endswith("/v1/health"):
+                return 200, {"status": "ok"}
+            if method == "POST" and payload:
+                entity = str(payload.get("entity_id") or "")
+                if entity in canned:
+                    return 200, canned[entity]
+            if method == "GET" and "/v1/audit/" in url:
+                seen_audit.append(url)
+                if "tenant_id=demo" in url:
+                    return 200, {"trace_id": "t", "tenant_id": "demo"}
+                return 422, {"detail": [{"loc": ["query", "tenant_id"], "msg": "Field required"}]}
+            return 404, {}
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = walk_receipts.run_walk(
+                request=fake_request,
+                base="http://127.0.0.1:8000/decisions",
+                api_key=None,
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(len(seen_audit), 3)
+        for url in seen_audit:
+            self.assertIn("tenant_id=demo", url)
+        self.assertIn("[ok] audit fetch", buf.getvalue())
+        self.assertNotIn("[warn] audit GET", buf.getvalue())
 
     def test_run_walk_fails_closed_on_bad_health(self) -> None:
         def fake_request(method: str, url: str, **kwargs: Any) -> tuple[int, Any]:

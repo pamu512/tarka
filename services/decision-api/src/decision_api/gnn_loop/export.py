@@ -69,6 +69,14 @@ def _why_for_receipt(
     return ""
 
 
+def _map_for_trace(
+    records: Mapping[str, Any], key: str, receipt: Mapping[str, Any]
+) -> str:
+    raw = records.get(key) if isinstance(records.get(key), dict) else {}
+    tid = str(receipt.get("trace_id") or "").strip()
+    return str(raw.get(tid) or receipt.get(key.removesuffix("_by_trace")) or "").strip()
+
+
 def _late_fields(
     receipt: Mapping[str, Any],
     records: Mapping[str, Any],
@@ -140,6 +148,11 @@ def export_labeled_rows(
                 "why": _why_for_receipt(receipt, store),
                 "dispute_outcome": dispute,
                 "chargeback_class": cls,
+                "label_kind": _map_for_trace(store, "label_kind_by_trace", receipt),
+                "label_source": _map_for_trace(store, "label_source_by_trace", receipt),
+                "prior_override_id": _map_for_trace(
+                    store, "prior_override_id_by_trace", receipt
+                ),
                 "trainable": bool(edges),
             }
         )
@@ -178,6 +191,11 @@ def export_labeled_rows(
                 "why": _why_for_receipt(dummy, store),
                 "dispute_outcome": dispute,
                 "chargeback_class": cls,
+                "label_kind": _map_for_trace(store, "label_kind_by_trace", dummy),
+                "label_source": _map_for_trace(store, "label_source_by_trace", dummy),
+                "prior_override_id": _map_for_trace(
+                    store, "prior_override_id_by_trace", dummy
+                ),
                 "trainable": False,
             }
         )

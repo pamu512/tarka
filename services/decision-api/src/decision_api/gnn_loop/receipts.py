@@ -49,6 +49,46 @@ def find_receipt(tenant_id: str, join_key: str) -> dict[str, Any] | None:
     return found
 
 
+def find_override_receipt(
+    tenant_id: str, override_id: str, join_key: str = ""
+) -> dict[str, Any] | None:
+    """Last receipt whose ``override_id`` matches; optional same evaluate token."""
+    oid = (override_id or "").strip()
+    if not oid:
+        return None
+    key = (join_key or "").strip()
+    found: dict[str, Any] | None = None
+    for row in load_receipts(tenant_id):
+        if str(row.get("override_id") or "").strip() != oid:
+            continue
+        if key and not (
+            str(row.get("trace_id") or "").strip() == key
+            or str(row.get("evaluation_token") or "").strip() == key
+        ):
+            continue
+        found = row
+    return found
+
+
+def find_prior_receipt_for_entity(
+    tenant_id: str, entity_id: str, *, exclude_trace: str = ""
+) -> dict[str, Any] | None:
+    """Last receipt for ``entity_id``, skipping ``exclude_trace`` (later evaluate)."""
+    eid = (entity_id or "").strip()
+    if not eid:
+        return None
+    skip = (exclude_trace or "").strip()
+    found: dict[str, Any] | None = None
+    for row in load_receipts(tenant_id):
+        if str(row.get("entity_id") or "").strip() != eid:
+            continue
+        tid = str(row.get("trace_id") or "").strip()
+        if skip and tid == skip:
+            continue
+        found = row
+    return found
+
+
 def load_receipts(tenant_id: str) -> list[dict[str, Any]]:
     try:
         path = _receipt_path(tenant_id)

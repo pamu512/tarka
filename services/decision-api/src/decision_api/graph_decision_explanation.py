@@ -106,7 +106,7 @@ def build_graph_decision_explanation_v1(
         "why_links": why_links,
         "case_ui": {
             "graph_subgraph_hint": "/v1/cases/{case_id}/graph",
-            "audit_hint": f"/v1/audit/{trace_id}",
+            "audit_hint": f"/v1/audit/{trace_id}?tenant_id={tenant_id}",
         },
     }
     beta = graph_risk.get("gnn_beta")

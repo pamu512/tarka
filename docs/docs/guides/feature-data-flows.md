@@ -92,7 +92,7 @@ flowchart LR
   Gate -->|lose_or_no_edges| Off[serve_off_trainable_false]
 ```
 
-Webhook binds `dispute_outcome` + `chargeback_class` (`FRAUD` / `FRIENDLY` / `SERVICE` / `UNKNOWN`) to the original receipt. It does not reconstruct features. No snapshot ⇒ label still recorded, `trainable: false`. Overlay never allow/denies. Lite compose must keep `GRAPH_GNN_BETA_URL` unset.
+Webhook binds `dispute_outcome` + `chargeback_class` (`FRAUD` / `FRIENDLY` / `SERVICE` / `UNKNOWN`) to the original receipt. It also accepts `label_kind` (`fp` / `fraud` / `other`) + `source` (`care` / `finance` / `crm` / `evaluate`) + optional `prior_override_id`. Follow-on evaluate is `label_source=evaluate` on a prior receipt for the same entity — one learning join, not a CRM case. FP on a restrictive receipt can open Observe soften work. It does not reconstruct features. No snapshot ⇒ label still recorded, `trainable: false`. Overlay never allow/denies. Lite compose must keep `GRAPH_GNN_BETA_URL` unset. A model does not evaluate.
 
 ---
 

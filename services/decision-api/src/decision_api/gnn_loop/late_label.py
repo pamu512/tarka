@@ -1,8 +1,9 @@
-"""Bind a delayed chargeback/dispute outcome to the evaluate snapshot.
+"""Bind a delayed label to the evaluate snapshot.
 
-Attaches ``dispute.outcome`` + join key onto the existing y_label store.
-Does not reconstruct features or invent neighbors. Missing snapshot still
-records the label with ``trainable: false``.
+Chargeback ``dispute.outcome`` stays. Frontline FP, override-then-fraud, and
+follow-on evaluate join the same y_label store. Does not reconstruct features
+or invent a Care/CRM inbox. Missing snapshot still records the label with
+``trainable: false``.
 """
 
 from __future__ import annotations
@@ -10,10 +11,19 @@ from __future__ import annotations
 from typing import Any
 
 from decision_api.gnn_loop import CHARGEBACK_CLASSES
-from decision_api.gnn_loop.receipts import find_receipt
+from decision_api.gnn_loop.receipts import (
+    find_override_receipt,
+    find_prior_receipt_for_entity,
+    find_receipt,
+)
 from decision_api.y_label_store import merge_y_labels
 
 SCHEMA_ID = "tarka.late_label/v1"
+LABEL_KINDS = frozenset({"fp", "fraud", "other"})
+LABEL_SOURCES = frozenset({"care", "finance", "crm", "evaluate"})
+RESTRICTIVE_DECISIONS = frozenset(
+    {"deny", "block", "review", "step_up", "step-up", "stepup", "challenge"}
+)
 
 
 class LateLabelError(ValueError):
@@ -32,10 +42,34 @@ def normalize_outcome(outcome: str) -> str:
     return token
 
 
+def normalize_label_kind(kind: str) -> str:
+    token = (kind or "").strip().lower()
+    if token not in LABEL_KINDS:
+        raise LateLabelError(
+            "invalid_label_kind",
+            "label_kind must be one of fp, fraud, other",
+        )
+    return token
+
+
+def normalize_source(source: str) -> str:
+    token = (source or "").strip().lower()
+    if token not in LABEL_SOURCES:
+        raise LateLabelError(
+            "invalid_source",
+            "source must be one of care, finance, crm, evaluate",
+        )
+    return token
+
+
 def y_label_for_outcome(outcome: str) -> str:
     """FRAUD is 1. FRIENDLY / SERVICE / UNKNOWN are still labels (0)."""
     token = normalize_outcome(outcome)
     return "1" if token == "FRAUD" else "0"
+
+
+def y_label_for_kind(kind: str) -> str:
+    return "1" if normalize_label_kind(kind) == "fraud" else "0"
 
 
 def _edges_of(receipt: dict[str, Any] | None) -> list[Any]:
@@ -47,42 +81,197 @@ def _edges_of(receipt: dict[str, Any] | None) -> list[Any]:
     return edges if isinstance(edges, list) else []
 
 
+def _hits_of(receipt: dict[str, Any] | None) -> list[str]:
+    if not isinstance(receipt, dict):
+        return []
+    raw = receipt.get("rule_hits")
+    if not isinstance(raw, list):
+        return []
+    return [str(x) for x in raw if str(x).strip()]
+
+
+def _maybe_open_observe_soften(tenant_id: str, store_key: str) -> dict[str, Any]:
+    """FP on a receipt can open Observe soften work. Not a Care queue."""
+    try:
+        from decision_api.observe_notify import (
+            EVENT_CONSIDER_SOFTEN,
+            emit_observe_event,
+        )
+    except ImportError:
+        return {
+            "opened": False,
+            "type": "consider_soften",
+            "href": f"/ops/shadow?trace_id={store_key}",
+        }
+    out = emit_observe_event(
+        tenant_id=tenant_id,
+        event_type=EVENT_CONSIDER_SOFTEN,
+        subject_id=store_key,
+        draft_id=store_key,
+    )
+    href = str((out.get("row") or {}).get("href") or f"/ops/shadow?trace_id={store_key}")
+    return {
+        "opened": bool(out.get("created") or out.get("id")),
+        "type": EVENT_CONSIDER_SOFTEN,
+        "href": href,
+        "id": out.get("id"),
+    }
+
+
+def join_follow_on_evaluate(
+    tenant_id: str,
+    *,
+    entity_id: str,
+    later_trace_id: str = "",
+    label_kind: str = "other",
+) -> dict[str, Any]:
+    """One learning join: later evaluate on the same entity labels a prior receipt.
+
+    Not a CRM case. ``label_source`` is ``evaluate``.
+    """
+    prior = find_prior_receipt_for_entity(
+        tenant_id, entity_id, exclude_trace=later_trace_id
+    )
+    if prior is None:
+        raise LateLabelError(
+            "missing_prior_receipt",
+            "no prior receipt for entity",
+        )
+    token = str(prior.get("trace_id") or "").strip()
+    if not token:
+        raise LateLabelError(
+            "missing_prior_receipt",
+            "prior receipt missing trace_id",
+        )
+    return bind_late_label(
+        tenant_id,
+        decision_token=token,
+        label_kind=label_kind or "other",
+        source="evaluate",
+    )
+
+
 def bind_late_label(
     tenant_id: str,
     *,
-    outcome: str,
+    outcome: str = "",
     trace_id: str = "",
     evaluation_token: str = "",
+    decision_token: str = "",
+    label_kind: str = "",
+    source: str = "",
+    prior_override_id: str = "",
+    entity_id: str = "",
+    later_trace_id: str = "",
 ) -> dict[str, Any]:
     """Join late outcome onto the original receipt. Never rebuilds a graph."""
     tenant = (tenant_id or "").strip()
     if not tenant:
         raise LateLabelError("missing_tenant", "tenant_id is required")
-    join = (trace_id or evaluation_token or "").strip()
+
+    src_raw = (source or "").strip()
+    join = (
+        (decision_token or "").strip()
+        or (trace_id or "").strip()
+        or (evaluation_token or "").strip()
+    )
+    if src_raw.lower() == "evaluate" and not join:
+        return join_follow_on_evaluate(
+            tenant,
+            entity_id=entity_id,
+            later_trace_id=later_trace_id,
+            label_kind=label_kind or "other",
+        )
     if not join:
         raise LateLabelError(
-            "missing_join_key", "trace_id or evaluation_token is required"
+            "missing_join_key",
+            "trace_id, evaluation_token, or decision_token is required",
         )
-    token = normalize_outcome(outcome)
-    y = y_label_for_outcome(token)
-    receipt = find_receipt(tenant, join)
+
+    kind_raw = (label_kind or "").strip()
+    outcome_raw = (outcome or "").strip()
+    chargeback = bool(outcome_raw) and not kind_raw
+    if kind_raw:
+        kind = normalize_label_kind(kind_raw)
+        y = y_label_for_kind(kind)
+        token = ""
+    elif outcome_raw:
+        token = normalize_outcome(outcome_raw)
+        y = y_label_for_outcome(token)
+        kind = "fraud" if token == "FRAUD" else "other"
+    else:
+        raise LateLabelError(
+            "missing_label",
+            "label_kind or dispute.outcome is required",
+        )
+
+    if src_raw:
+        src = normalize_source(src_raw)
+    else:
+        src = "finance" if chargeback or kind == "fraud" else "care"
+
+    override_id = (prior_override_id or "").strip()
+    receipt = None
+    if override_id:
+        receipt = find_override_receipt(tenant, override_id, join)
+    if receipt is None:
+        receipt = find_receipt(tenant, join)
     store_key = (
         str(receipt.get("trace_id") or "").strip() if isinstance(receipt, dict) else ""
     ) or join
+
+    kind_map = {store_key: kind}
+    src_map = {store_key: src}
+    ovr_map = {store_key: override_id} if override_id else None
+    disp_map = {store_key: token} if chargeback and token else None
+    cls_map = {store_key: token} if chargeback and token else None
     merge_y_labels(
         tenant,
         by_trace={store_key: y},
-        dispute_outcome_by_trace={store_key: token},
-        chargeback_class_by_trace={store_key: token},
+        dispute_outcome_by_trace=disp_map,
+        chargeback_class_by_trace=cls_map,
+        label_kind_by_trace=kind_map,
+        label_source_by_trace=src_map,
+        prior_override_id_by_trace=ovr_map,
     )
-    return {
+
+    observe: dict[str, Any] = {"opened": False}
+    fp_cost: dict[str, Any] | None = None
+    if kind == "fp":
+        decision = (
+            str(receipt.get("decision") or "").strip()
+            if isinstance(receipt, dict)
+            else ""
+        )
+        fp_cost = {
+            "counted": True,
+            "decision": decision,
+            "restrictive": decision.lower() in RESTRICTIVE_DECISIONS if decision else True,
+            "rule_hits": _hits_of(receipt),
+        }
+        observe = _maybe_open_observe_soften(tenant, store_key)
+
+    out: dict[str, Any] = {
         "ok": True,
         "schema_id": SCHEMA_ID,
         "tenant_id": tenant,
         "trace_id": store_key,
-        "dispute_outcome": token,
-        "chargeback_class": token,
+        "decision_token": store_key,
+        "label_kind": kind,
+        "label_source": src,
         "y_label": y,
         "snapshot_bound": receipt is not None,
         "trainable": receipt is not None and bool(_edges_of(receipt)),
+        "observe_work": observe,
     }
+    if override_id:
+        out["prior_override_id"] = override_id
+    if chargeback and token:
+        out["dispute_outcome"] = token
+        out["chargeback_class"] = token
+    else:
+        out["dispute_outcome"] = ""
+        out["chargeback_class"] = ""
+    if fp_cost is not None:
+        out["fp_cost"] = fp_cost
+    return out

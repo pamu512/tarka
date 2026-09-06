@@ -1050,7 +1050,11 @@ async def get_case_evidence_bundle(
     decision_block: dict[str, Any] = {}
     if trace and base:
         try:
-            r = await http.get(f"{base}/v1/audit/{trace}", timeout=8.0)
+            r = await http.get(
+                f"{base}/v1/audit/{trace}",
+                params={"tenant_id": tenant_id},
+                timeout=8.0,
+            )
             if r.status_code == 200:
                 decision_block = r.json()
         except Exception:
