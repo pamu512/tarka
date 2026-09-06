@@ -1,0 +1,19 @@
+{
+  "schema_id": "tarka.desk_provision/v1",
+  "profile": "product",
+  "hunt": {
+    "enabled": true
+  },
+  "graph": {
+    "service_url": "http://graph-service:8001"
+  },
+  "leftover": {
+    "flag_mints_leftover": false,
+    "multi_analyst_claim": false,
+    "qa_queue_isolates": false,
+    "receipt_brief_enabled": false
+  },
+  "shadow_agent": {
+    "start_when_llm_url": true
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tarka.desk_provision/v1",
+  "title": "Tarka desk provision",
+  "type": "object",
+  "required": ["schema_id"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "tarka.desk_provision/v1"
+    },
+    "profile": {
+      "type": "string",
+      "enum": ["demo", "product", "brochure"]
+    },
+    "hunt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "service_url": { "type": "string", "default": "" }
+      }
+    },
+    "leftover": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "flag_mints_leftover": { "type": "boolean", "default": false },
+        "multi_analyst_claim": { "type": "boolean", "default": false },
+        "qa_queue_isolates": { "type": "boolean", "default": false },
+        "receipt_brief_enabled": { "type": "boolean", "default": false }
+      }
+    },
+    "shadow_agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "start_when_llm_url": { "type": "boolean", "default": true }
+      }
+    }
+  }
+}

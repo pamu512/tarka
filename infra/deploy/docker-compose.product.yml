@@ -1,0 +1,55 @@
+# Product overlay — analyst jobs skin + desk_provision mount.
+# Does not change make demo. Shadow stays off unless compose profile `llm`.
+#
+#   docker compose \
+#     -f infra/deploy/docker-compose.lite.yml \
+#     -f infra/deploy/docker-compose.fraud-desk.yml \
+#     -f infra/deploy/docker-compose.product.yml \
+#     up --build
+#
+# + shadow_agent when an LLM URL is set:
+#     --profile llm
+
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_DESK_PROFILE: "product"
+        VITE_LEAN_NAV: "true"
+        VITE_DESK_STRICT: "true"
+        VITE_USE_API_MOCKS: "false"
+        VITE_GRAPH_SERVICE_URL: ${VITE_GRAPH_SERVICE_URL:-/api/graph}
+
+  core-api:
+    environment:
+      TARKA_DESK_PROVISION_PATH: /etc/tarka/desk_provision.json
+    volumes:
+      - ./desk_provision.example.json:/etc/tarka/desk_provision.json:ro
+
+  shadow_agent:
+    profiles: [llm]
+    build:
+      context: ../..
+      dockerfile: services/shadow_agent/Dockerfile
+    ports:
+      - "8801:8801"
+    environment:
+      SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-dev-shadow-token-change-me}
+      SHADOW_DATABASE_URL: sqlite+aiosqlite:////tmp/shadow_audit.db
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import os,urllib.request;t=os.environ.get('SHADOW_API_KEY','');r=urllib.request.Request('http://127.0.0.1:8801/health/db',headers={'X-Shadow-Token':t});urllib.request.urlopen(r,timeout=5).read()",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 25s

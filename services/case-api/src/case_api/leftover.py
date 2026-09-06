@@ -98,16 +98,24 @@ def _env_on(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _leftover_flag(env_name: str, provision_key: str) -> bool:
+    try:
+        from desk_provision import leftover_flag
+    except ImportError:
+        return _env_on(env_name)
+    return leftover_flag(env_name, provision_key)
+
+
 def multi_analyst_claim_enabled() -> bool:
-    return _env_on("TARKA_MULTI_ANALYST_CLAIM")
+    return _leftover_flag("TARKA_MULTI_ANALYST_CLAIM", "multi_analyst_claim")
 
 
 def qa_queue_isolates() -> bool:
-    return _env_on("TARKA_QA_QUEUE_ISOLATES")
+    return _leftover_flag("TARKA_QA_QUEUE_ISOLATES", "qa_queue_isolates")
 
 
 def receipt_brief_enabled() -> bool:
-    return _env_on("TARKA_RECEIPT_BRIEF")
+    return _leftover_flag("TARKA_RECEIPT_BRIEF", "receipt_brief_enabled")
 
 
 def is_qa_pending(case) -> bool:
