@@ -22,6 +22,15 @@ def test_share_when_warmup_met():
     assert feats[COMPUTED_NAME] == 0.4
 
 
+def test_share_clamps_to_unit_interval():
+    over = {"event_count_1h": 15, "event_count_24h": 10}
+    apply_count_share(over, 10)
+    assert over[COMPUTED_NAME] == 1.0
+    neg = {"event_count_1h": -2, "event_count_24h": 10}
+    apply_count_share(neg, 10)
+    assert neg[COMPUTED_NAME] == 0.0
+
+
 def test_omit_when_24h_zero():
     feats = {"event_count_1h": 0, "event_count_24h": 0}
     apply_count_share(feats, 10)
@@ -58,6 +67,29 @@ def test_attach_from_env_uses_warmup(monkeypatch):
     thin = {"event_count_1h": 1, "event_count_24h": 2}
     attach_count_share_from_env(thin)
     assert COMPUTED_NAME not in thin
+
+
+def test_pack_gte_false_when_share_omitted():
+    from decision_api.json_rules import _match_condition
+
+    feats = {"event_count_1h": 4, "event_count_24h": 4}
+    apply_count_share(feats, 10)
+    assert COMPUTED_NAME not in feats
+    assert (
+        _match_condition(feats, {"field": COMPUTED_NAME, "op": "gte", "value": 0.5})
+        is False
+    )
+
+
+def test_pack_gte_true_when_share_warm():
+    from decision_api.json_rules import _match_condition
+
+    feats = {"event_count_1h": 8, "event_count_24h": 10}
+    apply_count_share(feats, 10)
+    assert (
+        _match_condition(feats, {"field": COMPUTED_NAME, "op": "gte", "value": 0.5})
+        is True
+    )
 
 
 def test_pipeline_calls_attach_from_env():

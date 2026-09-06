@@ -34,7 +34,7 @@ Name: `event_count_1h_share_24h`.
 
 ```
 if event_count_24h >= warmup:
-    value = event_count_1h / event_count_24h   # float in [0, 1]
+    value = clamp(event_count_1h / event_count_24h, 0, 1)
 else:
     omit the key
 ```

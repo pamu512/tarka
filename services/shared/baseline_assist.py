@@ -58,4 +58,4 @@ def apply_count_share(features: dict, warmup: int) -> None:
     hour = _as_number(features.get("event_count_1h"))
     if hour is None:
         hour = 0.0
-    features[COMPUTED_NAME] = hour / day
+    features[COMPUTED_NAME] = min(max(hour / day, 0.0), 1.0)

@@ -18,6 +18,7 @@ def test_seed_has_core_names_not_growth_or_hops():
     assert "amount" in names
     assert "relation_growth_1h" not in names
     assert "USES_DEVICE" not in names
+    assert COMPUTED_NAME not in names
 
 
 def test_seed_covers_manifest_payload_identity():
