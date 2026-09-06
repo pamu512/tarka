@@ -52,7 +52,7 @@ Use the smoke script to verify the explanation chain after deploy:
 python infra/scripts/ci/investigation_e2e_smoke.py \
   --tenant-id demo \
   --decision-api-url http://localhost:8000 \
-  --case-api-url http://localhost:8002
+  --case-api-url http://localhost:8000/cases
 ```
 
 The script asserts this path:
