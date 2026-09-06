@@ -14,6 +14,15 @@ def test_heuristic_maps_camelcase_aliases() -> None:
     assert ev["payload"]["amount"] == 12.5
 
 
+def test_heuristic_maps_refund_via_env(monkeypatch) -> None:
+    monkeypatch.setenv("TARKA_EVENT_TYPES", "refund")
+    ev = heuristic_map_to_evaluate_request(
+        {"tenant_id": "acme", "entity_id": "e1", "event_type": "refund"},
+    )
+    assert ev is not None
+    assert ev["event_type"] == "refund"
+
+
 def test_heuristic_rejects_unknown_event_type() -> None:
     assert (
         heuristic_map_to_evaluate_request(

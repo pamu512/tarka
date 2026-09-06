@@ -23,6 +23,7 @@ _REPO = Path(__file__).resolve().parents[3]
 _GOLDEN = _REPO / "contracts" / "golden"
 _SCHEMA = _REPO / "contracts" / "json-schema"
 _DEC_SRC = _REPO / "services" / "decision-api" / "src"
+_SHARED_CORE = _REPO / "packages" / "shared-core"
 
 
 def _load(path: Path) -> Any:
@@ -81,6 +82,8 @@ def validate_fraud_event(data: dict[str, Any], *, label: str) -> None:
 
 
 def validate_pydantic_parse(evaluate: dict[str, Any], device: dict[str, Any]) -> None:
+    if str(_SHARED_CORE) not in sys.path:
+        sys.path.insert(0, str(_SHARED_CORE))
     if str(_DEC_SRC) not in sys.path:
         sys.path.insert(0, str(_DEC_SRC))
     try:

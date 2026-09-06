@@ -120,6 +120,51 @@ def test_pack_fires_sdk_rooted_when_present_true():
     assert "sdk_rooted" in hits
 
 
+def test_pack_omitted_bot_does_not_fire():
+    features: dict = {}
+    merge_device_context_into_features(
+        features,
+        DeviceContextIn(device_id="dev-1", platform="web", signals={}),
+    )
+    assert "is_bot" not in features
+    assert "sdk_bot" not in _is_true_hits(_device_signals_pack(), features)
+
+
+def test_pack_explicit_false_bot_does_not_fire():
+    features: dict = {}
+    merge_device_context_into_features(
+        features,
+        DeviceContextIn(device_id="dev-1", platform="web", signals={"is_bot": False}),
+    )
+    assert features["is_bot"] is False
+    assert "sdk_bot" not in _is_true_hits(_device_signals_pack(), features)
+
+
+def test_pack_true_bot_fires():
+    features: dict = {}
+    merge_device_context_into_features(
+        features,
+        DeviceContextIn(device_id="dev-1", platform="web", signals={"is_bot": True}),
+    )
+    assert features["is_bot"] is True
+    assert "sdk_bot" in _is_true_hits(_device_signals_pack(), features)
+
+
+def test_merge_skips_non_bool_signal_tag_keys():
+    features: dict = {}
+    merge_device_context_into_features(
+        features,
+        DeviceContextIn(
+            device_id="dev-1",
+            platform="web",
+            signals={"is_bot": "yes", "is_emulator": 1, "canvas_fp_hash": "abc"},
+        ),
+    )
+    assert "is_bot" not in features
+    assert "is_emulator" not in features
+    assert features["canvas_fp_hash"] == "abc"
+
+
 def test_pack_omitted_rooted_does_not_fire_and_is_not_clean():
     features: dict = {"is_emulator": False}
     merge_device_context_into_features(

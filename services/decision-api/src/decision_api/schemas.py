@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from decision_api.attestation_taxonomy import normalize_attestation_object
+from tarka_shared.ingest_contract_v1 import validate_event_type_shape
 
 
 class EventType(str, Enum):
@@ -122,11 +123,21 @@ class EvaluatePartyIn(BaseModel):
 
 class EvaluateRequest(BaseModel):
     tenant_id: str
-    event_type: EventType
+    event_type: str
     entity_id: str
     role: str
     parties: list[EvaluatePartyIn] = Field(default_factory=list)
     session_id: str | None = None
+
+    @field_validator("event_type", mode="before")
+    @classmethod
+    def _event_type_shape(cls, v: Any) -> str:
+        if isinstance(v, EventType):
+            v = v.value
+        try:
+            return validate_event_type_shape(v)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
 
     @field_validator("entity_id", mode="before")
     @classmethod
