@@ -22,6 +22,43 @@ import first_decision_smoke  # noqa: E402
 import walk_receipts  # noqa: E402
 
 
+class TestFirstDecisionSmoke(unittest.TestCase):
+    def test_main_prints_ok_audit_when_tenant_query_present(self) -> None:
+        seen: list[str] = []
+
+        def fake_request(
+            method: str,
+            url: str,
+            *,
+            payload: dict[str, Any] | None = None,
+            api_key: str | None = None,
+            timeout: float = 30.0,
+        ) -> tuple[int, Any]:
+            seen.append(url)
+            if method == "GET" and url.endswith("/v1/health"):
+                return 200, {"status": "ok"}
+            if method == "POST":
+                return 200, {"trace_id": "t-1", "decision": "allow", "score": 1.0}
+            if method == "GET" and "/v1/audit/" in url:
+                if "tenant_id=demo" not in url:
+                    return 422, {"detail": "tenant_id Field required"}
+                return 200, {"trace_id": "t-1", "tenant_id": "demo"}
+            return 404, {}
+
+        buf = io.StringIO()
+        orig = first_decision_smoke._request
+        first_decision_smoke._request = fake_request  # type: ignore[method-assign]
+        try:
+            with redirect_stdout(buf):
+                code = first_decision_smoke.main()
+        finally:
+            first_decision_smoke._request = orig  # type: ignore[method-assign]
+        self.assertEqual(code, 0)
+        self.assertTrue(any("/v1/audit/" in u and "tenant_id=demo" in u for u in seen))
+        self.assertIn("[ok] audit fetch", buf.getvalue())
+        self.assertNotIn("[warn] audit GET", buf.getvalue())
+
+
 class TestAuditTenantQuery(unittest.TestCase):
     def test_audit_url_requires_tenant_query(self) -> None:
         url = first_decision_smoke.audit_url(
