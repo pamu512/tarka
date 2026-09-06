@@ -295,7 +295,9 @@ async def test_park_skips_ambiguous(tmp_path, monkeypatch):
 
 def test_successor_suggest_shape_and_env_default_off(monkeypatch):
     assert is_slip_successor_suggest("Scout: canvas", None) is False
-    assert is_slip_successor_suggest("Scout: canvas", {"slip_kind": "successor"}) is True
+    assert (
+        is_slip_successor_suggest("Scout: canvas", {"slip_kind": "successor"}) is True
+    )
     assert is_slip_successor_suggest("Scout: canvas", {"slip_kind": "retire"}) is True
     assert is_slip_successor_suggest("slip_successor_r1", {}) is True
     monkeypatch.delenv("TARKA_BYO_SUCCESSOR_SUGGEST", raising=False)
