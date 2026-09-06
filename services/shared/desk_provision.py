@@ -82,6 +82,62 @@ def graph_service_url() -> str:
     return str(graph.get("service_url") or "").strip()
 
 
+_HOOK_URL_ENV = {
+    "enforcement": "TARKA_ENFORCEMENT_WEBHOOK_URL",
+    "observe_notify": "TARKA_OBSERVE_NOTIFY_WEBHOOK_URL",
+}
+_HOOK_SECRET_ENV = {
+    "enforcement": "TARKA_ENFORCEMENT_WEBHOOK_SECRET",
+    "observe_notify": "TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET",
+}
+
+
+def hook_url(kind: str) -> str:
+    env_name = _HOOK_URL_ENV.get(kind)
+    if not env_name:
+        return ""
+    raw = _env_raw(env_name)
+    if raw is not None:
+        return raw.strip()
+    hooks = load_desk_provision().get("hooks")
+    if not isinstance(hooks, dict):
+        return ""
+    block = hooks.get(kind)
+    if not isinstance(block, dict):
+        return ""
+    return str(block.get("url") or "").strip()
+
+
+def hook_secret(kind: str) -> str:
+    default_env = _HOOK_SECRET_ENV.get(kind)
+    if not default_env:
+        return ""
+    raw = _env_raw(default_env)
+    if raw is not None and raw.strip() != "":
+        return raw.strip()
+    hooks = load_desk_provision().get("hooks")
+    secret_env = default_env
+    if isinstance(hooks, dict):
+        block = hooks.get(kind)
+        if isinstance(block, dict) and str(block.get("secret_env") or "").strip():
+            secret_env = str(block.get("secret_env")).strip()
+    named = _env_raw(secret_env)
+    return (named or "").strip()
+
+
+def observe_notify_store() -> str:
+    raw = _env_raw("TARKA_OBSERVE_NOTIFY_STORE")
+    if raw is not None and raw.strip() != "":
+        token = raw.strip().lower()
+        if token in {"postgres", "file"}:
+            return token
+        return "file"
+    profile = str(load_desk_provision().get("profile") or "").strip().lower()
+    if profile == "product":
+        return "postgres"
+    return "file"
+
+
 def shadow_agent_should_start(
     *,
     llm_url: str | None = None,

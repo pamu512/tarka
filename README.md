@@ -20,7 +20,7 @@ make doctor && make demo
 | `make product` | product | Analyst jobs + `desk_provision.json`. `shadow_agent` only when an LLM URL is set. |
 | sales-only overlay | `VITE_DESK_PROFILE=brochure` | Pitch pages. Not the product default. |
 
-P0 limits: no provisioned webhooks, no Postgres notify (next plane). Helm prod-on-k8s keeps frontend / desk OFF and Shadow OFF. The `brochure` env token is unchanged.
+P0: webhooks and product observe-notify are in `desk_provision.json` (empty URL = off). Helm prod-on-k8s keeps frontend / desk OFF and Shadow OFF. The `brochure` env token is unchanged.
 
 Open the printed `NEXT:` link (Hunt with that person when graph is on). Receipts stay at `/decisions`. Observe is `/ops/shadow`.
 
