@@ -10,7 +10,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 make doctor && make demo
 ```
 
-`make demo` is the **demo** skin (first-hour pages). The frontend image default is **product**: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics. Product is not Command Center or executive brochure pages. Optional sales overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`.
+`make demo` is the **demo** skin (first-hour pages). `make product` is the **product** skin: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics, with `infra/deploy/desk_provision.example.json` mounted. Product is not Command Center or sales-only pitch pages. Optional sales-only overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`.
 
 `make doctor` checks Docker Desktop (Compose v2), ports `8000` `8001` `3000` `5432` `6379`, and ~4 GB RAM. Each fail names the fix. Then `make demo` starts Lite + fraud-desk and runs the receipt walk.
 
@@ -27,7 +27,7 @@ PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
 ## What it does
 
 1. `make doctor` (also run from `up_desk.sh` if evaluate is not already healthy). Copies `infra/deploy/env/community.env.example` to `infra/deploy/.env` when missing (local `ALLOW_INSECURE_NO_AUTH=true`).
-2. Optional TTY prompt for a BYO LLM URL / key / model. Enter skips. Values go in `infra/deploy/.env` only (not the browser). Shadow stays off on this compose until you add that service later.
+2. Optional TTY prompt for a BYO LLM URL / key / model. Enter skips. Values go in `infra/deploy/.env` only (not the browser). `make demo` never starts `shadow_agent`. `make product` starts it only when `OPENAI_BASE_URL` is set.
 3. `docker compose` lite + fraud-desk. If health never comes up (3 min), the script stops and does **not** run the walk.
 4. `python3 scripts/oss/walk_receipts.py` — three evaluate POSTs against **shipped** packs (`default.json`, `device_signals.json`, `vertical_payment_risk_v1.json`). Decisions are whatever evaluate returns. The walk does not invent ALLOW / REVIEW / DENY.
 

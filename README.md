@@ -14,9 +14,17 @@ make doctor && make demo
 
 `make doctor` names Docker / port / RAM problems. `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
 
+| Command | Skin | Notes |
+|---------|------|--------|
+| `make demo` | demo | First-hour pages. No `shadow_agent`. |
+| `make product` | product | Analyst jobs + `desk_provision.json`. `shadow_agent` only when an LLM URL is set. |
+| sales-only overlay | `VITE_DESK_PROFILE=brochure` | Pitch pages. Not the product default. |
+
+P0 limits: no provisioned webhooks, no Postgres notify (next plane). Helm prod-on-k8s keeps frontend / desk OFF and Shadow OFF. The `brochure` env token is unchanged.
+
 Open the printed `NEXT:` link (Hunt with that person when graph is on). Receipts stay at `/decisions`. Observe is `/ops/shadow`.
 
-Same script: `bash scripts/oss/up_desk.sh`. What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Same scripts: `bash scripts/oss/up_desk.sh` (demo) or `bash scripts/oss/up_product.sh` (product). What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
 

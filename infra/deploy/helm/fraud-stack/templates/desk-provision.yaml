@@ -1,0 +1,21 @@
+{{- if .Values.deskProvision.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tarka.fullname" . }}-desk-provision
+data:
+  desk_provision.json: |
+    {
+      "schema_id": "tarka.desk_provision/v1",
+      "profile": "product",
+      "hunt": { "enabled": true },
+      "graph": { "service_url": "" },
+      "leftover": {
+        "flag_mints_leftover": false,
+        "multi_analyst_claim": false,
+        "qa_queue_isolates": false,
+        "receipt_brief_enabled": false
+      },
+      "shadow_agent": { "start_when_llm_url": true }
+    }
+{{- end }}

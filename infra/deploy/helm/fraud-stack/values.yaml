@@ -76,6 +76,11 @@ redis:
   enabled: true
   image: redis:7-alpine
 
+# Named-desk defaults. Mounted on core-api. Env still wins when set.
+# Chart does not start frontend desk or Shadow (see presets/prod-on-k8s).
+deskProvision:
+  enabled: true
+
 coreApi:
   enabled: true
   image: tarka-core-api
