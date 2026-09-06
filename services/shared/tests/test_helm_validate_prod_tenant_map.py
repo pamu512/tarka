@@ -110,6 +110,8 @@ def test_core_api_mounts_desk_provision():
     assert "/etc/tarka/desk_provision.json" in core
     provision = (HELM / "desk-provision.yaml").read_text(encoding="utf-8")
     assert "tarka.desk_provision/v1" in provision
+    assert "hooks" in provision
+    assert "TARKA_ENFORCEMENT_WEBHOOK_SECRET" in provision
 
 
 def test_prod_presets_with_data_plane_set_ingest_idempotency():

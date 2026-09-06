@@ -280,5 +280,35 @@ class EventTypeRow(Base):
     )
 
 
+class ObserveNotifyRow(Base):
+    """Product observe inbox. Demo may keep observe_notify.jsonl."""
+
+    __tablename__ = "observe_notify"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "type",
+            "subject_id",
+            name="uq_observe_notify_dedupe",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(64), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    body: Mapped[str] = mapped_column(String(1000), nullable=False)
+    href: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    read_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
 # Inference audit rows mirrored to ClickHouse (``tarka_core.models.InferenceLog``).
 from tarka_core.models import InferenceLog  # noqa: E402, F401

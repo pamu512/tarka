@@ -7,9 +7,12 @@ import pytest
 from desk_provision import (
     SCHEMA_ID,
     graph_service_url,
+    hook_secret,
+    hook_url,
     hunt_enabled,
     leftover_flag,
     load_desk_provision,
+    observe_notify_store,
     shadow_agent_should_start,
 )
 
@@ -132,3 +135,77 @@ def test_invalid_json_ignored(tmp_path, monkeypatch):
     path.write_text("{not json", encoding="utf-8")
     monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
     assert load_desk_provision() == {}
+
+
+def test_hook_url_env_wins(tmp_path, monkeypatch):
+    path = _write(
+        tmp_path,
+        {
+            "schema_id": SCHEMA_ID,
+            "hooks": {
+                "enforcement": {
+                    "url": "http://from-file/enf",
+                    "secret_env": "FILE_ENF_SECRET",
+                },
+                "observe_notify": {
+                    "url": "http://from-file/obs",
+                    "secret_env": "FILE_OBS_SECRET",
+                },
+            },
+        },
+    )
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_URL", "http://from-env/enf")
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_WEBHOOK_URL", "http://from-env/obs")
+    monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", "env-enf")
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET", "env-obs")
+    assert hook_url("enforcement") == "http://from-env/enf"
+    assert hook_url("observe_notify") == "http://from-env/obs"
+    assert hook_secret("enforcement") == "env-enf"
+    assert hook_secret("observe_notify") == "env-obs"
+
+
+def test_hook_url_from_file_and_named_secret(tmp_path, monkeypatch):
+    path = _write(
+        tmp_path,
+        {
+            "schema_id": SCHEMA_ID,
+            "hooks": {
+                "enforcement": {
+                    "url": "http://from-file/enf",
+                    "secret_env": "FILE_ENF_SECRET",
+                }
+            },
+        },
+    )
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", raising=False)
+    monkeypatch.setenv("FILE_ENF_SECRET", "named-secret")
+    assert hook_url("enforcement") == "http://from-file/enf"
+    assert hook_secret("enforcement") == "named-secret"
+
+
+def test_empty_hook_url_is_off(monkeypatch):
+    monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
+    monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_URL", raising=False)
+    assert hook_url("enforcement") == ""
+    assert hook_secret("enforcement") == ""
+
+
+def test_observe_notify_store_env_wins(tmp_path, monkeypatch):
+    path = _write(tmp_path, {"schema_id": SCHEMA_ID, "profile": "product"})
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_STORE", "file")
+    assert observe_notify_store() == "file"
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_STORE", "postgres")
+    assert observe_notify_store() == "postgres"
+
+
+def test_observe_notify_store_product_profile(tmp_path, monkeypatch):
+    path = _write(tmp_path, {"schema_id": SCHEMA_ID, "profile": "product"})
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.delenv("TARKA_OBSERVE_NOTIFY_STORE", raising=False)
+    assert observe_notify_store() == "postgres"
+    monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
+    assert observe_notify_store() == "file"
