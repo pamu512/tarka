@@ -16,8 +16,10 @@ _overlay_fail_logged = False
 def event_type_allow_list(overlay: frozenset[str] | None = None) -> frozenset[str]:
     from decision_api.event_type_store import load_seed_event_types
 
-    return load_seed_event_types() | frozenset(overlay or ()) | parse_env_event_types(
-        os.environ.get("TARKA_EVENT_TYPES")
+    return (
+        load_seed_event_types()
+        | frozenset(overlay or ())
+        | parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES"))
     )
 
 

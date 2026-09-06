@@ -25,6 +25,7 @@ def _ingest_allowed_event_types() -> frozenset[str]:
         parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
     )
 
+
 # Registry / schema gate (infra/scripts/ci/schema_registry_compat.py parses these as frozenset(...) assignments).
 REGISTRY_SUPPORTED_EVENT_SCHEMA_VERSIONS = frozenset({"1"})
 _REGISTRY_ALLOWED_TOP_LEVEL_KEYS = frozenset(

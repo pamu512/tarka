@@ -755,7 +755,7 @@ jobs:
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared
+          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core
       - name: Install event-ingest + data-plane test deps
         run: |
           pip install -e "./services/event-ingest[dev]"
@@ -768,7 +768,7 @@ jobs:
       - name: Pytest — data-plane ready/health
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared
+          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core
         run: pytest tests -q
       - name: JetStream DLQ not under consumer wildcard
         run: |

@@ -9,7 +9,10 @@ from fastapi import HTTPException
 
 
 def test_pipeline_calls_require_allowed():
-    text = Path("services/decision-api/src/decision_api/evaluate/pipeline.py").read_text()
+    pipeline = (
+        Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
+    )
+    text = pipeline.read_text(encoding="utf-8")
     assert "require_allowed_event_type" in text
 
 
