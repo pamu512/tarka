@@ -21,6 +21,7 @@ services:
         VITE_DESK_STRICT: "true"
         VITE_USE_API_MOCKS: "false"
         VITE_GRAPH_SERVICE_URL: ${VITE_GRAPH_SERVICE_URL:-/api/graph}
+        VITE_HUNT_ENABLED: ${TARKA_HUNT_ENABLED:-}
 
   core-api:
     environment:
