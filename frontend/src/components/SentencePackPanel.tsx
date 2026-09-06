@@ -7,6 +7,7 @@ import {
   VELOCITY_KEYS,
   emitHopPack,
   emitVelocityPack,
+  type HopKind,
   type HopSentence,
   type VelocitySentence,
 } from "../utils/sentencePack";
@@ -16,6 +17,7 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
   const [op, setOp] = useState<VelocitySentence["op"]>("gte");
   const [value, setValue] = useState(20);
   const [etype, setEtype] = useState<HopSentence["etype"]>("USES_DEVICE");
+  const [hopKind, setHopKind] = useState<HopKind>("share");
   const [kind, setKind] = useState<"velocity" | "hop">("velocity");
 
   const [edited, setEdited] = useState<string | null>(null);
@@ -26,9 +28,9 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
     const pack =
       kind === "velocity"
         ? emitVelocityPack({ field, op, value })
-        : emitHopPack({ etype });
+        : emitHopPack({ etype, kind: hopKind });
     return JSON.stringify(pack, null, 2);
-  }, [kind, field, op, value, etype]);
+  }, [kind, field, op, value, etype, hopKind]);
 
   const shown = edited ?? json;
 
@@ -47,7 +49,7 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
           className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
         >
           <option value="velocity">When a count or sum crosses a threshold</option>
-          <option value="hop">FLAG when this person shares an edge</option>
+          <option value="hop">When this person shares an edge</option>
         </select>
         {kind === "velocity" ? (
           <>
@@ -80,17 +82,27 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
             />
           </>
         ) : (
-          <select
-            value={etype}
-            onChange={(e) => setEtype(e.target.value as HopSentence["etype"])}
-            className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
-          >
-            {HOP_ETYPES.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
+          <>
+            <select
+              value={hopKind}
+              onChange={(e) => setHopKind(e.target.value === "trust" ? "trust" : "share")}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
+            >
+              <option value="share">Share-edge (has_etype)</option>
+              <option value="trust">Trust FLAG (sibling)</option>
+            </select>
+            <select
+              value={etype}
+              onChange={(e) => setEtype(e.target.value as HopSentence["etype"])}
+              className="bg-surface-800 border border-surface-600 rounded px-2 py-1"
+            >
+              {HOP_ETYPES.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </>
         )}
         <button
           type="button"

@@ -1,5 +1,7 @@
 # Decision context graph
 
+Decision-context SQLite is not the identity-hop Graph SKU (`GRAPH_SERVICE_URL` / AGE).
+
 Tarka records **decisions as durable objects** — not just logs — so you can answer months later: *what did we decide, why, what influenced it, and what happened next?*
 
 Native SoR on graph-service; optional mirror sidecar behind feature flags.
