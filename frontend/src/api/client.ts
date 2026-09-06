@@ -3329,8 +3329,9 @@ export const rules = {
     }>("/api/decisions/v1/rules/telemetry");
   },
 
-  create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {
-    return request<unknown>("/api/decisions/v1/rules", {
+  create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules${q}`, {
       method: "POST",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
@@ -3352,8 +3353,9 @@ export const rules = {
     });
   },
 
-  update(filename: string, data: { name: string; rules: unknown[]; tag_rules?: unknown[] }) {
-    return request<unknown>(`/api/decisions/v1/rules/${filename}`, {
+  update(filename: string, data: { name: string; rules: unknown[]; tag_rules?: unknown[] }, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules/${filename}${q}`, {
       method: "PUT",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
@@ -3367,8 +3369,9 @@ export const rules = {
     });
   },
 
-  addRule(filename: string, rule: unknown) {
-    return request<unknown>(`/api/decisions/v1/rules/${filename}/rules`, {
+  addRule(filename: string, rule: unknown, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules/${filename}/rules${q}`, {
       method: "POST",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(rule),

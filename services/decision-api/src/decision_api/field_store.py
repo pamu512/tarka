@@ -72,6 +72,8 @@ async def upsert_overlay(
         raise FieldRegistrySeedLocked(name)
     explanation = _require_explanation(explanation)
     source = _require_source(source)
+    if source == "tarka_core":
+        raise ValueError("overlay cannot claim source tarka_core")
     existing = await get_overlay(session, tenant_id, name)
     if existing is not None:
         existing.explanation = explanation

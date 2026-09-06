@@ -19,6 +19,9 @@ vi.mock("@/api/client", async (importOriginal) => {
       telemetry: vi.fn(),
       verticalPacks: vi.fn(),
       authorCatalog: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      reload: vi.fn(),
     },
     fields: {
       list: vi.fn(),
@@ -79,6 +82,9 @@ describe("Rules workspace tabs", () => {
     vi.mocked(client.rules.telemetry).mockReset();
     vi.mocked(client.rules.verticalPacks).mockReset();
     vi.mocked(client.rules.authorCatalog).mockReset();
+    vi.mocked(client.rules.create).mockReset();
+    vi.mocked(client.rules.update).mockReset();
+    vi.mocked(client.rules.reload).mockReset();
     vi.mocked(client.fields.list).mockReset();
     vi.mocked(client.fields.maps).mockReset();
     vi.mocked(client.fields.upsert).mockReset();
@@ -88,6 +94,9 @@ describe("Rules workspace tabs", () => {
     vi.mocked(client.fields.list).mockResolvedValue([]);
     vi.mocked(client.fields.maps).mockResolvedValue([]);
     vi.mocked(client.rules.authorCatalog).mockResolvedValue(fallbackAuthorCatalog());
+    vi.mocked(client.rules.create).mockResolvedValue({});
+    vi.mocked(client.rules.update).mockResolvedValue({});
+    vi.mocked(client.rules.reload).mockResolvedValue({ ok: true });
     vi.mocked(client.rules.list).mockResolvedValue({ packs: [SHADOW_PACK] });
     vi.mocked(client.rules.verticalPacks).mockResolvedValue({ vertical_packs: {} });
     vi.mocked(client.rules.telemetry).mockResolvedValue({
@@ -173,5 +182,32 @@ describe("Rules workspace tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: /Show field catalog/i }));
     expect(await screen.findByText("event_count_7d")).toBeInTheDocument();
     expect(screen.getByText("avg_amount_1h")).toBeInTheDocument();
+  });
+
+  it("passes sandbox tenant_id on pack create and update", async () => {
+    render(wrap(<Rules />, "/rules?tenant_id=t1&pack=shadow_payment_probe_v1.json"));
+    await screen.findByRole("heading", { name: "shadow_payment_probe_v1" });
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Create Pack" }));
+    fireEvent.change(screen.getByPlaceholderText(/Pack name/), {
+      target: { value: "overlay_pack" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    await waitFor(() =>
+      expect(client.rules.create).toHaveBeenCalledWith(
+        { name: "overlay_pack", rules: [], tag_rules: [] },
+        "t1",
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Rule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Pack" }));
+    await waitFor(() =>
+      expect(client.rules.update).toHaveBeenCalledWith(
+        "shadow_payment_probe_v1.json",
+        expect.objectContaining({ name: "shadow_payment_probe_v1" }),
+        "t1",
+      ),
+    );
   });
 });

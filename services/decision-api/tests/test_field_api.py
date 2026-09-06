@@ -172,6 +172,16 @@ async def test_put_seed_name_400(client):
 
 
 @pytest.mark.asyncio
+async def test_put_overlay_tarka_core_source_rejected(client):
+    r = await client.put(
+        "/v1/fields/order_channel",
+        json={"explanation": "who sold", "source": "tarka_core"},
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code in (400, 422)
+
+
+@pytest.mark.asyncio
 async def test_put_empty_explanation_and_bad_source_422(client):
     empty = await client.put(
         "/v1/fields/order_channel",
