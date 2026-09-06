@@ -10,11 +10,37 @@ describe("sentencePack", () => {
     expect(rule.when[0].field).toBe("event_count_1h");
   });
 
-  it("emits a signed hop etype only", () => {
-    const pack = emitHopPack({ etype: "USES_DEVICE" });
-    const rule = (pack.rules as Array<{ when_ast: { etype: string } }>)[0];
+  it("share-edge emits has_etype without FLAG or sibling claim", () => {
+    const pack = emitHopPack({ etype: "USES_DEVICE", kind: "share" });
+    const rule = (
+      pack.rules as Array<{
+        when_ast: { atom?: string; etype?: string };
+        tags: string[];
+        description: string;
+      }>
+    )[0];
+    expect(rule.when_ast.atom).toBe("has_etype");
     expect(rule.when_ast.etype).toBe("USES_DEVICE");
+    expect(rule.tags).not.toContain("FLAG");
+    expect(rule.description.toLowerCase()).not.toContain("sibling");
     expect(pack.mode).toBe("shadow");
+  });
+
+  it("trust FLAG emits sibling_prior_flag AND and a FLAG tag", () => {
+    const pack = emitHopPack({ etype: "USES_DEVICE", kind: "trust" });
+    const rule = (
+      pack.rules as Array<{
+        when_ast: { type: string; children?: Array<Record<string, unknown>> };
+        tags: string[];
+        description: string;
+      }>
+    )[0];
+    const blob = JSON.stringify(rule.when_ast);
+    expect(blob).toContain("sibling_prior_flag");
+    expect(blob).toContain("has_etype");
+    expect(rule.when_ast.type).toBe("and");
+    expect(rule.tags).toContain("FLAG");
+    expect(rule.description.toLowerCase()).toContain("sibling");
   });
 
   it("emits HAS_LIST from the shipped etype list", () => {

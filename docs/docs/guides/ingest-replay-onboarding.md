@@ -71,7 +71,7 @@ Optional **`etl_batch_id`** on the **v1 envelope root** (next to **`schema_versi
 
 **`INGEST_REQUIRE_IDEMPOTENCY_KEY`** (default **`false`**): when **`true`**, **`POST /v1/events`** returns **`422`** with `reason_codes: ["ingest_idempotency_key_required"]` if the **`Idempotency-Key`** header is missing (high-volume retry safety).
 
-Malformed `event_type` (not in Decision API enum) returns **`422`** with `reason_codes: ["ingest_event_type_invalid"]`.
+Malformed or unknown `event_type` (not on the allow-list) returns **`422`** with `reason_codes: ["ingest_event_type_invalid"]`.
 
 Prometheus: **`ingest_contract_reject_total`** and **`ingest_contract_reject_total_<reason>`**.
 
@@ -105,7 +105,7 @@ Set **`INGEST_DLQ_SUBJECT`** (default **`fraud.dlq.evaluate`**) and **`INGEST_DL
 
 ### Silver export checks
 
-**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** enum, numeric **`amount`**.
+**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** shape (`^[a-z][a-z0-9_]{0,127}$`), numeric **`amount`**.
 
 ## Offline aggregate replay (v1.2)
 

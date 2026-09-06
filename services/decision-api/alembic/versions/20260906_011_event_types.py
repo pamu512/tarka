@@ -1,4 +1,4 @@
-"""observe_notify inbox (P-enf1).
+"""event_types tenant overlay (P-ing1).
 
 Revision ID: 20260906_011
 Revises: 20260905_010
@@ -20,37 +20,37 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "observe_notify",
+        "event_types",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("tenant_id", sa.String(length=128), nullable=False),
-        sa.Column("type", sa.String(length=64), nullable=False),
-        sa.Column("subject_id", sa.String(length=256), nullable=False),
-        sa.Column("title", sa.String(length=240), nullable=False),
-        sa.Column("body", sa.String(length=1000), nullable=False),
-        sa.Column("href", sa.String(length=500), nullable=False),
+        sa.Column("name", sa.String(length=128), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.Column("read_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "tenant_id",
-            "type",
-            "subject_id",
-            name="uq_observe_notify_dedupe",
+            "name",
+            name="uq_event_types_tenant_name",
         ),
     )
     op.create_index(
-        op.f("ix_observe_notify_tenant_id"),
-        "observe_notify",
+        op.f("ix_event_types_tenant_id"),
+        "event_types",
         ["tenant_id"],
         unique=False,
     )
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_observe_notify_tenant_id"), table_name="observe_notify")
-    op.drop_table("observe_notify")
+    op.drop_index(op.f("ix_event_types_tenant_id"), table_name="event_types")
+    op.drop_table("event_types")

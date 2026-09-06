@@ -1079,6 +1079,7 @@ from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
 from decision_api.observe_notify import router as observe_notify_router  # noqa: E402
+from decision_api.event_type_api import router as event_type_router  # noqa: E402
 from decision_api.field_api import router as field_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
 from decision_api.ast_rule_api import router as ast_rules_router  # noqa: E402
@@ -1100,6 +1101,7 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
 
 app.include_router(rule_router)
 app.include_router(field_router)
+app.include_router(event_type_router)
 app.include_router(observe_notify_router)
 app.include_router(ast_rules_router)
 app.include_router(replay_router)
@@ -2230,7 +2232,7 @@ async def _graph_upsert(
     objects, links = build_evaluate_objects(
         trace_id=trace_id,
         entity_id=body.entity_id,
-        event_type=body.event_type.value,
+        event_type=body.event_type,
         payload=payload,
         device_context=dc_dump,
         session_id=body.session_id,
@@ -2261,7 +2263,7 @@ async def _graph_upsert(
         tags: list[str] = []
         if etype == "Person":
             tags = merged_tags
-            props["last_event"] = body.event_type.value
+            props["last_event"] = body.event_type
         elif etype == "Device" and body.device_context:
             tags = device_tags
             props["platform"] = body.device_context.platform
@@ -2298,7 +2300,7 @@ async def _graph_upsert(
                 "relationship": rel,
                 "properties": {
                     "trace_id": trace_id,
-                    "event_type": body.event_type.value,
+                    "event_type": body.event_type,
                 },
             },
             headers=_upstream_headers(),
@@ -2351,7 +2353,7 @@ async def _graph_upsert(
                 "relationship": "SEEN_AT",
                 "properties": {
                     "trace_id": trace_id,
-                    "event_type": body.event_type.value,
+                    "event_type": body.event_type,
                 },
             },
             headers=_upstream_headers(),

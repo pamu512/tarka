@@ -61,7 +61,9 @@ def _use_postgres() -> bool:
     try:
         from desk_provision import observe_notify_store
     except ImportError:
-        return (os.environ.get("TARKA_OBSERVE_NOTIFY_STORE") or "").strip().lower() == "postgres"
+        return (
+            os.environ.get("TARKA_OBSERVE_NOTIFY_STORE") or ""
+        ).strip().lower() == "postgres"
     return observe_notify_store() == "postgres"
 
 
@@ -74,9 +76,8 @@ def _sync_db_url() -> str:
             url = (settings.database_url or "").strip()
         except Exception:
             url = ""
-    return (
-        url.replace("postgresql+asyncpg://", "postgresql://")
-        .replace("sqlite+aiosqlite://", "sqlite://")
+    return url.replace("postgresql+asyncpg://", "postgresql://").replace(
+        "sqlite+aiosqlite://", "sqlite://"
     )
 
 

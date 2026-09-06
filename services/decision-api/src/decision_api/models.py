@@ -252,6 +252,34 @@ class FieldMap(Base):
     )
 
 
+class EventTypeRow(Base):
+    """Tenant overlay event_type name (seed lives in event_types_v1.json)."""
+
+    __tablename__ = "event_types"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "name",
+            name="uq_event_types_tenant_name",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    tenant_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class ObserveNotifyRow(Base):
     """Product observe inbox. Demo may keep observe_notify.jsonl."""
 
