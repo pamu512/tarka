@@ -93,7 +93,9 @@ def test_pack_gte_true_when_share_warm():
 
 
 def test_pipeline_calls_attach_from_env():
-    pipeline = Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
+    pipeline = (
+        Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
+    )
     text = pipeline.read_text(encoding="utf-8")
     assert "attach_count_share_from_env(features)" in text
 
