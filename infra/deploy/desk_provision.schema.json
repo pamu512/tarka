@@ -41,6 +41,13 @@
         "receipt_brief_enabled": { "type": "boolean", "default": false }
       }
     },
+    "observe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto_promote": { "type": "boolean", "default": false }
+      }
+    },
     "shadow_agent": {
       "type": "object",
       "additionalProperties": false,
