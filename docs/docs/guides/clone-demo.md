@@ -10,7 +10,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 make doctor && make demo
 ```
 
-`make demo` is the **demo** skin (first-hour pages). `make product` is the **product** skin: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics, with `infra/deploy/desk_provision.example.json` mounted. Product is not Command Center or sales-only pitch pages. Optional sales-only overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`.
+`make demo` is the **demo** skin (first-hour pages). `make product` is the **product** skin: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics, with `infra/deploy/desk_provision.example.json` mounted. Product is not Command Center or sales-only pitch pages. Optional sales-only overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`. Leftover switches (`flag_mints_leftover`, claim, QA isolate, receipt brief) and the auto-promote **boolean** live in that file (`leftover.*`, `observe.auto_promote`) or `TARKA_*` / `TARKA_AUTO_PROMOTE` (env wins). The per-tenant `tarka.shadow_auto_promote_provision/v1` file on `/ops/shadow` is first-review checkbox + leftover **caps** only — it cannot silently turn auto-promote on when named-desk `observe.auto_promote` is false.
 
 `make doctor` checks Docker Desktop (Compose v2), ports `8000` `8001` `3000` `5432` `6379`, and ~4 GB RAM. Each fail names the fix. Then `make demo` starts Lite + fraud-desk and runs the receipt walk.
 

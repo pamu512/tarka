@@ -9,9 +9,11 @@ from desk_provision import (
     graph_service_url,
     hook_secret,
     hook_url,
+    host_auto_promote,
     hunt_enabled,
     leftover_flag,
     load_desk_provision,
+    observe_auto_promote,
     observe_notify_store,
     shadow_agent_should_start,
 )
@@ -209,3 +211,51 @@ def test_observe_notify_store_product_profile(tmp_path, monkeypatch):
     assert observe_notify_store() == "postgres"
     monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
     assert observe_notify_store() == "file"
+
+
+def test_observe_auto_promote_none_without_file(monkeypatch):
+    monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
+    monkeypatch.delenv("TARKA_AUTO_PROMOTE", raising=False)
+    assert observe_auto_promote() is None
+    assert host_auto_promote(True) is True
+    assert host_auto_promote(False) is False
+
+
+def test_observe_auto_promote_file_key_and_omitted_default(tmp_path, monkeypatch):
+    path = _write(tmp_path, {"schema_id": SCHEMA_ID, "observe": {"auto_promote": True}})
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.delenv("TARKA_AUTO_PROMOTE", raising=False)
+    assert observe_auto_promote() is True
+    path2 = _write(tmp_path, {"schema_id": SCHEMA_ID, "profile": "product"}, name="omit.json")
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path2))
+    assert observe_auto_promote() is False
+    assert host_auto_promote(True) is False
+
+
+def test_observe_auto_promote_env_wins(tmp_path, monkeypatch):
+    path = _write(tmp_path, {"schema_id": SCHEMA_ID, "observe": {"auto_promote": True}})
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.setenv("TARKA_AUTO_PROMOTE", "0")
+    assert observe_auto_promote() is False
+    monkeypatch.setenv("TARKA_AUTO_PROMOTE", "1")
+    assert observe_auto_promote() is True
+    assert host_auto_promote(True) is True
+    assert host_auto_promote(False) is False
+
+
+def test_leftover_flag_ignores_shadow_auto_promote_json(tmp_path, monkeypatch):
+    shadow = tmp_path / "shadow_auto_promote_deadbeef.json"
+    shadow.write_text(
+        json.dumps(
+            {
+                "schema_id": "tarka.shadow_auto_promote_provision/v1",
+                "auto_promote": True,
+                "leftover": {"flag_mints_leftover": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
+    monkeypatch.delenv("TARKA_FLAG_MINTS_LEFTOVER", raising=False)
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    assert leftover_flag("TARKA_FLAG_MINTS_LEFTOVER", "flag_mints_leftover") is False
