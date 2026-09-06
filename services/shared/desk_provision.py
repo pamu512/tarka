@@ -63,6 +63,27 @@ def leftover_flag(env_name: str, provision_key: str) -> bool:
     return bool(leftover.get(provision_key))
 
 
+def observe_auto_promote() -> bool | None:
+    """Named-desk auto-promote gate. None = no desk_provision (file-only first-review)."""
+    raw = _env_raw("TARKA_AUTO_PROMOTE")
+    if raw is not None and raw.strip() != "":
+        return _truthy(raw)
+    data = load_desk_provision()
+    if not data:
+        return None
+    observe = data.get("observe")
+    if isinstance(observe, dict) and "auto_promote" in observe:
+        return bool(observe.get("auto_promote"))
+    return False
+
+
+def host_auto_promote(file_flag: bool) -> bool:
+    """First-review file AND named-desk gate. Named False blocks; None is file-only."""
+    if observe_auto_promote() is False:
+        return False
+    return bool(file_flag)
+
+
 def hunt_enabled() -> bool:
     raw = _env_raw("TARKA_HUNT_ENABLED")
     if raw is not None and raw.strip() != "":
