@@ -43,6 +43,28 @@
       "properties": {
         "start_when_llm_url": { "type": "boolean", "default": true }
       }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enforcement": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string", "default": "" },
+            "secret_env": { "type": "string", "default": "TARKA_ENFORCEMENT_WEBHOOK_SECRET" }
+          }
+        },
+        "observe_notify": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string", "default": "" },
+            "secret_env": { "type": "string", "default": "TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET" }
+          }
+        }
+      }
     }
   }
 }

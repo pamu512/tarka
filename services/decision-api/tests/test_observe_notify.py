@@ -241,3 +241,31 @@ async def test_notify_http_list_and_read(tmp_path, monkeypatch):
         status = await client.get("/v1/ops/byom-status")
         assert status.status_code == 200
         assert status.json()["connected"] is False
+
+
+def test_postgres_store_survives_reopen(tmp_path, monkeypatch):
+    import decision_api.observe_notify as store
+
+    db = tmp_path / "obs.db"
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_STORE", "postgres")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db}")
+    monkeypatch.delenv("TARKA_OBSERVE_NOTIFY_WEBHOOK_URL", raising=False)
+    store._engines.clear()
+    first = emit_observe_event(
+        tenant_id="demo",
+        event_type=EVENT_READY_TO_PROMOTE,
+        subject_id="pack_pg",
+    )
+    assert first["created"] is True
+    store._engines.clear()
+    rows = list_notify("demo")
+    assert len(rows) == 1
+    assert rows[0]["subject_id"] == "pack_pg"
+    marked = mark_read("demo", rows[0]["id"])
+    assert marked["read_at"]
+    dup = emit_observe_event(
+        tenant_id="demo",
+        event_type=EVENT_READY_TO_PROMOTE,
+        subject_id="pack_pg",
+    )
+    assert dup["created"] is False

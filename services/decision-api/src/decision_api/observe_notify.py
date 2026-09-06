@@ -34,10 +34,97 @@ EVENT_CONSIDER_DEMOTE = "consider_demote"
 EVENT_CONSIDER_SUCCESSOR = "consider_successor"
 
 _LOCK = threading.Lock()
+_engines: dict[str, Any] = {}
 
 
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _hook_url() -> str:
+    try:
+        from desk_provision import hook_url
+    except ImportError:
+        return os.environ.get("TARKA_OBSERVE_NOTIFY_WEBHOOK_URL", "").strip()
+    return hook_url("observe_notify")
+
+
+def _hook_secret() -> str:
+    try:
+        from desk_provision import hook_secret
+    except ImportError:
+        return os.environ.get("TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET", "").strip()
+    return hook_secret("observe_notify")
+
+
+def _use_postgres() -> bool:
+    try:
+        from desk_provision import observe_notify_store
+    except ImportError:
+        return (os.environ.get("TARKA_OBSERVE_NOTIFY_STORE") or "").strip().lower() == "postgres"
+    return observe_notify_store() == "postgres"
+
+
+def _sync_db_url() -> str:
+    url = (os.environ.get("DATABASE_URL") or "").strip()
+    if not url:
+        try:
+            from decision_api.config import settings
+
+            url = (settings.database_url or "").strip()
+        except Exception:
+            url = ""
+    return (
+        url.replace("postgresql+asyncpg://", "postgresql://")
+        .replace("sqlite+aiosqlite://", "sqlite://")
+    )
+
+
+def _fmt_ts(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+def _parse_ts(raw: str | None) -> datetime | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    return datetime.fromisoformat(text.replace("Z", "+00:00"))
+
+
+def _row_dict(row: Any) -> dict[str, Any]:
+    return {
+        "id": str(getattr(row, "id", "") or ""),
+        "tenant_id": str(getattr(row, "tenant_id", "") or ""),
+        "type": str(getattr(row, "type", "") or ""),
+        "subject_id": str(getattr(row, "subject_id", "") or ""),
+        "title": str(getattr(row, "title", "") or ""),
+        "body": str(getattr(row, "body", "") or ""),
+        "href": str(getattr(row, "href", "") or ""),
+        "created_at": _fmt_ts(getattr(row, "created_at", None)) or "",
+        "read_at": _fmt_ts(getattr(row, "read_at", None)),
+    }
+
+
+def _pg_session():
+    url = _sync_db_url()
+    if not url:
+        raise RuntimeError("observe_notify postgres store needs DATABASE_URL")
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from decision_api.models import ObserveNotifyRow
+
+    with _LOCK:
+        eng = _engines.get(url)
+        if eng is None:
+            eng = create_engine(url)
+            ObserveNotifyRow.__table__.create(eng, checkfirst=True)
+            _engines[url] = eng
+    return Session(eng), ObserveNotifyRow
 
 
 def notify_path() -> Path:
@@ -116,6 +203,22 @@ def list_notify(tenant_id: str) -> list[dict[str, Any]]:
     tid = (tenant_id or "").strip()
     if not tid:
         return []
+    if _use_postgres():
+        try:
+            session, model = _pg_session()
+            try:
+                rows = (
+                    session.query(model)
+                    .filter(model.tenant_id == tid)
+                    .order_by(model.created_at.desc())
+                    .all()
+                )
+                return [_row_dict(r) for r in rows]
+            finally:
+                session.close()
+        except Exception:
+            log.warning("observe_notify postgres list failed", exc_info=True)
+            return []
     with _LOCK:
         rows = [r for r in _load_rows() if str(r.get("tenant_id") or "") == tid]
     rows.sort(key=lambda r: str(r.get("created_at") or ""), reverse=True)
@@ -128,6 +231,31 @@ def mark_read(tenant_id: str, notify_id: str) -> dict[str, Any]:
     if not tid or not nid:
         return {}
     ts = _now()
+    if _use_postgres():
+        try:
+            session, model = _pg_session()
+            try:
+                try:
+                    rid = uuid.UUID(nid)
+                except ValueError:
+                    return {}
+                row = (
+                    session.query(model)
+                    .filter(model.id == rid, model.tenant_id == tid)
+                    .one_or_none()
+                )
+                if row is None:
+                    return {}
+                if row.read_at is None:
+                    row.read_at = _parse_ts(ts)
+                    session.commit()
+                    session.refresh(row)
+                return _row_dict(row)
+            finally:
+                session.close()
+        except Exception:
+            log.warning("observe_notify postgres mark_read failed", exc_info=True)
+            return {}
     with _LOCK:
         rows = _load_rows()
         found: dict[str, Any] | None = None
@@ -151,7 +279,7 @@ def _sign(body: bytes, secret: str) -> str:
 
 
 def _post_webhook(payload: dict[str, Any], http: Any | None) -> str:
-    url = os.environ.get("TARKA_OBSERVE_NOTIFY_WEBHOOK_URL", "").strip()
+    url = _hook_url()
     if not url:
         return "skipped"
     raw = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
@@ -159,7 +287,7 @@ def _post_webhook(payload: dict[str, Any], http: Any | None) -> str:
         "content-type": "application/json",
         "x-tarka-observe-notify-event": str(payload.get("event") or ""),
     }
-    secret = os.environ.get("TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET", "").strip()
+    secret = _hook_secret()
     if secret:
         headers["x-tarka-signature"] = _sign(raw, secret)
     try:
@@ -192,30 +320,71 @@ def emit_observe_event(
     if not tid or not kind or not sid:
         return {"created": False, "webhook": "skipped"}
     copy = english_copy(kind, sid, draft_id)
-    with _LOCK:
-        rows = _load_rows()
-        for row in rows:
-            if (
-                str(row.get("tenant_id") or "") == tid
-                and str(row.get("type") or "") == kind
-                and str(row.get("subject_id") or "") == sid
-            ):
-                return {"created": False, "webhook": "skipped", "id": row.get("id")}
-        rec = {
-            "id": str(uuid.uuid4()),
-            "tenant_id": tid,
-            "type": kind,
-            "subject_id": sid,
-            "title": copy["title"],
-            "body": copy["body"],
-            "href": copy["href"],
-            "created_at": _now(),
-            "read_at": None,
-        }
-        path = notify_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(rec, sort_keys=True, default=str) + "\n")
+    rec: dict[str, Any]
+    if _use_postgres():
+        try:
+            session, model = _pg_session()
+            try:
+                existing = (
+                    session.query(model)
+                    .filter(
+                        model.tenant_id == tid,
+                        model.type == kind,
+                        model.subject_id == sid,
+                    )
+                    .one_or_none()
+                )
+                if existing is not None:
+                    return {
+                        "created": False,
+                        "webhook": "skipped",
+                        "id": str(existing.id),
+                    }
+                created = _now()
+                row = model(
+                    id=uuid.uuid4(),
+                    tenant_id=tid,
+                    type=kind,
+                    subject_id=sid,
+                    title=copy["title"],
+                    body=copy["body"],
+                    href=copy["href"],
+                    created_at=_parse_ts(created),
+                    read_at=None,
+                )
+                session.add(row)
+                session.commit()
+                rec = _row_dict(row)
+            finally:
+                session.close()
+        except Exception:
+            log.warning("observe_notify postgres emit failed", exc_info=True)
+            return {"created": False, "webhook": "skipped"}
+    else:
+        with _LOCK:
+            rows = _load_rows()
+            for row in rows:
+                if (
+                    str(row.get("tenant_id") or "") == tid
+                    and str(row.get("type") or "") == kind
+                    and str(row.get("subject_id") or "") == sid
+                ):
+                    return {"created": False, "webhook": "skipped", "id": row.get("id")}
+            rec = {
+                "id": str(uuid.uuid4()),
+                "tenant_id": tid,
+                "type": kind,
+                "subject_id": sid,
+                "title": copy["title"],
+                "body": copy["body"],
+                "href": copy["href"],
+                "created_at": _now(),
+                "read_at": None,
+            }
+            path = notify_path()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec, sort_keys=True, default=str) + "\n")
     envelope = {
         "schema_id": NOTIFY_SCHEMA,
         "event": kind,
