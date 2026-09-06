@@ -13,6 +13,9 @@
     "qa_queue_isolates": false,
     "receipt_brief_enabled": false
   },
+  "observe": {
+    "auto_promote": false
+  },
   "shadow_agent": {
     "start_when_llm_url": true
   },
