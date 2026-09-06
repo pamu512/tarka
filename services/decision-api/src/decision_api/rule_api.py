@@ -995,10 +995,20 @@ async def create_scout_pack(
     if body.mode != "shadow":
         raise HTTPException(400, "scout packs must use mode='shadow'")
     from decision_api.json_rules import get_shadow_packs
-    from decision_api.live_rule_slip import slip_draft_would_clobber
+    from decision_api.live_rule_slip import (
+        byo_successor_suggest_enabled,
+        is_slip_successor_suggest,
+        slip_draft_would_clobber,
+    )
 
-    if slip_draft_would_clobber(body.name, None, get_shadow_packs()):
+    if slip_draft_would_clobber(body.name, body.evidence, get_shadow_packs()):
         raise HTTPException(409, "slip_draft_exists")
+
+    if is_slip_successor_suggest(body.name, body.evidence) and not byo_successor_suggest_enabled():
+        raise HTTPException(403, "byo_successor_suggest_off")
+    authored_by = (body.authored_by or "").strip() or "scout_coordinated_burst"
+    if authored_by == "slip_critic":
+        authored_by = "scout_coordinated_burst"
     pack: dict[str, Any] = {
         "version": 1,
         "name": body.name,
@@ -1008,7 +1018,7 @@ async def create_scout_pack(
         "canary_percent": None,
         "effective_at": None,
         "approved_by": None,
-        "authored_by": body.authored_by,
+        "authored_by": authored_by,
         "is_ai_authored": body.is_ai_authored,
         "scout_report_id": body.scout_report_id,
         "evidence": dict(body.evidence) if isinstance(body.evidence, dict) else {},
@@ -1066,14 +1076,14 @@ async def create_scout_pack(
     fpath = _new_pack_path("scout")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
-    actor = _actor_from_headers(x_actor) if x_actor else body.authored_by
+    actor = _actor_from_headers(x_actor) if x_actor else authored_by
     _append_rule_change(
         "create_scout_pack",
         fpath.name,
         actor=actor,
         detail={
             "name": body.name,
-            "authored_by": body.authored_by,
+            "authored_by": authored_by,
             "is_ai_authored": body.is_ai_authored,
             "scout_report_id": body.scout_report_id,
             "rule_count": len(body.rules),
