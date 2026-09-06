@@ -139,7 +139,9 @@ async def test_apply_enforcement_allow_webhook(monkeypatch, tmp_path) -> None:
 
     class _Http:
         async def post(self, url, content=None, headers=None, timeout=None):
-            posts.append({"url": url, "content": content, "headers": dict(headers or {})})
+            posts.append(
+                {"url": url, "content": content, "headers": dict(headers or {})}
+            )
             return _Resp()
 
     out = await apply_enforcement_adapters(
@@ -160,7 +162,6 @@ async def test_apply_enforcement_allow_webhook(monkeypatch, tmp_path) -> None:
     assert body["enforcement_action"] == "allow"
     assert body["score"] == 10.0
     assert "friction_tier" not in body
-
 
 
 def test_schedule_enqueues_enforcement() -> None:

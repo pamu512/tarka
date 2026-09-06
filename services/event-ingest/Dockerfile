@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir pip -U
 COPY services/event-ingest/pyproject.toml /app/
 COPY services/event-ingest/src/event_ingest /app/src/event_ingest
 COPY services/shared /app/shared
+COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app/src:/app/shared
+ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core
 CMD ["uvicorn", "event_ingest.main:app", "--host", "0.0.0.0", "--port", "8007"]

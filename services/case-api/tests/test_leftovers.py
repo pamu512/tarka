@@ -326,9 +326,7 @@ def test_multi_analyst_claim_env_allows_second(case_client, monkeypatch):
         headers=a,
     )
     cid = hold.json()["case_id"]
-    stolen = case_client.post(
-        f"/v1/leftovers/{cid}/claim", params={"tenant_id": "demo"}, headers=b
-    )
+    stolen = case_client.post(f"/v1/leftovers/{cid}/claim", params={"tenant_id": "demo"}, headers=b)
     assert stolen.status_code == 200, stolen.text
     assert stolen.json()["claimed_by"] == "ana-b"
     assert stolen.json()["leftover_id"] == cid
