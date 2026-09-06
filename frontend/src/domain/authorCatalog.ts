@@ -57,7 +57,7 @@ export function featurePickerGroups(
   if ((catalog.computed ?? []).length > 0) {
     groups.push({
       label: "Computed",
-      options: catalog.computed.map((row) => ({ name: row.name })),
+      options: catalog.computed.map((row) => ({ name: row.name, window: undefined })),
     });
   }
   return groups;
