@@ -64,6 +64,22 @@ def test_ai_allow_list_keeps_aliases_and_canonical():
     assert "baseline_ratio" not in allowed
 
 
+def test_catalog_includes_computed_share():
+    cat = build_author_catalog(graph_url="", growth_windows=None)
+    assert cat["computed"] == [
+        {
+            "name": "event_count_1h_share_24h",
+            "explanation": (
+                "event_count_1h / event_count_24h after 24h warmup; omitted when history is thin"
+            ),
+        }
+    ]
+    allowed = ai_allowed_fields(cat)
+    assert "event_count_1h_share_24h" in allowed
+    assert "rate" not in allowed
+    assert "baseline_ratio" not in allowed
+
+
 @pytest.mark.asyncio
 async def test_validate_ai_pack_uses_catalog_allow_list(monkeypatch):
     from decision_api import rule_api

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from baseline_assist import COMPUTED_EXPLANATION, COMPUTED_NAME
 from field_registry import LEGACY_ALIASES, seed_names as _seed_names
 from fraud_aggregates import (
     DEFAULT_FEATURE_OUTPUTS,
@@ -140,13 +141,14 @@ def build_author_catalog(
         "growth": growth,
         "hops": [{"etype": e} for e in CATALOG_HOPS],
         "payload": payload,
+        "computed": [{"name": COMPUTED_NAME, "explanation": COMPUTED_EXPLANATION}],
     }
 
 
 def catalog_field_names(catalog: dict) -> frozenset[str]:
     """redis names + growth names + payload names."""
     names: set[str] = set()
-    for key in ("redis", "growth", "payload"):
+    for key in ("redis", "growth", "payload", "computed"):
         for row in catalog.get(key) or []:
             if isinstance(row, dict) and row.get("name"):
                 names.add(str(row["name"]))

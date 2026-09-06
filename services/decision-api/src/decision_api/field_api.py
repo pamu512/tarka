@@ -117,7 +117,7 @@ async def put_map(
     except FieldRegistryUnknownName as exc:
         raise HTTPException(400, str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        raise HTTPException(400, str(exc)) from exc
     return _map_dict(row)
 
 
