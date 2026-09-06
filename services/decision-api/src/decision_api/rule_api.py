@@ -26,8 +26,8 @@ from decision_api.rule_pack_validation import validate_rule_pack as _validate_ru
 from decision_api.live_rule_slip import maybe_park_live_rule_slip
 from decision_api.shadow_auto_promote import (
     activate_shadow_pack,
-    load_provision,
     maybe_auto_promote_shadow,
+    public_provision,
     save_provision,
 )
 from decision_api.shadow import (
@@ -587,7 +587,7 @@ async def get_shadow_auto_promote_provision(
     tenant_id: str = Query(..., min_length=1, max_length=128),
     _user=Depends(require_role("analyst")),
 ) -> dict[str, Any]:
-    return load_provision(tenant_id)
+    return public_provision(tenant_id)
 
 
 @router.put("/shadow-auto-promote-provision")

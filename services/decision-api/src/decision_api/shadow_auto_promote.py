@@ -54,6 +54,17 @@ def default_provision(tenant_id: str) -> dict[str, Any]:
     }
 
 
+def public_provision(tenant_id: str) -> dict[str, Any]:
+    """GET payload: file caps + host-truth auto_promote (named-desk AND first-review)."""
+    out = dict(load_provision(tenant_id))
+    try:
+        from desk_provision import host_auto_promote
+    except ImportError:
+        return out
+    out["auto_promote"] = host_auto_promote(bool(out.get("auto_promote")))
+    return out
+
+
 def load_provision(tenant_id: str) -> dict[str, Any]:
     empty = default_provision(tenant_id)
     try:
@@ -174,7 +185,13 @@ async def maybe_auto_promote_shadow(tenant_id: str) -> dict[str, Any]:
     """Host tick: activate AI-authored shadow packs when provisioned and gates green."""
     tid = (tenant_id or "").strip()
     provision = load_provision(tid)
-    if not provision.get("auto_promote"):
+    try:
+        from desk_provision import host_auto_promote
+    except ImportError:
+        host_on = bool(provision.get("auto_promote"))
+    else:
+        host_on = host_auto_promote(bool(provision.get("auto_promote")))
+    if not host_on:
         return {
             "auto_promote": False,
             "promoted": [],

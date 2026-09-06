@@ -585,6 +585,134 @@ async def test_tick_promotes_ai_shadow_when_provisioned_and_green(
     )
 
 
+def _write_desk_provision(tmp_path, payload: dict):
+    path = tmp_path / "desk_provision.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+@pytest.mark.asyncio
+async def test_tick_noop_when_named_desk_auto_promote_off(
+    desk_client, tmp_path, monkeypatch
+):
+    from decision_api.json_rules import load_rules
+    from decision_api.shadow_auto_promote import save_provision
+
+    path = _write_desk_provision(
+        tmp_path,
+        {
+            "schema_id": "tarka.desk_provision/v1",
+            "observe": {"auto_promote": False},
+        },
+    )
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.delenv("TARKA_AUTO_PROMOTE", raising=False)
+    _write_shadow_pack(
+        desk_client._rules_dir,
+        name="scout_ai",
+        filename="scout_ai.json",
+        is_ai_authored=True,
+    )
+    load_rules()
+    save_provision(
+        "t1",
+        auto_promote=True,
+        leftover_add_cap=10,
+        leftover_fp_rate_cap=0.4,
+        min_labeled_extras=5,
+        provisioned_by="ops",
+    )
+    _patch_leftover_fetch(monkeypatch, [])
+    _patch_desk_science_green(monkeypatch)
+
+    r = await desk_client.post(
+        "/v1/rules/shadow-packs/auto-promote-tick",
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["auto_promote"] is False
+    assert body["promoted"] == []
+    assert body["reason"] == "not_provisioned"
+    assert (
+        json.loads(
+            (desk_client._rules_dir / "scout_ai.json").read_text(encoding="utf-8")
+        )["mode"]
+        == "shadow"
+    )
+
+
+@pytest.mark.asyncio
+async def test_tick_noop_when_auto_promote_env_off(desk_client, tmp_path, monkeypatch):
+    from decision_api.json_rules import load_rules
+    from decision_api.shadow_auto_promote import save_provision
+
+    monkeypatch.delenv("TARKA_DESK_PROVISION_PATH", raising=False)
+    monkeypatch.setenv("TARKA_AUTO_PROMOTE", "0")
+    _write_shadow_pack(
+        desk_client._rules_dir,
+        name="scout_ai",
+        filename="scout_ai.json",
+        is_ai_authored=True,
+    )
+    load_rules()
+    save_provision(
+        "t1",
+        auto_promote=True,
+        leftover_add_cap=10,
+        leftover_fp_rate_cap=0.4,
+        min_labeled_extras=5,
+        provisioned_by="ops",
+    )
+    _patch_leftover_fetch(monkeypatch, [])
+    _patch_desk_science_green(monkeypatch)
+
+    r = await desk_client.post(
+        "/v1/rules/shadow-packs/auto-promote-tick",
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["auto_promote"] is False
+    assert body["promoted"] == []
+    assert body["reason"] == "not_provisioned"
+
+
+@pytest.mark.asyncio
+async def test_get_auto_promote_is_host_truth_when_named_desk_off(
+    provision_client, tmp_path, monkeypatch
+):
+    path = _write_desk_provision(
+        tmp_path,
+        {
+            "schema_id": "tarka.desk_provision/v1",
+            "observe": {"auto_promote": False},
+        },
+    )
+    monkeypatch.setenv("TARKA_DESK_PROVISION_PATH", str(path))
+    monkeypatch.delenv("TARKA_AUTO_PROMOTE", raising=False)
+    put = await provision_client.put(
+        "/v1/rules/shadow-auto-promote-provision",
+        json={
+            "tenant_id": "t1",
+            "auto_promote": True,
+            "leftover_add_cap": 10,
+            "leftover_fp_rate_cap": 0.4,
+            "min_labeled_extras": 5,
+        },
+        headers={"X-Actor": "ops-lead"},
+    )
+    assert put.status_code == 200, put.text
+    assert put.json()["auto_promote"] is True
+    got = await provision_client.get(
+        "/v1/rules/shadow-auto-promote-provision",
+        params={"tenant_id": "t1"},
+    )
+    assert got.status_code == 200, got.text
+    assert got.json()["auto_promote"] is False
+    assert got.json()["version"] == 1
+
+
 @pytest.mark.asyncio
 async def test_set_mode_active_requires_human_even_when_leftover_sla(
     desk_client, tmp_path, monkeypatch
