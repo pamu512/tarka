@@ -4,7 +4,7 @@ Cases are **residual**: born from evaluate → review / deny, or from Hunt Hold.
 
 The Case API provides persistence, leftover list, audit trail, workflow hooks, WebSocket live feeds, and webhook delivery.
 
-**Port:** 8002  
+**Day-1 URL:** `http://localhost:8000/cases` (in-process on core-api). Standalone `:8002` is `tools/tarka.py dev case-api` only.  
 **Framework:** Python / FastAPI
 
 Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
@@ -15,7 +15,7 @@ Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-a
 
 ```
 GET /v1/leftovers?tenant_id=&free_only=0
-POST /v1/leftovers/{case_id}/claim
+POST /v1/leftovers/{leftover_id}/claim
 GET /v1/leftovers/promote-ack?tenant_id=&draft_id=
 POST /v1/leftovers/promote-ack
 ```
