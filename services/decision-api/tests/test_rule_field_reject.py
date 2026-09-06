@@ -116,3 +116,43 @@ async def test_create_pack_allows_overlay_field_with_tenant_query(rules_client, 
     assert seed_only.status_code == 422
     assert "map it or add a registry row" in str(seed_only.json())
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_add_rule_rejects_unknown_field(rules_client):
+    created = await rules_client.post(
+        "/v1/rules",
+        json={"name": f"addghost_{uuid.uuid4().hex[:8]}", "rules": []},
+    )
+    assert created.status_code == 201
+    filename = created.json()["file"]
+    r = await rules_client.post(
+        f"/v1/rules/{filename}/rules",
+        json={
+            "id": "r_ghost",
+            "when": [{"field": "not_a_field", "op": "eq", "value": 1}],
+            "score_delta": 5,
+        },
+    )
+    assert r.status_code == 422
+    assert "map it or add a registry row" in str(r.json())
+
+
+@pytest.mark.asyncio
+async def test_add_rule_allows_legacy_alias(rules_client):
+    created = await rules_client.post(
+        "/v1/rules",
+        json={"name": f"addtx_{uuid.uuid4().hex[:8]}", "rules": []},
+    )
+    assert created.status_code == 201
+    filename = created.json()["file"]
+    r = await rules_client.post(
+        f"/v1/rules/{filename}/rules",
+        json={
+            "id": "r_tx",
+            "when": [{"field": "tx_count_1h", "op": "gte", "value": 3}],
+            "score_delta": 5,
+        },
+    )
+    assert r.status_code == 200
+    assert r.json().get("added") == "r_tx"

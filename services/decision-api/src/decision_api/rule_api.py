@@ -838,6 +838,7 @@ async def delete_rule_pack(
 async def add_rule(
     filename: str,
     body: RuleIn,
+    tenant_id: str | None = Query(default=None),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     x_rule_governance_secret: str | None = Header(
         default=None, alias="X-Rule-Governance-Secret"
@@ -848,6 +849,12 @@ async def add_rule(
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     if not body.id:
         body.id = f"rule_{uuid.uuid4().hex[:8]}"
+    candidate = {"rules": [_rule_to_dict(body)]}
+    ferr = when_field_errors(
+        candidate, ai_allowed_fields(await _live_author_catalog(tenant_id))
+    )
+    if ferr:
+        raise HTTPException(422, detail={"validation_errors": ferr})
     pack.setdefault("rules", []).append(_rule_to_dict(body))
     pack["mode"] = "shadow"
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
