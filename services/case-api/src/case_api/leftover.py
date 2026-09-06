@@ -1,5 +1,6 @@
 """Leftover predicate — open Hold / evaluate-mint cases with a Person id."""
 
+import os
 from datetime import UTC, datetime
 
 
@@ -74,8 +75,9 @@ def leftover_brief(labels: list[str] | None, brief_comment: str | None = None) -
 
 def leftover_row(case, *, sla_breached: bool, brief_comment: str | None = None) -> dict:
     labs = getattr(case, "labels", None)
-    return {
-        "case_id": str(case.id),
+    brief = leftover_brief(labs, brief_comment)
+    row = {
+        "leftover_id": str(case.id),
         "entity_id": case.entity_id,
         "origin": leftover_origin(labs),
         "last_outcome": getattr(case, "last_outcome", None),
@@ -85,8 +87,32 @@ def leftover_row(case, *, sla_breached: bool, brief_comment: str | None = None) 
         "trace_id": getattr(case, "trace_id", "") or "",
         "pack_id": leftover_pack_id(labs),
         "rule_hits": leftover_rule_hits(labs),
-        "brief": leftover_brief(labs, brief_comment),
+        "brief": brief,
     }
+    if receipt_brief_enabled():
+        row["receipt_brief"] = brief
+    return row
+
+
+def _env_on(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def multi_analyst_claim_enabled() -> bool:
+    return _env_on("TARKA_MULTI_ANALYST_CLAIM")
+
+
+def qa_queue_isolates() -> bool:
+    return _env_on("TARKA_QA_QUEUE_ISOLATES")
+
+
+def receipt_brief_enabled() -> bool:
+    return _env_on("TARKA_RECEIPT_BRIEF")
+
+
+def is_qa_pending(case) -> bool:
+    labs = {str(x) for x in (getattr(case, "labels", None) or [])}
+    return "qa:pending" in labs
 
 
 def actor_from_request(request, user_id: str) -> str:
@@ -96,6 +122,8 @@ def actor_from_request(request, user_id: str) -> str:
 
 
 def claimed_by_other(case, actor: str) -> str | None:
+    if multi_analyst_claim_enabled():
+        return None
     other = str(getattr(case, "claimed_by", None) or "").strip()
     if other and other != actor:
         return other

@@ -91,6 +91,8 @@ from .leftover import (
     clear_claim,
     is_leftover,
     leftover_row,
+    is_qa_pending,
+    qa_queue_isolates,
 )
 from .schemas import CaseOut, CommentIn, CreateCaseRequest, LabelsIn, ObjectActRequest
 from .template_apply import (
@@ -712,6 +714,8 @@ async def list_leftovers(
     )
     rows = list((await session.execute(q)).scalars().all())
     leftovers = [c for c in rows if is_leftover(c)]
+    if qa_queue_isolates():
+        leftovers = [c for c in leftovers if not is_qa_pending(c)]
     if free_only:
         leftovers = [c for c in leftovers if not str(c.claimed_by or "").strip()]
     truncated = len(leftovers) > 100
@@ -747,7 +751,10 @@ async def _leftovers_for_tenant(session: AsyncSession, tenant_id: str) -> list[C
         .order_by(Case.updated_at.desc())
     )
     rows = list((await session.execute(q)).scalars().all())
-    return [c for c in rows if is_leftover(c)]
+    leftovers = [c for c in rows if is_leftover(c)]
+    if qa_queue_isolates():
+        leftovers = [c for c in leftovers if not is_qa_pending(c)]
+    return leftovers
 
 
 def _leftover_claimers(leftovers: list[Case]) -> list[str]:
@@ -837,16 +844,16 @@ async def post_leftover_promote_ack(
     }
 
 
-@app.post("/v1/leftovers/{case_id}/claim")
+@app.post("/v1/leftovers/{leftover_id}/claim")
 async def claim_leftover(
-    case_id: uuid.UUID,
+    leftover_id: uuid.UUID,
     request: Request,
     tenant_id: str,
     session: AsyncSession = Depends(get_session),
     _=Depends(require_role_or_insecure_desk("analyst")),
 ):
     actor = _actor_id(request)
-    case = await _case_for_tenant(session, case_id, tenant_id)
+    case = await _case_for_tenant(session, leftover_id, tenant_id)
     if not is_leftover(case):
         raise HTTPException(status_code=404, detail="not a leftover")
     other = claimed_by_other(case, actor)

@@ -2561,10 +2561,10 @@ export function omniSearch(params: { q: string; tenant_id?: string | null }, sig
 // ── Cases (case-api :8002) ──────────────────────────────────────────
 
 export type LeftoverRow = {
-  case_id: string;
+  leftover_id: string;
   entity_id: string;
   origin: "hold" | "evaluate" | "both";
-  last_outcome: "deny" | "review" | null;
+  last_outcome: "deny" | "review" | "flag" | null;
   last_act: "held" | "released" | "resolved" | null;
   claimed_by: string | null;
   sla_breached: boolean;
@@ -2572,6 +2572,7 @@ export type LeftoverRow = {
   pack_id?: string;
   rule_hits?: string[];
   brief?: string;
+  receipt_brief?: string;
 };
 
 export function deskActor(): string {
@@ -2609,9 +2610,9 @@ export const cases = {
     return request<{ leftovers: LeftoverRow[]; truncated: boolean }>(`/api/cases/v1/leftovers?${q}`);
   },
 
-  claimLeftover(caseId: string, tenantId: string) {
+  claimLeftover(leftoverId: string, tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
-    return request<LeftoverRow>(`/api/cases/v1/leftovers/${encodeURIComponent(caseId)}/claim?${q}`, {
+    return request<LeftoverRow>(`/api/cases/v1/leftovers/${encodeURIComponent(leftoverId)}/claim?${q}`, {
       method: "POST",
       headers: { "X-Actor-Id": deskActor() },
     });

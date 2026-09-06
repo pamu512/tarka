@@ -35,10 +35,10 @@ export default function Leftovers() {
 
   async function workRow(row: LeftoverRow) {
     if (row.claimed_by) return;
-    setBusyId(row.case_id);
+    setBusyId(row.leftover_id);
     setErr("");
     try {
-      await cases.claimLeftover(row.case_id, tenantId || "demo");
+      await cases.claimLeftover(row.leftover_id, tenantId || "demo");
       navigate(`/graph?${leftoverHuntSearch({ ...row, tenant_id: tenantId || "demo" })}`);
     } catch (e) {
       setErr(toUserFacingError(e, { subject: "Leftover", action: "claim this leftover" }));
@@ -87,14 +87,14 @@ export default function Leftovers() {
             {rows.map((row) => {
               const taken = Boolean(row.claimed_by);
               return (
-                <tr key={row.case_id} className="border-t border-surface-800">
+                <tr key={row.leftover_id} className="border-t border-surface-800">
                   <td className="px-3 py-2 font-mono text-gray-200">
                     {taken ? (
                       row.entity_id
                     ) : (
                       <button
                         type="button"
-                        disabled={busyId === row.case_id}
+                        disabled={busyId === row.leftover_id}
                         aria-label={`Work ${row.entity_id}`}
                         onClick={() => void workRow(row)}
                         className="text-brand-300 hover:underline disabled:opacity-50"

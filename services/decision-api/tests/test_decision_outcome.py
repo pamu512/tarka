@@ -161,7 +161,7 @@ def test_allow_does_not_create_case():
 
 
 def test_flag_does_not_create_case():
-    """flag is residual signal — it must never mint a leftover."""
+    """flag is residual — default does not mint a leftover."""
     bg = _Bg()
 
     async def _noop(*_a, **_k):
@@ -191,6 +191,37 @@ def test_flag_does_not_create_case():
     assert not any(
         "maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks
     )
+
+
+def test_flag_mints_leftover_when_env_on():
+    bg = _Bg()
+
+    async def _noop(*_a, **_k):
+        return None
+
+    schedule_decision_outcomes(
+        bg,
+        ctx=DecisionOutcomeContext(
+            trace_id="t-flag-on",
+            tenant_id="ten",
+            entity_id="e-flag",
+            event_type="payment",
+            decision="flag",
+            score=40.0,
+            tags=[],
+        ),
+        http=object(),
+        app_state=object(),
+        emit_decision_log=_noop,
+        maybe_dispatch_challenge_webhook=_noop,
+        broadcast_decision=_noop,
+        publish_decision=_noop,
+        metrics_inc=lambda name, **_k: None,
+        case_create_on_deny_review=True,
+        flag_mints_leftover=True,
+        case_api_url="http://case.test",
+    )
+    assert any("maybe_create_case" in getattr(t[0], "__name__", "") for t in bg.tasks)
 
 
 def test_maybe_create_case_sends_origin_evaluate_and_last_outcome():

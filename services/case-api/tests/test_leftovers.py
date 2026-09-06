@@ -4,7 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from case_api.leftover import is_leftover, leftover_brief, leftover_origin, leftover_row
+from case_api.leftover import (
+    claimed_by_other,
+    is_leftover,
+    is_qa_pending,
+    leftover_brief,
+    leftover_origin,
+    leftover_row,
+)
 from case_api.workflow import WorkflowContext
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
@@ -63,6 +70,8 @@ def test_leftover_row_reads_pack_and_hits_from_labels():
         ),
         sla_breached=False,
     )
+    assert row["leftover_id"] == "c1"
+    assert "case_id" not in row
     assert row["pack_id"] == "device_signals"
     assert row["rule_hits"] == ["sdk_bot"]
     assert row["trace_id"] == "tr"
@@ -127,6 +136,8 @@ def test_evaluate_mint_is_leftover_flag_and_blank_are_not(case_client):
     e1 = next(r for r in body["leftovers"] if r["entity_id"] == "e1")
     assert e1["origin"] == "evaluate"
     assert e1["last_outcome"] == "deny"
+    assert e1["leftover_id"]
+    assert "case_id" not in e1
 
 
 def test_claim_same_actor_noop_other_actor_409(case_client, monkeypatch):
@@ -274,3 +285,83 @@ def test_promote_ack_blank_draft_id_400(case_client, monkeypatch):
         headers=a,
     )
     assert blank.status_code == 400
+
+
+def test_claimed_by_other_respects_multi_env(monkeypatch):
+    case = _case(claimed_by="ana-a")
+    monkeypatch.delenv("TARKA_MULTI_ANALYST_CLAIM", raising=False)
+    assert claimed_by_other(case, "ana-b") == "ana-a"
+    monkeypatch.setenv("TARKA_MULTI_ANALYST_CLAIM", "1")
+    assert claimed_by_other(case, "ana-b") is None
+
+
+def test_is_qa_pending():
+    assert is_qa_pending(_case(labels=["origin:evaluate", "qa:pending"])) is True
+    assert is_qa_pending(_case(labels=["origin:evaluate"])) is False
+
+
+def test_receipt_brief_only_when_env_on(monkeypatch):
+    monkeypatch.delenv("TARKA_RECEIPT_BRIEF", raising=False)
+    row = leftover_row(
+        _case(id="c1", labels=["origin:evaluate", "pack:device_signals"]),
+        sla_breached=False,
+    )
+    assert "receipt_brief" not in row
+    monkeypatch.setenv("TARKA_RECEIPT_BRIEF", "1")
+    hot = leftover_row(
+        _case(id="c1", labels=["origin:evaluate", "pack:device_signals"]),
+        sla_breached=False,
+    )
+    assert hot["receipt_brief"] == "Pack device_signals"
+
+
+def test_multi_analyst_claim_env_allows_second(case_client, monkeypatch):
+    monkeypatch.setattr("case_api.main._maybe_record_human_disposition_decision", lambda **_k: None)
+    monkeypatch.setenv("TARKA_MULTI_ANALYST_CLAIM", "1")
+    a = {**_api_headers(), "X-Actor-Id": "ana-a"}
+    b = {**_api_headers(), "X-Actor-Id": "ana-b"}
+    hold = case_client.post(
+        "/v1/entities/buyer-multi/act",
+        json={"tenant_id": "demo", "action": "hold"},
+        headers=a,
+    )
+    cid = hold.json()["case_id"]
+    stolen = case_client.post(f"/v1/leftovers/{cid}/claim", params={"tenant_id": "demo"}, headers=b)
+    assert stolen.status_code == 200, stolen.text
+    assert stolen.json()["claimed_by"] == "ana-b"
+    assert stolen.json()["leftover_id"] == cid
+
+
+def test_qa_pending_hidden_when_isolate_on(case_client, monkeypatch):
+    monkeypatch.setenv("TARKA_QA_QUEUE_ISOLATES", "1")
+    ev = case_client.post(
+        "/v1/cases",
+        json={
+            "tenant_id": "demo",
+            "title": "QA leftover",
+            "entity_id": "e-qa",
+            "trace_id": "tr-qa",
+            "labels": ["origin:evaluate", "qa:pending"],
+            "last_outcome": "deny",
+        },
+        headers=_api_headers(),
+    )
+    assert ev.status_code == 201, ev.text
+    keep = case_client.post(
+        "/v1/cases",
+        json={
+            "tenant_id": "demo",
+            "title": "open leftover",
+            "entity_id": "e-keep",
+            "trace_id": "tr-keep",
+            "labels": ["origin:evaluate"],
+            "last_outcome": "deny",
+        },
+        headers=_api_headers(),
+    )
+    assert keep.status_code == 201, keep.text
+    rows = case_client.get("/v1/leftovers", params={"tenant_id": "demo"}, headers=_api_headers())
+    assert rows.status_code == 200, rows.text
+    ids = {r["entity_id"] for r in rows.json()["leftovers"]}
+    assert "e-keep" in ids
+    assert "e-qa" not in ids
