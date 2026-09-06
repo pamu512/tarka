@@ -33,6 +33,24 @@ def client(mock_js):
                 yield c
 
 
+def test_parse_refund_rejected_by_default():
+    with pytest.raises(IngestContractError) as exc:
+        parse_ingest_event_body(
+            {"tenant_id": "t", "entity_id": "e", "event_type": "refund", "payload": {}},
+            envelope_mode="optional",
+        )
+    assert "ingest_event_type_invalid" in exc.value.reason_codes
+
+
+def test_parse_refund_allowed_via_env(monkeypatch):
+    monkeypatch.setenv("TARKA_EVENT_TYPES", "refund")
+    out = parse_ingest_event_body(
+        {"tenant_id": "t", "entity_id": "e", "event_type": "refund", "payload": {}},
+        envelope_mode="optional",
+    )
+    assert out["event_type"] == "refund"
+
+
 def test_parse_invalid_event_type():
     with pytest.raises(IngestContractError) as exc:
         parse_ingest_event_body(

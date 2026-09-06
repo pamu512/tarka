@@ -28,8 +28,10 @@ export function parseHopEtype(catalog: AuthorCatalog, ...raw: Array<string | nul
   const allowed = hopSet(catalog);
   for (const value of tokens(...raw)) {
     if (SKIP_HOP_RAW.has(value)) continue;
-    const etype = value.startsWith("has_etype:") ? value.slice("has_etype:".length) : value;
-    if (allowed.has(etype)) return etype;
+    for (const part of value.split("+")) {
+      const token = part.startsWith("has_etype:") ? part.slice("has_etype:".length) : part;
+      if (allowed.has(token)) return token;
+    }
   }
   return null;
 }

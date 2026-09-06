@@ -1,13 +1,16 @@
 from author_catalog import IDENTITY_FIELDS, PAYLOAD_FIELDS
+from baseline_assist import COMPUTED_NAME
 from field_registry import (
     apply_field_maps,
     discover_payload,
-    load_seed_rows,
     merge_registry_rows,
     seed_names,
     validate_registry_name,
 )
-from fraud_aggregates import _bundled_manifest_feature_outputs, valid_feature_output_rows
+from fraud_aggregates import (
+    _bundled_manifest_feature_outputs,
+    valid_feature_output_rows,
+)
 
 
 def test_seed_has_core_names_not_growth_or_hops():
@@ -17,10 +20,14 @@ def test_seed_has_core_names_not_growth_or_hops():
     assert "amount" in names
     assert "relation_growth_1h" not in names
     assert "USES_DEVICE" not in names
+    assert COMPUTED_NAME not in names
 
 
 def test_seed_covers_manifest_payload_identity():
-    manifest = {r["name"] for r in valid_feature_output_rows(_bundled_manifest_feature_outputs())}
+    manifest = {
+        r["name"]
+        for r in valid_feature_output_rows(_bundled_manifest_feature_outputs())
+    }
     assert manifest <= seed_names()
     assert set(PAYLOAD_FIELDS) <= seed_names()
     assert set(IDENTITY_FIELDS) <= seed_names()
@@ -42,6 +49,14 @@ def test_validate_rejects_legacy_distinct_aliases():
         except ValueError:
             continue
         raise AssertionError(bad)
+
+
+def test_validate_rejects_computed_assist_name():
+    try:
+        validate_registry_name(COMPUTED_NAME)
+    except ValueError:
+        return
+    raise AssertionError(COMPUTED_NAME)
 
 
 def test_apply_maps_fills_amount_without_clobber():
@@ -71,13 +86,21 @@ def test_discover_splits_named_mapped_candidates():
     )
     assert d["already_named"] == ["amount"]
     assert d["mapped"] == [{"buyer_key": "txn_amt", "registry_name": "amount"}]
-    assert d["candidates"] == [{"buyer_key": "order_channel", "suggested_source": "new_feature"}]
+    assert d["candidates"] == [
+        {"buyer_key": "order_channel", "suggested_source": "new_feature"}
+    ]
 
 
 def test_merge_overlay_wins_same_name():
     merged = merge_registry_rows(
         seed=[{"name": "amount", "explanation": "seed", "source": "tarka_core"}],
-        overlay=[{"name": "order_channel", "explanation": "who sold", "source": "new_feature"}],
+        overlay=[
+            {
+                "name": "order_channel",
+                "explanation": "who sold",
+                "source": "new_feature",
+            }
+        ],
     )
     names = {r["name"] for r in merged}
     assert names == {"amount", "order_channel"}

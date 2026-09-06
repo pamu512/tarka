@@ -18,8 +18,11 @@ export type VelocitySentence = {
   value: number;
 };
 
+export type HopKind = "share" | "trust";
+
 export type HopSentence = {
   etype: (typeof HOP_ETYPES)[number];
+  kind?: HopKind;
 };
 
 export function emitVelocityPack(s: VelocitySentence): Record<string, unknown> {
@@ -40,19 +43,53 @@ export function emitVelocityPack(s: VelocitySentence): Record<string, unknown> {
   };
 }
 
+function trustWhenAst(etype: string) {
+  return {
+    type: "and",
+    children: [
+      { type: "graph_v1", atom: "has_etype", etype },
+      {
+        type: "or",
+        children: [
+          { type: "graph_v1", atom: "has_multi_id" },
+          { type: "graph_v1", atom: "sibling_prior_flag" },
+        ],
+      },
+    ],
+  };
+}
+
 export function emitHopPack(s: HopSentence): Record<string, unknown> {
   const etype = HOP_ETYPES.includes(s.etype) ? s.etype : "USES_DEVICE";
+  const kind: HopKind = s.kind === "trust" ? "trust" : "share";
+  const slug = `desk_hop_${etype.toLowerCase()}${kind === "trust" ? "_trust" : ""}`;
+  if (kind === "trust") {
+    return {
+      version: 1,
+      name: slug,
+      mode: "shadow",
+      rules: [
+        {
+          id: slug,
+          when_ast: trustWhenAst(etype),
+          score_delta: 18,
+          tags: ["FLAG", `graph:has_etype:${etype}`],
+          description: `FLAG when this person shares ${etype} and a sibling already FLAGged`,
+        },
+      ],
+    };
+  }
   return {
     version: 1,
-    name: `desk_hop_${etype.toLowerCase()}`,
+    name: slug,
     mode: "shadow",
     rules: [
       {
-        id: `desk_hop_${etype.toLowerCase()}`,
+        id: slug,
         when_ast: { type: "graph_v1", atom: "has_etype", etype },
         score_delta: 18,
-        tags: ["FLAG", `graph:has_etype:${etype}`],
-        description: `FLAG when this person shares ${etype}`,
+        tags: [`graph:has_etype:${etype}`],
+        description: `When this person shares ${etype}`,
       },
     ],
   };
