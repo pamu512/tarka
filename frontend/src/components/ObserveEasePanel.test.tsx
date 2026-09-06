@@ -62,4 +62,32 @@ describe("ObserveEasePanel", () => {
       expect(client.shadow.setPackMode).toHaveBeenCalledWith("draft_a.json", "shadow");
     });
   });
+
+  it("successor copy says human owns Promote", async () => {
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="demo"
+          drafts={[{ name: "byo_succ", file: "byo_succ.json", is_ai_authored: true }]}
+          promoteAllowed={false}
+          blockers={[]}
+          slipRules={[
+            {
+              rule_id: "r1",
+              hypothesis: "successor",
+              parked_draft: "byo_succ",
+            },
+          ]}
+          selectedDraft="byo_succ"
+          onSelectDraft={() => {}}
+          onPromote={() => {}}
+          canPromote={false}
+        />,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/model suggested successor — you own Promote/i)).toBeTruthy();
+    });
+  });
 });
