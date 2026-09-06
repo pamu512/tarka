@@ -2,7 +2,6 @@ from author_catalog import IDENTITY_FIELDS, PAYLOAD_FIELDS
 from field_registry import (
     apply_field_maps,
     discover_payload,
-    load_seed_rows,
     merge_registry_rows,
     seed_names,
     validate_registry_name,

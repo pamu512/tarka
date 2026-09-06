@@ -30,7 +30,13 @@ async def session():
 
 
 def test_pipeline_source_remaps_after_replay():
-    text = Path("services/decision-api/src/decision_api/evaluate/pipeline.py").read_text()
+    text = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "decision_api"
+        / "evaluate"
+        / "pipeline.py"
+    ).read_text(encoding="utf-8")
     assert "apply_field_maps" in text
     assert text.index("check_and_store_replay_signature") < text.index("apply_field_maps")
 
