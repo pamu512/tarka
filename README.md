@@ -24,7 +24,7 @@ P0: webhooks and product observe-notify are in `desk_provision.json` (empty URL 
 
 Open the printed `NEXT:` link (Hunt with that person when graph is on). Receipts stay at `/decisions`. Observe is `/ops/shadow`.
 
-Same scripts: `bash scripts/oss/up_desk.sh` (demo) or `bash scripts/oss/up_product.sh` (product). What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Same scripts: `bash scripts/oss/up_desk.sh` (demo) or `bash scripts/oss/up_product.sh` (product). What you are looking at: [clone-and-run desk](docs/docs/guides/clone-demo.md). Product Day-1 (provision, hooks, Helm vs desk): [product Day-1 install](docs/docs/guides/product-day1-install.md). Deeper path: [15-minute first decision](docs/docs/guides/oss-15-minute-first-decision.md). Profiles: [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
 
