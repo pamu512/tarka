@@ -47,11 +47,7 @@ async def client():
 
 
 def test_maps_and_discover_registered_before_name():
-    paths = [
-        r.path
-        for r in field_router.routes
-        if isinstance(r, APIRoute)
-    ]
+    paths = [r.path for r in field_router.routes if isinstance(r, APIRoute)]
     assert paths.index("/v1/fields/maps") < paths.index("/v1/fields/{name}")
     assert paths.index("/v1/fields/discover") < paths.index("/v1/fields/{name}")
 
@@ -61,6 +57,15 @@ async def test_maps_route_not_captured_as_name(client):
     r = await client.get("/v1/fields/maps", params={"tenant_id": "t1"})
     assert r.status_code == 200
     assert r.json() == []
+
+
+@pytest.mark.asyncio
+async def test_list_fields_excludes_computed_share(client):
+    r = await client.get("/v1/fields", params={"tenant_id": "t1"})
+    assert r.status_code == 200
+    names = {row["name"] for row in r.json()}
+    assert "amount" in names
+    assert "event_count_1h_share_24h" not in names
 
 
 @pytest.mark.asyncio
@@ -260,3 +265,22 @@ async def test_put_legacy_distinct_alias_400(client):
         params={"tenant_id": "t1"},
     )
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_put_overlay_and_map_reject_computed_name(client):
+    r = await client.put(
+        "/v1/fields/event_count_1h_share_24h",
+        json={"explanation": "nope", "source": "new_feature"},
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code == 400
+    m = await client.put(
+        "/v1/fields/maps",
+        json={
+            "tenant_id": "t1",
+            "buyer_key": "x",
+            "registry_name": "event_count_1h_share_24h",
+        },
+    )
+    assert m.status_code == 400

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from .ingest_contract import VALID_EVENT_TYPES
+from tarka_shared.ingest_contract_v1 import allowed_event_types, parse_env_event_types
 
 _TENANT_KEYS = ("tenant_id", "tenantId")
 _ENTITY_KEYS = ("entity_id", "entityId", "user_id", "userId", "customer_id", "customerId")
@@ -30,7 +31,11 @@ def heuristic_map_to_evaluate_request(body: dict[str, Any]) -> dict[str, Any] | 
     if not isinstance(payload, dict):
         payload = {k: v for k, v in body.items() if k not in _SKIP}
     meta = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
-    if event_type not in VALID_EVENT_TYPES:
+    allowed = allowed_event_types(
+        None,
+        parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
+    )
+    if event_type not in allowed:
         return None
     return {
         "tenant_id": tenant,
