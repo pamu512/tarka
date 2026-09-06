@@ -1,4 +1,5 @@
 from author_catalog import IDENTITY_FIELDS, PAYLOAD_FIELDS
+from baseline_assist import COMPUTED_NAME
 from field_registry import (
     apply_field_maps,
     discover_payload,
@@ -19,6 +20,7 @@ def test_seed_has_core_names_not_growth_or_hops():
     assert "amount" in names
     assert "relation_growth_1h" not in names
     assert "USES_DEVICE" not in names
+    assert COMPUTED_NAME not in names
 
 
 def test_seed_covers_manifest_payload_identity():
@@ -47,6 +49,14 @@ def test_validate_rejects_legacy_distinct_aliases():
         except ValueError:
             continue
         raise AssertionError(bad)
+
+
+def test_validate_rejects_computed_assist_name():
+    try:
+        validate_registry_name(COMPUTED_NAME)
+    except ValueError:
+        return
+    raise AssertionError(COMPUTED_NAME)
 
 
 def test_apply_maps_fills_amount_without_clobber():

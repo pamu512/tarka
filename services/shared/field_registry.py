@@ -7,6 +7,8 @@ import logging
 import re
 from pathlib import Path
 
+from baseline_assist import COMPUTED_NAME
+
 log = logging.getLogger(__name__)
 
 REGISTRY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
@@ -28,8 +30,8 @@ def validate_registry_name(name: str) -> str:
     stripped = name.strip()
     if not stripped:
         raise ValueError("registry name must not be empty")
-    if stripped in LEGACY_ALIASES or stripped.startswith("tx_"):
-        raise ValueError(f"registry name must not be a legacy alias: {stripped!r}")
+    if stripped in LEGACY_ALIASES or stripped == COMPUTED_NAME or stripped.startswith("tx_"):
+        raise ValueError(f"registry name must not be a reserved name: {stripped!r}")
     if not REGISTRY_NAME_RE.fullmatch(stripped):
         raise ValueError(f"invalid registry name: {stripped!r}")
     return stripped

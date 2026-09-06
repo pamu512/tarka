@@ -13,11 +13,14 @@ export type AuthorCatalogGrowth = {
   threshold: number;
 };
 
+export type AuthorCatalogComputed = { name: string; explanation: string };
+
 export type AuthorCatalog = {
   redis: AuthorCatalogRedis[];
   growth: AuthorCatalogGrowth[];
   hops: Array<{ etype: string }>;
   payload: Array<{ name: string }>;
+  computed: AuthorCatalogComputed[];
 };
 
 export const CATALOG_HOPS = ["USES_DEVICE", "HAS_EMAIL", "HAS_PHONE", "HAS_CARD", "HAS_LIST"] as const;
@@ -27,6 +30,7 @@ export function catalogFieldNames(c: AuthorCatalog): Set<string> {
   for (const row of c.redis) names.add(row.name);
   for (const row of c.growth) names.add(row.name);
   for (const row of c.payload) names.add(row.name);
+  for (const row of c.computed ?? []) names.add(row.name);
   return names;
 }
 
@@ -50,6 +54,12 @@ export function featurePickerGroups(
       options: catalog.growth.map((g) => ({ name: g.name, window: g.window })),
     });
   }
+  if ((catalog.computed ?? []).length > 0) {
+    groups.push({
+      label: "Computed",
+      options: catalog.computed.map((row) => ({ name: row.name, window: undefined })),
+    });
+  }
   return groups;
 }
 
@@ -60,6 +70,9 @@ export function rulesPickerGroups(catalog: AuthorCatalog): { category: string; f
   ];
   if (catalog.growth.length > 0) {
     groups.push({ category: "Growth", fields: catalog.growth.map((g) => g.name) });
+  }
+  if ((catalog.computed ?? []).length > 0) {
+    groups.push({ category: "Computed", fields: catalog.computed.map((row) => row.name) });
   }
   return groups.filter((g) => g.fields.length > 0);
 }
