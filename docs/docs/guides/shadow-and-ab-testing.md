@@ -2,7 +2,7 @@
 
 Tarka separates **live decisions** from **observe-only evaluate** and offline simulation. In this guide, **shadow mode** means **Observe** — evaluate with no live side effects — not the LLM sidecar (Advise).
 
-Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). The leftover card is leftover **cost** + leftover-extra **helpfulness**. **Live rule slip** names a live `rule_id` when fire-rate or hit-mix shifts; a host shadow parks only when exactly one of retire / successor has support. GET `shadow-promote-gate` does not write packs. Promote does not strip the live rule. Scout cannot clobber a slip draft (`409 slip_draft_exists`).
+Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). The leftover card is leftover **cost** + leftover-extra **helpfulness**. **Live rule slip** names a live `rule_id` when fire-rate or hit-mix shifts; a host shadow parks only when exactly one of retire / successor has support. GET `shadow-promote-gate` does not write packs. Promote does not strip the live rule. Scout cannot clobber a slip draft (`409 slip_draft_exists`). Host auto-promote needs both first-review PUT (`auto_promote` on `tarka.shadow_auto_promote_provision/v1`) and named-desk `observe.auto_promote` / `TARKA_AUTO_PROMOTE`. Leftover FLAG mint / multi-claim / QA isolate / receipt brief are `desk_provision.leftover.*` or `TARKA_*` — not keys on that shadow JSON. Caps (`leftover_add_cap` and peers) stay on the first-review file.
 
 - **Live:** `POST /v1/decisions/evaluate` — production side effects when not marked observe.
 - **Observe (named contract):** same evaluate path with `metadata.shadow: true` — full scoring + audit, **non-mutating** side effects.
