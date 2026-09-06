@@ -60,6 +60,14 @@ async def test_upsert_overlay_tx_prefix_rejected(session):
 
 
 @pytest.mark.asyncio
+async def test_upsert_overlay_rejects_tarka_core_source(session):
+    with pytest.raises(ValueError, match="tarka_core"):
+        await upsert_overlay(
+            session, "acme", "order_channel", "who sold", "tarka_core"
+        )
+
+
+@pytest.mark.asyncio
 async def test_upsert_map_txn_amt_to_amount(session):
     row = await upsert_map(session, "acme", "txn_amt", "amount")
     assert row.buyer_key == "txn_amt"

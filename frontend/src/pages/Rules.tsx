@@ -431,7 +431,7 @@ export default function Rules() {
     if (!name) return;
     setCreating(true);
     try {
-      await rulesApi.create({ name, rules: [], tag_rules: [] });
+      await rulesApi.create({ name, rules: [], tag_rules: [] }, sandboxTenantDefault);
       await rulesApi.reload();
       await fetchPacks();
       setShowCreateModal(false);
@@ -472,7 +472,7 @@ export default function Rules() {
         name: editingPack.name,
         rules: editingPack.rules,
         tag_rules: editingPack.tag_rules ?? [],
-      });
+      }, sandboxTenantDefault);
       await rulesApi.reload();
       await fetchPacks();
       setDirty(false);
