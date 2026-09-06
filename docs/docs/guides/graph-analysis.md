@@ -286,7 +286,7 @@ curl -X POST http://localhost:8001/v1/entities/user-connected/tags \
   -H "Content-Type: application/json" \
   -d '{"tenant_id": "acme", "tags": ["suspicious", "linked-to-fraud-ring"]}'
 
-curl -X POST http://localhost:8002/v1/cases \
+curl -X POST http://localhost:8000/cases/v1/cases \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "acme",
@@ -300,7 +300,7 @@ curl -X POST http://localhost:8002/v1/cases \
 
 ## Direct Cypher Queries
 
-For ad-hoc investigation, connect directly to Neo4j Browser at `http://localhost:7474` and run Cypher queries.
+For ad-hoc investigation, use Hunt (`/graph`) or graph-service HTTP on `:8001` (`GET /v1/subgraph`). Lite is Apache AGE on the same Postgres — Hunt-off is empty `GRAPH_SERVICE_URL`. The Cypher below is overlay-only (Janus / Bolt), not the lite path.
 
 ### Find the shortest path between two entities
 
