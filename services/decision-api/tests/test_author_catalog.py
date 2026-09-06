@@ -164,6 +164,15 @@ async def test_get_author_catalog_not_swallowed_as_filename(rules_client, monkey
     assert "growth" in data
     assert "hops" in data
     assert "payload" in data
+    assert "computed" in data
+    assert data["computed"] == [
+        {
+            "name": "event_count_1h_share_24h",
+            "explanation": (
+                "event_count_1h / event_count_24h after 24h warmup; omitted when history is thin"
+            ),
+        }
+    ]
     assert data["growth"] == []
 
 
@@ -221,6 +230,14 @@ async def test_get_author_catalog_growth_empty_when_policy_fails(
     r = await rules_client.get("/v1/rules/author-catalog")
     assert r.status_code == 200
     assert r.json()["growth"] == []
+
+
+def test_catalog_computed_survives_empty_registry():
+    cat = build_author_catalog(
+        graph_url="", growth_windows=None, registry_names=frozenset()
+    )
+    assert cat["redis"] == []
+    assert cat["computed"][0]["name"] == "event_count_1h_share_24h"
 
 
 def test_catalog_seed_only_payload_omits_entity_id():

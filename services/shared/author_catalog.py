@@ -146,7 +146,7 @@ def build_author_catalog(
 
 
 def catalog_field_names(catalog: dict) -> frozenset[str]:
-    """redis names + growth names + payload names."""
+    """redis names + growth names + payload names + computed names."""
     names: set[str] = set()
     for key in ("redis", "growth", "payload", "computed"):
         for row in catalog.get(key) or []:
