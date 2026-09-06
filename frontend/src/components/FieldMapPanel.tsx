@@ -104,8 +104,10 @@ export function FieldMapPanel({ tenantId }: { tenantId: string }) {
       {error && <p className="text-xs text-red-400">{error}</p>}
       <ul className="flex flex-wrap gap-1">
         {rows.map((row) => (
-          <li key={row.name}>
-            <code className="text-[11px] px-1.5 py-0.5 bg-surface-800 rounded text-gray-300">{row.name}</code>
+          <li key={row.name} className="flex items-baseline gap-1.5 text-[11px]">
+            <code className="px-1.5 py-0.5 bg-surface-800 rounded text-gray-300">{row.name}</code>
+            <span className="text-gray-500">{row.source}</span>
+            <span className="text-gray-400">{row.explanation}</span>
           </li>
         ))}
       </ul>

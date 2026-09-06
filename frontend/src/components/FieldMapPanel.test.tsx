@@ -119,6 +119,8 @@ describe("FieldMapPanel (product)", () => {
   it("lists seed name amount", async () => {
     renderPanel();
     expect(await screen.findByText("amount")).toBeInTheDocument();
+    expect(await screen.findByText("tarka_core")).toBeInTheDocument();
+    expect(await screen.findByText("transaction amount")).toBeInTheDocument();
     expect(client.fields.list).toHaveBeenCalledWith("t1");
     expect(client.fields.maps).toHaveBeenCalledWith("t1");
   });

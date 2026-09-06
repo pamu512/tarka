@@ -108,9 +108,10 @@ async def put_map(
     _user=Depends(_require_analyst),
 ) -> dict[str, str]:
     _refuse_demo_put()
+    tid = _require_tenant_id(body.tenant_id)
     try:
         row = await upsert_map(
-            session, body.tenant_id, body.buyer_key, body.registry_name
+            session, tid, body.buyer_key, body.registry_name
         )
         await session.commit()
     except FieldRegistryUnknownName as exc:
@@ -126,9 +127,10 @@ async def discover(
     session: AsyncSession = Depends(get_session),
     _user=Depends(_require_analyst),
 ) -> dict[str, Any]:
+    tid = _require_tenant_id(body.tenant_id)
     try:
-        overlay_rows = await list_overlay(session, body.tenant_id)
-        map_rows = await list_maps(session, body.tenant_id)
+        overlay_rows = await list_overlay(session, tid)
+        map_rows = await list_maps(session, tid)
     except Exception as exc:
         raise HTTPException(503, "field registry store unavailable") from exc
     overlay = [_overlay_dict(r) for r in overlay_rows]

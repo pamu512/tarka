@@ -11,17 +11,25 @@ log = logging.getLogger(__name__)
 
 REGISTRY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
 SOURCES = frozenset({"tarka_core", "sdk_tarka", "mapped_buyer", "enrichment", "new_feature"})
+LEGACY_ALIASES = (
+    "tx_count_1h",
+    "tx_count_24h",
+    "tx_amount_1h",
+    "tx_amount_24h",
+    "distinct_devices_24h",
+    "distinct_ips_24h",
+)
 
 _seed_load_logged = False
 
 
 def validate_registry_name(name: str) -> str:
-    """Strip. Raise ValueError if empty, not REGISTRY_NAME_RE, or startswith tx_."""
+    """Strip. Raise ValueError if empty, not REGISTRY_NAME_RE, or a legacy alias."""
     stripped = name.strip()
     if not stripped:
         raise ValueError("registry name must not be empty")
-    if stripped.startswith("tx_"):
-        raise ValueError(f"registry name must not start with tx_: {stripped!r}")
+    if stripped in LEGACY_ALIASES or stripped.startswith("tx_"):
+        raise ValueError(f"registry name must not be a legacy alias: {stripped!r}")
     if not REGISTRY_NAME_RE.fullmatch(stripped):
         raise ValueError(f"invalid registry name: {stripped!r}")
     return stripped
