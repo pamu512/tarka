@@ -37,7 +37,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 
 - **Skip does not block.** Skipping or avoiding a risk check raises showing-signs risk; it does not hard-block.
 - **Entity states** — proven / already-risky · showing-signs · unknown. Device is a node, not the person. ATO victims stay good.
-- **Visual rule builder** is stretch, not the product. Strategy analysts author JSON packs.
+- **Visual rule builder** is a product-desk job, not stretch. JSON packs still decide. `make demo` stays first-hour lean; the product image shows visual / backtest / lists. Stretch is Command Center / brochure, not the canvas.
 - **No Tarka-branded model.** Advise is BYO LLM.
 
 ## Compose (one story)
