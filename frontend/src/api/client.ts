@@ -1908,8 +1908,12 @@ export const decisions = {
     });
   },
 
-  promoteShadowPack(draftId: string, tenantId: string) {
+  promoteShadowPack(draftId: string, tenantId: string, calibrationOverrideReason?: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
+    const reason = (calibrationOverrideReason || "").trim();
+    if (reason.length >= 8) {
+      q.set("calibration_override_reason", reason);
+    }
     return request<{
       promoted?: boolean;
       draft_id?: string;

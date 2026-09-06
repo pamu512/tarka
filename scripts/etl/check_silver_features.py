@@ -3,19 +3,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 """
 Silver-layer quality gate for exported feature / audit JSONL (v1.2.5 E2).
 
-Checks each line for tenant_id, entity_id, event_type (enum), numeric amount when present.
+Checks each line for tenant_id, entity_id, event_type (shape), numeric amount when present.
 Exits non-zero if violation rate exceeds --max-violation-rate.
 
 Example:
   python scripts/etl/check_silver_features.py --input export.jsonl --max-violation-rate 0.01
 """
-VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
+EVENT_TYPE_RE = re.compile(r"^[a-z][a-z0-9_]{0,127}$")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -66,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             if eid is None or (isinstance(eid, str) and not eid.strip()):
                 violations += 1
                 reasons.append(f"line {total}: missing entity_id")
-            if et is not None and str(et).strip() and str(et).strip() not in VALID_EVENT_TYPES:
+            if et is not None and str(et).strip() and not EVENT_TYPE_RE.fullmatch(str(et).strip()):
                 violations += 1
                 reasons.append(f"line {total}: invalid event_type {et!r}")
 

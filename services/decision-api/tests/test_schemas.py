@@ -21,6 +21,7 @@ class TestEvaluateRequest:
         )
         assert r.tenant_id == "t1"
         assert r.event_type == EventType.login
+        assert r.event_type == "login"
         assert r.device_context is None
 
     def test_with_device_context(self):
@@ -40,11 +41,21 @@ class TestEvaluateRequest:
         assert r.device_context.device_id == "abc"
         assert r.device_context.signals["is_vpn"] is True
 
+    def test_refund_parses_shape(self):
+        r = EvaluateRequest(
+            tenant_id="t1",
+            event_type="refund",
+            entity_id="u1",
+            role="member",
+            payload={},
+        )
+        assert r.event_type == "refund"
+
     def test_invalid_event_type(self):
         with pytest.raises(ValidationError):
             EvaluateRequest(
                 tenant_id="t1",
-                event_type="invalid_type",
+                event_type="Refund",
                 entity_id="u1",
                 role="member",
                 payload={},
@@ -79,7 +90,7 @@ class TestEvaluateRequest:
             r = EvaluateRequest(
                 tenant_id="t", event_type=et, entity_id="e", role="member", payload={}
             )
-            assert r.event_type.value == et
+            assert r.event_type == et
 
     def test_with_agent_context(self):
         r = EvaluateRequest(
