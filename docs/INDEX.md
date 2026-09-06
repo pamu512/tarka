@@ -7,6 +7,7 @@ Canonical operator docs.
 | Audience | Start here |
 |----------|------------|
 | **Clone and run** — desk + real receipts | [`make demo`](docs/guides/clone-demo.md) |
+| **Product Day-1** — `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
 | **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
 | **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
 
