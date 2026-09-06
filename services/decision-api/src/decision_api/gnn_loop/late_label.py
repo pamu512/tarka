@@ -109,7 +109,9 @@ def _maybe_open_observe_soften(tenant_id: str, store_key: str) -> dict[str, Any]
         subject_id=store_key,
         draft_id=store_key,
     )
-    href = str((out.get("row") or {}).get("href") or f"/ops/shadow?trace_id={store_key}")
+    href = str(
+        (out.get("row") or {}).get("href") or f"/ops/shadow?trace_id={store_key}"
+    )
     return {
         "opened": bool(out.get("created") or out.get("id")),
         "type": EVENT_CONSIDER_SOFTEN,
@@ -246,7 +248,9 @@ def bind_late_label(
         fp_cost = {
             "counted": True,
             "decision": decision,
-            "restrictive": decision.lower() in RESTRICTIVE_DECISIONS if decision else True,
+            "restrictive": decision.lower() in RESTRICTIVE_DECISIONS
+            if decision
+            else True,
             "rule_hits": _hits_of(receipt),
         }
         observe = _maybe_open_observe_soften(tenant, store_key)

@@ -243,9 +243,7 @@ def _restrictive_snap(*, suffix: str, decision: str = "deny") -> dict:
 
 
 @pytest.mark.asyncio
-async def test_fp_binds_receipt_and_opens_observe_soften(
-    client, tmp_path, monkeypatch
-):
+async def test_fp_binds_receipt_and_opens_observe_soften(client, tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_PATH", str(tmp_path / "notify.jsonl"))
     monkeypatch.delenv("TARKA_OBSERVE_NOTIFY_WEBHOOK_URL", raising=False)
@@ -330,9 +328,7 @@ async def test_override_then_fraud_labels_override_receipt_not_chargeback(
 
 
 @pytest.mark.asyncio
-async def test_follow_on_evaluate_joins_prior_receipt(
-    client, tmp_path, monkeypatch
-):
+async def test_follow_on_evaluate_joins_prior_receipt(client, tmp_path, monkeypatch):
     monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
     prior = _snap(suffix="prior")
     prior["entity_id"] = "buyer-same"
