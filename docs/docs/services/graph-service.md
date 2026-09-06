@@ -483,7 +483,7 @@ Over time, this builds a graph where:
 
 ## Example Cypher Queries
 
-Run these directly in the Neo4j Browser at `http://localhost:7474`.
+Day-1 investigation is Hunt (`/graph`) or graph-service HTTP (`GET /v1/subgraph` on `:8001`). Empty `GRAPH_SERVICE_URL` means Hunt is off — evaluate-only, no stub graph. The Cypher below is overlay-only (Janus / Bolt), not the lite AGE path.
 
 **Find all entities connected to a user within 2 hops:**
 
