@@ -87,8 +87,7 @@ describe("ObserveEasePanel", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/model suggested successor/i)).toBeTruthy();
-      expect(screen.getByText(/you own Promote/i)).toBeTruthy();
+      expect(screen.getByText(/model suggested successor — you own Promote/i)).toBeTruthy();
     });
   });
 });
