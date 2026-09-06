@@ -14,7 +14,7 @@ Used by **Python event-ingest** (`POST /v1/events`, batch, and heuristic
 |-------|----------|--------|
 | `tenant_id` | yes | Non-empty string |
 | `entity_id` | yes | Non-empty string |
-| `event_type` | yes | `login` \| `payment` \| `signup` \| `device` \| `session` \| `custom` |
+| `event_type` | yes | Allow-listed name (`^[a-z][a-z0-9_]{0,127}$`). Seed six (`login`, `payment`, `signup`, `device`, `session`, `custom`) ∪ `TARKA_EVENT_TYPES` ∪ product tenant overlay (`PUT /v1/event-types`). Unknown → 422 `ingest_event_type_invalid`. Event-ingest allow-list is seed ∪ env (no overlay read). |
 | `session_id` | no | |
 | `payload` | no | Object; event-specific attributes |
 | `device_context` | no | `{ device_id, platform, signals, … }` |
@@ -33,6 +33,8 @@ Optional **v1 wire envelope** (event-ingest only):
 
 Shared field checks live in `packages/shared-core/tarka_shared/ingest_contract_v1.py`.
 Event-ingest unwrap + full parse: `services/event-ingest/src/event_ingest/ingest_contract.py`.
+
+SDK bools on `payload` / `device_context.signals` (`is_bot`, `is_emulator`, `is_vpn`, …) are present only when sent. Omitted keys stay missing — packs such as `device_signals` fire on present `true` only (`is_true`). Do not invent `false`.
 
 ## Adapter: orchestrator `POST /v1/ingest`
 
