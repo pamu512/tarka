@@ -128,14 +128,21 @@ class AIAuthoredPack(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def validate_ai_authored_pack(doc: dict[str, Any]) -> dict[str, Any]:
+def validate_ai_authored_pack(
+    doc: dict[str, Any],
+    allowed_fields: frozenset[str] | None = None,
+) -> dict[str, Any]:
     """Validate an AI-authored pack against the contract.
 
     Returns ``{"ok": True, "pack": <parsed>}`` on success, or
     ``{"ok": False, "errors": [...]}`` on failure.  Invalid packs are
     dropped — never canaried.
+
+    ``allowed_fields`` overrides import-time ``ALLOWED_FIELDS`` (seed ∪ identity
+    ∪ aliases). Decision-api write path passes the live tenant set.
     """
     errors: list[str] = []
+    fields = allowed_fields or ALLOWED_FIELDS
 
     # --- structural parse via pydantic ---
     try:
@@ -146,7 +153,7 @@ def validate_ai_authored_pack(doc: dict[str, Any]) -> dict[str, Any]:
     # --- field / op allow-list enforcement ---
     for rule in pack.rules:
         for cond in rule.when:
-            if cond.field not in ALLOWED_FIELDS:
+            if cond.field not in fields:
                 errors.append(f"rule {rule.id}: unknown field '{cond.field}'")
             if cond.op not in ALLOWED_OPS:
                 errors.append(f"rule {rule.id}: disallowed op '{cond.op}'")

@@ -64,7 +64,8 @@ def test_ai_allow_list_keeps_aliases_and_canonical():
     assert "baseline_ratio" not in allowed
 
 
-def test_validate_ai_pack_uses_catalog_allow_list(monkeypatch):
+@pytest.mark.asyncio
+async def test_validate_ai_pack_uses_catalog_allow_list(monkeypatch):
     from decision_api import rule_api
 
     monkeypatch.setattr(rule_api.settings, "graph_service_url", "")
@@ -79,9 +80,9 @@ def test_validate_ai_pack_uses_catalog_allow_list(monkeypatch):
             }
         ],
     }
-    assert rule_api._validate_ai_authored_pack(pack) == []
+    assert (await rule_api._validate_ai_authored_pack(pack)) == []
     pack["rules"][0]["when"][0]["field"] = "rate"
-    errors = rule_api._validate_ai_authored_pack(pack)
+    errors = await rule_api._validate_ai_authored_pack(pack)
     assert any("unknown field" in e for e in errors)
 
 
@@ -204,3 +205,77 @@ async def test_get_author_catalog_growth_empty_when_policy_fails(
     r = await rules_client.get("/v1/rules/author-catalog")
     assert r.status_code == 200
     assert r.json()["growth"] == []
+
+
+def test_catalog_seed_only_payload_omits_entity_id():
+    cat = build_author_catalog(graph_url="", growth_windows=None)
+    payload = {p["name"] for p in cat["payload"]}
+    assert "amount" in payload
+    assert "entity_id" not in payload
+
+
+def test_catalog_overlay_name_appears_in_payload():
+    seed = __import__("field_registry", fromlist=["seed_names"]).seed_names()
+    cat = build_author_catalog(
+        graph_url="",
+        growth_windows=None,
+        registry_names=seed | frozenset({"order_channel"}),
+        overlay_names=frozenset({"order_channel"}),
+    )
+    assert "order_channel" in {p["name"] for p in cat["payload"]}
+    redis = {r["name"] for r in cat["redis"]}
+    assert "event_count_7d" in redis
+
+
+@pytest.mark.asyncio
+async def test_get_author_catalog_tenant_includes_overlay(rules_client, monkeypatch):
+    from types import SimpleNamespace
+
+    from decision_api import field_store, rule_api
+
+    monkeypatch.setattr(rule_api.settings, "graph_service_url", "")
+
+    async def _fake_overlay(_session, tenant_id):
+        assert tenant_id == "acme"
+        return [SimpleNamespace(name="order_channel")]
+
+    monkeypatch.setattr(field_store, "list_overlay", _fake_overlay)
+    r = await rules_client.get("/v1/rules/author-catalog", params={"tenant_id": "acme"})
+    assert r.status_code == 200
+    assert "order_channel" in {p["name"] for p in r.json()["payload"]}
+
+
+@pytest.mark.asyncio
+async def test_get_author_catalog_overlay_fail_is_seed_only(rules_client, monkeypatch):
+    from decision_api import field_store, rule_api
+
+    monkeypatch.setattr(rule_api.settings, "graph_service_url", "")
+
+    async def _boom(*_a, **_k):
+        raise RuntimeError("overlay down")
+
+    monkeypatch.setattr(field_store, "list_overlay", _boom)
+    r = await rules_client.get("/v1/rules/author-catalog", params={"tenant_id": "acme"})
+    assert r.status_code == 200
+    names = {p["name"] for p in r.json()["payload"]}
+    assert "order_channel" not in names
+    assert "amount" in names
+
+
+def test_catalog_restricted_registry_drops_redis_keeps_hops():
+    cat = build_author_catalog(
+        graph_url="http://g",
+        growth_windows=[{"window": "1h", "threshold": 5}],
+        registry_names=frozenset({"amount"}),
+        overlay_names=frozenset(),
+    )
+    assert {r["name"] for r in cat["redis"]} == set()
+    assert {p["name"] for p in cat["payload"]} == {"amount"}
+    assert {g["name"] for g in cat["growth"]} == {"relation_growth_1h"}
+    assert {h["etype"] for h in cat["hops"]} == {
+        "USES_DEVICE",
+        "HAS_EMAIL",
+        "HAS_PHONE",
+        "HAS_CARD",
+        "HAS_LIST",
+    }

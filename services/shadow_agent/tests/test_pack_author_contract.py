@@ -196,6 +196,23 @@ def test_invented_kyc_field_rejected():
     assert result["ok"] is False
 
 
+def test_allowed_fields_override_accepts_order_channel():
+    pack = _valid_pack()
+    pack["rules"][0]["when"] = [{"field": "order_channel", "op": "eq", "value": "web"}]
+    result = validate_ai_authored_pack(
+        pack, allowed_fields=frozenset({"order_channel", "canvas_hash"})
+    )
+    assert result["ok"] is True
+
+
+def test_order_channel_rejected_without_allowed_fields_override():
+    pack = _valid_pack()
+    pack["rules"][0]["when"] = [{"field": "order_channel", "op": "eq", "value": "web"}]
+    result = validate_ai_authored_pack(pack)
+    assert result["ok"] is False
+    assert any("unknown field" in e for e in result["errors"])
+
+
 # --- unknown op rejected ---
 
 

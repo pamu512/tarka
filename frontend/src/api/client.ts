@@ -3305,8 +3305,9 @@ const _ruleActorHeaders = (): HeadersInit => {
 };
 
 export const rules = {
-  authorCatalog() {
-    return request<AuthorCatalog>("/api/decisions/v1/rules/author-catalog");
+  authorCatalog(tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<AuthorCatalog>(`/api/decisions/v1/rules/author-catalog${q}`);
   },
 
   list() {
@@ -3328,8 +3329,9 @@ export const rules = {
     }>("/api/decisions/v1/rules/telemetry");
   },
 
-  create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }) {
-    return request<unknown>("/api/decisions/v1/rules", {
+  create(data: { name: string; rules?: unknown[]; tag_rules?: unknown[] }, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules${q}`, {
       method: "POST",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
@@ -3351,8 +3353,9 @@ export const rules = {
     });
   },
 
-  update(filename: string, data: { name: string; rules: unknown[]; tag_rules?: unknown[] }) {
-    return request<unknown>(`/api/decisions/v1/rules/${filename}`, {
+  update(filename: string, data: { name: string; rules: unknown[]; tag_rules?: unknown[] }, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules/${filename}${q}`, {
       method: "PUT",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(data),
@@ -3366,8 +3369,9 @@ export const rules = {
     });
   },
 
-  addRule(filename: string, rule: unknown) {
-    return request<unknown>(`/api/decisions/v1/rules/${filename}/rules`, {
+  addRule(filename: string, rule: unknown, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<unknown>(`/api/decisions/v1/rules/${filename}/rules${q}`, {
       method: "POST",
       headers: _ruleActorHeaders(),
       body: JSON.stringify(rule),
@@ -3740,6 +3744,35 @@ export const recommendations = {
       method: "POST",
       body: JSON.stringify(body),
     });
+  },
+};
+
+export type FieldRow = { name: string; explanation: string; source: string };
+export type FieldMapRow = { tenant_id: string; buyer_key: string; registry_name: string };
+export type DiscoverOut = {
+  already_named: string[];
+  mapped: Array<{ buyer_key: string; registry_name: string }>;
+  candidates: Array<{ buyer_key: string; suggested_source: string }>;
+};
+
+export const fields = {
+  list(tenantId: string) {
+    return request<FieldRow[]>(`/api/decisions/v1/fields?tenant_id=${encodeURIComponent(tenantId)}`);
+  },
+  upsert(tenantId: string, name: string, body: { explanation: string; source: string }) {
+    return request<FieldRow>(`/api/decisions/v1/fields/${encodeURIComponent(name)}?tenant_id=${encodeURIComponent(tenantId)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  },
+  maps(tenantId: string) {
+    return request<FieldMapRow[]>(`/api/decisions/v1/fields/maps?tenant_id=${encodeURIComponent(tenantId)}`);
+  },
+  putMap(body: { tenant_id: string; buyer_key: string; registry_name: string }) {
+    return request<FieldMapRow>(`/api/decisions/v1/fields/maps`, { method: "PUT", body: JSON.stringify(body) });
+  },
+  discover(body: { tenant_id: string; payload: Record<string, unknown> }) {
+    return request<DiscoverOut>(`/api/decisions/v1/fields/discover`, { method: "POST", body: JSON.stringify(body) });
   },
 };
 

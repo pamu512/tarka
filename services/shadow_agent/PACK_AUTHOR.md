@@ -77,6 +77,12 @@ Fingerprint / biometric signals:
 Amount / payment:
 - `amount`, `currency`
 
+Unknown `when.field` values are rejected. Map the buyer key or add a registry
+row (`source: new_feature`) before authoring. Legacy `tx_*` aliases remain
+valid; do not create new `tx_*` registry names. Tenant overlay names exist
+on the decision-api write path; a cold shadow_agent import only sees the seed
+allow-list (`ponytail:` no registry HTTP client in shadow_agent this slice).
+
 **Do not** use consortium fields, invented KYC fields, or graph-as-live-on-lite claims.
 
 ### Allowed operators
