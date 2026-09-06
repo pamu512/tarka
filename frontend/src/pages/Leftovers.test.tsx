@@ -38,7 +38,7 @@ function wrap(ui: ReactElement, path = "/leftovers") {
 }
 
 const freeRow = {
-  case_id: "c-free",
+  leftover_id: "c-free",
   entity_id: "buyer-1",
   origin: "hold" as const,
   last_outcome: null,
@@ -52,7 +52,7 @@ const freeRow = {
 };
 
 const takenRow = {
-  case_id: "c-taken",
+  leftover_id: "c-taken",
   entity_id: "buyer-2",
   origin: "evaluate" as const,
   last_outcome: "deny" as const,
