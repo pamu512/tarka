@@ -11,6 +11,7 @@ COPY services/event-ingest/src/event_ingest /app/src/event_ingest
 COPY services/analytics-sink/src/analytics_sink /app/src/analytics_sink
 COPY services/data-plane/src/data_plane /app/src/data_plane
 COPY services/shared /app/shared
+COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 RUN pip install --no-cache-dir -e .
-ENV PYTHONPATH=/app/src:/app/shared
+ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core
 CMD ["uvicorn", "data_plane.main:app", "--host", "0.0.0.0", "--port", "8007"]

@@ -115,7 +115,7 @@ async def upsert_map(
     registry_name: str,
 ) -> FieldMap:
     buyer_key = _require_buyer_key(buyer_key)
-    registry_name = registry_name.strip()
+    registry_name = validate_registry_name(registry_name)
     if registry_name not in seed_names():
         if await get_overlay(session, tenant_id, registry_name) is None:
             raise FieldRegistryUnknownName(registry_name)

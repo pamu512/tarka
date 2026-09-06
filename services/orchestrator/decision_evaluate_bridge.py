@@ -12,9 +12,6 @@ logger = logging.getLogger(__name__)
 
 ACTION_MAP_V1 = "action_map_v1"
 
-_VALID_EVENT_TYPES: frozenset[str] = frozenset(
-    {"login", "payment", "signup", "device", "session", "custom"},
-)
 
 _CHALLENGE_RECOMMENDED: frozenset[str] = frozenset(
     {
@@ -66,10 +63,14 @@ def resolve_tenant_id(
 
 
 def resolve_event_type(metadata: Mapping[str, Any]) -> str:
+    """Pass through a present name. Missing → payment (TransactionSchema default).
+
+    Evaluate is the allow-list gate — do not invent payment for refund.
+    """
     raw = metadata.get("event_type")
     if isinstance(raw, str):
         token = raw.strip().lower()
-        if token in _VALID_EVENT_TYPES:
+        if token:
             return token
     return "payment"
 
@@ -148,9 +149,14 @@ def map_tx_to_evaluate_request(
     device_ctx = _device_context_from_metadata(meta)
     if device_ctx is not None:
         body["device_context"] = device_ctx
-    from tarka_shared.ingest_contract_v1 import validate_required_envelope_fields
+    from tarka_shared.ingest_contract_v1 import (
+        SEED_EVENT_TYPES,
+        validate_required_envelope_fields,
+    )
 
-    return validate_required_envelope_fields(body)
+    return validate_required_envelope_fields(
+        body, allowed=SEED_EVENT_TYPES | frozenset({event_type})
+    )
 
 
 def _dedupe_preserve(actions: list[str]) -> list[str]:

@@ -1,9 +1,10 @@
 import { Handle, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 
 import { CATALOG_HOPS } from "../../../domain/authorCatalog";
+import type { HopKind } from "../../../utils/sentencePack";
 import { NODE_TYPES } from "../compileToAST";
 
-export type HopEtypeNodeData = { etype: string };
+export type HopEtypeNodeData = { etype: string; kind?: HopKind };
 
 type HopEtypeRfNode = Node<HopEtypeNodeData, typeof NODE_TYPES.hopEtype>;
 
@@ -17,6 +18,21 @@ export function HopEtypeNode({ id, data, selected }: NodeProps<HopEtypeRfNode>) 
       } bg-surface-900 text-slate-100`}
     >
       <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1">Hop etype</div>
+      <label className="block text-[10px] text-slate-500 mb-0.5">Kind</label>
+      <select
+        className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1 text-xs mb-1"
+        value={data.kind === "trust" ? "trust" : "share"}
+        onChange={(e) =>
+          setNodes((ns) =>
+            ns.map((n) =>
+              n.id === id ? { ...n, data: { ...data, kind: e.target.value as HopKind } } : n,
+            ),
+          )
+        }
+      >
+        <option value="share">Share-edge (has_etype)</option>
+        <option value="trust">Trust FLAG (sibling)</option>
+      </select>
       <label className="block text-[10px] text-slate-500 mb-0.5">Etype</label>
       <select
         className="w-full bg-surface-800 border border-surface-600 rounded px-2 py-1 text-xs font-mono"

@@ -292,7 +292,7 @@ def when_field_errors(pack: dict, allowed: frozenset[str]) -> list[str]:
             field = cond.get("field") or ""
             if field and field not in allowed:
                 errors.append(
-                    f"rule {rid}: unknown field '{field}'; map it or add a registry row"
+                    f"rule {rid}: unknown field '{field}'; map it or add a registry row via GET /v1/fields/discover"
                 )
     return errors
 
@@ -639,10 +639,15 @@ async def auto_promote_tick(
 async def promote_shadow_pack(
     draft_id: str,
     tenant_id: str = Query(..., min_length=1, max_length=128),
+    calibration_override_reason: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
     _user=Depends(require_role("analyst")),
 ):
+    from decision_api.calibration_window import (
+        apply_window_override,
+        can_override_calibration_window,
+    )
     from decision_api.json_rules import get_shadow_packs
     from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
 
@@ -656,6 +661,19 @@ async def promote_shadow_pack(
     gates = await compute_desk_and_leftover_gates(tenant_id, want, session=session)
     leftover_g = gates["leftover_promote_gate"]
     desk = gates["desk_promote_gate"]
+    window = gates.get("calibration_window") or {}
+    override_reason = (calibration_override_reason or "").strip()
+    applied = False
+    if override_reason:
+        roles = getattr(_user, "roles", None) or []
+        if not can_override_calibration_window(roles, override_reason):
+            raise HTTPException(
+                403,
+                "RiskArchitect (or admin) plus a reason (min 8 chars) required to override the calibration window",
+            )
+        desk, applied = apply_window_override(
+            desk, window, reason=override_reason, roles=roles
+        )
     leftover_blockers = leftover_g.get("blockers") or []
     desk_blockers = desk.get("blockers") or []
     if leftover_blockers or desk_blockers or not desk.get("promote_allowed"):
@@ -665,12 +683,19 @@ async def promote_shadow_pack(
                 "detail": "promote_blocked",
                 "desk_promote_gate": desk,
                 "leftover_promote_gate": leftover_g,
+                "calibration_window": window,
             },
         )
+    detail = None
+    reason = "promote_shadow_pack"
+    if applied:
+        reason = "promote_shadow_pack_calibration_override"
+        detail = {"calibration_override_reason": override_reason}
     return activate_shadow_pack(
         want,
         actor=_actor_from_headers(x_actor),
-        reason="promote_shadow_pack",
+        reason=reason,
+        detail=detail,
     )
 
 
