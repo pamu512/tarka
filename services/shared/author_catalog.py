@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from field_registry import seed_names as _seed_names
+from field_registry import LEGACY_ALIASES, seed_names as _seed_names
 from fraud_aggregates import (
     DEFAULT_FEATURE_OUTPUTS,
     _bundled_manifest_feature_outputs,
@@ -29,14 +29,6 @@ PAYLOAD_FIELDS = (
     "ip_is_proxy",
     "distinct_countries_7d",
     "email_domain",
-)
-LEGACY_ALIASES = (
-    "tx_count_1h",
-    "tx_count_24h",
-    "tx_amount_1h",
-    "tx_amount_24h",
-    "distinct_devices_24h",
-    "distinct_ips_24h",
 )
 IDENTITY_FIELDS = (
     "event_type",

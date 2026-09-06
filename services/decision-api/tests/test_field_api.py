@@ -226,3 +226,37 @@ async def test_list_503_when_session_execute_raises():
         r = await c.get("/v1/fields", params={"tenant_id": "t1"})
     app.dependency_overrides.clear()
     assert r.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_put_map_and_discover_strip_body_tenant_id(client):
+    r = await client.put(
+        "/v1/fields/maps",
+        json={"tenant_id": "  t1  ", "buyer_key": "txn_amt", "registry_name": "amount"},
+    )
+    assert r.status_code == 200
+    assert r.json()["tenant_id"] == "t1"
+    listed = await client.get("/v1/fields/maps", params={"tenant_id": "t1"})
+    assert listed.status_code == 200
+    assert any(m["buyer_key"] == "txn_amt" for m in listed.json())
+    blank = await client.put(
+        "/v1/fields/maps",
+        json={"tenant_id": "   ", "buyer_key": "x", "registry_name": "amount"},
+    )
+    assert blank.status_code == 400
+    d = await client.post(
+        "/v1/fields/discover",
+        json={"tenant_id": "  t1  ", "payload": {"amount": 1}},
+    )
+    assert d.status_code == 200
+    assert "amount" in d.json()["already_named"]
+
+
+@pytest.mark.asyncio
+async def test_put_legacy_distinct_alias_400(client):
+    r = await client.put(
+        "/v1/fields/distinct_devices_24h",
+        json={"explanation": "nope", "source": "new_feature"},
+        params={"tenant_id": "t1"},
+    )
+    assert r.status_code == 400

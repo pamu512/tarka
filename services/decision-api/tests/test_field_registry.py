@@ -35,6 +35,15 @@ def test_validate_rejects_tx_prefix_and_bad_shape():
         raise AssertionError(bad)
 
 
+def test_validate_rejects_legacy_distinct_aliases():
+    for bad in ("distinct_devices_24h", "distinct_ips_24h"):
+        try:
+            validate_registry_name(bad)
+        except ValueError:
+            continue
+        raise AssertionError(bad)
+
+
 def test_apply_maps_fills_amount_without_clobber():
     out = apply_field_maps({"txn_amt": 9}, [("txn_amt", "amount")])
     assert out["amount"] == 9
