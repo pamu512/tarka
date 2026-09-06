@@ -1,7 +1,7 @@
 # Baseline assist on registry names (P-reg2)
 
 **Date:** 2026-09-06  
-**Status:** Design — approved in chat; not implemented.  
+**Status:** Implemented on `honesty/baseline-assists`.  
 **Branch:** `honesty/baseline-assists` stacked on P-reg1 (`#378` / `feat/desk-demo-vs-product`)  
 **Related:** [field registry + onboarding map](./2026-09-05-field-registry-map-design.md), `services/shared/author_catalog.py`, `services/shared/fraud_aggregates.py`, `docs/docs/guides/velocity-atoms.md`
 

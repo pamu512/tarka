@@ -35,5 +35,12 @@ export function fallbackAuthorCatalog(): AuthorCatalog {
     growth: [],
     hops: CATALOG_HOPS.map((etype) => ({ etype })),
     payload: FALLBACK_PAYLOAD,
+    computed: [
+      {
+        name: "event_count_1h_share_24h",
+        explanation:
+          "event_count_1h / event_count_24h after 24h warmup; omitted when history is thin",
+      },
+    ],
   };
 }
