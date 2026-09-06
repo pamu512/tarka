@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "event_count_1h_share_24h_example",
+  "mode": "shadow",
+  "rules": [
+    {
+      "id": "share_1h_of_24h_high",
+      "when": [{ "op": "gte", "field": "event_count_1h_share_24h", "value": 0.5 }],
+      "tags": ["velocity:1h_share_24h"],
+      "score_delta": 10,
+      "description": "Half or more of the last 24h events landed in the last hour. Not a calibrated score."
+    }
+  ]
+}
