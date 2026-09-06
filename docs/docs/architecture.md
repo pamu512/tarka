@@ -39,7 +39,7 @@ flowchart LR
 | **orchestrator** | TransactionSchema ingest → evaluate → optional Shadow |
 | **shadow_agent** | Local-first forensics LLM (Ollama/OpenAI-compatible) |
 | **investigation-agent** | Pack-why on evaluate-born residual cases; copilot + AgentRun |
-| **graph-service** | Hop v1.2 + Hunt. Lite default: Apache AGE on the same Postgres. Janus / Neo4j optional overlays. Decision-context SQLite SoR. |
+| **graph-service** | Identity hop + Hunt (AGE). Decision-context SQLite is a separate SoR — not the Graph SKU. Janus / Neo4j optional overlays. |
 | **tarka_mcp** | Stdio MCP over the decision graph. Optional IDE plane. |
 | **signal-api** | Features + ML under one plane |
 | **integration-ingress** | OSINT, sanctions, Integration Hub, vault/KMS |
