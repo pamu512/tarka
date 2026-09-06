@@ -21,6 +21,10 @@ describe("leftoverVisualQuery", () => {
     expect(parseHopEtype(cat, "graph:unavailable")).toBe(null);
     expect(parseHopEtype(cat, "graph:empty")).toBe(null);
     expect(parseHopEtype(cat, "has_etype:FAKE")).toBe(null);
+    expect(
+      parseHopEtype(cat, "has_etype:USES_DEVICE+has_multi_id+sibling_prior_flag"),
+    ).toBe("USES_DEVICE");
+    expect(parseHopEtype(cat, "sibling_prior_flag")).toBe(null);
   });
 
   it("parses catalog redis and growth names only", () => {
@@ -46,6 +50,16 @@ describe("leftoverVisualQuery", () => {
     expect(q.get("pack")).toBe("device_signals");
     expect(q.get("hits")).toBe("event_count_1h");
     expect(q.get("etype")).toBe("HAS_LIST");
+    expect(q.get("field")).toBe(null);
+  });
+
+  it("parses trust FLAG named hop onto etype", () => {
+    const href = leftoverVisualHref(cat, {
+      leftoverId: "c1",
+      hopNamed: "has_etype:USES_DEVICE+has_multi_id+sibling_prior_flag",
+    });
+    const q = new URLSearchParams(href.split("?")[1]);
+    expect(q.get("etype")).toBe("USES_DEVICE");
     expect(q.get("field")).toBe(null);
   });
 
