@@ -57,6 +57,8 @@ print(result["score"])     # 0–100
 print(result["trace_id"])  # UUID for audit trail
 ```
 
+Optional Day-1 check after the desk is up: `make sdk-walk` POSTs the same three shipped-pack cases as `walk_receipts.py` through `DecisionClient`. Not a second Day-1 promise.
+
 ### Event ingest (async NATS path)
 
 For high write volume, send events to **event-ingest**; a worker forwards them to the Decision API. Optional **`idempotency_key`** maps to the **`Idempotency-Key`** header when Redis is enabled on ingest.
