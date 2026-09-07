@@ -16,6 +16,24 @@ def test_canonical_json_stable_key_order():
     assert json.loads(a.decode()) == {"a": 2, "z": 1}
 
 
+def test_build_evaluate_envelope_includes_role_when_set():
+    body = build_evaluate_envelope(
+        tenant_id="t",
+        event_type="payment",
+        entity_id="e",
+        payload={"amount": 1},
+        role="member",
+    )
+    assert body["role"] == "member"
+    omitted = build_evaluate_envelope(
+        tenant_id="t",
+        event_type="payment",
+        entity_id="e",
+        payload={"amount": 1},
+    )
+    assert "role" not in omitted
+
+
 def test_build_evaluate_envelope_optional_fields():
     body = build_evaluate_envelope(
         tenant_id="t",

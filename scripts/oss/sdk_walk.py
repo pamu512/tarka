@@ -40,6 +40,7 @@ class WalkClient(Protocol):
         entity_id: str,
         payload: dict[str, Any] | None = None,
         device_context: dict[str, Any] | None = None,
+        role: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]: ...
 
@@ -108,9 +109,16 @@ def run_walk(
                     if isinstance(body.get("device_context"), dict)
                     else None
                 ),
+                role=str(body["role"]) if body.get("role") is not None else None,
             )
         except Exception as exc:
             print(f"[fail] evaluate {label} via DecisionClient: {exc}", file=sys.stderr)
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status in (401, 403):
+                print(
+                    "Hint: set ALLOW_INSECURE_NO_AUTH=true in infra/deploy/.env (or pass API_KEY).",
+                    file=sys.stderr,
+                )
             return 1
         if not isinstance(out, dict):
             print(f"[fail] evaluate {label} non-object response: {out!r}", file=sys.stderr)
