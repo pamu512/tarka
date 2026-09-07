@@ -12,7 +12,7 @@ Tarka application code is **source-available** under the **Elastic License 2.0**
 make doctor && make demo
 ```
 
-`make doctor` names Docker / port / RAM problems. `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
+`make doctor` names Docker / port / RAM problems (host Postgres/Redis on `5432`/`6379`; stale `:8000` without `GET /decisions/v1/health`). `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
 
 | Command | Skin | Notes |
 |---------|------|--------|
