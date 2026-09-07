@@ -264,6 +264,22 @@ def test_authored_by_kind_never_ai_theater_when_llm_empty():
     assert kind in {"human", "seed", ""}
 
 
+def test_soften_intent_is_human_observe_pack():
+    pack = build_l2_draft(
+        receipt={"tenant_id": "acme", "entity_id": "ent-1", "trace_id": "t-1"},
+        hil_event_id="t-1",
+        authored_by="human",
+        skip_backtest=True,
+        actor="care-webhook",
+        skip_reason="fp soften",
+        intent="soften",
+    )
+    assert pack["mode"] == "shadow"
+    assert pack["evidence"]["intent"] == "soften"
+    assert pack["is_ai_authored"] is False
+    assert pack["rules"][0]["score_delta"] < 0
+
+
 def test_l2_module_does_not_promote_or_decide():
     import decision_api.l2_draft as mod
 
