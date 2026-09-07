@@ -1093,6 +1093,9 @@ from decision_api.vendor_marketplace_api import router as vendor_marketplace_rou
 from decision_api.marketplace_kyb_api import router as marketplace_kyb_router  # noqa: E402
 from decision_api.chargeback_alert_api import router as chargeback_alert_router  # noqa: E402
 from decision_api.late_label_api import router as late_label_router  # noqa: E402
+from decision_api.graph_risk_challenger_api import (  # noqa: E402
+    router as graph_risk_challenger_router,
+)
 from decision_api.trend_agent_api import router as trend_agent_router  # noqa: E402
 from decision_api.sandbox_bootstrap import (  # noqa: E402
     maybe_hydrate_sandbox_plg_pack,
@@ -1131,6 +1134,7 @@ app.include_router(vendor_marketplace_router)
 app.include_router(marketplace_kyb_router)
 app.include_router(chargeback_alert_router)
 app.include_router(late_label_router)
+app.include_router(graph_risk_challenger_router)
 app.include_router(trend_agent_router)
 app.include_router(sandbox_bootstrap_router)
 app.include_router(micro_dev_onboarding_router)
