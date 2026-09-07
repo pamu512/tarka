@@ -1849,6 +1849,20 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
   },
 
+  loopMetrics(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      schema_id: string;
+      leftover_to_draft_ms?: { p50?: number | null; p95?: number | null };
+      drafts_to_observe?: { human?: number; ai?: number };
+      ai_backtest_block_rate?: number | null;
+      fp_count?: number;
+      fp_cost_sum?: number;
+      label_latency_ms?: { p50?: number | null; p95?: number | null };
+      promote_ttl_ms?: { p50?: number | null; p95?: number | null };
+    }>(`/api/decisions/v1/observe/loop-metrics?${q}`);
+  },
+
   listObserveNotify(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId });
     return request<{
