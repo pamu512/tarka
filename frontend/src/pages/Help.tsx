@@ -79,11 +79,9 @@ export default function Help() {
           ), Help, Settings, and Sign out.
         </p>
         <p>
-          <strong className="text-gray-400">Open cases:</strong> opening a case from the queue adds a tab under the top
-          bar. Tabs persist for this browser session. Case detail uses{" "}
-          <code className="text-gray-500">?tab=</code> (timeline / audit / graph) so links are shareable. Disposition
-          (reason code + Resolve / Close / keep investigating) lives in the sticky bar at the top of{" "}
-          <code className="text-gray-500">/cases/:id</code>.
+          Fat <code className="text-gray-500">/cases</code> is residual (SAR / dispute / QA), not intake.
+          Deep links keep <code className="text-gray-500">?tab=</code> shareable. Disposition on{" "}
+          <code className="text-gray-500">/cases/:id</code> is leftover of Hunt, not a CRM queue.
         </p>
         <p>
           In the command palette, type <code className="text-gray-500">tenant_id/case_id</code> to open a case in a
