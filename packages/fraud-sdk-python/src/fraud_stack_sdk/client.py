@@ -100,6 +100,7 @@ class DecisionClient:
         replay_safe_headers: bool = False,
         client_nonce: str | None = None,
         client_timestamp: int | None = None,
+        role: str | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -118,6 +119,7 @@ class DecisionClient:
             device_context=device_context,
             region=region,
             challenge_policy_id=challenge_policy_id,
+            role=role,
         )
         body_bytes = canonical_json_bytes(body)
         nonce = client_nonce
@@ -168,6 +170,7 @@ class DecisionClient:
         replay_safe_headers: bool = False,
         client_nonce: str | None = None,
         client_timestamp: int | None = None,
+        role: str | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -186,6 +189,7 @@ class DecisionClient:
             device_context=device_context,
             region=region,
             challenge_policy_id=challenge_policy_id,
+            role=role,
         )
         body_bytes = canonical_json_bytes(body)
         nonce = client_nonce

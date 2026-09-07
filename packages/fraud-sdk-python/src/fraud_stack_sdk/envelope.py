@@ -28,6 +28,7 @@ def build_evaluate_envelope(
     device_context: dict[str, Any] | None = None,
     region: str | None = None,
     challenge_policy_id: str | None = None,
+    role: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the Decision API evaluate JSON body (caller may add fields before canonicalization)."""
     body: dict[str, Any] = {
@@ -36,6 +37,8 @@ def build_evaluate_envelope(
         "entity_id": entity_id,
         "payload": payload or {},
     }
+    if role is not None:
+        body["role"] = role
     if session_id is not None:
         body["session_id"] = session_id
     if metadata is not None:

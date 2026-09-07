@@ -13,7 +13,7 @@ import ast
 import io
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +63,7 @@ class _FakeClient:
         entity_id: str,
         payload: dict[str, Any] | None = None,
         device_context: dict[str, Any] | None = None,
+        role: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         self.evaluate_calls.append(
@@ -72,6 +73,7 @@ class _FakeClient:
                 "entity_id": entity_id,
                 "payload": payload,
                 "device_context": device_context,
+                "role": role,
             }
         )
         if entity_id not in self.canned:
@@ -167,6 +169,9 @@ class TestSdkWalkRunner(unittest.TestCase):
         )
         bot = next(c for c in client.evaluate_calls if c["entity_id"] == "clone-demo-bot")
         self.assertEqual(bot["device_context"]["signals"]["is_bot"], True)
+        for call, case in zip(client.evaluate_calls, walk_receipts.WALK_CASES, strict=True):
+            self.assertEqual(call["role"], case["body"]["role"])
+            self.assertEqual(call["role"], "member")
         out = buf.getvalue()
         self.assertIn("allow", out.lower())
         self.assertIn("review", out.lower())
@@ -219,8 +224,9 @@ class TestSdkWalkRunner(unittest.TestCase):
             def evaluate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
                 raise RuntimeError("401 unauthorized")
 
+        err = io.StringIO()
         buf = io.StringIO()
-        with redirect_stdout(buf):
+        with redirect_stdout(buf), redirect_stderr(err):
             code = sdk_walk.run_walk(
                 request=_ok_health,
                 client=_Boom(_CANNED),
@@ -228,6 +234,26 @@ class TestSdkWalkRunner(unittest.TestCase):
                 api_key=None,
             )
         self.assertEqual(code, 1)
+        self.assertIn("[fail] evaluate", err.getvalue())
+
+    def test_run_walk_prints_auth_hint_on_401(self) -> None:
+        class _Auth(_FakeClient):
+            def evaluate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+                exc = RuntimeError("unauthorized")
+                exc.response = type("R", (), {"status_code": 401})()
+                raise exc
+
+        err = io.StringIO()
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(err):
+            code = sdk_walk.run_walk(
+                request=_ok_health,
+                client=_Auth(_CANNED),
+                base="http://127.0.0.1:8000/decisions",
+                api_key=None,
+            )
+        self.assertEqual(code, 1)
+        self.assertIn("ALLOW_INSECURE_NO_AUTH", err.getvalue())
 
 
 if __name__ == "__main__":

@@ -75,6 +75,31 @@ def test_evaluate_sends_canonical_bytes_and_idempotency():
         assert hdrs["X-Tarka-Client-Timestamp"] == "1700000000"
 
 
+def test_evaluate_includes_role_in_canonical_body():
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = _eval_response()
+    client = DecisionClient("http://127.0.0.1:8000/decisions", api_key="k")
+    with patch("httpx.Client") as MockClient:
+        inst = MockClient.return_value.__enter__.return_value
+        inst.post.return_value = mock_resp
+        client.evaluate(
+            "demo",
+            "payment",
+            "clone-demo-clean",
+            payload={"amount": 25.0},
+            role="member",
+        )
+        _, kwargs = inst.post.call_args
+        assert inst.post.call_args.args[0] == (
+            "http://127.0.0.1:8000/decisions/v1/decisions/evaluate"
+        )
+        body = json.loads(kwargs["content"].decode())
+        assert body["role"] == "member"
+        assert body["tenant_id"] == "demo"
+        assert body["entity_id"] == "clone-demo-clean"
+
+
 def test_evaluate_with_signing_secret_adds_hmac_headers():
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()
