@@ -286,21 +286,12 @@ tenant_id=acme&entity_id=user-suspicious&depth=3&decay=0.5" | python -m json.too
 
 ### Step 7: Tag (leftover / Hunt — not a CRM)
 
-For each entity with a high propagated risk score, update tags. Work stays on leftovers + Hunt. Fat `/cases` is residual (SAR / dispute), not a case CRM:
+For each entity with a high propagated risk score, update tags. Work stays on leftovers + Hunt. Do not mint a case CRM ticket from this walk:
 
 ```bash
 curl -X POST http://localhost:8001/v1/entities/user-connected/tags \
   -H "Content-Type: application/json" \
   -d '{"tenant_id": "acme", "tags": ["suspicious", "linked-to-fraud-ring"]}'
-
-curl -X POST http://localhost:8000/cases/v1/cases \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tenant_id": "acme",
-    "title": "Connected to confirmed fraud ring",
-    "entity_id": "user-connected",
-    "priority": "high"
-  }'
 ```
 
 ---

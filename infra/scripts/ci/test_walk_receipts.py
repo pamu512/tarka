@@ -169,6 +169,7 @@ class TestTipClaimsHonesty(unittest.TestCase):
         "CONTRIBUTING.md",
         "docs/INDEX.md",
         "docs/docs/index.md",
+        "docs/docs/quickstart.md",
         "docs/docs/guides/clone-demo.md",
         "docs/docs/guides/product-day1-install.md",
         "docs/docs/guides/hop-pack-authoring.md",
@@ -176,14 +177,22 @@ class TestTipClaimsHonesty(unittest.TestCase):
         "docs/docs/guides/graph-analysis.md",
         "docs/docs/guides/feature-data-flows.md",
         "docs/docs/guides/oss-15-minute-first-decision.md",
+        "docs/docs/guides/shadow-and-ab-testing.md",
         "frontend/src/pages/PlaneOff.tsx",
         "frontend/src/pages/Settings.tsx",
         "frontend/src/pages/Help.tsx",
+        "frontend/src/components/AnalystReadinessBar.tsx",
+        "infra/deploy/docker-compose.lite.yml",
     )
     _HOP_PACKS = (
         "services/decision-api/rules/graph_v1_uses_device_v1.json",
         "services/decision-api/rules/graph_v1_has_instrument_v1.json",
         "services/decision-api/rules/graph_v1_has_list_v1.json",
+        "services/decision-api/rules/graph_shared_device_v1.json",
+        "services/decision-api/rules/location_copresence_v1.json",
+        "services/decision-api/rules/seed_promo_observe_v1.json",
+        "services/decision-api/rules/seed_cod_observe_v1.json",
+        "services/decision-api/rules/seed_payout_observe_v1.json",
     )
     _BANNED = (
         "flip mode to active",
@@ -192,6 +201,8 @@ class TestTipClaimsHonesty(unittest.TestCase):
         "written for **beta testers**",
         "then auto-promotes",
         "that is an outage",
+        "is an outage.",
+        "/cases/v1/cases",
     )
 
     def test_buyer_copy_has_no_shipped_overclaims(self) -> None:
