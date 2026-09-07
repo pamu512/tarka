@@ -146,7 +146,7 @@ export default function Settings() {
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-2">
         <h2 className="text-sm font-semibold text-gray-300">Account</h2>
         <p className="text-xs text-gray-500">
-          This OSS console does not embed an IdP. In production, front the UI with your SSO gateway and pass tenant context to APIs.
+          This desk does not embed an IdP. In production, front the UI with your SSO gateway and pass tenant context to APIs.
         </p>
       </div>
 

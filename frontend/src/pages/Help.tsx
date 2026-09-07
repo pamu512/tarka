@@ -69,7 +69,7 @@ export default function Help() {
       <Section id="overview" title="Overview">
         <p>
           Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
-          shell. A leftover case is a Hold artifact, not intake. The left nav lists the production surface
+          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. The left nav lists the desk surface
           {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}
@@ -114,7 +114,7 @@ export default function Help() {
           <p>
             Hold or an evaluate mint can leave a leftover. The queue is{" "}
             <code className="text-gray-500">/leftovers</code> when Hunt is on — work happens on{" "}
-            <code className="text-gray-500">/graph</code>. Lean nav still hides{" "}
+            <code className="text-gray-500">/graph</code>. This is not a case CRM. Lean nav still hides{" "}
             <code className="text-gray-500">/cases</code>. Deep link <code className="text-gray-500">/cases/:id</code>{" "}
             stays for SAR / dispute. Approve / Close stay on <code className="text-gray-500">cases.update</code>.
           </p>
@@ -156,17 +156,18 @@ export default function Help() {
         ) : (
           <Sub title="Graph">
             <p>
-              Empty <code className="text-gray-500">GRAPH_SERVICE_URL</code> is an outage on this desk. Deep links
-              render plane off; they do not productize a 503.
+              Empty <code className="text-gray-500">GRAPH_SERVICE_URL</code> turns Hunt and sibling hops off.
+              Evaluate still runs (home <code className="text-gray-500">/decisions</code>). Neighbors are not invented.
+              Deep links render plane off; they do not productize a 503.
             </p>
           </Sub>
         )}
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
-            <code className="text-gray-500">/analytics/rule-performance</code>. Observe pack modes
-            (including <strong className="text-gray-400">Promote to Active</strong>) live at{" "}
-            <code className="text-gray-500">/observe</code>.
+            <code className="text-gray-500">/analytics/rule-performance</code>. Observe is a canary
+            (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
+            ). Hop packs stay shadow. A human Promotes — a model never goes live.
           </p>
         </Sub>
       </Section>

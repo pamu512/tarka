@@ -2012,7 +2012,7 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
       blockers: ["loyalty_bridge_unconfigured", "status_FEEDS_NOT_PROVEN"],
       feeds_status: {
         status: "FEEDS_NOT_PROVEN",
-        reason: "no tenant warehouse feeds in OSS",
+        reason: "no tenant warehouse feeds in this desk",
         live_claim_allowed: false,
       },
       honesty: "Graph relatedness ≠ loyalty abuse. Incomplete feeds never allow live claims.",

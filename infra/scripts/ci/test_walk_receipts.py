@@ -116,6 +116,7 @@ class TestHonestCopy(unittest.TestCase):
         self.assertIn("receipt", joined)
         self.assertIn("observe", joined)
         self.assertIn("graph_service_url", joined)
+        self.assertIn("sibling", joined)
         self.assertTrue("hop" in joined or "edge" in joined)
         self.assertNotIn("open source", joined)
         self.assertNotIn("vertex", joined)
@@ -157,6 +158,68 @@ class TestHonestCopy(unittest.TestCase):
         self.assertIn("allow", low)
         self.assertIn("review", low)
         self.assertIn("deny", low)
+
+
+class TestTipClaimsHonesty(unittest.TestCase):
+    """Buyer-facing tip claims stay true. Path names under scripts/oss/ may stay."""
+
+    _BUYER = (
+        "README.md",
+        "VISION.md",
+        "CONTRIBUTING.md",
+        "docs/INDEX.md",
+        "docs/docs/index.md",
+        "docs/docs/guides/clone-demo.md",
+        "docs/docs/guides/product-day1-install.md",
+        "docs/docs/guides/hop-pack-authoring.md",
+        "docs/docs/guides/gnn-label-loop.md",
+        "docs/docs/guides/graph-analysis.md",
+        "docs/docs/guides/feature-data-flows.md",
+        "docs/docs/guides/oss-15-minute-first-decision.md",
+        "frontend/src/pages/PlaneOff.tsx",
+        "frontend/src/pages/Settings.tsx",
+        "frontend/src/pages/Help.tsx",
+    )
+    _HOP_PACKS = (
+        "services/decision-api/rules/graph_v1_uses_device_v1.json",
+        "services/decision-api/rules/graph_v1_has_instrument_v1.json",
+        "services/decision-api/rules/graph_v1_has_list_v1.json",
+    )
+    _BANNED = (
+        "flip mode to active",
+        "this oss console",
+        "oss 15-minute path",
+        "written for **beta testers**",
+        "then auto-promotes",
+        "that is an outage",
+    )
+
+    def test_buyer_copy_has_no_shipped_overclaims(self) -> None:
+        for rel in self._BUYER:
+            text = (_REPO / rel).read_text(encoding="utf-8").lower()
+            for phrase in self._BANNED:
+                self.assertNotIn(phrase, text, rel)
+
+    def test_readme_names_elv2_beta_and_doctor(self) -> None:
+        text = (_REPO / "README.md").read_text(encoding="utf-8").lower()
+        self.assertIn("elastic license 2.0", text)
+        self.assertIn("not open-source", text)
+        self.assertIn("beta", text)
+        self.assertIn("make doctor && make demo", text)
+        self.assertIn("not sibling identity", text)
+
+    def test_hop_packs_stay_shadow(self) -> None:
+        import json
+
+        for rel in self._HOP_PACKS:
+            pack = json.loads((_REPO / rel).read_text(encoding="utf-8"))
+            self.assertEqual(pack.get("mode"), "shadow", rel)
+            self.assertNotIn("flip mode to active", json.dumps(pack).lower())
+
+    def test_compose_does_not_enable_gnn_beta_url(self) -> None:
+        for path in (_REPO / "infra" / "deploy").rglob("docker-compose*.yml"):
+            blob = path.read_text(encoding="utf-8")
+            self.assertNotIn("GRAPH_GNN_BETA_URL", blob, str(path))
 
 
 class TestWalkRunner(unittest.TestCase):
