@@ -54,6 +54,13 @@ def test_shape_rejects_bad():
     assert validate_event_type_shape("tx_pay") == "tx_pay"
 
 
+def test_registry_allows_beachhead_types():
+    allowed = allowed_event_types()
+    for name in ("promo", "cod", "payout", "order", "delivery"):
+        assert name in allowed
+    assert "not_a_real_type" not in allowed
+
+
 def test_env_and_overlay_allow_refund():
     env = parse_env_event_types("refund, not-a-type, login")
     assert "refund" in env

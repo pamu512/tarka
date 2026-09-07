@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "seed_promo_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_promo_amount",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "promo" },
+        { "field": "amount", "op": "gte", "value": 250 }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Promo-abuse seed. Observe only."
+    }
+  ],
+  "tag_rules": []
+}
