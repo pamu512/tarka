@@ -98,8 +98,7 @@ def test_day1_docs_limit_sibling_identity_when_graph_off():
     from pathlib import Path
 
     text = (
-        Path(__file__).resolve().parents[3]
-        / "docs/docs/guides/product-day1-install.md"
+        Path(__file__).resolve().parents[3] / "docs/docs/guides/product-day1-install.md"
     ).read_text(encoding="utf-8")
     lowered = text.lower()
     assert "sibling identity" in lowered or "account-rent" in lowered
