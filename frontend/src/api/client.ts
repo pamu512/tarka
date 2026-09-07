@@ -2324,6 +2324,81 @@ export const decisions = {
     return request<EvaluationPostureResponse>("/api/decisions/v1/ops/evaluation-posture");
   },
 
+  graphRiskChallenger(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() || "demo" });
+    return request<{
+      schema_id?: string;
+      display_name?: string;
+      subtitle?: string;
+      graph_hop?: string;
+      overlay_url?: string;
+      state?: string;
+      receipt_count?: number;
+      labeled_rows?: number;
+      labeled_pct?: number;
+      trainable_rows?: number;
+      trainable_pct?: number;
+      ready_to_train?: boolean;
+      p90_label_lag_seconds?: number | null;
+      bars?: {
+        min_trainable_rows?: number;
+        planning_min_labels?: number;
+        planning_min_edged_events?: number;
+      };
+      last_gate?: {
+        serve_allowed?: boolean | null;
+        model_auc?: number | null;
+        heuristic_auc?: number | null;
+        reason?: string | null;
+      };
+      gnn_claim_allowed?: boolean;
+      live_effect?: string;
+      note?: string;
+      lifecycle?: {
+        shadow_enabled?: boolean;
+        shadow_url?: string;
+        last_actor?: string;
+        note?: string;
+      };
+    }>(`/api/decisions/v1/ops/graph-risk-challenger?${q}`);
+  },
+
+  graphRiskExport(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() || "demo" });
+    return request<Record<string, unknown>>(
+      `/api/decisions/v1/ops/graph-risk-challenger/export?${q}`,
+      { method: "POST", headers: { "X-Actor": "desk" } },
+    );
+  },
+
+  graphRiskTrain(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() || "demo" });
+    return request<Record<string, unknown>>(
+      `/api/decisions/v1/ops/graph-risk-challenger/train?${q}`,
+      { method: "POST", headers: { "X-Actor": "desk" } },
+    );
+  },
+
+  graphRiskEnableShadow(tenantId: string, shadowUrl: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() || "demo" });
+    return request<Record<string, unknown>>(
+      `/api/decisions/v1/ops/graph-risk-challenger/enable-shadow?${q}`,
+      {
+        method: "POST",
+        headers: { "X-Actor": "desk", "Content-Type": "application/json" },
+        body: JSON.stringify({ shadow_url: shadowUrl }),
+      },
+    );
+  },
+
+  graphRiskRetire(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() || "demo" });
+    return request<Record<string, unknown>>(
+      `/api/decisions/v1/ops/graph-risk-challenger/retire?${q}`,
+      { method: "POST", headers: { "X-Actor": "desk" } },
+    );
+  },
+
   /** OSS #51 — in-process SLO snapshot (Redis/NATS connectivity flags). */
   slo() {
     return request<DecisionApiSloResponse>("/api/decisions/v1/slo");
