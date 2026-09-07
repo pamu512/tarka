@@ -27,7 +27,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 |-------------|--------------------------|
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
-| Observe ≠ live. Human Promote. Founder-in-the-loop | Live hop FLAG without Promote; auto-Promote; auto-demote |
+| Observe ≠ live. Human Promote. Human Propose Demote → Confirm. Model never demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; auto-Promote; auto-demote |
 | Hop packs `mode=shadow`. Live overlay only via pack Promote | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |

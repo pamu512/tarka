@@ -164,7 +164,10 @@ def english_copy(
     if event_type == EVENT_CONSIDER_DEMOTE:
         return {
             "title": "Consider taking this live rule back to Observe",
-            "body": f"A retire draft is parked for live rule {sid}. The live rule is still on. A model did not turn it off.",
+            "body": (
+                f"A demote is proposed for {sid}. Live is still on. "
+                "Confirm demote is a separate human action. A model did not turn it off."
+            ),
             "href": href,
         }
     if event_type == EVENT_CONSIDER_SUCCESSOR:

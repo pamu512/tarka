@@ -15,6 +15,9 @@ _AI_MARKERS = frozenset(
     {"scout", "vllm", "vertex", "ai", "llm", "byom", "assist", "openai", "anthropic"}
 )
 _CLOSED = frozenset({"abandoned", "promoted"})
+_DEMOTE_PREFIXES = ("scout", "byom", "llm", "vllm", "vertex", "openai", "anthropic")
+DEMOTE_PROPOSED = "proposed"
+DEMOTE_CONFIRMED = "confirmed"
 
 
 def _now() -> str:
@@ -226,4 +229,79 @@ def mark_promoted(pack: dict[str, Any]) -> dict[str, Any]:
     life["state"] = "promoted"
     life["promoted_at"] = _now()
     pack["lifecycle"] = life
+    return pack
+
+
+def is_forbidden_demote_actor(actor: str) -> bool:
+    """Scout / assist / BYO LLM fingerprints cannot propose or confirm demote."""
+    token = (actor or "").strip().lower()
+    if not token or "assist" in token:
+        return True
+    if token in {"ai", "llm", "byom"}:
+        return True
+    return any(token.startswith(p) for p in _DEMOTE_PREFIXES)
+
+
+def _demote_blob(pack: dict[str, Any]) -> dict[str, Any]:
+    life = pack.get("lifecycle") if isinstance(pack.get("lifecycle"), dict) else {}
+    blob = life.get("demote") if isinstance(life.get("demote"), dict) else {}
+    return dict(blob)
+
+
+def _require_demote_audit(actor: str, reason: str) -> tuple[str, str]:
+    who = (actor or "").strip()
+    why = (reason or "").strip()
+    if not who or not why:
+        raise L2DraftError(
+            "demote_audit_required", http_status=400, detail="actor and reason"
+        )
+    return who, why
+
+
+def propose_demote(pack: dict[str, Any], *, actor: str, reason: str) -> dict[str, Any]:
+    """Park a human demote proposal. Live mode stays on. No auto-demote."""
+    mode = str(pack.get("mode") or "active")
+    if mode not in {"active", ""}:
+        raise L2DraftError("not_live", http_status=409, detail="not_live")
+    who, why = _require_demote_audit(actor, reason)
+    blob = _demote_blob(pack)
+    state = str(blob.get("state") or "")
+    if state == DEMOTE_PROPOSED:
+        raise L2DraftError(
+            "demote_already_proposed", http_status=409, detail="demote_already_proposed"
+        )
+    if state == DEMOTE_CONFIRMED:
+        raise L2DraftError("already_demoted", http_status=409, detail="already_demoted")
+    raw_life = pack.get("lifecycle")
+    life = dict(raw_life) if isinstance(raw_life, dict) else {}
+    life["demote"] = {
+        "state": DEMOTE_PROPOSED,
+        "proposed_by": who,
+        "proposed_reason": why,
+        "proposed_at": _now(),
+    }
+    pack["lifecycle"] = life
+    return pack
+
+
+def confirm_demote(pack: dict[str, Any], *, actor: str, reason: str) -> dict[str, Any]:
+    """Human confirm: flip live pack to Observe. Requires a parked proposal."""
+    mode = str(pack.get("mode") or "active")
+    if mode not in {"active", ""}:
+        raise L2DraftError("not_live", http_status=409, detail="not_live")
+    who, why = _require_demote_audit(actor, reason)
+    blob = _demote_blob(pack)
+    if str(blob.get("state") or "") != DEMOTE_PROPOSED:
+        raise L2DraftError(
+            "demote_propose_first", http_status=409, detail="demote_propose_first"
+        )
+    blob["state"] = DEMOTE_CONFIRMED
+    blob["confirmed_by"] = who
+    blob["confirmed_reason"] = why
+    blob["confirmed_at"] = _now()
+    raw_life = pack.get("lifecycle")
+    life = dict(raw_life) if isinstance(raw_life, dict) else {}
+    life["demote"] = blob
+    pack["lifecycle"] = life
+    pack["mode"] = "shadow"
     return pack

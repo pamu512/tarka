@@ -27,7 +27,10 @@ from decision_api.l2_draft import (
     abandon_draft,
     authored_by_kind,
     build_l2_draft,
+    confirm_demote,
     find_open_draft,
+    is_forbidden_demote_actor,
+    propose_demote,
 )
 from decision_api.models import AuditRecord, BacktestRun
 from decision_api.replay import ReplayRequest, ReplayRule, replay_events
@@ -187,6 +190,14 @@ def _require_force_live_human(x_actor: str | None) -> str:
     low = actor.lower()
     if not actor or low.startswith("scout") or "assist" in low:
         raise HTTPException(403, "force_live_human_only")
+    return actor[:256]
+
+
+def _require_demote_human(x_actor: str | None) -> str:
+    """Propose/confirm demote is a human fingerprint. Scout / BYO LLM → 403."""
+    actor = (x_actor or "").strip()
+    if is_forbidden_demote_actor(actor):
+        raise HTTPException(403, "demote_human_only")
     return actor[:256]
 
 
@@ -764,6 +775,92 @@ async def force_live_pack(
     if approver is not None:
         out["approver"] = approver
     return out
+
+
+def _demote_http(exc: L2DraftError) -> HTTPException:
+    return HTTPException(exc.http_status, exc.detail)
+
+
+@router.post("/{filename}/propose-demote")
+async def propose_demote_pack(
+    filename: str,
+    body: ForceLiveBody,
+    tenant_id: str | None = Query(default=None),
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Park a human demote. Live stays on. Scout / BYO LLM 403. No auto-demote."""
+    _require_rule_governance(x_rule_governance_secret)
+    actor = _require_demote_human(x_actor)
+    fpath = _existing_pack_path(filename)
+    pack = json.loads(fpath.read_text(encoding="utf-8"))
+    try:
+        propose_demote(pack, actor=actor, reason=body.reason)
+    except L2DraftError as exc:
+        raise _demote_http(exc) from exc
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    _append_rule_change(
+        "rule_propose_demote",
+        filename,
+        actor=actor,
+        detail={"reason": body.reason, "file": filename, "mode": pack.get("mode")},
+    )
+    tid = (tenant_id or "").strip()
+    if tid:
+        try:
+            from decision_api.observe_notify import (
+                EVENT_CONSIDER_DEMOTE,
+                emit_observe_event,
+            )
+
+            emit_observe_event(
+                tenant_id=tid,
+                event_type=EVENT_CONSIDER_DEMOTE,
+                subject_id=str(pack.get("name") or filename),
+                draft_id=filename,
+            )
+        except Exception:
+            logger.debug("propose_demote notify failed", exc_info=True)
+    return {
+        "file": filename,
+        "mode": pack.get("mode"),
+        "demote": (pack.get("lifecycle") or {}).get("demote"),
+    }
+
+
+@router.post("/{filename}/confirm-demote")
+async def confirm_demote_pack(
+    filename: str,
+    body: ForceLiveBody,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    """Human confirm: flip the proposed live pack to Observe. Model 403."""
+    _require_rule_governance(x_rule_governance_secret)
+    actor = _require_demote_human(x_actor)
+    fpath = _existing_pack_path(filename)
+    pack = json.loads(fpath.read_text(encoding="utf-8"))
+    try:
+        confirm_demote(pack, actor=actor, reason=body.reason)
+    except L2DraftError as exc:
+        raise _demote_http(exc) from exc
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    _append_rule_change(
+        "rule_confirm_demote",
+        filename,
+        actor=actor,
+        detail={"reason": body.reason, "file": filename, "mode": "shadow"},
+    )
+    return {
+        "file": filename,
+        "mode": "shadow",
+        "demote": (pack.get("lifecycle") or {}).get("demote"),
+    }
 
 
 @router.get("/l2-drafts")
@@ -1373,12 +1470,17 @@ async def set_pack_mode(
     # Observe pack promote uses this PUT. Scout / assist cannot flip live
     # (same human fingerprint as force-live). Leftover + science stay on
     # POST …/shadow-packs/{draft_id}/promote.
+    # Live → Observe is propose→confirm only. One-step PUT is not demote.
+    pack = json.loads(fpath.read_text(encoding="utf-8"))
+    prior = str(pack.get("mode") or "active")
+    if body.mode == "shadow" and prior in {"active", ""}:
+        _require_demote_human(x_actor)
+        raise HTTPException(409, "demote_propose_first")
     actor = (
         _require_force_live_human(x_actor)
         if body.mode == "active"
         else _actor_from_headers(x_actor)
     )
-    pack = json.loads(fpath.read_text(encoding="utf-8"))
     pack["mode"] = body.mode
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
