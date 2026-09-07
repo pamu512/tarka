@@ -1,5 +1,10 @@
 # Infrastructure — Pulumi preview on PRs that touch Triple-DB IaC.
 #
+# Trigger only the Pulumi program (`infra/deploy/pulumi/**`) and the sibling
+# modules `__main__.py` imports. Do not use `infra/deploy/**` — compose/Helm/script
+# comment tweaks (e.g. PR #399) otherwise start a preview that can hang on the
+# synthetic kube at 127.0.0.1:6443 until the job timeout.
+#
 # Shows planned changes for Postgres bootstrap DDL (postgresql.Function body +
 # triple-db-exec-bootstrap Command), ClickHouse evidence DDL (triple-db-clickhouse-evidence-ddl
 # Command triggers), Redis K8s/AWS resources, and stack outputs.
@@ -14,7 +19,12 @@ name: Infrastructure
 on:
   pull_request:
     paths:
-      - "infra/deploy/**"
+      - "infra/deploy/pulumi/**"
+      - "infra/deploy/postgres.py"
+      - "infra/deploy/clickhouse.py"
+      - "infra/deploy/redis.py"
+      - "infra/deploy/engine_signing.py"
+      - "infra/deploy/fastapi_env.py"
       - ".github/workflows/infra.yml"
   workflow_dispatch:
 
@@ -29,7 +39,7 @@ jobs:
   pulumi-preview:
     name: Pulumi preview (triple-db/ci)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: infra/deploy/pulumi
@@ -56,6 +66,16 @@ jobs:
           elif [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ github.actor }}" = "dependabot[bot]" ]; then
             echo "run=false" >> "${GITHUB_OUTPUT}"
             echo "::notice::Skipping Pulumi preview on Dependabot PRs: action-only bumps do not need a full triple-db stack preview and Dependabot runs lack Pulumi cloud secrets."
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # ponytail: path filter is the real gate; this is defense in depth if
+            # someone re-widens on.pull_request.paths. Same files the preview program loads.
+            if git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD \
+              | grep -qE '^infra/deploy/pulumi/|^infra/deploy/(postgres|clickhouse|redis|engine_signing|fastapi_env)\.py$'; then
+              echo "run=true" >> "${GITHUB_OUTPUT}"
+            else
+              echo "run=false" >> "${GITHUB_OUTPUT}"
+              echo "::notice::Skipping Pulumi preview: PR diff has no Triple-DB Pulumi IaC changes (infra/deploy/pulumi/ or sibling stack modules)."
+            fi
           else
             echo "run=true" >> "${GITHUB_OUTPUT}"
           fi
@@ -143,5 +163,14 @@ jobs:
           echo "Diff highlights **Postgres** bootstrap function / \`psql\` Command and **ClickHouse** DDL Command when \`infra/deploy/postgres.py\` or \`infra/deploy/clickhouse.py\` change." >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo '```text' >> "${GITHUB_STEP_SUMMARY}"
-          pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"
+          # Capture PIPESTATUS[0] — `if ! pipeline; then status=$?` is 0 after negation.
+          # --kill-after so a TERM-deaf pulumi/k8s plugin cannot sit out the 15m job wall.
+          set +e
+          timeout --kill-after=30s 10m pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"
+          status=${PIPESTATUS[0]}
+          set -e
           echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${status}" -eq 124 ] || [ "${status}" -eq 137 ]; then
+            echo "::error::pulumi preview exceeded 10m (likely hung on unreachable kube at 127.0.0.1:6443). Failing fast instead of waiting for the job timeout."
+          fi
+          exit "${status}"
