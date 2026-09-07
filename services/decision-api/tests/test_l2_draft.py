@@ -136,11 +136,14 @@ def test_idempotent_open_draft_conflicts():
     ]
     hit = find_open_draft(existing, leftover_id="lo-1", hil_event_id="")
     assert hit["_file"] == "l2_aaa.json"
-    assert find_open_draft(
-        [{**existing[0], "lifecycle": {"state": "abandoned"}}],
-        leftover_id="lo-1",
-        hil_event_id="",
-    ) is None
+    assert (
+        find_open_draft(
+            [{**existing[0], "lifecycle": {"state": "abandoned"}}],
+            leftover_id="lo-1",
+            hil_event_id="",
+        )
+        is None
+    )
 
 
 def test_ai_blocked_without_backtest_pass():
@@ -231,6 +234,7 @@ def test_authored_by_kind_never_ai_theater_when_llm_empty():
 
 def test_l2_module_does_not_promote_or_decide():
     import decision_api.l2_draft as mod
+
     src = open(mod.__file__, encoding="utf-8").read()
     assert "activate_shadow_pack" not in src
     assert "force_live" not in src

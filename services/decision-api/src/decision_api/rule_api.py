@@ -792,13 +792,21 @@ async def create_l2_draft(
     try:
         tid = uuid.UUID(str(body.trace_id).strip())
     except (ValueError, AttributeError, TypeError):
-        raise HTTPException(400, detail={"code": "invalid_trace_id", "detail": "trace_id"})
-    result = await session.execute(select(AuditRecord).where(AuditRecord.trace_id == tid))
+        raise HTTPException(
+            400, detail={"code": "invalid_trace_id", "detail": "trace_id"}
+        )
+    result = await session.execute(
+        select(AuditRecord).where(AuditRecord.trace_id == tid)
+    )
     rec = result.scalars().first()
     if rec is None:
-        raise HTTPException(404, detail={"code": "receipt_not_found", "detail": "receipt"})
+        raise HTTPException(
+            404, detail={"code": "receipt_not_found", "detail": "receipt"}
+        )
     if tenant_id and str(tenant_id).strip() != str(rec.tenant_id).strip():
-        raise HTTPException(403, detail={"code": "tenant_mismatch", "detail": "receipt tenant"})
+        raise HTTPException(
+            403, detail={"code": "tenant_mismatch", "detail": "receipt tenant"}
+        )
     hit = find_open_draft(
         _read_all_packs(), leftover_id=body.leftover_id, hil_event_id=body.hil_event_id
     )
@@ -812,7 +820,7 @@ async def create_l2_draft(
             },
         )
     llm = (
-        (os.environ.get("OPENAI_BASE_URL") or os.environ.get("SHADOW_LLM_BASE_URL") or "")
+        os.environ.get("OPENAI_BASE_URL") or os.environ.get("SHADOW_LLM_BASE_URL") or ""
     ).strip()
     _kind, ai = authored_by_kind(
         body.authored_by, is_ai_authored=body.is_ai_authored, llm_url=llm
@@ -823,7 +831,11 @@ async def create_l2_draft(
     if ai:
         if body.skip_backtest:
             raise HTTPException(
-                409, detail={"code": "backtest_required", "detail": "AI draft needs replay pass"}
+                409,
+                detail={
+                    "code": "backtest_required",
+                    "detail": "AI draft needs replay pass",
+                },
             )
         override = [
             ReplayRule(
@@ -858,7 +870,11 @@ async def create_l2_draft(
         artifact = f"replay:{rec.trace_id}"
         if not backtest_ok:
             raise HTTPException(
-                409, detail={"code": "backtest_required", "detail": "AI draft needs replay pass"}
+                409,
+                detail={
+                    "code": "backtest_required",
+                    "detail": "AI draft needs replay pass",
+                },
             )
     try:
         pack = build_l2_draft(
@@ -882,7 +898,9 @@ async def create_l2_draft(
         pack, ai_allowed_fields(await _live_author_catalog(rec.tenant_id))
     )
     if ferr:
-        raise HTTPException(422, detail={"code": "schema_invalid", "validation_errors": ferr})
+        raise HTTPException(
+            422, detail={"code": "schema_invalid", "validation_errors": ferr}
+        )
     fpath = _new_pack_path("l2")
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
