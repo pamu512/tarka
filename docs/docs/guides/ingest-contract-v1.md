@@ -14,7 +14,7 @@ Used by **Python event-ingest** (`POST /v1/events`, batch, and heuristic
 |-------|----------|--------|
 | `tenant_id` | yes | Non-empty string |
 | `entity_id` | yes | Non-empty string |
-| `event_type` | yes | Allow-listed name (`^[a-z][a-z0-9_]{0,127}$`). Seed six (`login`, `payment`, `signup`, `device`, `session`, `custom`) ∪ `TARKA_EVENT_TYPES` ∪ product tenant overlay (`PUT /v1/event-types`). Unknown → 422 `ingest_event_type_invalid`. Event-ingest allow-list is seed ∪ env (no overlay read). |
+| `event_type` | yes | Allow-listed name (`^[a-z][a-z0-9_]{0,127}$`). Registry file `event_types_v1.json` (seed six plus beachhead `promo` / `cod` / `payout` / `order` / `delivery`) ∪ `TARKA_EVENT_TYPES` ∪ product tenant overlay (`PUT /v1/event-types`). Unknown → 422 `ingest_event_type_invalid`. Not a hardcoded engine enum. |
 | `session_id` | no | |
 | `payload` | no | Object; event-specific attributes |
 | `device_context` | no | `{ device_id, platform, signals, … }` |
