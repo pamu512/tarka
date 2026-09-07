@@ -2,7 +2,22 @@
 
 from __future__ import annotations
 
-from data_plane.main import ready_http
+from fastapi import FastAPI
+
+from data_plane.main import SUBAPP_SKIP_PATHS, _merge_routes, ready_http
+
+
+def test_subapp_ready_is_not_merged():
+    """event-ingest /v1/ready is NATS-only; combined ready must win."""
+    src = FastAPI()
+
+    @src.get("/v1/ready")
+    def _ready() -> dict[str, bool]:
+        return {"ready": True}
+
+    tgt = FastAPI()
+    _merge_routes(tgt, src, skip_paths=SUBAPP_SKIP_PATHS)
+    assert not any(getattr(route, "path", None) == "/v1/ready" for route in tgt.routes)
 
 
 def test_ready_http_503_when_nats_down() -> None:

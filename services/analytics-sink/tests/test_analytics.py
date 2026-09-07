@@ -139,6 +139,19 @@ class TestQueryEndpoints:
         assert r.status_code == 200
 
 
+def test_clickhouse_ok_retries_init_after_startup_miss(monkeypatch):
+    from analytics_sink import main as asink
+
+    monkeypatch.setattr(asink, "_ch_client", None)
+    monkeypatch.setattr(asink, "clickhouse_configured", lambda: True)
+
+    def _recover() -> None:
+        asink._ch_client = object()
+
+    monkeypatch.setattr(asink, "_init_clickhouse", _recover)
+    assert asink.clickhouse_ok() is True
+
+
 def test_health_503_when_clickhouse_configured_and_down(monkeypatch):
     from analytics_sink import main as asink
 
