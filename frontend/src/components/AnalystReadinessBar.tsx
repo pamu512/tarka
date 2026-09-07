@@ -39,7 +39,7 @@ function remediation(
       return { ...common, text: "Verify Redis URL and decision-api health (Help → Readiness)" };
     case "graph_service_configured":
       return tier === "community"
-        ? { ...common, text: "Set GRAPH_SERVICE_URL — graph is required on this desk" }
+        ? { ...common, text: "Empty GRAPH_SERVICE_URL turns hops off — evaluate still runs. Set the URL for Hunt / sibling identity." }
         : { ...common, text: "Set GRAPH_SERVICE_URL and start graph-service (deployment guide)" };
     case "feature_service_configured":
     case "ml_scoring_configured":

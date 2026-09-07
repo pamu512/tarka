@@ -69,7 +69,7 @@ export default function Help() {
       <Section id="overview" title="Overview">
         <p>
           Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
-          shell. A leftover case is a Hold artifact, not intake. The left nav lists the production surface
+          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. The left nav lists the desk surface
           {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}
@@ -79,11 +79,9 @@ export default function Help() {
           ), Help, Settings, and Sign out.
         </p>
         <p>
-          <strong className="text-gray-400">Open cases:</strong> opening a case from the queue adds a tab under the top
-          bar. Tabs persist for this browser session. Case detail uses{" "}
-          <code className="text-gray-500">?tab=</code> (timeline / audit / graph) so links are shareable. Disposition
-          (reason code + Resolve / Close / keep investigating) lives in the sticky bar at the top of{" "}
-          <code className="text-gray-500">/cases/:id</code>.
+          Fat <code className="text-gray-500">/cases</code> is residual (SAR / dispute / QA), not intake.
+          Deep links keep <code className="text-gray-500">?tab=</code> shareable. Disposition on{" "}
+          <code className="text-gray-500">/cases/:id</code> is leftover of Hunt, not a CRM queue.
         </p>
         <p>
           In the command palette, type <code className="text-gray-500">tenant_id/case_id</code> to open a case in a
@@ -114,7 +112,7 @@ export default function Help() {
           <p>
             Hold or an evaluate mint can leave a leftover. The queue is{" "}
             <code className="text-gray-500">/leftovers</code> when Hunt is on — work happens on{" "}
-            <code className="text-gray-500">/graph</code>. Lean nav still hides{" "}
+            <code className="text-gray-500">/graph</code>. This is not a case CRM. Lean nav still hides{" "}
             <code className="text-gray-500">/cases</code>. Deep link <code className="text-gray-500">/cases/:id</code>{" "}
             stays for SAR / dispute. Approve / Close stay on <code className="text-gray-500">cases.update</code>.
           </p>
@@ -156,17 +154,18 @@ export default function Help() {
         ) : (
           <Sub title="Graph">
             <p>
-              Empty <code className="text-gray-500">GRAPH_SERVICE_URL</code> is an outage on this desk. Deep links
-              render plane off; they do not productize a 503.
+              Empty <code className="text-gray-500">GRAPH_SERVICE_URL</code> turns Hunt and sibling hops off.
+              Evaluate still runs (home <code className="text-gray-500">/decisions</code>). Neighbors are not invented.
+              Deep links render plane off; they do not productize a 503.
             </p>
           </Sub>
         )}
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
-            <code className="text-gray-500">/analytics/rule-performance</code>. Observe pack modes
-            (including <strong className="text-gray-400">Promote to Active</strong>) live at{" "}
-            <code className="text-gray-500">/observe</code>.
+            <code className="text-gray-500">/analytics/rule-performance</code>. Observe is a canary
+            (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
+            ). Hop packs stay shadow. A human Promotes — a model never goes live.
           </p>
         </Sub>
       </Section>
