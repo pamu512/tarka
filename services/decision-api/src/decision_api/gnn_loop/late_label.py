@@ -8,6 +8,9 @@ or invent a Care/CRM inbox. Missing snapshot still records the label with
 
 from __future__ import annotations
 
+import json
+import uuid
+from pathlib import Path
 from typing import Any
 
 from decision_api.gnn_loop import CHARGEBACK_CLASSES
@@ -90,34 +93,125 @@ def _hits_of(receipt: dict[str, Any] | None) -> list[str]:
     return [str(x) for x in raw if str(x).strip()]
 
 
-def _maybe_open_observe_soften(tenant_id: str, store_key: str) -> dict[str, Any]:
+def parse_fp_cost(raw: Any) -> dict[str, Any] | None:
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return {"ordinal": float(raw), "counted": True}
+    if isinstance(raw, dict):
+        out: dict[str, Any] = {"counted": True}
+        if raw.get("amount") is not None and raw.get("amount") != "":
+            out["amount"] = float(raw["amount"])
+        currency = str(raw.get("currency") or "").strip()
+        if currency:
+            out["currency"] = currency[:8]
+        if raw.get("ordinal") is not None and raw.get("ordinal") != "":
+            out["ordinal"] = float(raw["ordinal"])
+        return out
+    return {"counted": True}
+
+
+def _mint_soften_draft(
+    tenant_id: str,
+    receipt: dict[str, Any] | None,
+    store_key: str,
+    fp_cost: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Write a human/seed Observe pack. Never Active."""
+    try:
+        from decision_api.config import settings
+        from decision_api.l2_draft import L2DraftError, build_l2_draft, find_open_draft
+    except ImportError:
+        return None
+    rules_dir = Path(settings.rules_path)
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    existing: list[dict[str, Any]] = []
+    for path in rules_dir.glob("*.json"):
+        try:
+            blob = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(blob, dict):
+            blob["_file"] = path.name
+            existing.append(blob)
+    hit = find_open_draft(existing, leftover_id="", hil_event_id=store_key)
+    if hit:
+        return {"file": hit.get("_file"), "pack": hit, "duplicate": True}
+    rec = receipt if isinstance(receipt, dict) else {}
+    try:
+        pack = build_l2_draft(
+            receipt={
+                "tenant_id": rec.get("tenant_id") or tenant_id,
+                "entity_id": rec.get("entity_id") or rec.get("user_id") or store_key,
+                "trace_id": rec.get("trace_id") or store_key,
+            },
+            hil_event_id=store_key,
+            authored_by="human",
+            skip_backtest=True,
+            actor="care-webhook",
+            skip_reason="fp soften",
+            intent="soften",
+            override_why="frontline fp",
+        )
+    except L2DraftError:
+        return None
+    if fp_cost:
+        pack.setdefault("evidence", {})["fp_cost"] = fp_cost
+    fname = f"l2_{uuid.uuid4().hex[:12]}.json"
+    (rules_dir / fname).write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    try:
+        from decision_api.json_rules import load_rules
+
+        load_rules()
+    except Exception:
+        pass
+    return {"file": fname, "pack": pack}
+
+
+def _maybe_open_observe_soften(
+    tenant_id: str,
+    store_key: str,
+    receipt: dict[str, Any] | None = None,
+    fp_cost: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """FP on a receipt can open Observe soften work. Not a Care queue."""
+    draft = _mint_soften_draft(tenant_id, receipt, store_key, fp_cost)
     try:
         from decision_api.observe_notify import (
             EVENT_CONSIDER_SOFTEN,
             emit_observe_event,
         )
     except ImportError:
-        return {
+        out = {
             "opened": False,
             "type": "consider_soften",
             "href": f"/ops/shadow?trace_id={store_key}",
         }
-    out = emit_observe_event(
+        if draft:
+            out["opened"] = True
+            out["draft"] = draft
+        return out
+    sid = (draft or {}).get("file") or store_key
+    notify = emit_observe_event(
         tenant_id=tenant_id,
         event_type=EVENT_CONSIDER_SOFTEN,
         subject_id=store_key,
-        draft_id=store_key,
+        draft_id=str(sid),
     )
     href = str(
-        (out.get("row") or {}).get("href") or f"/ops/shadow?trace_id={store_key}"
+        (notify.get("row") or {}).get("href") or f"/ops/shadow?trace_id={store_key}"
     )
-    return {
-        "opened": bool(out.get("created") or out.get("id")),
+    out = {
+        "opened": bool(notify.get("created") or notify.get("id") or draft),
         "type": EVENT_CONSIDER_SOFTEN,
         "href": href,
-        "id": out.get("id"),
+        "id": notify.get("id"),
     }
+    if draft:
+        out["draft"] = draft
+    return out
 
 
 def join_follow_on_evaluate(
@@ -165,6 +259,7 @@ def bind_late_label(
     prior_override_id: str = "",
     entity_id: str = "",
     later_trace_id: str = "",
+    fp_cost: Any = None,
 ) -> dict[str, Any]:
     """Join late outcome onto the original receipt. Never rebuilds a graph."""
     tenant = (tenant_id or "").strip()
@@ -227,6 +322,10 @@ def bind_late_label(
     ovr_map = {store_key: override_id} if override_id else None
     disp_map = {store_key: token} if chargeback and token else None
     cls_map = {store_key: token} if chargeback and token else None
+    parsed_cost = parse_fp_cost(fp_cost) if kind == "fp" else None
+    cost_map = None
+    if parsed_cost:
+        cost_map = {store_key: json.dumps(parsed_cost, sort_keys=True, default=str)}
     merge_y_labels(
         tenant,
         by_trace={store_key: y},
@@ -235,6 +334,7 @@ def bind_late_label(
         label_kind_by_trace=kind_map,
         label_source_by_trace=src_map,
         prior_override_id_by_trace=ovr_map,
+        fp_cost_by_trace=cost_map,
     )
 
     observe: dict[str, Any] = {"opened": False}
@@ -253,7 +353,14 @@ def bind_late_label(
             else True,
             "rule_hits": _hits_of(receipt),
         }
-        observe = _maybe_open_observe_soften(tenant, store_key)
+        if parsed_cost:
+            fp_cost.update(parsed_cost)
+        observe = _maybe_open_observe_soften(
+            tenant,
+            store_key,
+            receipt if isinstance(receipt, dict) else None,
+            fp_cost,
+        )
 
     out: dict[str, Any] = {
         "ok": True,
