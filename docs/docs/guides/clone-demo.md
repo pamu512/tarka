@@ -18,6 +18,17 @@ Same script: `bash scripts/oss/up_desk.sh`. First build is the long pole.
 
 Mac and Linux: Docker Desktop or Docker Engine + Compose v2. On a laptop, stop local Postgres/Redis if those ports are busy.
 
+Health for evaluate is **`GET http://127.0.0.1:8000/decisions/v1/health`**. A process on `:8000` without that path is not a healthy Tarka stack.
+
+## Failure modes
+
+| Symptom | What it is | Fix |
+|---------|------------|-----|
+| `make doctor` fail on `5432` / `6379` | Host Postgres/Redis (or leftover containers) own the ports. Not Tarka evaluate. | Stop the host service or `docker compose -f infra/deploy/docker-compose.lite.yml down -v`. Re-run `make doctor`. |
+| `8000` up, `GET /decisions/v1/health` fails | Stale lite / other process. No `/decisions` routes. | Same `down -v`, then `make doctor && make demo`. Do not treat the old container as healthy. |
+| `8000` already serves `/decisions/v1/health` | A Tarka evaluate is already up. | `make demo` skips the compose wait. For a clean rebuild: `down -v` first. |
+| Health timeout after compose | Image or volume from an old lite. | Rebuild: `docker compose -f infra/deploy/docker-compose.lite.yml -f infra/deploy/docker-compose.fraud-desk.yml up -d --build`. |
+
 If Docker is not available, doctor exits with that message. The walk logic is still CI-safe:
 
 ```bash
