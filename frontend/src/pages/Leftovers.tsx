@@ -51,7 +51,7 @@ export default function Leftovers() {
     <div className="mx-auto max-w-5xl px-6 py-8 space-y-4">
       <PageTitle module="cases">Leftovers</PageTitle>
       <FirstHourHint
-        job="REVIEW and DENY land here. ALLOW never does. Open a row to Hunt that person; the receipt is why the pack fired."
+        job="REVIEW and DENY land here. ALLOW never does. Promote to live; seeds are Observe. Open a row to Hunt that person; the receipt is why the pack fired."
         nextTo="/decisions"
         nextLabel="Receipts"
       />
