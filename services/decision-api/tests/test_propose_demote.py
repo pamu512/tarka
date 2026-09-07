@@ -86,7 +86,9 @@ def test_confirm_demote_requires_proposal_then_flips_shadow():
     assert ei.value.code == "demote_propose_first"
 
     propose_demote(pack, actor="ops-lead", reason="fp burst on live rule r1")
-    out = confirm_demote(pack, actor="sec-lead", reason="human confirm retire to observe")
+    out = confirm_demote(
+        pack, actor="sec-lead", reason="human confirm retire to observe"
+    )
     assert out["mode"] == "shadow"
     blob = out["lifecycle"]["demote"]
     assert blob["state"] == "confirmed"
@@ -206,7 +208,9 @@ async def test_human_propose_then_confirm_demote(client):
     assert _on_disk(client, fname)["mode"] == "shadow"
 
     log = await client.get("/v1/rules/change-log")
-    actions = [item["action"] for item in log.json()["items"] if item.get("file") == fname]
+    actions = [
+        item["action"] for item in log.json()["items"] if item.get("file") == fname
+    ]
     assert "rule_propose_demote" in actions
     assert "rule_confirm_demote" in actions
     propose_row = next(
