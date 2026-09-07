@@ -10,8 +10,11 @@ import pytest
 
 from decision_api.l2_draft import (
     L2DraftError,
+    abandon_draft,
     authored_by_kind,
     build_l2_draft,
+    find_open_draft,
+    mark_promoted,
 )
 from decision_api.rule_pack_validation import validate_rule_pack
 
@@ -97,6 +100,35 @@ def test_lifecycle_hash_and_schema_on_observe_pack():
     assert pack["pack_hash"]
     assert len(pack["pack_hash"]) == 64
     assert pack["lifecycle"]["state"] == "observe"
+    assert pack["lifecycle"]["created_at"]
+    assert pack["lifecycle"]["observe_entered_at"]
+
+
+def test_abandon_and_promote_close_open_draft():
+    pack = build_l2_draft(
+        receipt=_receipt(),
+        leftover_id="lo-1",
+        authored_by="human",
+        skip_backtest=True,
+        actor="ana-1",
+        skip_reason="ok",
+    )
+    abandoned = abandon_draft(pack, actor="ana-1")
+    assert abandoned["lifecycle"]["state"] == "abandoned"
+    assert abandoned["lifecycle"]["abandoned_by"] == "ana-1"
+    assert find_open_draft([abandoned], leftover_id="lo-1") is None
+    again = build_l2_draft(
+        receipt=_receipt(),
+        leftover_id="lo-1",
+        authored_by="human",
+        skip_backtest=True,
+        actor="ana-1",
+        skip_reason="retry",
+    )
+    promoted = mark_promoted(again)
+    assert promoted["lifecycle"]["state"] == "promoted"
+    assert promoted["lifecycle"]["promoted_at"]
+    assert find_open_draft([promoted], leftover_id="lo-1") is None
 
 
 def test_ai_observe_records_backtest_pass_artifact():
@@ -307,6 +339,7 @@ async def l2_client(tmp_path, monkeypatch):
 
     from decision_api.config import settings
     from decision_api.db import get_session
+    from decision_api.observe_drafts import router as observe_router
     from decision_api.rule_api import router as rules_router
 
     monkeypatch.setattr(settings, "rules_path", str(rules_dir))
@@ -321,6 +354,7 @@ async def l2_client(tmp_path, monkeypatch):
         return await call_next(request)
 
     app.include_router(rules_router)
+    app.include_router(observe_router)
 
     async def _session_override():
         yield _AuditSession(_AuditRow(tid))
@@ -396,3 +430,24 @@ async def test_http_duplicate_open_draft_is_409(l2_client):
     )
     assert second.status_code == 409
     assert second.json()["detail"]["code"] == "draft_exists"
+
+
+@pytest.mark.asyncio
+async def test_http_abandon_closes_draft(l2_client):
+    created = await l2_client.post(
+        "/v1/rules/l2-draft",
+        json=_human_body(l2_client._trace_id),
+        headers={"X-Actor": "ana-1"},
+    )
+    assert created.status_code == 201, created.text
+    name = created.json()["pack"]["name"]
+    gone = await l2_client.post(
+        f"/v1/rules/l2-drafts/{name}/abandon",
+        headers={"X-Actor": "ana-1"},
+    )
+    assert gone.status_code == 200, gone.text
+    assert gone.json()["pack"]["lifecycle"]["state"] == "abandoned"
+    listed = await l2_client.get("/v1/observe/drafts?state=abandoned")
+    assert listed.status_code == 200
+    names = {p["name"] for p in listed.json()["items"]}
+    assert name in names
