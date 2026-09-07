@@ -12,7 +12,11 @@ ensure_services_shared_on_path()
 
 from tarka_request_signature import verify_signature  # noqa: E402
 
-SIGNED_PATH_PREFIXES = ("/v1/decisions/evaluate", "/v1/webhooks/late-label")
+SIGNED_PATH_PREFIXES = (
+    "/v1/decisions/evaluate",
+    "/v1/webhooks/late-label",
+    "/v1/webhooks/disposition",
+)
 
 
 class RequestSignatureMiddleware(BaseHTTPMiddleware):
