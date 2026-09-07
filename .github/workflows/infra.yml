@@ -163,13 +163,14 @@ jobs:
           echo "Diff highlights **Postgres** bootstrap function / \`psql\` Command and **ClickHouse** DDL Command when \`infra/deploy/postgres.py\` or \`infra/deploy/clickhouse.py\` change." >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
           echo '```text' >> "${GITHUB_STEP_SUMMARY}"
-          # GNU timeout on ubuntu-latest: 124 on expiry (non-zero). Pipefail keeps that status.
-          if ! timeout 10m pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"; then
-            status=$?
-            echo '```' >> "${GITHUB_STEP_SUMMARY}"
-            if [ "${status}" -eq 124 ]; then
-              echo "::error::pulumi preview exceeded 10m (likely hung on unreachable kube at 127.0.0.1:6443). Failing fast instead of waiting for the job timeout."
-            fi
-            exit "${status}"
-          fi
+          # Capture PIPESTATUS[0] — `if ! pipeline; then status=$?` is 0 after negation.
+          # --kill-after so a TERM-deaf pulumi/k8s plugin cannot sit out the 15m job wall.
+          set +e
+          timeout --kill-after=30s 10m pulumi preview --diff --non-interactive --color never 2>&1 | tee -a "${GITHUB_STEP_SUMMARY}"
+          status=${PIPESTATUS[0]}
+          set -e
           echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          if [ "${status}" -eq 124 ] || [ "${status}" -eq 137 ]; then
+            echo "::error::pulumi preview exceeded 10m (likely hung on unreachable kube at 127.0.0.1:6443). Failing fast instead of waiting for the job timeout."
+          fi
+          exit "${status}"
