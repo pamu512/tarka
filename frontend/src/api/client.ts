@@ -3343,6 +3343,28 @@ export const rules = {
     });
   },
 
+  createL2Draft(
+    data: {
+      leftover_id?: string;
+      hil_event_id?: string;
+      trace_id: string;
+      override_why?: string;
+      authored_by?: string;
+      is_ai_authored?: boolean;
+      skip_backtest?: boolean;
+      skip_reason?: string;
+      rules?: unknown[];
+    },
+    tenantId?: string,
+  ) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<{ file: string; pack: Record<string, unknown> }>(`/api/decisions/v1/rules/l2-draft${q}`, {
+      method: "POST",
+      headers: _ruleActorHeaders(),
+      body: JSON.stringify(data),
+    });
+  },
+
   createScoutPack(data: {
     name: string;
     mode?: string;
