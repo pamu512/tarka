@@ -68,6 +68,44 @@ def test_unsigned_role_raises_when_registry_locked():
         )
 
 
+def test_parties_round_trip_without_invented_sibling_edges():
+    from pathlib import Path
+
+    from decision_api.graph_hop_contract import graph_pack_why
+
+    body = EvaluateRequest(
+        tenant_id="t1",
+        event_type="order",
+        entity_id="diner-1",
+        role="member",
+        parties=[{"entity_id": "driver-1", "role": "member"}],
+        payload={},
+    )
+    snap = {
+        "parties": [p.model_dump() for p in body.parties],
+    }
+    why = graph_pack_why(None, graph_url="", tenant_id="t1", subject_id="diner-1")
+    assert snap["parties"][0]["entity_id"] == "driver-1"
+    assert why["graph"]["named_edges"] == []
+    assert why["graph"]["invented_edges"] is False
+    pipe = (
+        Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
+    ).read_text(encoding="utf-8")
+    assert 'snap_extra["parties"]' in pipe
+
+
+def test_day1_docs_limit_sibling_identity_when_graph_off():
+    from pathlib import Path
+
+    text = (
+        Path(__file__).resolve().parents[3]
+        / "docs/docs/guides/product-day1-install.md"
+    ).read_text(encoding="utf-8")
+    lowered = text.lower()
+    assert "sibling identity" in lowered or "account-rent" in lowered
+    assert "parties" in lowered
+
+
 def test_pack_why_empty_url_is_graph_missing():
     from decision_api.graph_hop_contract import graph_pack_why
 
