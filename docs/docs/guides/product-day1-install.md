@@ -60,7 +60,8 @@ What the **product compose desk** actually runs. Aligns with VISION: graph is re
 
 | On | Off / thin |
 |----|------------|
-| Lite AGE + `graph-service` + Hunt (`VITE_GRAPH_SERVICE_URL=/api/graph`) | Empty graph URL = Hunt hidden, home `/decisions` (evaluate-only fallback, not this skin) |
+| Lite AGE + `graph-service` + Hunt (`VITE_GRAPH_SERVICE_URL=/api/graph`) | Empty graph URL = Hunt hidden, home `/decisions` (evaluate-only fallback, not this skin). Account-rent / sibling identity hops are off until the URL is set. |
+| `parties[]` on evaluate + receipt when provided (registry roles only) | Empty graph URL does not invent edges from `parties[]`. Named hops land on the receipt only when graph is on. |
 | Visual / backtest / lists / simulation / analytics | Demo-only first-hour hide; sales-only brochure pages |
 | `desk_provision.example.json` on core-api | Leftover CRM verbs default **off** |
 | Observe `/ops/shadow` | Auto-promote default **off** (first-review; named-desk gate when present) |
