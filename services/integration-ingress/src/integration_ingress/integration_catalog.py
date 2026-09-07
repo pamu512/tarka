@@ -128,13 +128,21 @@ PROVIDER_CATALOG: list[dict[str, Any]] = [
         "Jira",
         "crm",
         doc_url="https://developer.atlassian.com/cloud/jira/platform/",
-    ),
+    )
+    | {
+        "callable": False,
+        "seam": "POST /v1/webhooks/late-label or /v1/webhooks/disposition",
+    },
     _p(
         "salesforce",
         "Salesforce",
         "crm",
         doc_url="https://developer.salesforce.com/docs/apis",
-    ),
+    )
+    | {
+        "callable": False,
+        "seam": "POST /v1/webhooks/late-label or /v1/webhooks/disposition",
+    },
 ]
 
 
