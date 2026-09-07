@@ -1,0 +1,62 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import * as client from "@/api/client";
+import { L2DraftButtons } from "./L2DraftButtons";
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    rules: {
+      ...actual.rules,
+      createL2Draft: vi.fn(),
+    },
+  };
+});
+
+describe("L2DraftButtons", () => {
+  beforeEach(() => {
+    vi.mocked(client.rules.createL2Draft).mockReset();
+    vi.mocked(client.rules.createL2Draft).mockResolvedValue({
+      file: "l2_aaa.json",
+      pack: { name: "l2_lo-1", mode: "shadow" },
+    });
+  });
+
+  it("human Create draft skips backtest with actor reason", async () => {
+    render(
+      <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" overrideWhy="known good" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /create draft/i }));
+    await waitFor(() => {
+      expect(client.rules.createL2Draft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leftover_id: "lo-1",
+          authored_by: "human",
+          is_ai_authored: false,
+          skip_backtest: true,
+          skip_reason: "known good",
+        }),
+        "acme",
+      );
+    });
+  });
+
+  it("Author via BYO requires backtest (no skip)", async () => {
+    render(
+      <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /author via byo/i }));
+    await waitFor(() => {
+      expect(client.rules.createL2Draft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authored_by: "scout",
+          is_ai_authored: true,
+          skip_backtest: false,
+        }),
+        "acme",
+      );
+    });
+  });
+});
