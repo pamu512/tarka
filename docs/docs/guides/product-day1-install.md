@@ -38,7 +38,7 @@ Nonempty `TARKA_*` / plane URLs win over the file. Missing file = env defaults.
 | `leftover.multi_analyst_claim` | false | Second analyst may overwrite claim |
 | `leftover.qa_queue_isolates` | false | `qa:pending` drops off the leftover list |
 | `leftover.receipt_brief_enabled` | false | Leftover JSON may include `receipt_brief` |
-| auto-promote | off | First-review checkbox on `/ops/shadow`. Named-desk `observe.auto_promote` / `TARKA_AUTO_PROMOTE` when that reader is on the build. |
+| auto-promote | off | Not a shipped unattended path. First-review checkbox cannot silently turn it on. |
 | `hunt.enabled` | true | Loader Hunt-off. Desk chrome matches after bake (`VITE_HUNT_ENABLED=0` or empty `VITE_GRAPH_SERVICE_URL`). |
 | `hooks.enforcement.url` | empty | Empty = webhook off |
 | `hooks.observe_notify.url` | empty | Empty = webhook off |
@@ -64,7 +64,9 @@ What the **product compose desk** actually runs. Aligns with VISION: graph is re
 | `parties[]` on evaluate + receipt when provided (registry roles only) | Empty graph URL does not invent edges from `parties[]`. Named hops land on the receipt only when graph is on. |
 | Visual / backtest / lists / simulation / analytics | Demo-only first-hour hide; sales-only brochure pages |
 | `desk_provision.example.json` on core-api | Leftover CRM verbs default **off** |
-| Observe `/ops/shadow` | Auto-promote default **off** (first-review; named-desk gate when present) |
+| Observe `/ops/shadow` | Canary, not live. Auto-Promote **off**. Beachhead seeds stay Observe |
+| L2 leftover / HIL override | Observe draft. AI author needs a backtest pass first (`409 backtest_required`) |
+| Graph-risk / ring-score challenger | Offline label loop. Never “GNN live.” `GRAPH_GNN_BETA_URL` unset |
 | `shadow_agent` | Only if `OPENAI_BASE_URL` is set |
 | Enforcement / observe-notify hooks | Empty URL = off |
 
@@ -106,4 +108,6 @@ prod-on-k8s is a separate HA overlay. It is not this evaluate-only shape and it 
 - evaluate-only === lite compose.
 - Helm prod-on-k8s === product desk.
 - GA `v1.3.0` or an immutable `1.3.0-beta` image without `digest`.
-- Auto-promote, FLAG leftover mint, or webhooks on by default.
+- Auto-Promote, FLAG leftover mint, or webhooks on by default.
+- Live hop FLAG without Promote; always-on graph; GNN live; case CRM; consortium SKU.
+- Ready-for-beta testers or unattended merchant beta. Beachhead is not banks.

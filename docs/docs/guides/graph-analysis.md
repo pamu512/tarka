@@ -1,14 +1,21 @@
 # Graph Analysis Guide
 
-The Graph Service builds an entity graph that connects accounts, devices, sessions, payments, and other entities through their relationships. This guide shows how to use graph analytics endpoints and Cypher queries to detect fraud rings, propagate risk, and investigate suspicious clusters.
+Hunt and analytics on the identity hop (`GRAPH_SERVICE_URL` / AGE). This is **not** always-on graph and **not** “every evaluate is on the graph.”
 
-Offline GNN training is a separate label/holdout loop — see [gnn-label-loop.md](gnn-label-loop.md). It is off unless holdout beats `heuristic_v1`. Do not set `GRAPH_GNN_BETA_URL` in compose defaults.
+| Limitation | Truth |
+|------------|--------|
+| Empty `GRAPH_SERVICE_URL` | Hops off. `graph:missing`. **Not sibling identity.** Evaluate still runs |
+| Hop packs | `graph_v1_*` stay `mode=shadow`. Live FLAG only via human Promote |
+| GNN | Offline [Graph-risk / Ring-score challenger](gnn-label-loop.md). Never “GNN live.” Do not set `GRAPH_GNN_BETA_URL` in compose defaults |
+| Cases | Leftovers + Hunt. Not a case CRM |
+
+When the URL is set, evaluate *may* upsert identity hops (fail-soft). When it is empty, neighbors are not invented and hop packs must not FLAG.
 
 ---
 
 ## Entity Resolution
 
-Tarka performs automatic entity resolution during the decision flow. Every time the Decision API evaluates an event, it upserts entities and links into the graph:
+When `GRAPH_SERVICE_URL` is set, evaluate may upsert identity hops (fail-soft). Empty URL → no upsert, no invented neighbors:
 
 ```
 POST /v1/decisions/evaluate
@@ -131,7 +138,7 @@ tenant_id=acme&entity_id=user-42&depth=3&decay=0.5" \
 
 - After confirming an entity as fraudulent, propagate risk to find accomplices
 - During investigation, identify entities that share infrastructure with known bad actors
-- Automated: trigger risk propagation from workflows on `decision_deny` events
+- Analyst-triggered: after a human confirms fraud, propagate risk to connected entities. Not an unattended live hop.
 
 ---
 
@@ -277,9 +284,9 @@ curl -s "http://localhost:8001/v1/analytics/risk-propagation?\
 tenant_id=acme&entity_id=user-suspicious&depth=3&decay=0.5" | python -m json.tool
 ```
 
-### Step 7: Tag and Create Cases
+### Step 7: Tag (leftover / Hunt — not a CRM)
 
-For each entity with a high propagated risk score, update tags and create investigation cases:
+For each entity with a high propagated risk score, update tags. Work stays on leftovers + Hunt. Fat `/cases` is residual (SAR / dispute), not a case CRM:
 
 ```bash
 curl -X POST http://localhost:8001/v1/entities/user-connected/tags \
@@ -349,4 +356,4 @@ ORDER BY connections DESC
 
 ## Decision API rule pack (shadow)
 
-The optional shadow pack `graph_shared_device_v1.json` targets graph/device relatedness tags (`sdk:shared_device`, `ring_shared_device`) — not geo co-presence. It is separate from `location_copresence_v1.json`, which handles session co-location and impossible-travel enrichment. Shared-device linkage answers **who is related via device graph**; location packs answer **optional geo enrichment**. Flip `mode` from `shadow` to `active` after calibration review.
+The optional shadow pack `graph_shared_device_v1.json` targets graph/device relatedness tags (`sdk:shared_device`, `ring_shared_device`) — not geo co-presence. It is separate from `location_copresence_v1.json`, which handles session co-location and impossible-travel enrichment. Shared-device linkage answers **who is related via device graph**; location packs answer **optional geo enrichment**. Packs stay `mode=shadow` until a human Promotes on `/ops/shadow`.
