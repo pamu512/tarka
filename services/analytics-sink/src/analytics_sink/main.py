@@ -37,6 +37,12 @@ def clickhouse_configured() -> bool:
 
 
 def clickhouse_ok() -> bool:
+    global _ch_client
+    if _ch_client is not None:
+        return True
+    # ponytail: lifespan init is one-shot; compose can start us before ClickHouse accepts TCP.
+    if clickhouse_configured():
+        _init_clickhouse()
     return _ch_client is not None
 
 

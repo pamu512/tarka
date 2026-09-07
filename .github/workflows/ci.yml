@@ -168,6 +168,8 @@ jobs:
         run: python3 infra/scripts/ci/test_demo_vertical_contracts.py
       - name: Clone-demo receipt walk unit tests (stdlib)
         run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
+      - name: Full-stack smoke probe unit tests (stdlib)
+        run: python3 infra/scripts/ci/test_full_stack_smoke.py
       - name: Day-1 doctor unit tests (stdlib)
         run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_doctor.py
       - name: Day-1 BYO LLM env prompt unit tests (stdlib)
@@ -770,6 +772,11 @@ jobs:
         env:
           PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core
         run: pytest tests -q
+      - name: Pytest — analytics-sink ClickHouse retry/health
+        working-directory: services/analytics-sink
+        env:
+          PYTHONPATH: src:../shared:../../packages/shared-core
+        run: pytest tests/test_analytics.py -q -k "retry or health"
       - name: JetStream DLQ not under consumer wildcard
         run: |
           docker run -d --name nats-js -p 4222:4222 nats:2-alpine -js

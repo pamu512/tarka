@@ -57,7 +57,9 @@ class ReprocessExternalBody(BaseModel):
     reason: str | None = None
 
 
-async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> dict[str, Any]:
+async def _fetch_original_decision(
+    http: httpx.AsyncClient, trace_id: str, tenant_id: str
+) -> dict[str, Any]:
     """Fetch the original decision audit record from the decision-api."""
     decision_url = (
         settings.decision_api_url
@@ -67,7 +69,11 @@ async def _fetch_original_decision(http: httpx.AsyncClient, trace_id: str) -> di
     if not decision_url:
         return {}
     try:
-        r = await http.get(f"{decision_url.rstrip('/')}/v1/audit/{trace_id}", timeout=5.0)
+        r = await http.get(
+            f"{decision_url.rstrip('/')}/v1/audit/{trace_id}",
+            params={"tenant_id": tenant_id},
+            timeout=5.0,
+        )
         if r.status_code == 200:
             return r.json()
     except Exception as e:
@@ -224,7 +230,7 @@ async def create_dispute(
 
     http: httpx.AsyncClient = request.app.state.http
 
-    original = await _fetch_original_decision(http, body.trace_id)
+    original = await _fetch_original_decision(http, body.trace_id, body.tenant_id)
 
     case_id = None
     if body.case_id:
@@ -577,7 +583,7 @@ async def get_original_decision(
         raise HTTPException(404, "Dispute not found")
 
     http: httpx.AsyncClient = request.app.state.http
-    original = await _fetch_original_decision(http, dispute.trace_id)
+    original = await _fetch_original_decision(http, dispute.trace_id, dispute.tenant_id)
 
     return {
         "dispute_id": str(dispute.id),

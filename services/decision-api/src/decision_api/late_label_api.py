@@ -1,6 +1,7 @@
-"""Processor webhook: signed POST binds dispute.outcome to the evaluate receipt.
+"""Processor webhook: signed POST binds a late label to the evaluate receipt.
 
-Not a desk inbox. Outcome != FRAUD is still a y_label, not a second product.
+Chargeback ``dispute.outcome`` stays. Frontline FP / override-then-fraud /
+follow-on evaluate use the same path. Not a Care/CRM inbox.
 """
 
 from __future__ import annotations
@@ -60,6 +61,12 @@ async def late_label_webhook(request: Request) -> dict[str, Any]:
             outcome=outcome,
             trace_id=str(payload.get("trace_id") or ""),
             evaluation_token=str(payload.get("evaluation_token") or ""),
+            decision_token=str(payload.get("decision_token") or ""),
+            label_kind=str(payload.get("label_kind") or ""),
+            source=str(payload.get("source") or ""),
+            prior_override_id=str(payload.get("prior_override_id") or ""),
+            entity_id=str(payload.get("entity_id") or ""),
+            later_trace_id=str(payload.get("later_trace_id") or ""),
         )
     except LateLabelError as exc:
         raise HTTPException(

@@ -18,3 +18,23 @@ def test_data_plane_app_imports() -> None:
     from data_plane.main import app
 
     assert "Data Plane" in app.title
+
+
+def test_data_plane_exposes_one_ready_and_one_health() -> None:
+    """Merged ingest/sink must not leave a NATS-only /v1/ready in front."""
+    from data_plane.main import app
+
+    ready = [
+        r
+        for r in app.routes
+        if getattr(r, "path", None) == "/v1/ready"
+        and "GET" in (getattr(r, "methods", set()) or set())
+    ]
+    health = [
+        r
+        for r in app.routes
+        if getattr(r, "path", None) == "/v1/health"
+        and "GET" in (getattr(r, "methods", set()) or set())
+    ]
+    assert len(ready) == 1
+    assert len(health) == 1

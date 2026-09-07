@@ -70,6 +70,10 @@ def _str_map(raw: Any) -> dict[str, str]:
     return {str(k): str(v) for k, v in raw.items() if str(k).strip() and str(v)}
 
 
+_LABEL_KINDS = frozenset({"fp", "fraud", "other"})
+_LABEL_SOURCES = frozenset({"care", "finance", "crm", "evaluate"})
+
+
 def _empty_records() -> dict[str, dict[str, str]]:
     return {
         "by_trace": {},
@@ -78,6 +82,9 @@ def _empty_records() -> dict[str, dict[str, str]]:
         "why_by_entity": {},
         "dispute_outcome_by_trace": {},
         "chargeback_class_by_trace": {},
+        "label_kind_by_trace": {},
+        "label_source_by_trace": {},
+        "prior_override_id_by_trace": {},
     }
 
 
@@ -105,6 +112,17 @@ def load_label_records(tenant_id: str) -> dict[str, dict[str, str]]:
         "why_by_entity": _str_map(raw.get("why_by_entity")),
         "dispute_outcome_by_trace": _str_map(raw.get("dispute_outcome_by_trace")),
         "chargeback_class_by_trace": _str_map(raw.get("chargeback_class_by_trace")),
+        "label_kind_by_trace": {
+            k: v
+            for k, v in _str_map(raw.get("label_kind_by_trace")).items()
+            if v in _LABEL_KINDS
+        },
+        "label_source_by_trace": {
+            k: v
+            for k, v in _str_map(raw.get("label_source_by_trace")).items()
+            if v in _LABEL_SOURCES
+        },
+        "prior_override_id_by_trace": _str_map(raw.get("prior_override_id_by_trace")),
     }
 
 
@@ -122,8 +140,11 @@ def merge_y_labels(
     why_by_entity: dict[str, str] | None = None,
     dispute_outcome_by_trace: dict[str, str] | None = None,
     chargeback_class_by_trace: dict[str, str] | None = None,
+    label_kind_by_trace: dict[str, str] | None = None,
+    label_source_by_trace: dict[str, str] | None = None,
+    prior_override_id_by_trace: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Merge 0/1 maps plus optional why / late chargeback fields."""
+    """Merge 0/1 maps plus optional why / late chargeback / frontline fields."""
     with _lock:
         cur = load_label_records(tenant_id)
         t_map = dict(cur["by_trace"])
@@ -132,6 +153,9 @@ def merge_y_labels(
         why_e = dict(cur["why_by_entity"])
         disp_t = dict(cur["dispute_outcome_by_trace"])
         cls_t = dict(cur["chargeback_class_by_trace"])
+        kind_t = dict(cur["label_kind_by_trace"])
+        src_t = dict(cur["label_source_by_trace"])
+        ovr_t = dict(cur["prior_override_id_by_trace"])
         added = 0
         for k, v in (by_trace or {}).items():
             key = str(k).strip()
@@ -164,6 +188,21 @@ def merge_y_labels(
             token = str(v).strip().upper()
             if key and token in {"FRAUD", "FRIENDLY", "SERVICE", "UNKNOWN"}:
                 cls_t[key] = token
+        for k, v in (label_kind_by_trace or {}).items():
+            key = str(k).strip()
+            token = str(v).strip().lower()
+            if key and token in _LABEL_KINDS:
+                kind_t[key] = token
+        for k, v in (label_source_by_trace or {}).items():
+            key = str(k).strip()
+            token = str(v).strip().lower()
+            if key and token in _LABEL_SOURCES:
+                src_t[key] = token
+        for k, v in (prior_override_id_by_trace or {}).items():
+            key = str(k).strip()
+            text = str(v).strip()
+            if key and text:
+                ovr_t[key] = text[:256]
         payload = {
             "by_trace": t_map,
             "by_entity": e_map,
@@ -171,6 +210,9 @@ def merge_y_labels(
             "why_by_entity": why_e,
             "dispute_outcome_by_trace": disp_t,
             "chargeback_class_by_trace": cls_t,
+            "label_kind_by_trace": kind_t,
+            "label_source_by_trace": src_t,
+            "prior_override_id_by_trace": ovr_t,
         }
         path = _path(tenant_id)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -185,4 +227,7 @@ def merge_y_labels(
             "why_by_entity": why_e,
             "dispute_outcome_by_trace": disp_t,
             "chargeback_class_by_trace": cls_t,
+            "label_kind_by_trace": kind_t,
+            "label_source_by_trace": src_t,
+            "prior_override_id_by_trace": ovr_t,
         }
