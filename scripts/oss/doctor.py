@@ -9,15 +9,21 @@ host memory looks like the lite floor (~4 GB). Each fail names the fix.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import socket
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from typing import Callable
 
 DAY1_PORTS: tuple[int, ...] = (8000, 8001, 3000, 5432, 6379)
 RAM_FLOOR_BYTES = 4 * 1024 * 1024 * 1024
+EVALUATE_HEALTH_URL = "http://127.0.0.1:8000/decisions/v1/health"
+LITE_COMPOSE = "infra/deploy/docker-compose.lite.yml"
 PortCheck = Callable[[int], bool]
+EvaluateProbe = Callable[[], bool]
 
 
 def docker_on_path(*, which: Callable[[str], str | None] = shutil.which) -> tuple[bool, str]:
@@ -45,17 +51,54 @@ def port_is_free(port: int, *, host: str = "127.0.0.1") -> bool:
         sock.close()
 
 
-def port_messages(ports: tuple[int, ...] = DAY1_PORTS, *, check: PortCheck = port_is_free) -> list[str]:
+def evaluate_health_ok(*, url: str = EVALUATE_HEALTH_URL, timeout: float = 1.5) -> bool:
+    """True only when GET /decisions/v1/health returns JSON status=ok."""
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status != 200:
+                return False
+            body = json.loads(resp.read().decode())
+            return body.get("status") == "ok"
+    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError, TimeoutError):
+        return False
+
+
+def port_messages(
+    ports: tuple[int, ...] = DAY1_PORTS,
+    *,
+    check: PortCheck = port_is_free,
+    probe_evaluate: EvaluateProbe | None = None,
+) -> list[str]:
     lines: list[str] = []
     busy = [p for p in ports if not check(p)]
     if not busy:
         lines.append(f"[ok] ports free: {', '.join(str(p) for p in ports)}")
         return lines
-    listed = ", ".join(str(p) for p in busy)
-    lines.append(
-        f"[fail] port in use: {listed} — stop the process bound there "
-        "(local Postgres/Redis often own 5432/6379), then re-run make doctor."
-    )
+    other = [p for p in busy if p != 8000]
+    if other:
+        listed = ", ".join(str(p) for p in other)
+        lines.append(
+            f"[fail] port in use: {listed} — stop the process bound there "
+            "(host Postgres often owns 5432; host Redis often owns 6379). "
+            "That is not a healthy Tarka evaluate. Then re-run make doctor."
+        )
+    if 8000 in busy:
+        probe = probe_evaluate if probe_evaluate is not None else evaluate_health_ok
+        if probe():
+            lines.append(
+                "[fail] port 8000 already serves GET /decisions/v1/health — "
+                "a Tarka evaluate is up. make demo skips compose wait when that "
+                f"probe succeeds. For a clean rebuild: docker compose -f {LITE_COMPOSE} down -v, "
+                "then make doctor && make demo."
+            )
+        else:
+            lines.append(
+                "[fail] port 8000 is up but GET /decisions/v1/health failed — "
+                "stale lite (no /decisions routes) or a non-Tarka process. "
+                "Do not treat this as a healthy Tarka stack. "
+                f"docker compose -f {LITE_COMPOSE} down -v, then make doctor && make demo."
+            )
     return lines
 
 

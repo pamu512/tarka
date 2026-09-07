@@ -10,7 +10,7 @@ Self-hosting Tarka on your own metal or VPC for your own operations is allowed u
 
 - Docker + Docker Compose v2
 - ~4 GB RAM free for lite images (evaluate + AGE + graph-service; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
-- Ports free: `8000`, `8001`, `3000`, `5432`, `6379`
+- Ports free: `8000`, `8001`, `3000`, `5432`, `6379`. Host Postgres/Redis often own `5432`/`6379`. A listener on `8000` without `GET /decisions/v1/health` is a stale or foreign process — see [clone-demo failure modes](./clone-demo.md#failure-modes).
 
 ## Steps
 
