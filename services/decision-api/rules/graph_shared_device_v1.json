@@ -2,7 +2,7 @@
   "version": 1,
   "name": "graph_shared_device_v1",
   "mode": "shadow",
-  "description": "Graph/device relatedness — not geo linker. Shadow by default — flip mode to active after review.",
+  "description": "Graph/device relatedness — not geo linker. Observe (mode=shadow) until a human Promotes.",
   "rules": [],
   "tag_rules": [
     {

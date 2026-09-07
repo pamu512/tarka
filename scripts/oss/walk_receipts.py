@@ -91,7 +91,7 @@ def looking_at_lines() -> list[str]:
         "Receipt why is rule_hits + reasons on the evaluate response and on desk /decisions.",
         "Observe on /ops/shadow is pack canary + leftover promote + live-rule slip — "
         "not live production traffic and not a model.",
-        "Empty GRAPH_SERVICE_URL turns hops off (evaluate-only fallback). "
+        "Empty GRAPH_SERVICE_URL turns hops off (evaluate-only fallback, not sibling identity). "
         "Lite compose sets the AGE graph URL.",
         "An edge is real only when the receipt wrote it. This walk does not mock a hop SKU.",
     ]

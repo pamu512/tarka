@@ -2,6 +2,13 @@
 
 This is a **label + holdout loop**, not a live GNN. Desk copy: **Graph-risk / Ring-score challenger** — never “GNN live.” Evaluate still decides allow / deny / flag / review in Rust packs. Empty `GRAPH_GNN_BETA_URL` (the compose default) means evaluate keeps `ring_score` `heuristic_v1` with `gnn_claim_allowed: false`.
 
+| Not this | On tip |
+|----------|--------|
+| GNN live / GNN god-model | Offline export → train → holdout. Serve stays off unless holdout beats `heuristic_v1` |
+| Model ALLOW / DENY | Overlay is a score. Live FLAG/REVIEW only via a **Promoted pack** that reads it |
+| Always-on graph | Empty `GRAPH_SERVICE_URL` → `graph:missing`. No invented neighbors |
+| Case CRM | Late-label webhook + Observe soften draft (`consider_soften`). No Care/CRM inbox |
+
 **RiskOps glass:** `GET /v1/ops/graph-risk-challenger?tenant_id=` and Settings → Graph-risk challenger strip. Export / Train / Enable shadow URL (only when `serve_allowed`) / Retire. Live FLAG/REVIEW still requires a **Promoted pack** that reads the score (`live_effect: pack_promote_only`).
 
 ## What exists today

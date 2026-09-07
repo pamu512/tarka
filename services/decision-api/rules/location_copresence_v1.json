@@ -2,7 +2,7 @@
   "version": 1,
   "name": "location_copresence_v1",
   "mode": "shadow",
-  "description": "Example pack: elevate when location-service / inference copresence_risk is high (session co-location). Shadow by default — flip mode to active after review.",
+  "description": "Example pack: elevate when location-service / inference copresence_risk is high (session co-location). Observe (mode=shadow) until a human Promotes.",
   "rules": [
     {
       "id": "copresence_risk_elevated",
