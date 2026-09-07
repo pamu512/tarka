@@ -4,6 +4,7 @@ import {
   type HilOverrideRow,
   type HilOverrideType,
 } from "../../../../api/client";
+import { L2DraftButtons } from "../../../L2DraftButtons";
 import { DegradedModeBanner } from "../../../DegradedModeBanner";
 import { useCaseWorkbench } from "../../../../context/CaseWorkbenchContext";
 import { toUserFacingApiError } from "../../../../api/client";
@@ -149,6 +150,15 @@ export function HilOverridePanel() {
         >
           {submitting ? "Submitting…" : "Apply override"}
         </button>
+        {caseData?.trace_id ? (
+          <L2DraftButtons
+            leftoverId={caseId}
+            hilEventId={caseId}
+            traceId={caseData.trace_id}
+            tenantId={tenantId}
+            overrideWhy={rationale}
+          />
+        ) : null}
       </form>
     </section>
   );

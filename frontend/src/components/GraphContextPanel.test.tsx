@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cases, decisions, graph, rules } from "@/api/client";
 import { GraphContextPanel } from "@/components/GraphContextPanel";
 import { fallbackAuthorCatalog } from "@/domain/authorCatalogFallback";
-import { leftoverVisualHref } from "@/utils/leftoverVisualQuery";
 
 const { mockDesk } = vi.hoisted(() => ({
   mockDesk: { profile: "demo" as "demo" | "product" | "brochure" },
@@ -41,6 +40,7 @@ vi.mock("@/api/client", async (importOriginal) => {
     rules: {
       ...actual.rules,
       authorCatalog: vi.fn(),
+      createL2Draft: vi.fn(),
     },
   };
 });
@@ -67,6 +67,8 @@ describe("GraphContextPanel object dossier", () => {
     vi.mocked(cases.actOnEntity).mockReset();
     vi.mocked(rules.authorCatalog).mockReset();
     vi.mocked(rules.authorCatalog).mockResolvedValue(fallbackAuthorCatalog());
+    vi.mocked(rules.createL2Draft).mockReset();
+    vi.mocked(rules.createL2Draft).mockResolvedValue({ file: "l2.json", pack: { mode: "shadow" } });
   });
 
   it("shows type, links, and last trace from the object APIs", async () => {
@@ -520,20 +522,10 @@ describe("GraphContextPanel object dossier", () => {
       />,
     );
 
-    const link = await screen.findByTestId("draft-observe-pack");
-    expect(link).toHaveTextContent("Draft Observe pack");
-    expect(link.textContent).not.toMatch(/Promote/i);
-    expect(link).toHaveAttribute(
-      "href",
-      leftoverVisualHref(fallbackAuthorCatalog(), {
-        leftoverId: "c-leftover",
-        pack: "device_signals",
-        hits: "event_count_1h",
-        entityId: "buyer-demo",
-        tenantId: "demo",
-        decisionId: "dec:tr-1",
-      }),
-    );
+    const btn = await screen.findByTestId("draft-observe-pack");
+    expect(btn).toHaveTextContent("Create draft");
+    expect(btn.textContent).not.toMatch(/Promote/i);
+    expect(screen.getByRole("button", { name: /author via byo/i })).toBeInTheDocument();
   });
 
   it("hides Draft Observe pack on demo even with leftover_id", async () => {
@@ -650,7 +642,7 @@ describe("GraphContextPanel object dossier", () => {
     );
 
     await screen.findByTestId("pack-why-strip");
-    expect(screen.getByTestId("draft-observe-pack")).toHaveTextContent("Draft Observe pack");
+    expect(screen.getByTestId("draft-observe-pack")).toHaveTextContent("Create draft");
   });
 
   it("uses fallback catalog for Draft href when author catalog GET fails", async () => {
@@ -686,15 +678,8 @@ describe("GraphContextPanel object dossier", () => {
       />,
     );
 
-    const link = await screen.findByTestId("draft-observe-pack");
-    expect(link).toHaveAttribute(
-      "href",
-      leftoverVisualHref(fallbackAuthorCatalog(), {
-        leftoverId: "c-leftover",
-        hits: "event_count_1h",
-        entityId: "buyer-demo",
-        tenantId: "demo",
-      }),
-    );
+    const btn = await screen.findByTestId("draft-observe-pack");
+    expect(btn).toHaveTextContent("Create draft");
+    expect(btn).not.toHaveAttribute("href");
   });
 });
