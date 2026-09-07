@@ -70,6 +70,8 @@ async def test_catalog_marks_callable_decision_api_plugins(client):
     assert by_id["opensanctions"]["continuous_screening"] == "plugin_callable"
     assert "LIVE partner-fusion" in by_id["opensanctions"]["screening_posture"]
     assert by_id["jira"].get("callable") is False
+    assert "late-label" in (by_id["jira"].get("seam") or "")
+    assert by_id["salesforce"].get("callable") is False
 
 
 @pytest.mark.asyncio

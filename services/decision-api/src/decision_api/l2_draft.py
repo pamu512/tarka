@@ -14,7 +14,11 @@ _HUMAN = frozenset({"human", "seed", ""})
 _AI_MARKERS = frozenset(
     {"scout", "vllm", "vertex", "ai", "llm", "byom", "assist", "openai", "anthropic"}
 )
-_CLOSED = frozenset({"abandoned"})
+_CLOSED = frozenset({"abandoned", "promoted"})
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def source_key(*, leftover_id: str = "", hil_event_id: str = "") -> str:
@@ -172,18 +176,41 @@ def build_l2_draft(
     pack["schema_version"] = SCHEMA_VERSION
     pack["source_key"] = source_key(leftover_id=leftover, hil_event_id=hil)
     pack["pack_hash"] = compute_pack_hash(pack)
+    stamped = _now()
     pack["lifecycle"] = {
         "state": "observe",
         "gate": gate,
         "backtest_artifact_id": (backtest_artifact_id or "").strip(),
+        "created_at": stamped,
+        "observe_entered_at": stamped,
         "skip": (
-            {
-                "actor": who,
-                "reason": why_skip,
-                "at": datetime.now(timezone.utc).isoformat(),
-            }
+            {"actor": who, "reason": why_skip, "at": stamped}
             if gate == "backtest_skipped_human"
             else None
         ),
     }
+    return pack
+
+
+def abandon_draft(pack: dict[str, Any], *, actor: str = "") -> dict[str, Any]:
+    life = dict(pack.get("lifecycle") or {})
+    if str(life.get("state") or "") in _CLOSED:
+        raise L2DraftError(
+            "draft_closed", http_status=409, detail="draft already closed"
+        )
+    who = (actor or "").strip()
+    if not who:
+        raise L2DraftError("actor_required", http_status=400, detail="actor")
+    life["state"] = "abandoned"
+    life["abandoned_at"] = _now()
+    life["abandoned_by"] = who
+    pack["lifecycle"] = life
+    return pack
+
+
+def mark_promoted(pack: dict[str, Any]) -> dict[str, Any]:
+    life = dict(pack.get("lifecycle") or {})
+    life["state"] = "promoted"
+    life["promoted_at"] = _now()
+    pack["lifecycle"] = life
     return pack

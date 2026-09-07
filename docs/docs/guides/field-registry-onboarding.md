@@ -6,6 +6,8 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 
 Related: [Rule authoring](rules.md) · [Hop pack authoring](hop-pack-authoring.md) · `services/shadow_agent/PACK_AUTHOR.md`
 
+**shadow_agent cold-import ceiling:** scout import allow-list is seed ∪ identity ∪ legacy `tx_*` aliases. Tenant `new_feature` rows in Postgres are authorable via decision-api, not via a cold `shadow_agent` import. Do not add a shadow_agent→registry HTTP client.
+
 ---
 
 ## Seed vs overlay
