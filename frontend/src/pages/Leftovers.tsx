@@ -5,6 +5,7 @@ import { Link } from "react-router";
 
 import { cases, type LeftoverRow } from "../api/client";
 import { FirstHourHint } from "../components/FirstHourHint";
+import { L2DraftButtons } from "../components/L2DraftButtons";
 import { PageTitle } from "../components/PageTitle";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { leftoverHuntSearch } from "../utils/leftoverVisualQuery";
@@ -74,12 +75,13 @@ export default function Leftovers() {
               <th className="px-3 py-2 font-medium">Last act</th>
               <th className="px-3 py-2 font-medium">Claimed</th>
               <th className="px-3 py-2 font-medium">SLA</th>
+              <th className="px-3 py-2 font-medium">Draft</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-gray-500">
+                <td colSpan={10} className="px-3 py-6 text-gray-500">
                   No leftovers. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
@@ -128,6 +130,14 @@ export default function Leftovers() {
                   <td className="px-3 py-2 text-gray-400">{row.last_act ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-400">{row.claimed_by ?? "free"}</td>
                   <td className="px-3 py-2 text-gray-400">{row.sla_breached ? "breached" : "ok"}</td>
+                  <td className="px-3 py-2">
+                    <L2DraftButtons
+                      leftoverId={row.leftover_id}
+                      traceId={row.trace_id}
+                      tenantId={tenantId || "demo"}
+                      overrideWhy={row.brief || ""}
+                    />
+                  </td>
                 </tr>
               );
             })}
