@@ -469,7 +469,7 @@ export default function OpsShadow() {
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-gray-100">Observe vs primary</h1>
       <FirstHourHint
-        job="Observe is a canary. Live packs still decide. A model never ALLOW, DENY, or REVIEW. If a draft says model drafted, you still own Promote."
+        job="Observe is a canary. Promote to live; seeds are Observe. Live packs still decide. A model never ALLOW, DENY, or REVIEW. If a draft says model drafted, you still own Promote."
         nextTo="/analytics/rule-performance"
         nextLabel="Rule performance"
       />
