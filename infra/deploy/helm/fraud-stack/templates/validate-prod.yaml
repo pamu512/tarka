@@ -137,7 +137,7 @@
 {{- end }}
 {{- if not $coreDigest }}
 {{- if eq (default "latest" .Values.coreApi.tag) "latest" }}
-{{- fail "global.environment=prod forbids coreApi.tag=latest — pin a version (prod-on-k8s uses 1.3.0-beta) or set coreApi.digest" }}
+{{- fail "global.environment=prod forbids coreApi.tag=latest — set a version tag (prod-on-k8s ships mutable 1.3.0-beta, not GA) or coreApi.digest" }}
 {{- end }}
 {{- end }}
 {{- $signalDigest := default "" ((.Values.signalApi).digest) }}
@@ -152,7 +152,7 @@
 {{- fail "global.environment=prod forbids investigationAgent.digest=latest" }}
 {{- end }}
 {{- if and .Values.investigationAgent.enabled (not $agentDigest) (eq (default "latest" .Values.investigationAgent.tag) "latest") }}
-{{- fail "global.environment=prod forbids investigationAgent.tag=latest — pin a version (prod-on-k8s uses 1.3.0-beta)" }}
+{{- fail "global.environment=prod forbids investigationAgent.tag=latest — set a version tag (mutable 1.3.0-beta is not GA) or investigationAgent.digest" }}
 {{- end }}
 {{- if and .Values.investigationAgent.enabled (ne ((.Values.investigationAgent.dataPersistence).mode | default "local-sqlite") "postgres") }}
 {{- fail "global.environment=prod investigation-agent requires dataPersistence.mode=postgres (local-sqlite cannot HA)" }}
