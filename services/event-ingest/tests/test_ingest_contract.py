@@ -51,6 +51,14 @@ def test_parse_refund_allowed_via_env(monkeypatch):
     assert out["event_type"] == "refund"
 
 
+def test_parse_beachhead_promo_allowed():
+    out = parse_ingest_event_body(
+        {"tenant_id": "t", "entity_id": "e", "event_type": "promo", "payload": {}},
+        envelope_mode="optional",
+    )
+    assert out["event_type"] == "promo"
+
+
 def test_parse_invalid_event_type():
     with pytest.raises(IngestContractError) as exc:
         parse_ingest_event_body(

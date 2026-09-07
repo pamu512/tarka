@@ -10,8 +10,10 @@ See ``docs/docs/guides/ingest-contract-v1.md``.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -58,6 +60,26 @@ def parse_env_event_types(raw: str | None) -> frozenset[str]:
     return frozenset(out)
 
 
+def load_registry_event_types() -> frozenset[str]:
+    """Allow-list from event_types_v1.json (seed six ∪ beachhead). Not an engine enum."""
+    path = Path(__file__).with_name("event_types_v1.json")
+    names: set[str] = set(SEED_EVENT_TYPES)
+    if not path.is_file():
+        return frozenset(names)
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return frozenset(names)
+    if not isinstance(raw, list):
+        return frozenset(names)
+    for item in raw:
+        try:
+            names.add(validate_event_type_shape(item))
+        except ValueError:
+            continue
+    return frozenset(names)
+
+
 def allowed_event_types(
     overlay: frozenset[str] | None = None,
     env: frozenset[str] | None = None,
@@ -69,7 +91,7 @@ def allowed_event_types(
         except ValueError:
             continue
     extra |= set(env or ())
-    return SEED_EVENT_TYPES | frozenset(extra)
+    return load_registry_event_types() | frozenset(extra)
 
 
 class IngestContractV1Error(Exception):
