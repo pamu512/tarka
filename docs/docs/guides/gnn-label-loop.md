@@ -1,6 +1,8 @@
-# GNN label loop (offline)
+# Graph-risk / Ring-score challenger (offline label loop)
 
-This is a **label + holdout loop**, not a live GNN. Evaluate still decides allow / deny / flag / review in Rust packs. `GRAPH_GNN_BETA_URL` empty (the compose default) means evaluate keeps `ring_score` `heuristic_v1` with `gnn_claim_allowed: false`.
+This is a **label + holdout loop**, not a live GNN. Desk copy: **Graph-risk / Ring-score challenger** — never “GNN live.” Evaluate still decides allow / deny / flag / review in Rust packs. Empty `GRAPH_GNN_BETA_URL` (the compose default) means evaluate keeps `ring_score` `heuristic_v1` with `gnn_claim_allowed: false`.
+
+**RiskOps glass:** `GET /v1/ops/graph-risk-challenger?tenant_id=` and Settings → Graph-risk challenger strip. Export / Train / Enable shadow URL (only when `serve_allowed`) / Retire. Live FLAG/REVIEW still requires a **Promoted pack** that reads the score (`live_effect: pack_promote_only`).
 
 ## What exists today
 
@@ -25,6 +27,15 @@ This is a **label + holdout loop**, not a live GNN. Evaluate still decides allow
 ## Receipts without edges
 
 A labeled receipt with no named edges **cannot train a GNN**. Export may still write the row with `trainable: false`. The trainer skips those rows.
+
+## Desk bars (Track-3 planning)
+
+| Bar | Value |
+|-----|-------|
+| Code floor to train | ≥ **8** trainable edged labeled rows (`train_and_gate`) |
+| Planning label density | ≥ ~1e3 late labels (glass only) |
+| Planning edged events | ≥ ~1e5 (or 30d continuous) — glass only |
+| Serve gate | Holdout AUC **strictly beats** `heuristic_v1` |
 
 ## Do not turn this on in compose
 
