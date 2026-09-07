@@ -30,6 +30,7 @@ def _webhook_secret() -> str:
 
 
 @router.post("/v1/webhooks/late-label")
+@router.post("/v1/webhooks/disposition")
 async def late_label_webhook(request: Request) -> dict[str, Any]:
     raw = await request.body()
     secret = _webhook_secret()
@@ -67,6 +68,7 @@ async def late_label_webhook(request: Request) -> dict[str, Any]:
             prior_override_id=str(payload.get("prior_override_id") or ""),
             entity_id=str(payload.get("entity_id") or ""),
             later_trace_id=str(payload.get("later_trace_id") or ""),
+            fp_cost=payload.get("fp_cost"),
         )
     except LateLabelError as exc:
         raise HTTPException(
