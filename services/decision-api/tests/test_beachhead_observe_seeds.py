@@ -16,7 +16,7 @@ _SEEDS = (
     "seed_cod_observe_v1.json",
     "seed_payout_observe_v1.json",
 )
-_BEACHHEAD_TYPES = ("promo", "cod", "payout", "order", "delivery")
+_BEACHHEAD_TYPES = ("promo", "cod", "payout", "order", "delivery", "refund")
 
 
 def _load(name: str) -> dict:

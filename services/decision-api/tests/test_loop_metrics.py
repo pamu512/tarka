@@ -1,0 +1,87 @@
+"""Loop scoreboard v1 — numbers only, no CRM."""
+
+from __future__ import annotations
+
+import pytest
+
+from decision_api.loop_metrics import compute_loop_metrics
+
+
+def test_loop_metrics_from_drafts_and_fp_labels():
+    packs = [
+        {
+            "authored_by": "human",
+            "is_ai_authored": False,
+            "source_key": "leftover:lo-1",
+            "lifecycle": {
+                "state": "observe",
+                "created_at": "2026-09-07T00:00:00+00:00",
+                "observe_entered_at": "2026-09-07T00:00:00.200000+00:00",
+            },
+        },
+        {
+            "authored_by": "scout",
+            "is_ai_authored": True,
+            "source_key": "hil:ovr-2",
+            "lifecycle": {
+                "state": "promoted",
+                "created_at": "2026-09-07T00:00:00+00:00",
+                "observe_entered_at": "2026-09-07T00:00:01+00:00",
+                "promoted_at": "2026-09-07T00:00:11+00:00",
+            },
+        },
+    ]
+    labels = {
+        "label_kind_by_trace": {"t1": "fp", "t2": "fraud"},
+        "fp_cost_by_trace": {"t1": '{"amount": 12.5}'},
+        "labeled_at_by_trace": {"t1": "2026-09-07T00:00:05+00:00"},
+        "decided_at_by_trace": {"t1": "2026-09-07T00:00:00+00:00"},
+    }
+    out = compute_loop_metrics(
+        packs,
+        labels,
+        ai_blocked=1,
+        ai_passed=1,
+    )
+    assert out["schema_id"] == "tarka.loop_metrics/v1"
+    assert out["drafts_to_observe"]["human"] == 1
+    assert out["drafts_to_observe"]["ai"] == 1
+    assert out["ai_backtest_block_rate"] == 0.5
+    assert out["fp_count"] == 1
+    assert out["fp_cost_sum"] == 12.5
+    assert out["leftover_to_draft_ms"]["p50"] == 200
+    assert out["promote_ttl_ms"]["p50"] == 10000
+    assert out["label_latency_ms"]["p50"] == 5000
+
+
+def test_loop_metrics_empty():
+    out = compute_loop_metrics([], {}, ai_blocked=0, ai_passed=0)
+    assert out["fp_count"] == 0
+    assert out["ai_backtest_block_rate"] is None
+    assert out["leftover_to_draft_ms"]["p50"] is None
+
+
+@pytest.mark.asyncio
+async def test_http_loop_metrics(tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from decision_api.config import settings
+    from decision_api.observe_drafts import router
+
+    monkeypatch.setattr(settings, "rules_path", str(tmp_path))
+    (tmp_path / "l2_x.json").write_text(
+        '{"name":"l2_x","source_key":"leftover:lo-1","authored_by":"human",'
+        '"lifecycle":{"state":"observe","created_at":"2026-09-07T00:00:00+00:00",'
+        '"observe_entered_at":"2026-09-07T00:00:00.200000+00:00"}}',
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    app.include_router(router)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/v1/observe/loop-metrics", params={"tenant_id": "acme"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["schema_id"] == "tarka.loop_metrics/v1"
+    assert body["drafts_to_observe"]["human"] == 1

@@ -1102,7 +1102,10 @@ from decision_api.sandbox_bootstrap import (  # noqa: E402
     router as sandbox_bootstrap_router,
 )
 
+from decision_api.observe_drafts import router as observe_drafts_router  # noqa: E402
+
 app.include_router(rule_router)
+app.include_router(observe_drafts_router)
 app.include_router(field_router)
 app.include_router(event_type_router)
 app.include_router(observe_notify_router)

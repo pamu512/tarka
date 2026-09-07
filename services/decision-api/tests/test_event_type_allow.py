@@ -16,26 +16,31 @@ def test_pipeline_calls_require_allowed():
     assert "require_allowed_event_type" in text
 
 
-def test_refund_rejected_without_env():
+def test_unknown_type_rejected():
     from decision_api.event_type_gate import raise_if_event_type_not_allowed
 
     with pytest.raises(HTTPException) as exc:
-        raise_if_event_type_not_allowed("refund")
+        raise_if_event_type_not_allowed("not_a_real_type")
     assert exc.value.status_code == 422
     detail = exc.value.detail
     assert detail["reason_codes"] == ["ingest_event_type_invalid"]
 
 
-def test_refund_allowed_via_env(monkeypatch):
+def test_refund_and_seed_types_allowed():
     from decision_api.event_type_gate import raise_if_event_type_not_allowed
 
-    monkeypatch.setenv("TARKA_EVENT_TYPES", "refund")
-    assert raise_if_event_type_not_allowed("refund") == "refund"
-    assert raise_if_event_type_not_allowed("payment") == "payment"
-
-
-def test_seed_types_always_allowed():
-    from decision_api.event_type_gate import raise_if_event_type_not_allowed
-
-    for name in ("login", "payment", "signup", "device", "session", "custom"):
+    for name in (
+        "login",
+        "payment",
+        "signup",
+        "device",
+        "session",
+        "custom",
+        "promo",
+        "refund",
+        "cod",
+        "payout",
+        "order",
+        "delivery",
+    ):
         assert raise_if_event_type_not_allowed(name) == name
