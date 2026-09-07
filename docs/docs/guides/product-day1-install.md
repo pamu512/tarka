@@ -80,6 +80,16 @@ Do **not** treat these as `make product`. Chart `values.yaml` defaults `graphSer
 | **evaluate-only** | frontend **ON** | `graphService` **OFF** | investigation **OFF** | Evaluate-shaped cluster + a frontend. Not lite compose (lite compose still has AGE + graph-service). Hunt hidden unless you bake a graph URL. |
 | **lite-on-k8s** | frontend **OFF** | not Hunt glass | investigation **ON** | Not evaluate-only. Not `make product`. |
 
+### Helm image tags (not GA)
+
+`1.3.0-beta` on `prod-on-k8s` / `enterprise-desk-on-k8s` is a **mutable tag**, not a GA pin. There is no GA `v1.3.0` until required CI (including `stack-smoke`) is green and [release notes](../releases/v1.3.0-beta.md) say so.
+
+| Setting | Honesty |
+|---------|---------|
+| `coreApi.tag: "1.3.0-beta"` (empty `digest`) | Tag can move. Chart forbids `:latest` in prod; it does **not** make beta immutable. |
+| `coreApi.digest: "sha256:<64-hex>"` (same for `signalApi` / `investigationAgent`) | Renders `image: repo@sha256:…`. Tag is ignored. Pin this before a real prod apply. |
+| Empty digest in CI presets | Allowed so `helm template` of placeholders still works. |
+
 Helm `deskProvision.enabled` writes a ConfigMap (`schema_id` `tarka.desk_provision/v1`) and sets `TARKA_DESK_PROVISION_PATH`. Env still wins. Empty hook URLs stay off.
 
 ```bash
@@ -95,4 +105,5 @@ prod-on-k8s is a separate HA overlay. It is not this evaluate-only shape and it 
 - SLA / uptime.
 - evaluate-only === lite compose.
 - Helm prod-on-k8s === product desk.
+- GA `v1.3.0` or an immutable `1.3.0-beta` image without `digest`.
 - Auto-promote, FLAG leftover mint, or webhooks on by default.
