@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { PageTitle } from "../components/PageTitle";
+import { GraphRiskChallengerPanel } from "../components/GraphRiskChallengerPanel";
+import type { GraphRiskChallenger } from "../components/GraphRiskChallengerStrip";
 import { useTheme, type ThemePreference } from "../context/ThemeContext";
 import { decisions } from "../api/v1/decisions";
+import { decisions as decisionsClient } from "../api/client";
 import { MarketplaceSdkApiKeyPanel } from "../components/settings/MarketplaceSdkApiKeyPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
@@ -18,6 +21,25 @@ export default function Settings() {
     experiment_registry_lines?: number;
     rule_packs?: { active_pack_count: number; shadow_pack_count: number };
   } | null>(null);
+  const [challenger, setChallenger] = useState<GraphRiskChallenger | null>(null);
+  const [challengerErr, setChallengerErr] = useState<string | null>(null);
+  const challengerTenant = "demo";
+
+  async function refreshChallenger() {
+    try {
+      const strip = await decisionsClient.graphRiskChallenger(challengerTenant);
+      setChallenger(strip);
+      setChallengerErr(null);
+    } catch (e) {
+      setChallenger(null);
+      setChallengerErr(
+        toUserFacingError(e, {
+          subject: "Graph-risk challenger",
+          action: "load readiness",
+        }),
+      );
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +54,23 @@ export default function Settings() {
       } catch (e) {
         if (!cancelled) {
           setChallengeErr(toUserFacingError(e, { subject: "Challenge policies", action: "load challenge policies" }));
+        }
+      }
+      try {
+        const strip = await decisionsClient.graphRiskChallenger(challengerTenant);
+        if (!cancelled) {
+          setChallenger(strip);
+          setChallengerErr(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setChallenger(null);
+          setChallengerErr(
+            toUserFacingError(e, {
+              subject: "Graph-risk challenger",
+              action: "load readiness",
+            }),
+          );
         }
       }
     })();
@@ -50,6 +89,13 @@ export default function Settings() {
         </Link>
         . Optional outbound copy is <span className="font-mono">TARKA_OBSERVE_NOTIFY_WEBHOOK_URL</span>. SSO and tenant provisioning stay deployment-specific.
       </p>
+
+      <GraphRiskChallengerPanel
+        tenantId={challengerTenant}
+        data={challenger}
+        err={challengerErr}
+        onRefresh={() => void refreshChallenger()}
+      />
 
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-4">
         <div>
