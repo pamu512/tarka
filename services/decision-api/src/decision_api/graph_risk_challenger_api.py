@@ -75,7 +75,9 @@ async def graph_risk_enable_shadow(
 ) -> dict[str, Any]:
     """Enable shadow URL only when holdout serve_allowed. Not live DENY."""
     try:
-        return enable_shadow(tenant_id, shadow_url=body.shadow_url, actor=_actor(x_actor))
+        return enable_shadow(
+            tenant_id, shadow_url=body.shadow_url, actor=_actor(x_actor)
+        )
     except SidecarLifecycleError as e:
         _raise(e)
         raise

@@ -82,11 +82,18 @@ def test_serve_allowed_with_url_is_shadow_not_live():
     out = compute_graph_risk_readiness(
         tenant_id="acme",
         receipts=[],
-        labeled_rows=[{"y_label": "1", "trainable": True, "subgraph_snapshot": {"edges": [1]}}]
+        labeled_rows=[
+            {"y_label": "1", "trainable": True, "subgraph_snapshot": {"edges": [1]}}
+        ]
         * 8,
         graph_service_url="http://graph:8080",
         graph_gnn_beta_url="http://gnn:8091",
-        gate={"serve_allowed": True, "model_auc": 0.8, "heuristic_auc": 0.6, "reason": "ok"},
+        gate={
+            "serve_allowed": True,
+            "model_auc": 0.8,
+            "heuristic_auc": 0.6,
+            "reason": "ok",
+        },
     )
     assert out["state"] == "shadow"
     assert out["overlay_url"] == "shadow"
