@@ -21,9 +21,9 @@ import { graphLaggedEvaluate, lastOutcomeLabel, rankRelatedLinks } from "../doma
 import { DISPOSITION_REASON_CODES } from "../config/dispositionReasonCodes";
 import { DEVICE_CLUSTER_GRAPH_LABEL } from "../utils/entityDeviceClustering";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
-import { leftoverVisualHref } from "../utils/leftoverVisualQuery";
 import { PACK_WHY_MISSING, resolvePackWhy } from "../utils/packWhy";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { L2DraftButtons } from "./L2DraftButtons";
 
 type LoadState = "idle" | "loading" | "ready" | "not_found" | "error" | "cluster";
 
@@ -199,8 +199,8 @@ export function GraphContextPanel({
   embedded,
   onSelectEntity,
   leftoverId,
-  leftoverPack,
-  leftoverHits,
+  leftoverPack: _leftoverPack,
+  leftoverHits: _leftoverHits,
   decisionId,
   graphPlaneDisabled,
 }: GraphContextPanelProps) {
@@ -399,22 +399,11 @@ export function GraphContextPanel({
     !graphPlaneDisabled &&
     (Boolean(leftoverId?.trim()) || hasPinnedReceipt);
   const pinnedReceipt = receipts.find((r) => isPackFiredDecision(r.decision)) ?? receipts[0];
-  const hopNamed = pinnedReceipt
-    ? resolvePackWhy({
-        rule_pack_file: pinnedReceipt.rule_pack_file,
-        rule_hits: pinnedReceipt.rule_hits,
-        evaluate_payload: pinnedReceipt.evaluate_payload ?? null,
-      }).hop
-    : null;
-  const draftHref = leftoverVisualHref(catalog ?? fallbackAuthorCatalog(), {
-    leftoverId,
-    pack: leftoverPack,
-    hits: leftoverHits,
-    hopNamed,
-    entityId,
-    tenantId,
-    decisionId,
-  });
+  const draftTraceId = (
+    pinnedReceipt?.trace_id ||
+    (decisionId || "").replace(/^dec:/, "") ||
+    ""
+  ).trim();
 
   if (!open || !entityId) {
     if (embedded) {
@@ -514,13 +503,14 @@ export function GraphContextPanel({
               </div>
             ) : null}
             {state === "ready" && showDraft ? (
-              <a
-                data-testid="draft-observe-pack"
-                href={draftHref}
-                className="inline-block mt-2 px-2 py-1 text-[11px] font-medium rounded-lg bg-sky-800/80 hover:bg-sky-700 text-sky-50"
-              >
-                Draft Observe pack
-              </a>
+              <div className="mt-2">
+                <L2DraftButtons
+                  leftoverId={leftoverId || ""}
+                  hilEventId={leftoverId ? "" : draftTraceId}
+                  traceId={draftTraceId}
+                  tenantId={tenantId}
+                />
+              </div>
             ) : null}
           </div>
           <button

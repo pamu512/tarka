@@ -13,6 +13,7 @@ import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from decision_api.author_catalog import ai_allowed_fields, build_author_catalog
@@ -21,7 +22,14 @@ from decision_api.backtest_promote_gate import backtest_before_promote_gate
 from decision_api.config import settings
 from decision_api.db import get_session
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
-from decision_api.models import BacktestRun
+from decision_api.l2_draft import (
+    L2DraftError,
+    authored_by_kind,
+    build_l2_draft,
+    find_open_draft,
+)
+from decision_api.models import AuditRecord, BacktestRun
+from decision_api.replay import ReplayRequest, ReplayRule, replay_events
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
 from decision_api.live_rule_slip import maybe_park_live_rule_slip
 from decision_api.shadow_auto_promote import (
@@ -203,6 +211,18 @@ def _require_force_live_approver(actor: str, x_approver: str | None) -> str | No
     if low == actor.strip().lower():
         raise HTTPException(403, "force_live_approver_must_differ")
     return approver[:256]
+
+
+class L2DraftIn(BaseModel):
+    leftover_id: str = ""
+    hil_event_id: str = ""
+    trace_id: str
+    override_why: str = ""
+    authored_by: str = ""
+    is_ai_authored: bool = False
+    skip_backtest: bool = False
+    skip_reason: str = ""
+    rules: list[RuleIn] = Field(default_factory=list)
 
 
 class ForceLiveBody(BaseModel):
@@ -743,6 +763,154 @@ async def force_live_pack(
     if approver is not None:
         out["approver"] = approver
     return out
+
+
+@router.get("/l2-drafts")
+async def list_l2_drafts():
+    items = [
+        p
+        for p in _read_all_packs()
+        if p.get("source_key")
+        or (p.get("evidence") or {}).get("leftover_id")
+        or (p.get("evidence") or {}).get("hil_event_id")
+    ]
+    return {"items": items}
+
+
+@router.post("/l2-draft", status_code=201)
+async def create_l2_draft(
+    body: L2DraftIn,
+    tenant_id: str | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    _require_rule_governance(x_rule_governance_secret)
+    actor = _actor_from_headers(x_actor)
+    try:
+        tid = uuid.UUID(str(body.trace_id).strip())
+    except (ValueError, AttributeError, TypeError):
+        raise HTTPException(
+            400, detail={"code": "invalid_trace_id", "detail": "trace_id"}
+        )
+    result = await session.execute(
+        select(AuditRecord).where(AuditRecord.trace_id == tid)
+    )
+    rec = result.scalars().first()
+    if rec is None:
+        raise HTTPException(
+            404, detail={"code": "receipt_not_found", "detail": "receipt"}
+        )
+    if tenant_id and str(tenant_id).strip() != str(rec.tenant_id).strip():
+        raise HTTPException(
+            403, detail={"code": "tenant_mismatch", "detail": "receipt tenant"}
+        )
+    hit = find_open_draft(
+        _read_all_packs(), leftover_id=body.leftover_id, hil_event_id=body.hil_event_id
+    )
+    if hit:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "draft_exists",
+                "file": hit.get("_file"),
+                "name": hit.get("name"),
+            },
+        )
+    llm = (
+        os.environ.get("OPENAI_BASE_URL") or os.environ.get("SHADOW_LLM_BASE_URL") or ""
+    ).strip()
+    _kind, ai = authored_by_kind(
+        body.authored_by, is_ai_authored=body.is_ai_authored, llm_url=llm
+    )
+    rules = [_rule_to_dict(r) for r in body.rules] if body.rules else None
+    backtest_ok = False
+    artifact = ""
+    if ai:
+        if body.skip_backtest:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "backtest_required",
+                    "detail": "AI draft needs replay pass",
+                },
+            )
+        override = [
+            ReplayRule(
+                id=r.get("id") or "",
+                when=r.get("when") or [],
+                tags=r.get("tags") or [],
+                score_delta=float(r.get("score_delta") or 0),
+                description=r.get("description") or "",
+            )
+            for r in (
+                rules
+                or [
+                    {
+                        "id": "leftover_observe",
+                        "when": [
+                            {"field": "entity_id", "op": "eq", "value": rec.entity_id}
+                        ],
+                        "score_delta": 5,
+                    }
+                ]
+            )
+        ]
+        replayed = await replay_events(
+            ReplayRequest(
+                tenant_id=rec.tenant_id,
+                rules_override=override,
+                trace_ids=[str(rec.trace_id)],
+            ),
+            session,
+        )
+        backtest_ok = replayed.events_evaluated >= 1 and not replayed.missing_trace_ids
+        artifact = f"replay:{rec.trace_id}"
+        if not backtest_ok:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "backtest_required",
+                    "detail": "AI draft needs replay pass",
+                },
+            )
+    try:
+        pack = build_l2_draft(
+            receipt=rec,
+            leftover_id=body.leftover_id,
+            hil_event_id=body.hil_event_id,
+            override_why=body.override_why,
+            authored_by=body.authored_by,
+            is_ai_authored=body.is_ai_authored,
+            llm_url=llm,
+            skip_backtest=body.skip_backtest,
+            backtest_ok=backtest_ok,
+            backtest_artifact_id=artifact,
+            actor=actor,
+            skip_reason=body.skip_reason,
+            rules=rules,
+        )
+    except L2DraftError as e:
+        raise HTTPException(e.http_status, detail={"code": e.code, "detail": e.detail})
+    ferr = when_field_errors(
+        pack, ai_allowed_fields(await _live_author_catalog(rec.tenant_id))
+    )
+    if ferr:
+        raise HTTPException(
+            422, detail={"code": "schema_invalid", "validation_errors": ferr}
+        )
+    fpath = _new_pack_path("l2")
+    fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    load_rules()
+    _append_rule_change(
+        "l2_draft",
+        fpath.name,
+        actor=actor,
+        detail={"name": pack.get("name"), "source_key": pack.get("source_key")},
+    )
+    return {"file": fpath.name, "pack": pack}
 
 
 @router.get("/{filename}")
