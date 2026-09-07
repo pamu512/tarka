@@ -2,6 +2,8 @@
 
 Get a Tarka desk stack running and evaluate a first decision.
 
+Tarka application code is **source-available** under Elastic License 2.0 (not open-source). Beta, no GA. Observe ≠ live. Empty `GRAPH_SERVICE_URL` turns hops off (not sibling identity). Hop packs stay `mode=shadow`. Not GNN live.
+
 ## Prerequisites
 
 - Docker + Compose v2

@@ -1,10 +1,12 @@
-# OSS 15-minute path — first decision
+# 15-minute first decision
 
 **Goal:** From a clean checkout, get a live evaluate response (and optional UI) in about 15 minutes using **Tarka Lite**.
 
 The one-command front door is [`make demo`](./clone-demo.md). This page is the longer compose / curl / smoke path.
 
-Self-hosting Tarka on your own metal or VPC for your own operations is allowed under Elastic License 2.0; providing Tarka to third parties as a hosted or managed service is not.
+Tarka application code is **source-available** under Elastic License 2.0 (not open-source). Self-hosting on your own metal or VPC for your own operations is allowed; providing Tarka to third parties as a hosted or managed service is not.
+
+Evaluate is Rust packs + receipts. Observe ≠ live. Empty `GRAPH_SERVICE_URL` turns hops off (not sibling identity). Hop packs stay `mode=shadow`. Not GNN live.
 
 ## Prerequisites
 

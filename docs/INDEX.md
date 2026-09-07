@@ -18,7 +18,7 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 | Topic | Start here |
 |-------|------------|
 | **Evaluate (decision stream)** | [Feature data flows](docs/guides/feature-data-flows.md) · [architecture](docs/architecture.md) · [decision-api](../services/decision-api/README.md) |
-| **Graph / Hunt (required for the desk)** | Lite Day-1 is Apache AGE on the same Postgres + `graph-service`. Wire another graph with `GRAPH_SERVICE_URL` + `GRAPH_BACKEND`. Empty URL is evaluate-only fallback (home `/decisions`), not the product. Evaluate never waits on graph. [service-ports](docs/guides/service-ports.md) · [Decision context graph](docs/guides/decision-context-graph.md) |
+| **Graph / Hunt (required for the desk)** | Lite Day-1 is Apache AGE on the same Postgres + `graph-service`. Wire another graph with `GRAPH_SERVICE_URL` + `GRAPH_BACKEND`. Empty URL is evaluate-only fallback (home `/decisions`) — hops off, **not sibling identity**, not always-on graph. Evaluate never waits on graph. [hop packs](docs/guides/hop-pack-authoring.md) · [graph-risk challenger](docs/guides/gnn-label-loop.md) · [service-ports](docs/guides/service-ports.md) |
 | **Leftovers** | Thin station `GET /v1/leftovers` + desk `/leftovers`. Hold / resolve stay on Hunt. |
 | **Observe** | Pack canary + leftover promote + live-rule slip on `/ops/shadow` (always-on lean). RFP "shadow mode" = Observe evaluate (`metadata.shadow`) only — not the LLM. [Shadow / A/B guide](docs/guides/shadow-and-ab-testing.md). |
 | **Advise (optional)** | [services/SHADOW.md](../services/SHADOW.md) · Shadow agent LLM · BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM. Off until operator wires `SHADOW_AGENT_URL`. |
@@ -32,6 +32,15 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 2. **Second-human sample of cases already closed by HIL** — existing `qa_sample_closed_cases` / `/ops/qa`.
 
 Do not collapse them into one workflow. Do not invent review rates.
+
+## Tip honesty
+
+| True | Not shipped |
+|------|-------------|
+| ELv2 source-available. Beta, no GA. `make doctor && make demo` | OSS; ready-for-beta testers; unattended merchant beta |
+| Observe ≠ live. Human Promote. Hop packs `mode=shadow` | Live unattended hops; auto-Promote; GNN live; always-on graph |
+| Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Omniscient AI author loop; model ALLOW/DENY; case CRM; consortium SKU |
+| L2 leftover/override → Observe draft (AI backtest required). FP late-label → Observe soften. Beachhead seeds stay Observe | Beachhead = banks; seeds = live |
 
 ## Product locks
 

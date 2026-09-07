@@ -26,3 +26,7 @@ When unset, `backtest_job_id` omitted → **waived** (simulation metrics only �
 - Rules → Vertical Packs → optional backtest job id
 - Ops → Backtest jobs (`/ops/backtest`)
 - OpsShadow → backtest-before-promote panel
+
+## L2 leftover / override → Observe
+
+A leftover or HIL override can mint an Observe draft (`mode=shadow`). If the draft is AI-authored, a backtest pass is **required** before it lands in Observe (`409 backtest_required`). Human drafts may skip with actor + reason. This is not auto-Promote and not a live hop.

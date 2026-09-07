@@ -14,7 +14,7 @@ Tarka is a **local-first fraud OS**. Two things define the product:
 
 2. **Review is the exception.** Investigation is a residual station born from evaluate → deny / review. ALLOW never becomes a case. When review happens, there is a feedback loop back into the packs.
 
-**Add-on:** omniscient AI (BYO LLM / scout) detects when a new rule is needed, writes it, parks it in canary / Observe, then auto-promotes or asks HIL when promote gates miss. Humans still own the live pack via gates.
+**Add-on (not on tip):** a BYO LLM / scout may draft a rule into Observe. There is no closed omniscient author loop and no auto-Promote. Humans Promote. The live pack stays human-owned.
 
 ---
 

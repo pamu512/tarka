@@ -18,3 +18,19 @@
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
+
+## Tip claims (after #392–#397)
+
+Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not advertise the right-hand column as shipped.
+
+| True on tip | Must not read as shipped |
+|-------------|--------------------------|
+| ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
+| `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
+| Observe ≠ live. Human Promote. Founder-in-the-loop | Live hop FLAG without Promote; auto-Promote; auto-demote |
+| Hop packs `mode=shadow`. Live overlay only via pack Promote | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
+| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
+| FP late-label → Observe soften draft (#394) | Consortium SKU |
+| Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
+| Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
