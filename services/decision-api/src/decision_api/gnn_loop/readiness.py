@@ -177,7 +177,11 @@ def build_graph_risk_readiness(tenant_id: str) -> dict[str, Any]:
     gate = load_gate_artifact(default_gate_path())
     life = load_lifecycle(tenant_id)
     overlay = os.environ.get("GRAPH_GNN_BETA_URL", "").strip()
-    if not overlay and life.get("shadow_enabled") and str(life.get("shadow_url") or "").strip():
+    if (
+        not overlay
+        and life.get("shadow_enabled")
+        and str(life.get("shadow_url") or "").strip()
+    ):
         overlay = str(life.get("shadow_url") or "").strip()
     out = compute_graph_risk_readiness(
         tenant_id=tenant_id,

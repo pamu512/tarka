@@ -14,7 +14,11 @@ from typing import Any
 
 from decision_api.gnn_loop.export import export_labeled_rows, write_export_jsonl
 from decision_api.gnn_loop.receipts import load_receipts
-from decision_api.gnn_loop.train import load_gate_artifact, train_and_gate, write_gate_artifact
+from decision_api.gnn_loop.train import (
+    load_gate_artifact,
+    train_and_gate,
+    write_gate_artifact,
+)
 from decision_api.y_label_store import _data_dir, _file_token
 
 SCHEMA_ID = "tarka.graph_risk_lifecycle/v1"
@@ -37,7 +41,9 @@ def _lifecycle_path(tenant_id: str) -> Path:
     base = _data_dir()
     target = (base / f"graph_risk_lifecycle_{token}.json").resolve()
     if target.parent != base or target.suffix != ".json":
-        raise SidecarLifecycleError("bad_path", http_status=400, detail="lifecycle path")
+        raise SidecarLifecycleError(
+            "bad_path", http_status=400, detail="lifecycle path"
+        )
     return target
 
 
@@ -104,7 +110,9 @@ def run_export(tenant_id: str, *, actor: str = "") -> dict[str, Any]:
     rows = export_labeled_rows(tid, load_receipts(tid))
     out = write_export_jsonl(rows, default_export_path(tid))
     life = load_lifecycle(tid)
-    life["state"] = "ready" if sum(1 for r in rows if r.get("trainable")) >= 8 else "collecting"
+    life["state"] = (
+        "ready" if sum(1 for r in rows if r.get("trainable")) >= 8 else "collecting"
+    )
     life["last_export_at"] = _now()
     life["last_export_rows"] = len(rows)
     life["last_actor"] = (actor or "").strip()
@@ -124,7 +132,9 @@ def run_train(tenant_id: str, *, actor: str = "") -> dict[str, Any]:
         raise SidecarLifecycleError("missing_tenant", http_status=400)
     who = (actor or "").strip()
     if not who:
-        raise SidecarLifecycleError("actor_required", http_status=400, detail="X-Actor required")
+        raise SidecarLifecycleError(
+            "actor_required", http_status=400, detail="X-Actor required"
+        )
     export_path = default_export_path(tid)
     if not export_path.is_file():
         run_export(tid, actor=who)
@@ -170,9 +180,13 @@ def enable_shadow(
     if not tid:
         raise SidecarLifecycleError("missing_tenant", http_status=400)
     if not who:
-        raise SidecarLifecycleError("actor_required", http_status=400, detail="X-Actor required")
+        raise SidecarLifecycleError(
+            "actor_required", http_status=400, detail="X-Actor required"
+        )
     if not url:
-        raise SidecarLifecycleError("missing_url", http_status=400, detail="shadow_url required")
+        raise SidecarLifecycleError(
+            "missing_url", http_status=400, detail="shadow_url required"
+        )
     gate = load_gate_artifact(default_gate_path()) or {}
     if not gate.get("serve_allowed"):
         raise SidecarLifecycleError(
@@ -200,7 +214,9 @@ def retire_shadow(tenant_id: str, *, actor: str = "") -> dict[str, Any]:
     if not tid:
         raise SidecarLifecycleError("missing_tenant", http_status=400)
     if not who:
-        raise SidecarLifecycleError("actor_required", http_status=400, detail="X-Actor required")
+        raise SidecarLifecycleError(
+            "actor_required", http_status=400, detail="X-Actor required"
+        )
     life = load_lifecycle(tid)
     life["state"] = "retired"
     life["shadow_enabled"] = False
