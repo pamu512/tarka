@@ -22,7 +22,7 @@ This is a **label + holdout loop**, not a live GNN. Desk copy: **Graph-risk / Ri
    | Path | How it lands | Observe |
    |---|---|---|
    | Chargeback (existing) | `dispute.outcome` → receipt; `label_kind` inferred (`fraud` / `other`); `source` defaults to `finance`; no `prior_override_id` | none |
-   | False positive | `label_kind=fp` on a restrictive receipt (`DENY` / `REVIEW` / step-up). `y_label=0`. Cheap `fp_cost` on the bind response. | Opens Observe `consider_soften` (`/ops/shadow?trace_id=…`). A model did not evaluate. |
+   | False positive | `label_kind=fp` on a restrictive receipt (`DENY` / `REVIEW` / step-up). `y_label=0`. Optional `fp_cost` amount/currency or ordinal on the bind. Host Care/CRM POSTs this webhook — this repo has no Care UI. | Mints a human/seed Observe pack (`intent=soften`, `mode=shadow`). Same path as `POST /v1/webhooks/disposition`. A model did not evaluate and does not own live. |
    | Override → later fraud | Human overrode toward allow/clear (override receipt, same `evaluation_token`). Later fraud late-labels **that override receipt** with `prior_override_id`. Distinct from a chargeback with no override. | none |
    | Follow-on evaluate | Later evaluate on the same entity may bind `label_source=evaluate` to a **prior** receipt (`entity_id` + `later_trace_id`, or an explicit `decision_token`). One learning join, not a CRM case. | none |
 
