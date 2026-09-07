@@ -56,6 +56,9 @@ def test_english_copy_has_no_third_party_desk_names() -> None:
     assert "unit21" not in blob.lower()
     assert "sardine" not in blob.lower()
     assert "Promote" in blob or "Observe" in blob
+    demote = english_copy(EVENT_CONSIDER_DEMOTE, "r1", "slip_retire_r1")
+    assert "Confirm demote" in demote["body"]
+    assert "model did not" in demote["body"].lower()
 
 
 def test_dedupe_same_tenant_type_subject(tmp_path, monkeypatch) -> None:

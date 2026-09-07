@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
-import { decisions, rules, shadow } from "../api/client";
+import { decisions, rules } from "../api/client";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Draft = { name?: string; file?: string; is_ai_authored?: boolean };
 type SlipRow = { rule_id?: string; hypothesis?: string; parked_draft?: string | null; triggers?: string[] };
+type LivePack = {
+  _file?: string;
+  name?: string;
+  mode?: string;
+  lifecycle?: { demote?: { state?: string; proposed_by?: string } };
+};
 
 export function ObserveEasePanel({
   tenantId,
@@ -13,7 +19,7 @@ export function ObserveEasePanel({
   promoteAllowed,
   blockers,
   slipRules,
-  selectedDraft,
+  selectedDraft: _selectedDraft,
   onSelectDraft,
   onPromote,
   canPromote,
@@ -31,6 +37,9 @@ export function ObserveEasePanel({
   const [llm, setLlm] = useState<{ connected: boolean; backend: string; model: string; hint?: string } | null>(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [livePacks, setLivePacks] = useState<LivePack[]>([]);
+  const [selectedLive, setSelectedLive] = useState("");
+  const [demoteReason, setDemoteReason] = useState("");
 
   async function refreshLlm() {
     try {
@@ -40,8 +49,26 @@ export function ObserveEasePanel({
     }
   }
 
+  async function refreshLivePacks() {
+    try {
+      const out = await rules.list();
+      const live = ((out.packs || []) as LivePack[]).filter((p) => {
+        const mode = (p.mode || "active").trim();
+        return mode === "active" || mode === "";
+      });
+      setLivePacks(live);
+      setSelectedLive((cur) => {
+        if (cur && live.some((p) => (p._file || "") === cur)) return cur;
+        return live[0]?._file || "";
+      });
+    } catch (e) {
+      setMsg(toUserFacingError(e, { subject: "Live packs", action: "list active packs" }));
+    }
+  }
+
   useEffect(() => {
     void refreshLlm();
+    void refreshLivePacks();
     // ponytail: status is env-backed; one read on mount is enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,16 +111,35 @@ export function ObserveEasePanel({
     }
   }
 
-  async function demoteSelected() {
-    const file = drafts.find((d) => (d.name || "").trim() === selectedDraft)?.file;
-    if (!file) return;
+  const selectedLivePack = livePacks.find((p) => (p._file || "") === selectedLive);
+  const demoteProposed = (selectedLivePack?.lifecycle?.demote?.state || "") === "proposed";
+  const reasonReady = demoteReason.trim().length >= 8;
+
+  async function proposeDemoteSelected() {
+    if (!selectedLive || !reasonReady) return;
     setBusy(true);
     setMsg("");
     try {
-      await shadow.setPackMode(file, "shadow");
-      setMsg("Human PUT set that pack to Observe. A model did not turn live off.");
+      await rules.proposeDemote(selectedLive, demoteReason.trim(), tenantId);
+      setMsg("Proposed demote. Live is still on. Confirm is a separate human action.");
+      await refreshLivePacks();
     } catch (e) {
-      setMsg(toUserFacingError(e, { subject: "Observe", action: "set pack mode to shadow" }));
+      setMsg(toUserFacingError(e, { subject: "Propose Demote", action: "park a human demote" }));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmDemoteSelected() {
+    if (!selectedLive || !reasonReady || !demoteProposed) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      await rules.confirmDemote(selectedLive, demoteReason.trim());
+      setMsg("Confirmed demote. Pack is Observe. A model did not turn live off.");
+      await refreshLivePacks();
+    } catch (e) {
+      setMsg(toUserFacingError(e, { subject: "Confirm demote", action: "flip the proposed pack to Observe" }));
     } finally {
       setBusy(false);
     }
@@ -146,8 +192,35 @@ export function ObserveEasePanel({
         </ul>
       </article>
       <article className="rounded-md border border-surface-700 px-3 py-2 text-sm">
-        <h3 className="font-semibold text-gray-100">Live rule slipped</h3>
-        <p className="text-gray-400 mt-1">The model did not turn live off.</p>
+        <h3 className="font-semibold text-gray-100">Propose Demote</h3>
+        <p className="text-gray-400 mt-1">Scout does not auto-demote. Propose parks. Confirm flips to Observe. A model never demotes.</p>
+        {livePacks.length ? (
+          <label className="block mt-2 text-xs text-gray-500">
+            Live pack
+            <select
+              value={selectedLive}
+              onChange={(e) => setSelectedLive(e.target.value)}
+              className="mt-1 w-full bg-surface-900 border border-surface-600 rounded px-2 py-1 text-gray-200"
+            >
+              {livePacks.map((p) => (
+                <option key={p._file || p.name} value={p._file || ""}>
+                  {p.name || p._file}
+                  {(p.lifecycle?.demote?.state || "") === "proposed" ? " (proposed)" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p className="mt-2 text-xs text-gray-500">No live pack to demote.</p>
+        )}
+        <label className="block mt-2 text-xs text-gray-500">
+          Demote reason
+          <input
+            value={demoteReason}
+            onChange={(e) => setDemoteReason(e.target.value)}
+            className="mt-1 w-full bg-surface-900 border border-surface-600 rounded px-2 py-1 text-gray-200"
+          />
+        </label>
         {parked.map((r) => (
           <p key={r.rule_id} className="mt-1 text-gray-300">
             {r.hypothesis === "retire"
@@ -163,12 +236,25 @@ export function ObserveEasePanel({
             {r.rule_id} slipped (ping only).
           </p>
         ))}
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" disabled={!canPromote || busy} onClick={onPromote} className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50">
             Promote draft
           </button>
-          <button type="button" disabled={!selectedDraft || busy} onClick={() => void demoteSelected()} className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50">
-            Human demote (PUT)
+          <button
+            type="button"
+            disabled={!selectedLive || !reasonReady || busy}
+            onClick={() => void proposeDemoteSelected()}
+            className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50"
+          >
+            Propose Demote
+          </button>
+          <button
+            type="button"
+            disabled={!selectedLive || !reasonReady || !demoteProposed || busy}
+            onClick={() => void confirmDemoteSelected()}
+            className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50"
+          >
+            Confirm demote
           </button>
           <Link to="/rules" className="px-2 py-1 text-brand-300 hover:underline">
             Open packs
