@@ -9,5 +9,6 @@
   "cod",
   "payout",
   "order",
-  "delivery"
+  "delivery",
+  "refund"
 ]

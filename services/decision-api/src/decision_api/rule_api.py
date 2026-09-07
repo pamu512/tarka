@@ -24,6 +24,7 @@ from decision_api.db import get_session
 from decision_api.json_rules import get_rule_hit_telemetry, load_rules
 from decision_api.l2_draft import (
     L2DraftError,
+    abandon_draft,
     authored_by_kind,
     build_l2_draft,
     find_open_draft,
@@ -830,6 +831,9 @@ async def create_l2_draft(
     artifact = ""
     if ai:
         if body.skip_backtest:
+            from decision_api.loop_metrics import record_ai_gate
+
+            record_ai_gate(blocked=True)
             raise HTTPException(
                 409,
                 detail={
@@ -869,6 +873,9 @@ async def create_l2_draft(
         backtest_ok = replayed.events_evaluated >= 1 and not replayed.missing_trace_ids
         artifact = f"replay:{rec.trace_id}"
         if not backtest_ok:
+            from decision_api.loop_metrics import record_ai_gate
+
+            record_ai_gate(blocked=True)
             raise HTTPException(
                 409,
                 detail={
@@ -876,6 +883,9 @@ async def create_l2_draft(
                     "detail": "AI draft needs replay pass",
                 },
             )
+        from decision_api.loop_metrics import record_ai_gate
+
+        record_ai_gate(blocked=False)
     try:
         pack = build_l2_draft(
             receipt=rec,
@@ -911,6 +921,38 @@ async def create_l2_draft(
         detail={"name": pack.get("name"), "source_key": pack.get("source_key")},
     )
     return {"file": fpath.name, "pack": pack}
+
+
+@router.post("/l2-drafts/{draft_name}/abandon")
+async def abandon_l2_draft(
+    draft_name: str,
+    x_actor: str | None = Header(default=None, alias="X-Actor"),
+    x_rule_governance_secret: str | None = Header(
+        default=None, alias="X-Rule-Governance-Secret"
+    ),
+):
+    _require_rule_governance(x_rule_governance_secret)
+    actor = _actor_from_headers(x_actor)
+    want = (draft_name or "").strip()
+    hit = next(
+        (p for p in _read_all_packs() if str(p.get("name") or "") == want),
+        None,
+    )
+    if hit is None:
+        raise HTTPException(404, detail={"code": "draft_not_found", "detail": want})
+    try:
+        abandon_draft(hit, actor=actor)
+    except L2DraftError as e:
+        raise HTTPException(e.http_status, detail={"code": e.code, "detail": e.detail})
+    fname = str(hit.get("_file") or "").strip()
+    if not fname:
+        raise HTTPException(404, detail={"code": "draft_not_found", "detail": want})
+    fpath = Path(settings.rules_path) / fname
+    writable = {k: v for k, v in hit.items() if k != "_file"}
+    fpath.write_text(json.dumps(writable, indent=2), encoding="utf-8")
+    load_rules()
+    _append_rule_change("l2_abandon", fname, actor=actor, detail={"name": want})
+    return {"file": fname, "pack": writable}
 
 
 @router.get("/{filename}")

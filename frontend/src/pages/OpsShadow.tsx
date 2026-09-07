@@ -13,6 +13,7 @@ import { formatLiveRuleSlipLine } from "../domain/liveRuleSlip";
 import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
 import { FirstHourHint } from "../components/FirstHourHint";
+import { LoopScoreboard, type LoopMetrics } from "../components/LoopScoreboard";
 import { ObserveEasePanel } from "../components/ObserveEasePanel";
 import { decodeJwtPayload, extractRolesFromClaims } from "../security/jwtClaims";
 import { TarkaRbacRole } from "../security/rbacConstants";
@@ -188,6 +189,7 @@ export default function OpsShadow() {
     actor?: string;
     detail?: { reason?: string };
   } | null>(null);
+  const [loopMetrics, setLoopMetrics] = useState<LoopMetrics | null>(null);
 
   async function refreshL3() {
     try {
@@ -226,6 +228,10 @@ export default function OpsShadow() {
       .getShadowAutoPromoteProvision(tenantId)
       .then(applyProvision)
       .catch(() => setProvision(null));
+    void decisions
+      .loopMetrics(tenantId)
+      .then(setLoopMetrics)
+      .catch(() => setLoopMetrics(null));
     void decisions
       .typologyOps(tenantId)
       .then((ops) =>
@@ -473,6 +479,7 @@ export default function OpsShadow() {
         nextTo="/analytics/rule-performance"
         nextLabel="Rule performance"
       />
+      <LoopScoreboard metrics={loopMetrics} />
       <ObserveEasePanel
         tenantId={tenantId}
         drafts={data?.shadow_drafts || []}

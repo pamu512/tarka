@@ -170,6 +170,10 @@ def activate_shadow_pack(
     fpath = Path(settings.rules_path) / fname
     pack = json.loads(fpath.read_text(encoding="utf-8"))
     pack["mode"] = "active"
+    if isinstance(pack.get("lifecycle"), dict) or pack.get("source_key"):
+        from decision_api.l2_draft import mark_promoted
+
+        mark_promoted(pack)
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")
     load_rules()
     rec = {"draft_id": want, "mode": "active"}
