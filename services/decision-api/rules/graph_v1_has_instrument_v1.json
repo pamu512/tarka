@@ -2,7 +2,7 @@
   "version": 1,
   "name": "graph_v1_has_instrument_v1",
   "mode": "shadow",
-  "description": "FLAG when the as-of hop has signed HAS_EMAIL / HAS_PHONE / HAS_CARD and (has_multi_id or sibling_prior_flag). Missing hop does not fire. Observe by default — flip mode to active after review.",
+  "description": "FLAG when the as-of hop has signed HAS_EMAIL / HAS_PHONE / HAS_CARD and (has_multi_id or sibling_prior_flag). Missing hop does not fire. Observe (mode=shadow) until a human Promotes.",
   "rules": [
     {
       "id": "has_instrument_multi_or_sibling",

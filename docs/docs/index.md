@@ -2,7 +2,7 @@
 
 **Prove every signal.** Local-first fraud OS you run yourself.
 
-Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review is residual — leftovers + Hunt, not a CRM inbox. ALLOW never becomes a leftover. Graph is **required for the desk** (AGE on lite, or yours). Evaluate never waits on it. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is pack canary + leftover promote + live-rule slip on `/ops/shadow`. RFP "shadow mode" = evaluate with `metadata.shadow` — not the LLM.
+Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review is residual — leftovers + Hunt, not a CRM inbox. ALLOW never becomes a leftover. Graph is **required for the desk** (AGE on lite, or yours). Empty `GRAPH_SERVICE_URL` is evaluate-only fallback — hops off, not sibling identity, not always-on graph. Evaluate never waits on it. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is pack canary + leftover promote + live-rule slip on `/ops/shadow` — not live. RFP "shadow mode" = evaluate with `metadata.shadow` — not the LLM. Hop packs stay `mode=shadow` until a human Promotes.
 
 ---
 
@@ -14,7 +14,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Quickstart](quickstart.md) | Lite compose → first decision |
 | [Architecture](architecture.md) | Services and stores |
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
-| [GNN label loop](guides/gnn-label-loop.md) | Offline snapshot/export/holdout; serve off unless heuristic_v1 loses |
+| [Graph-risk / Ring-score challenger](guides/gnn-label-loop.md) | Offline label/holdout. Never “GNN live.” `GRAPH_GNN_BETA_URL` unset in compose |
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, desk-strict knobs |
 | [Operator hub](../INDEX.md) | Documentation index |

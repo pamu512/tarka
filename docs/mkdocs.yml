@@ -85,7 +85,9 @@ nav:
       - Backtest before promote: guides/backtest-before-promote.md
       - Clone-and-run desk: guides/clone-demo.md
       - Product Day-1 install: guides/product-day1-install.md
-      - OSS 15-minute first decision: guides/oss-15-minute-first-decision.md
+      - 15-minute first decision: guides/oss-15-minute-first-decision.md
+      - Hop pack authoring: guides/hop-pack-authoring.md
+      - Graph-risk / Ring-score challenger: guides/gnn-label-loop.md
   - Releases:
       - 1.3.0-beta: releases/v1.3.0-beta.md
       - Releases hub: releases/README.md

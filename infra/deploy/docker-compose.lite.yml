@@ -1,6 +1,6 @@
 # Tarka Lite — evaluate + required graph (Apache AGE on the same Postgres + graph-service).
 # Default services: postgres, redis, graph-service, core-api, frontend.
-# Empty GRAPH_SERVICE_URL is an outage. Advise / signals stay additive overlays.
+# Empty GRAPH_SERVICE_URL turns hops off (evaluate still runs; not sibling identity). Not an outage. Advise / signals stay additive overlays.
 # Graph store is Apache AGE (Apache-2.0). Janus/Neo4j stay optional on other compose files.
 # Existing postgres:16-alpine volumes may lack AGE preload — wipe fraud_pg if Postgres refuses to start.
 #

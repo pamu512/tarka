@@ -8,7 +8,7 @@ const COPY: Record<PlaneId, { title: string; body: string; module: "graph" | "in
   graph: {
     title: "Graph plane off",
     module: "graph",
-    body: "GRAPH_SERVICE_URL is empty. The graph is required on this desk — that is an outage.",
+    body: "GRAPH_SERVICE_URL is empty. Hunt and sibling-identity hops are off. Evaluate still runs. Empty URL does not invent neighbors. This is not an outage.",
   },
   advise: {
     title: "Advise plane off",

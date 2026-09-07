@@ -11,7 +11,7 @@ Related: [repo-productionization-runbook](repo-productionization-runbook.md) · 
 
 Analyst UI / SDK / merchant → nginx → **core-api** `/decisions` → **decision-api** evaluate pipeline.
 
-Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured` — packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph.
+Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured` — hops off, **not sibling identity**; packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph. Hop packs stay `mode=shadow`. Live overlay effect only via pack Promote. Not GNN live.
 
 ```mermaid
 flowchart TD
@@ -133,7 +133,7 @@ Work **arrives** on `GET /v1/leftovers` (desk `/leftovers`). Work **happens** on
 
 A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint on deny/review by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 
-Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. One leftover cannot Promote.
+Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. One leftover cannot Promote. L2 leftover / HIL override mints an Observe draft (`mode=shadow`); an AI-authored draft needs a backtest pass first (`409 backtest_required`). Beachhead Observe seeds (promo / COD / payout) stay Observe — seed ≠ live.
 
 ```mermaid
 flowchart TD

@@ -10,7 +10,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 make doctor && make demo
 ```
 
-`make demo` is the **demo** skin (first-hour pages). `make product` is the **product** skin: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics, with `infra/deploy/desk_provision.example.json` mounted. Product is not Command Center or sales-only pitch pages. Optional sales-only overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`. Leftover switches (`flag_mints_leftover`, claim, QA isolate, receipt brief) and the auto-promote **boolean** live in that file (`leftover.*`, `observe.auto_promote`) or `TARKA_*` / `TARKA_AUTO_PROMOTE` (env wins). The per-tenant `tarka.shadow_auto_promote_provision/v1` file on `/ops/shadow` is first-review checkbox + leftover **caps** only — it cannot silently turn auto-promote on when named-desk `observe.auto_promote` is false.
+`make demo` is the **demo** skin (first-hour pages). `make product` is the **product** skin: same APIs, plus visual builder, backtest, entity lists, simulation, and analytics, with `infra/deploy/desk_provision.example.json` mounted. Product is not Command Center or sales-only pitch pages. Optional sales-only overlay still uses `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false`. Leftover switches (`flag_mints_leftover`, claim, QA isolate, receipt brief) live in that file or `TARKA_*`. Auto-Promote is **off** and is not a shipped unattended path.
 
 `make doctor` checks Docker Desktop (Compose v2), ports `8000` `8001` `3000` `5432` `6379`, and ~4 GB RAM. Each fail names the fix. Then `make demo` starts Lite + fraud-desk and runs the receipt walk.
 
@@ -42,7 +42,7 @@ PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
 3. `docker compose` lite + fraud-desk. If health never comes up (3 min), the script stops and does **not** run the walk.
 4. `python3 scripts/oss/walk_receipts.py` — three evaluate POSTs against **shipped** packs (`default.json`, `device_signals.json`, `vertical_payment_risk_v1.json`). Decisions are whatever evaluate returns. The walk does not invent ALLOW / REVIEW / DENY.
 
-On those packs alone (base 10, review 50, deny 80) the three payloads score 10 / 75 / 90 → allow / review / deny. Live evaluate may add graph, consortium, or degrade deltas — believe the receipt.
+On those packs alone (base 10, review 50, deny 80) the three payloads score 10 / 75 / 90 → allow / review / deny. Live evaluate may add hop or degrade tags — believe the receipt. There is no consortium SKU on this walk.
 
 demo-burst (investor / SAR pitch, token-gated) is not this path.
 
@@ -66,8 +66,9 @@ To add a BYO LLM after Day-1, put the same four vars in `infra/deploy/.env` (`SH
 - Packs control the decision. These POSTs hit shipped JSON packs under `services/decision-api/rules/`; evaluate never invents ALLOW / REVIEW / DENY.
 - Receipt why is `rule_hits` + `reasons` on the evaluate response and on desk `/decisions`.
 - Observe on `/ops/shadow` is pack canary + leftover promote + live-rule slip — not live production traffic and not a model.
-- Empty `GRAPH_SERVICE_URL` turns hops off (evaluate-only fallback). Lite compose sets the AGE graph URL. Hunt chrome is the same path: empty `VITE_GRAPH_SERVICE_URL` **or** `VITE_HUNT_ENABLED=0` (`TARKA_HUNT_ENABLED=0` / `hunt.enabled: false` on `make product`). File-only Hunt-off does not hide the baked desk until rebuild.
-- An edge is real only when the receipt wrote it. This walk does not mock a hop SKU.
+- Empty `GRAPH_SERVICE_URL` turns hops off (evaluate-only fallback) — **not sibling identity**. Lite compose sets the AGE graph URL. Hunt chrome is the same path: empty `VITE_GRAPH_SERVICE_URL` **or** `VITE_HUNT_ENABLED=0` (`TARKA_HUNT_ENABLED=0` / `hunt.enabled: false` on `make product`). File-only Hunt-off does not hide the baked desk until rebuild.
+- Hop packs (`USES_DEVICE` …) stay `mode=shadow`. Beachhead Observe seeds (promo / COD / payout) stay Observe. Live FLAG only after human Promote.
+- An edge is real only when the receipt wrote it. This walk does not mock a hop SKU. Not GNN live.
 
 If every receipt is ALLOW, that is an honest pack outcome on this desk, not a failed demo. The receipt why and Hunt person (`entity_id`) still stand.
 

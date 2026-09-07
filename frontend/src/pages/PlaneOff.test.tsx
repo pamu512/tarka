@@ -13,7 +13,8 @@ describe("PlaneOff", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { name: /graph plane off/i })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/outage/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/not an outage/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/sibling-identity hops are off/i);
     expect(document.body.textContent ?? "").not.toMatch(/503/);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
     const back = screen.getByRole("link", { name: /back to desk/i });

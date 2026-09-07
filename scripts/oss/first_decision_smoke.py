@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OSS 15-minute path: health + evaluate on Tarka Lite (no ingest profile required).
+"""15-minute first decision: health + evaluate on Tarka Lite (no ingest profile required).
 
 Usage (repo root, stack already up)::
 
@@ -121,7 +121,7 @@ def main() -> int:
     else:
         print(f"[warn] audit GET skipped/unavailable status={st_a}")
 
-    print("OSS 15-minute first decision: PASS")
+    print("15-minute first decision: PASS")
     return 0
 
 

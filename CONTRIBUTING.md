@@ -1,6 +1,6 @@
 # Contributing to Tarka
 
-Thank you for helping improve Tarka. This guide is written for **beta testers** and **external contributors** who report bugs or open pull requests.
+Thank you for helping improve Tarka. This guide is for people who report bugs or open pull requests on `master` (beta, no GA). It is not a ready-for-beta-testers or unattended merchant program.
 
 ---
 
