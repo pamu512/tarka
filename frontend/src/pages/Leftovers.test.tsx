@@ -21,6 +21,10 @@ vi.mock("@/api/client", async (importOriginal) => {
       listLeftovers: vi.fn(),
       claimLeftover: vi.fn(),
     },
+    rules: {
+      ...actual.rules,
+      createL2Draft: vi.fn(),
+    },
   };
 });
 
@@ -100,6 +104,12 @@ describe("Leftovers", () => {
     await screen.findByText("ana-b");
     expect(screen.queryByRole("button", { name: /work buyer-2/i })).not.toBeInTheDocument();
     expect(client.cases.claimLeftover).not.toHaveBeenCalled();
+  });
+
+  it("offers Create draft and Author via BYO on leftover rows", async () => {
+    render(wrap(<Leftovers />));
+    expect((await screen.findAllByRole("button", { name: /create draft/i })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByRole("button", { name: /author via byo/i })).length).toBeGreaterThan(0);
   });
 
   it("shows leftover brief or em dash", async () => {
