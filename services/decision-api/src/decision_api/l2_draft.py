@@ -26,7 +26,11 @@ def source_key(*, leftover_id: str = "", hil_event_id: str = "") -> str:
 
 def compute_pack_hash(pack: dict[str, Any]) -> str:
     payload = json.dumps(
-        {"name": pack.get("name"), "mode": pack.get("mode"), "rules": pack.get("rules")},
+        {
+            "name": pack.get("name"),
+            "mode": pack.get("mode"),
+            "rules": pack.get("rules"),
+        },
         sort_keys=True,
         separators=(",", ":"),
         default=str,
@@ -110,28 +114,46 @@ def build_l2_draft(
     leftover = (leftover_id or "").strip()
     hil = (hil_event_id or "").strip()
     if not leftover and not hil:
-        raise L2DraftError("source_required", http_status=400, detail="leftover_id or hil_event_id")
+        raise L2DraftError(
+            "source_required", http_status=400, detail="leftover_id or hil_event_id"
+        )
     tenant = _field(receipt, "tenant_id")
     entity = _field(receipt, "entity_id") or _field(receipt, "user_id")
     if not tenant or not entity:
-        raise L2DraftError("receipt_incomplete", http_status=404, detail="receipt tenant_id/entity_id")
-    kind, ai = authored_by_kind(authored_by, is_ai_authored=is_ai_authored, llm_url=llm_url)
+        raise L2DraftError(
+            "receipt_incomplete", http_status=404, detail="receipt tenant_id/entity_id"
+        )
+    kind, ai = authored_by_kind(
+        authored_by, is_ai_authored=is_ai_authored, llm_url=llm_url
+    )
     if ai and (skip_backtest or not backtest_ok):
-        raise L2DraftError("backtest_required", http_status=409, detail="AI draft needs replay pass")
+        raise L2DraftError(
+            "backtest_required", http_status=409, detail="AI draft needs replay pass"
+        )
     who = (actor or "").strip()
     why_skip = (skip_reason or "").strip()
     if skip_backtest and not ai and (not who or not why_skip):
-        raise L2DraftError("skip_audit_required", http_status=400, detail="actor and skip_reason")
+        raise L2DraftError(
+            "skip_audit_required", http_status=400, detail="actor and skip_reason"
+        )
     soften = (intent or "").strip().lower() == "soften"
-    built = list(rules) if rules else [
-        {
-            "id": "leftover_soften" if soften else "leftover_observe",
-            "when": [{"field": "entity_id", "op": "eq", "value": entity}],
-            "tags": [],
-            "score_delta": -5 if soften else 5,
-            "description": "fp soften seed; not model-authored" if soften else "leftover/override seed; not model-authored",
-        }
-    ]
+    built = (
+        list(rules)
+        if rules
+        else [
+            {
+                "id": "leftover_soften" if soften else "leftover_observe",
+                "when": [{"field": "entity_id", "op": "eq", "value": entity}],
+                "tags": [],
+                "score_delta": -5 if soften else 5,
+                "description": (
+                    "fp soften seed; not model-authored"
+                    if soften
+                    else "leftover/override seed; not model-authored"
+                ),
+            }
+        ]
+    )
     source = leftover or hil
     name = f"l2_{source}"[:80]
     pack: dict[str, Any] = {
@@ -155,7 +177,11 @@ def build_l2_draft(
     errors = validate_rule_pack(pack)
     if errors:
         raise L2DraftError("schema_invalid", http_status=422, detail="; ".join(errors))
-    gate = "backtest_passed" if ai else ("backtest_skipped_human" if skip_backtest else "backtest_passed")
+    gate = (
+        "backtest_passed"
+        if ai
+        else ("backtest_skipped_human" if skip_backtest else "backtest_passed")
+    )
     pack["schema_version"] = SCHEMA_VERSION
     pack["source_key"] = source_key(leftover_id=leftover, hil_event_id=hil)
     pack["pack_hash"] = compute_pack_hash(pack)
@@ -164,7 +190,11 @@ def build_l2_draft(
         "gate": gate,
         "backtest_artifact_id": (backtest_artifact_id or "").strip(),
         "skip": (
-            {"actor": who, "reason": why_skip, "at": datetime.now(timezone.utc).isoformat()}
+            {
+                "actor": who,
+                "reason": why_skip,
+                "at": datetime.now(timezone.utc).isoformat(),
+            }
             if gate == "backtest_skipped_human"
             else None
         ),
