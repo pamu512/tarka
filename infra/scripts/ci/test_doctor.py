@@ -31,6 +31,28 @@ class TestDoctor(unittest.TestCase):
         self.assertIn("5432", text)
         self.assertIn("Postgres", text)
 
+    def test_busy_8000_without_evaluate_is_not_healthy_tarka(self) -> None:
+        lines = doctor.port_messages(
+            check=lambda p: p != 8000,
+            probe_evaluate=lambda: False,
+        )
+        text = "\n".join(lines)
+        self.assertIn("[fail]", text)
+        self.assertIn("/decisions/v1/health", text)
+        self.assertIn("stale", text)
+        self.assertNotIn("already up", text)
+
+    def test_busy_8000_with_evaluate_names_rebuild(self) -> None:
+        lines = doctor.port_messages(
+            check=lambda p: p != 8000,
+            probe_evaluate=lambda: True,
+        )
+        text = "\n".join(lines)
+        self.assertIn("[fail]", text)
+        self.assertIn("/decisions/v1/health", text)
+        self.assertIn("already", text)
+        self.assertIn("down -v", text)
+
     def test_free_ports_ok(self) -> None:
         lines = doctor.port_messages(check=lambda _p: True)
         self.assertTrue(lines[0].startswith("[ok]"))
