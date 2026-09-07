@@ -88,16 +88,28 @@ def compose_logs_tail() -> None:
     )
 
 
-def probe_json_ok(url: str, timeout: float = 5.0) -> bool:
+def probe_json_detail(url: str, timeout: float = 5.0) -> tuple[bool, str]:
+    """Return (status==ok, one-line reason). Used so a stuck data-plane wait is diagnosable."""
     try:
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            if resp.status != 200:
-                return False
-            body = json.loads(resp.read().decode())
-            return body.get("status") == "ok"
-    except (urllib.error.URLError, urllib.error.HTTPError, json.JSONDecodeError, OSError):
-        return False
+            raw = resp.read().decode()
+            try:
+                body = json.loads(raw)
+            except json.JSONDecodeError:
+                return False, f"http={resp.status} non-json={raw[:180]!r}"
+            ok = resp.status == 200 and body.get("status") == "ok"
+            return ok, f"http={resp.status} body={body}"
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:240]
+        return False, f"http={exc.code} body={detail}"
+    except (urllib.error.URLError, OSError) as exc:
+        return False, f"error={exc}"
+
+
+def probe_json_ok(url: str, timeout: float = 5.0) -> bool:
+    ok, _ = probe_json_detail(url, timeout=timeout)
+    return ok
 
 
 def probe_ready(url: str, timeout: float = 5.0) -> bool:
@@ -125,11 +137,14 @@ def wait_for_stack(deadline_seconds: float = 1200.0, poll: float = 5.0) -> None:
     pending_json = dict(JSON_HEALTH)
     pending_ready = dict(JSON_READY)
     pending_200 = dict(HTTP200_ONLY)
+    last_json: dict[str, str] = {}
     deadline = time.monotonic() + deadline_seconds
 
     while (pending_json or pending_ready or pending_200) and time.monotonic() < deadline:
         for name, url in list(pending_json.items()):
-            if probe_json_ok(url):
+            ok, detail = probe_json_detail(url)
+            last_json[name] = detail
+            if ok:
                 print(f"[ok] {name} {url}")
                 del pending_json[name]
         for name, url in list(pending_ready.items()):
@@ -142,15 +157,17 @@ def wait_for_stack(deadline_seconds: float = 1200.0, poll: float = 5.0) -> None:
                 del pending_200[name]
         if pending_json or pending_ready or pending_200:
             rem = sorted(pending_json) + sorted(pending_ready) + sorted(pending_200)
-            print(f"[wait] remaining: {rem} ({int(deadline - time.monotonic())}s left)")
+            extras = [f"{n}={last_json[n]}" for n in sorted(pending_json) if n in last_json]
+            suffix = f" last=[{'; '.join(extras)}]" if extras else ""
+            print(f"[wait] remaining: {rem} ({int(deadline - time.monotonic())}s left){suffix}")
             time.sleep(poll)
 
     if pending_json or pending_ready or pending_200:
-        print(
-            "TIMEOUT waiting for:",
-            sorted(pending_json) + sorted(pending_ready) + sorted(pending_200),
-            file=sys.stderr,
-        )
+        rem = sorted(pending_json) + sorted(pending_ready) + sorted(pending_200)
+        extras = [f"{n}={last_json[n]}" for n in sorted(pending_json) if n in last_json]
+        print("TIMEOUT waiting for:", rem, file=sys.stderr)
+        if extras:
+            print("last json probes:", "; ".join(extras), file=sys.stderr)
         raise TimeoutError("stack health checks")
 
 

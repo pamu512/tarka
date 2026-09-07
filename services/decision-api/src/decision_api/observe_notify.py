@@ -32,6 +32,7 @@ EVENT_READY_TO_PROMOTE = "ready_to_promote"
 EVENT_LIVE_RULE_SLIPPED = "live_rule_slipped"
 EVENT_CONSIDER_DEMOTE = "consider_demote"
 EVENT_CONSIDER_SUCCESSOR = "consider_successor"
+EVENT_CONSIDER_SOFTEN = "consider_soften"
 
 _LOCK = threading.Lock()
 _engines: dict[str, Any] = {}
@@ -145,6 +146,15 @@ def english_copy(
 ) -> dict[str, str]:
     sid = (subject_id or "").strip() or "draft"
     href = f"/ops/shadow?draft={draft_id or sid}"
+    if event_type == EVENT_CONSIDER_SOFTEN:
+        return {
+            "title": "Consider softening this restrictive decision",
+            "body": (
+                f"Frontline marked receipt {sid} as a false positive. "
+                "Observe can draft a soften. A model did not evaluate."
+            ),
+            "href": f"/ops/shadow?trace_id={sid}",
+        }
     if event_type == EVENT_READY_TO_PROMOTE:
         return {
             "title": "Ready to Promote",

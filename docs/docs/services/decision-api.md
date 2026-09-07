@@ -215,8 +215,10 @@ POST /v1/attestation/verify
 Retrieve the stored audit record for a decision by trace ID.
 
 ```
-GET /v1/audit/{trace_id}
+GET /v1/audit/{trace_id}?tenant_id={tenant_id}
 ```
+
+`tenant_id` is a required query parameter and must match the stored audit row. A bare `GET /v1/audit/{trace_id}` returns HTTP 422.
 
 **Response:**
 

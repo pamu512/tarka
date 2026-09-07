@@ -51,6 +51,12 @@ services:
       - "9000:9000"
     volumes:
       - fraud_ch:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     profiles: [analytics, full]
 
   opa:
@@ -260,6 +266,7 @@ services:
       - core-api
       - redis
       - orchestrator
+      - clickhouse
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/v1/health')"]
       interval: 10s

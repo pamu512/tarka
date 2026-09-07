@@ -18,7 +18,7 @@ import os
 import sys
 from typing import Any, Callable
 
-from first_decision_smoke import _request
+from first_decision_smoke import _request, audit_url
 
 RequestFn = Callable[..., tuple[int, Any]]
 
@@ -217,7 +217,13 @@ def run_walk(
         print(f"  Hunt person: /graph lookup entity_id={entity_id}")
         print(f"  pack note: {case.get('note', '')}")
 
-        st_a, audit = request("GET", f"{base}/v1/audit/{trace}", api_key=api_key, timeout=15.0)
+        tenant = str(body.get("tenant_id") or "demo")
+        st_a, audit = request(
+            "GET",
+            audit_url(base, str(trace), tenant),
+            api_key=api_key,
+            timeout=15.0,
+        )
         if st_a == 200 and isinstance(audit, dict):
             print(f"  [ok] audit fetch keys={sorted(audit.keys())[:8]}")
         else:

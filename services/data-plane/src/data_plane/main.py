@@ -38,6 +38,9 @@ from observability import setup_observability  # noqa: E402
 
 log = logging.getLogger("data-plane")
 
+# event-ingest /v1/ready is NATS-only. Combined health/ready own those paths.
+SUBAPP_SKIP_PATHS = {"/v1/health", "/v1/ready", "/metrics"}
+
 
 def ready_http(
     *,
@@ -144,9 +147,8 @@ def create_app() -> FastAPI:
     )
     setup_observability(app, "data-plane")
 
-    skip = {"/v1/health", "/metrics"}
-    _merge_routes(app, ei.app, skip_paths=skip)
-    _merge_routes(app, asink.app, skip_paths=skip)
+    _merge_routes(app, ei.app, skip_paths=SUBAPP_SKIP_PATHS)
+    _merge_routes(app, asink.app, skip_paths=SUBAPP_SKIP_PATHS)
 
     @app.get("/v1/health")
     async def combined_health(request: Request):

@@ -15,8 +15,14 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
+
+
+def audit_url(base: str, trace: str, tenant_id: str) -> str:
+    tid = (tenant_id or "").strip() or "demo"
+    return f"{base.rstrip('/')}/v1/audit/{trace}?tenant_id={urllib.parse.quote(tid)}"
 
 
 def _request(
@@ -105,8 +111,11 @@ def main() -> int:
 
     print(f"[ok] evaluate decision={decision} score={score} trace_id={trace}")
 
-    # Best-effort audit fetch (not required for pass).
-    st_a, audit = _request("GET", f"{base}/v1/audit/{trace}", api_key=key, timeout=15.0)
+    # Audit is tenant-scoped: GET /v1/audit/{trace}?tenant_id=… (422 without it).
+    tenant = str(body.get("tenant_id") or "demo")
+    st_a, audit = _request(
+        "GET", audit_url(base, str(trace), tenant), api_key=key, timeout=15.0
+    )
     if st_a == 200 and isinstance(audit, dict):
         print(f"[ok] audit fetch keys={sorted(audit.keys())[:8]}")
     else:

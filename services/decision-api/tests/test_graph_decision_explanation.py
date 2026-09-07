@@ -23,6 +23,7 @@ def test_build_explanation_from_risk_factors():
     assert len(out["factors"]) == 2
     assert len(out["why_links"]) == 2
     assert out["why_links"][0]["evidence"][0]["kind"] == "decision_trace"
+    assert out["case_ui"]["audit_hint"] == "/v1/audit/tr-1?tenant_id=t1"
 
 
 def test_build_explanation_none_when_no_graph_signal():

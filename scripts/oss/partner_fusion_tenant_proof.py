@@ -23,6 +23,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from datetime import UTC, datetime
@@ -191,7 +192,9 @@ def _live_proof(tenant_id: str) -> dict[str, Any]:
     audit: dict[str, Any] = {}
     if trace_id:
         try:
-            audit = _get_json(f"{base}/v1/audit/{trace_id}")
+            audit = _get_json(
+                f"{base}/v1/audit/{trace_id}?tenant_id={urllib.parse.quote(tenant_id)}"
+            )
         except urllib.error.URLError:
             audit = {}
     snap = {}

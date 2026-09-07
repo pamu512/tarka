@@ -11,6 +11,7 @@ from httpx import ASGITransport, AsyncClient
 
 from decision_api.observe_notify import (
     EVENT_CONSIDER_DEMOTE,
+    EVENT_CONSIDER_SOFTEN,
     EVENT_CONSIDER_SUCCESSOR,
     EVENT_LIVE_RULE_SLIPPED,
     EVENT_READY_TO_PROMOTE,
@@ -49,6 +50,7 @@ def test_english_copy_has_no_third_party_desk_names() -> None:
             EVENT_LIVE_RULE_SLIPPED,
             EVENT_CONSIDER_DEMOTE,
             EVENT_CONSIDER_SUCCESSOR,
+            EVENT_CONSIDER_SOFTEN,
         )
     )
     assert "unit21" not in blob.lower()

@@ -63,6 +63,9 @@ curl -sS -X POST 'http://127.0.0.1:8000/decisions/v1/decisions/evaluate' \
     "entity_id": "oss-user-1",
     "payload": {"amount": 42.0, "currency": "USD", "channel": "card_not_present"}
   }' | jq '{trace_id, decision, score}'
+
+# Receipt lookup — tenant_id is required (422 without it)
+curl -sS "http://127.0.0.1:8000/decisions/v1/audit/<trace_id>?tenant_id=demo" | jq '{trace_id, decision, score}'
 ```
 
 ### 3. UI (optional)
