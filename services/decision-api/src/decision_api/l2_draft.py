@@ -63,6 +63,12 @@ class L2DraftError(Exception):
         self.detail = detail or code
 
 
+def _field(obj: Any, name: str) -> str:
+    if isinstance(obj, dict):
+        return str(obj.get(name) or "").strip()
+    return str(getattr(obj, name, "") or "").strip()
+
+
 def authored_by_kind(
     authored_by: str,
     *,
@@ -98,14 +104,15 @@ def build_l2_draft(
     backtest_artifact_id: str = "",
     actor: str = "",
     skip_reason: str = "",
+    intent: str = "",
     rules: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     leftover = (leftover_id or "").strip()
     hil = (hil_event_id or "").strip()
     if not leftover and not hil:
         raise L2DraftError("source_required", http_status=400, detail="leftover_id or hil_event_id")
-    tenant = str(getattr(receipt, "tenant_id", "") or "").strip()
-    entity = str(getattr(receipt, "entity_id", "") or "").strip()
+    tenant = _field(receipt, "tenant_id")
+    entity = _field(receipt, "entity_id") or _field(receipt, "user_id")
     if not tenant or not entity:
         raise L2DraftError("receipt_incomplete", http_status=404, detail="receipt tenant_id/entity_id")
     kind, ai = authored_by_kind(authored_by, is_ai_authored=is_ai_authored, llm_url=llm_url)
@@ -115,13 +122,14 @@ def build_l2_draft(
     why_skip = (skip_reason or "").strip()
     if skip_backtest and not ai and (not who or not why_skip):
         raise L2DraftError("skip_audit_required", http_status=400, detail="actor and skip_reason")
+    soften = (intent or "").strip().lower() == "soften"
     built = list(rules) if rules else [
         {
-            "id": "leftover_observe",
+            "id": "leftover_soften" if soften else "leftover_observe",
             "when": [{"field": "entity_id", "op": "eq", "value": entity}],
             "tags": [],
-            "score_delta": 5,
-            "description": "leftover/override seed; not model-authored",
+            "score_delta": -5 if soften else 5,
+            "description": "fp soften seed; not model-authored" if soften else "leftover/override seed; not model-authored",
         }
     ]
     source = leftover or hil
@@ -138,9 +146,10 @@ def build_l2_draft(
         "evidence": {
             "leftover_id": leftover,
             "hil_event_id": hil,
-            "trace_id": str(getattr(receipt, "trace_id", "") or ""),
+            "trace_id": _field(receipt, "trace_id"),
             "override_why": (override_why or "").strip(),
             "source": "leftover" if leftover else "hil_override",
+            "intent": "soften" if soften else "",
         },
     }
     errors = validate_rule_pack(pack)

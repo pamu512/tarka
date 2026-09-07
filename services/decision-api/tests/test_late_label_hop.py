@@ -231,7 +231,8 @@ def test_no_new_desk_inbox_route():
         assert "disputes" not in lowered
         assert "crm" not in lowered
         assert "cases" not in lowered
-    assert paths == [(frozenset({"POST"}), _PATH)]
+    assert (frozenset({"POST"}), _PATH) in paths
+    assert (frozenset({"POST"}), "/v1/webhooks/disposition") in paths
 
 
 def _restrictive_snap(*, suffix: str, decision: str = "deny") -> dict:
@@ -367,3 +368,70 @@ async def test_follow_on_evaluate_joins_prior_receipt(client, tmp_path, monkeypa
     assert len(joined) == 1
     assert joined[0]["label_source"] == "evaluate"
     assert joined[0]["label_kind"] == "other"
+
+
+@pytest.mark.asyncio
+async def test_fp_mints_shadow_soften_draft_with_cost(client, tmp_path, monkeypatch):
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("RULES_PATH", str(rules_dir))
+    monkeypatch.setenv("TARKA_OBSERVE_NOTIFY_PATH", str(tmp_path / "notify.jsonl"))
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "rules_path", str(rules_dir))
+    append_receipt("acme", _restrictive_snap(suffix="soft", decision="deny"))
+
+    r = await _post(
+        client,
+        {
+            "tenant_id": "acme",
+            "decision_token": "t-soft",
+            "label_kind": "fp",
+            "source": "care",
+            "fp_cost": {"amount": 12.5, "currency": "USD"},
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["fp_cost"]["amount"] == 12.5
+    assert body["fp_cost"]["currency"] == "USD"
+    draft = body["observe_work"]["draft"]
+    assert draft["pack"]["mode"] == "shadow"
+    assert draft["pack"]["evidence"]["intent"] == "soften"
+    assert draft["pack"]["authored_by"] in {"human", "seed", ""}
+    assert draft["pack"]["is_ai_authored"] is False
+    written = list(rules_dir.glob("*.json"))
+    assert written
+    on_disk = json.loads(written[0].read_text(encoding="utf-8"))
+    assert on_disk["mode"] == "shadow"
+    assert on_disk["evidence"]["intent"] == "soften"
+    records = load_label_records("acme")
+    assert "12.5" in records["fp_cost_by_trace"]["t-soft"]
+
+
+@pytest.mark.asyncio
+async def test_disposition_alias_binds_fp(client, tmp_path, monkeypatch):
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("RULES_PATH", str(rules_dir))
+    from decision_api.config import settings
+
+    monkeypatch.setattr(settings, "rules_path", str(rules_dir))
+    append_receipt("acme", _restrictive_snap(suffix="disp", decision="review"))
+    raw = json.dumps(
+        {
+            "tenant_id": "acme",
+            "trace_id": "t-disp",
+            "label_kind": "fp",
+            "source": "crm",
+        },
+        separators=(",", ":"),
+    ).encode()
+    headers = {"Content-Type": "application/json"}
+    headers.update(build_signature_headers(raw, secret=_SECRET))
+    r = await client.post("/v1/webhooks/disposition", content=raw, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["label_kind"] == "fp"
+    assert r.json()["observe_work"]["draft"]["pack"]["evidence"]["intent"] == "soften"
