@@ -32,6 +32,14 @@ Include:
 
 Do not file undisclosed security vulnerabilities as public issues — see [SECURITY.md](SECURITY.md).
 
+## GitLab-grade install (not claimed here)
+
+A **GitLab-grade** claim is allowed **only** when G0–G8 have landed **and** a **named** pilot (internal or buyer) has signed the [production-install soak checklist](docs/docs/guides/production-install-soak-checklist.md). This page is not that sign-off and is not “primary decisioner” maturity.
+
+Grade contract: [`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md). Helm catalog: [deployment.md](docs/docs/guides/deployment.md). Honesty lock: [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md).
+
+Beta, no GA, no SOC 2 from us, beachhead CE (not banks), Elastic License 2.0 source-available (not OSS).
+
 ---
 
 ## Commercial install pack (GitLab-shaped self-host)
@@ -79,7 +87,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
 | **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |
-| **Grade not claimed here** | GitLab-grade only after G0–G8 land **and** a **named** beachhead pilot passes the G9 checklist. This file is G8 (support pack). It is not G9 and not the grade. |
+| **Grade not claimed here** | GitLab-grade only after G0–G8 land **and** a **named** beachhead pilot signs the [G9 soak checklist](docs/docs/guides/production-install-soak-checklist.md). This file is G8 (support pack). It is not G9 and not the grade. |
 
 Do not read this page as users, LOI volume, or ARR.
 
@@ -93,7 +101,7 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 
 ## production-install-v1
 
-[`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md) is the single source of truth for when Tarka may claim a GitLab-grade / production install. This SUPPORT.md is G8 (commercial pack / severity intent). It is not the grade contract. Do not claim GitLab-grade from a green `helm template` of `prod-on-k8s`.
+[`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md) is the single source of truth for when Tarka may claim a GitLab-grade / production install. This SUPPORT.md is G8 (commercial pack / severity intent). The G9 gate is the [soak checklist](docs/docs/guides/production-install-soak-checklist.md). Neither file is the grade. Do not claim GitLab-grade from a green `helm template` of `prod-on-k8s`.
 
 ---
 
@@ -104,6 +112,7 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 | [README](README.md) | Day-1 clone-and-run; tip honesty table |
 | [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md) | Allowed language; must-not-ship |
 | [production-install-v1](docs/contracts/production-install-v1.md) | Grade gates (G0–G8 + G9 checklist) |
+| [soak checklist](docs/docs/guides/production-install-soak-checklist.md) | G9 named-pilot sign-off (not the grade) |
 | [product Day-1](docs/docs/guides/product-day1-install.md) | `make product` vs Helm skins |
 | [pack GitOps](docs/docs/guides/pack-gitops.md) | Promote is live; git is export |
 | [deployment](docs/docs/guides/deployment.md) | Helm `prod-on-k8s`, first-class OIDC |

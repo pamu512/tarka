@@ -20,6 +20,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Production observability](guides/production-observability.md) | Prod NetworkPolicy + ServiceMonitor scrape; evaluate 5xx/latency examples |
 | [Production backup / restore](guides/production-backup-restore.md) | External Postgres SoR drill; Redis ephemeral; AGE Hunt volume note |
 | [Production upgrade / rollback](guides/production-upgrade.md) | Helm digest-to-digest, evaluate verify, rollback, kill switches |
+| [Production install soak checklist](guides/production-install-soak-checklist.md) | G9 named-pilot gate. GitLab-grade only after G0–G8 + sign-off. Not primary decisioner. |
 | [Operator hub](../INDEX.md) | Documentation index |
 
 ## Compose paths
