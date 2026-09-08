@@ -7,7 +7,7 @@ This directory contains **structured compliance documentation** intended for **i
 | Document | Purpose |
 |----------|---------|
 | [SOC 2 / PCI DSS mapping suite](./soc2-pci/README.md) | Index, scope, system descriptions, and formal control mapping matrix |
-| [Buyer pilot assessment (2026-09-08)](./2026-09-08-buyer-pilot-assessment.md) | Switch/adopt memo for this buyer shape: **pilot beside Drools**. Claims vs tip proof. Not a cert. Not a grade. Not an FI / GMV lift. |
+| [Buyer pilot assessment (2026-09-08)](./2026-09-08-buyer-pilot-assessment.md) | CUT / MODULES / BAU / FAIL for this buyer shape. Few modules beside Drools. Not FI / GMV lift. Not a grade. |
 
 ## Interpretation
 

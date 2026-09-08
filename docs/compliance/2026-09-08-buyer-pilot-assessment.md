@@ -8,50 +8,67 @@
 
 **UI F1–F3** (receipt-why 403 / leftover Create draft without why / silent Observe Promote) are **open on this tip**. A separate agent owns the fix. This memo treats them as **pilot blockers** for RiskOps/frontline — not for an eng-led parallel plane.
 
-**North star:** Does it make sense for **this** buyer to switch to (or adopt) Tarka? Not a feature tour.
+**North star:** Does Tarka make the cut vs this buyer’s BAU? If yes, which modules, and how without touching BAU? Not a feature tour.
 
 ---
 
-## 0. Switch recommendation
+## 0. CUT / MODULES / BAU / FAIL
 
-**Adopt as a parallel evaluate plane beside Drools. Do not rip-replace. Do not switch the Hive/Bedrock model stack.**
+Buyer stack (keep; do not invent extras): Drools + Groovy · Hive supervised scores (FI **mid-60s**, a few **high ~80**) · shared MLOps **Bedrock** · Excel/Jupyter · Tableau (BI-owned) · S3/BQ/Azure/GCP · skip-only Janus · ~**7% GMV** detected loss · ~1.9B orders/year (buyer-given; not tip-proved).
 
-| Option | Verdict |
-|--------|---------|
-| Switch now (cut over Drools + Hive + Janus + Tableau) | **NO** |
-| Pilot beside Drools (eng-led; 1–N JSON packs; graph off; emit-only) | **YES — conditional go** |
-| Do not adopt yet | **NO** — an eng-led parallel plane is justified; a RiskOps-led switch is not |
+Allowed improvement axes vs BAU: **reduced opex**, **reduced engineering resources**, **shorter SLAs**, **faster pack/iterate**, **clearer receipt-why / override feedback**. **MUST-NOT:** higher FI · detect more than ~7% GMV.
 
-**When Tarka helps this buyer**
+### CUT — does Tarka even make the cut?
 
-The bottleneck is **policy iteration and residual operations**, not model FI. Siloed promo / refund / payout / COD / false-decline rules live in Drools + Groovy + Excel/Jupyter. Tarka’s proved plane is: Rust JSON packs, receipts with pack-why, Observe canary, human Promote, late-label bind on `evaluation_token`, export for BI. That is how you **operate and iterate** loss you already see.
+**Conditional PASS** — only on tip-proved iterate / why, not on FI or GMV.
 
-**When Tarka does not help**
+| Axis | Tip can promise? | Evidence |
+|------|------------------|----------|
+| Faster pack / iterate | **Yes (eng-led)** — 1–N JSON Observe packs → human Promote, no Drools rewrite, no Hive/MLOps touch | Rust evaluate + `rule_api` Promote; `emit_only` dual-run |
+| Clearer receipt-why / override | **Yes on API** — pack-why + override why + late-label bind on `evaluation_token` | `evaluate.py` / receipts; `POST /v1/overrides`; late-label webhook |
+| Reduced opex / eng FTE / shorter SLA | **Not as a number** — no tip measurement. Do not invent $ / FTE / minutes | Plane exists; **MUST-NOT** quote opex/SLA |
+| Higher FI (mid-60s → 80) | **FAIL** | Wrong plane. Hive / Bedrock / shared MLOps |
+| Detect more than ~7% GMV | **FAIL** | 7% is their current coverage, not a Tarka target |
 
-The bottleneck is **supervised-model FI** in Hive microservices (buyer: most models **mid-60s FI**, a few **high ~80**). Tarka does not train those models, does not replace Bedrock/Hive, and **will not raise mid-60 FI by itself**. If the ask is “get FI to 80” or “detect more than ~7% of GMV,” tip does not prove that.
+**FAIL Tarka** if Drools+Groovy + Hive models + Tableau BI + skip-Janus is **already stable** and they do not need a faster iterate / receipt-why plane. **FAIL** if the only ask is FI or GMV. **FAIL** a RiskOps-led desk cut until F1–F3 (receipt-why 403, leftover draft without why, silent Promote).
 
-**What Tarka can move vs cannot**
+### MODULES — full stack vs few modules?
 
-| Can move (tip-proved plane) | Cannot move (MUST-NOT) |
-|-----------------------------|------------------------|
-| Evaluate + JSON packs + receipts | FI of Hive / Bedrock supervised models |
-| Observe → human Promote (API; desk F3 still thin) | Detected-loss **% of GMV** as a Tarka outcome |
-| Late-label / override-why **join** onto a receipt | Chargeback / guarantee as the product SKU |
-| Dual-run `emit_only` beside Drools | Drop-in Drools/Groovy import |
-| Sit-beside Hive scores **on the inbound payload** | Become the model brain / AutoML |
-| Empty graph = hops off (honest) | Make skip-only Janus queryable; live multi-hop |
+**Few modules. Not full stack.**
 
-**Buyer loss types in scope for packs (beachhead, Observe first):** promo / refund / payout / COD / false declines. Chargeback is a **late label** on a receipt, not the SKU.
+| In the day-1 cut (beside Drools) | OUT unless the buyer asks later |
+|----------------------------------|----------------------------------|
+| Rust evaluate | Graph / hop (buyer Janus is **non-queryable** / skip-only) |
+| JSON packs, Observe → human Promote | Hunt |
+| Receipts + override why + late-label join | Advise / native Bedrock (`SHADOW_LLM_BACKEND=bedrock` **refuses**) |
+| Hive scores as **payload enrichment** only | Residual case CRM; Tableau replacement |
 
-**~7% GMV detected loss** (buyer-given: detected loss / GMV — their current **coverage of loss they already catch**, not a Tarka target).
+Beachhead packs (Observe first): promo / refund / payout / COD / false declines. Chargeback = late label, not the SKU.
 
-| Honest use of that number | Dishonest |
-|--------------------------|-----------|
-| Pilot proves they can **label, override-why, late-bind, and Promote packs** against that already-detected stream | “Tarka will lift detected loss above 7% of GMV” |
-| Export receipts + labels to Tableau/BI so leadership KPIs stay BI-owned | Tarka desk Analytics as the GMV SoR |
-| Fixture / holdout FI in Tarka is **wiring**, not their mid-60s / ~80 models | “Tarka will get FI to 80” |
+### BAU — how without affecting current operations?
 
-**Blockers if someone hears “switch” instead of “parallel plane”:** desk F1 403 / pack-why, F2 leftover draft without why, F3 silent Promote; no Drools import; BYO LLM empty unless they wire OpenAI-compat/Gemini (not Copilot, not native Bedrock); Janus skip-only ≠ Tarka hops; shared MLOps ≠ risk models; Tableau stays BI.
+Parallel plane only. No Drools cutover in the pilot window.
+
+| BAU stays | Tarka does |
+|-----------|------------|
+| Drools + Groovy **live** | Shadow / Observe packs; `enforcement.mode = emit_only` |
+| Hive microservices + scores | Sit-beside on the **inbound payload** (not `VENDOR_SCORE_URL` as decide-time Hive) |
+| Tableau / BI owns KPIs | Export / webhook feed only |
+| Skip-only Janus | `GRAPH_SERVICE_URL` **empty** (hops off) |
+| Shared MLOps Bedrock | No token sale; no model rewrite |
+
+GitOps JSON packs + VPC clone (`make doctor && make demo` or product compose). No forced rewrite of risk Hive microservices. No Drools/Groovy importer.
+
+**If strategy / frontline would touch leftover or Promote loops:** F1–F3 are **open** — keep those humans on BAU until a separate UI agent lands. Eng-led API dual-run does not need the desk.
+
+### FAIL — when not to switch
+
+- BAU already stable and Tarka cannot promise a concrete iterate / why improvement on tip.
+- Ask is “get FI to 80” or “detect more than ~7% GMV.”
+- Full-stack / rip-replace Drools + Hive + Janus + Tableau.
+- Desk-led leftover / Promote as week-1 (F1–F3).
+
+**Locked call:** CUT = conditional PASS on faster pack/iterate + API receipt-why. MODULES = evaluate + packs + receipts + override why. BAU = emit-only beside Drools. Else FAIL.
 
 ---
 
@@ -72,7 +89,7 @@ Buyer-given — do not invent others. This is the switch question, not a feature
 | Operating / iterating already-detected loss beside Drools + Hive scores (packs, receipts, override why, late-label, Observe→Promote) | **Conditional yes** — parallel evaluate plane only. **Not** rip-replace. **Not** “detect more GMV.” **Not** an FI promise. |
 | Frontline / strategy *desk* loop on that ~7% | **Not yet.** Tip helps *work that loss* only if desk loops work. **F1** (receipt-why 403 / PackWhyStrip), **F2** (leftover Create draft without why), **F3** (silent Observe Promote) are **open** — blockers for RiskOps/frontline use of the loop. Eng-led API dual-run (`emit_only`) is still the honest path. |
 
-**Locked call:** yes parallel plane / no rip-replace / no FI promise.
+**Locked call:** operate the ~7% detected-loss loop cheaper/faster (opex / eng / SLA **axes** — not measured $). **MUST-NOT** move FI mid-60s → 80. See §0 CUT / FAIL.
 
 ---
 
@@ -362,20 +379,19 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 
 ---
 
-## 7. Go / no-go (switch)
+## 7. Go / no-go (CUT / MODULES / BAU / FAIL)
 
 | Ask | Verdict | Until / condition |
 |-----|---------|-------------------|
-| **Switch now** — cut over Drools, Hive models, Janus, Tableau | **NO** | See §0. FI / GMV / estate rewrite unproved. |
-| **Pilot beside Drools** — eng-led parallel plane, 1–N JSON packs, graph off, emit-only | **CONDITIONAL GO** | Empty `GRAPH_SERVICE_URL`. Drools residual. Hive scores on payload if packs need them. Hand BI the export. No FI/GMV lift claim. |
-| **Do not adopt at all** | **NO** | Parallel plane is justified if the bottleneck is policy/ops iteration. |
-| **RiskOps-led “replace Drools in 2 weeks”** | **NO-GO** | No importer. F3 Promote unsafe. |
-| **Frontline leftover review as the first win** | **NO-GO** until F1–F2 | Analyst 403 / pack-why; leftovers hide if graph off. |
-| **Raise Hive FI (mid-60s → 80) or detected-loss GMV %** | **MUST-NOT** | Wrong plane. Shared MLOps / risk models own that. |
-| **Graph / hop / Hunt** | **NO-GO** week 1 | Queryable graph later. Skip-Janus = enrichment. |
+| **CUT** — tip promises a concrete BAU improvement (iterate / why, not FI/GMV) | **CONDITIONAL PASS** | Eng-led JSON Observe→Promote + API receipt-why. **FAIL** if BAU is already stable. |
+| **MODULES** — few modules vs full stack | **FEW** | Evaluate + JSON packs + receipts + override why. Graph / Hunt / Advise / Tableau / case CRM **OUT**. |
+| **BAU** — parallel plane, no cutover | **YES** | `emit_only`; Drools live; Hive enrichment; Tableau stays BI; graph URL empty. |
+| **FAIL** — FI-to-80 or detect-more-GMV | **MUST-NOT** | Wrong plane. 7% is their coverage. |
+| **FAIL** — rip-replace Drools + Hive + Janus + Tableau | **NO** | No importer. Wrong modules. |
+| **FAIL** — desk leftover / Promote as week-1 | **NO** until F1–F3 | Receipt-why 403; leftover draft without why; silent Promote. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** Conditional switch: yes parallel plane beside Drools + Hive scores; no rip-replace; no FI-to-80 or detect-more-GMV promise. Work the ~7% already-detected loss on the desk only after F1–F3.
+**Anoop one-liner:** CUT: conditional PASS on faster pack/iterate (eng JSON Observe→Promote) + API receipt-why — FAIL FI/GMV and FAIL if Drools+Hive+Tableau+Janus BAU is already stable. MODULES: evaluate + JSON packs + receipts + override why (beside Drools); graph/Hunt/Advise/Tableau OUT. BAU: emit-only shadow/Observe, Drools live, Hive enrichment, no cutover. Desk leftover/Promote FAIL until F1–F3.
 
 ---
 

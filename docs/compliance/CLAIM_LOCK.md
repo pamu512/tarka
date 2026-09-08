@@ -27,7 +27,7 @@
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
 | Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 | GitLab-grade install claim (G9) | Allowed **only** when G0–G8 have landed **and** [`docs/docs/guides/production-install-soak-checklist.md`](../docs/guides/production-install-soak-checklist.md) is **signed** for a **named** pilot (internal or buyer). This row is not the grade. Separate from “primary decisioner” maturity. |
-| Buyer VPC / self-host diligence (2026-09-08) | [`2026-09-08-buyer-pilot-assessment.md`](./2026-09-08-buyer-pilot-assessment.md) — **switch/adopt** north star for this buyer shape. Rec: **pilot beside Drools**, not rip-replace. Not a grade; not traction. |
+| Buyer VPC / self-host diligence (2026-09-08) | [`2026-09-08-buyer-pilot-assessment.md`](./2026-09-08-buyer-pilot-assessment.md) — **CUT / MODULES / BAU / FAIL**. Few modules beside Drools. Not a grade; not traction; not FI/GMV lift. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
