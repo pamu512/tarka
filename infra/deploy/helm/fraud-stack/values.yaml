@@ -91,7 +91,10 @@ coreApi:
   allowInsecureNoAuth: false
   tenantBindingRequired: true
   apiKeyTenantMap: ""
-  # First-class desk SSO (optional). Empty issuer keeps API keys as the machine path.
+  # First-class desk SSO (optional). This block is SoT — not extraEnv OIDC_*.
+  # Empty issuer keeps API keys as the machine path. Non-empty issuer in
+  # production requires resolved Redis (no in-process OIDC state fallback).
+  # rolesClaim: IdP claim whose values are desk roles (RiskArchitect, FraudAnalyst).
   oidc:
     issuer: ""
     audience: "tarka"
