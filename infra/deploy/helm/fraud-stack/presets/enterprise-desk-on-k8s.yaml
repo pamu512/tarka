@@ -15,6 +15,10 @@
 # AGE_POSTGRES_PASSWORD, AGE_DATABASE_URL (Hunt sidecar; not core SoR).
 # Frontend image must be built with VITE_GRAPH_SERVICE_URL=/api/graph (Hunt on).
 # Do not point DATABASE_URL at the age-postgres service (production_profile refuses).
+# AGE Hunt backup: volume / filesystem restore only. Logical pg_dump breaks hops
+# (catalog OIDs in graphids). Drill: scripts/oss/age_restore_drill.sh
+# SoR (decisions/audit/packs/labels) is the buyer Postgres — see
+# docs/docs/guides/production-backup-restore.md. Not a Tarka backup SaaS.
 #
 # Desk SSO: coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim} (values.yaml SoT).
 # Empty issuer = API-key machine path. Non-empty issuer requires resolved Redis.
