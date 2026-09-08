@@ -7,7 +7,7 @@ export type AuditGetter = (
 ) => Promise<AuditEntry>;
 
 export function isAuditDetailForbidden(error: unknown): boolean {
-  if (isApiRequestError(error) && error.status === 403) return true;
+  if (isApiRequestError(error)) return error.status === 403;
   const raw = error instanceof Error ? error.message : String(error ?? "");
   return /^\s*403\b/.test(raw);
 }

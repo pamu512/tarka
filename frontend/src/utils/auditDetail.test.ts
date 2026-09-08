@@ -60,5 +60,6 @@ describe("getAuditForPackWhy", () => {
     expect(isAuditDetailForbidden(new ApiRequestError("analyst role required", { status: 403 }))).toBe(true);
     expect(isAuditDetailForbidden(new Error("403 analyst role required for full audit detail"))).toBe(true);
     expect(isAuditDetailForbidden(new Error("500 boom"))).toBe(false);
+    expect(isAuditDetailForbidden(new ApiRequestError("403 confusing", { status: 500 }))).toBe(false);
   });
 });

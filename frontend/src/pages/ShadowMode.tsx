@@ -233,7 +233,7 @@ export default function ShadowMode() {
                       active={currentMode === "active"}
                       disabled={isBusy}
                       color="bg-green-600"
-                      onClick={() => handleModeChange(file, "active")}
+                      onClick={() => setPromoteConfirm({ file, name: pack.name || file })}
                     />
                     <ModeButton
                       label="Shadow"

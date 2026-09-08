@@ -84,6 +84,25 @@ describe("Observe pack modes", () => {
     expect(screen.getByRole("button", { name: "Active" })).toBeDisabled();
   });
 
+  it("Active mode pill uses the same Promote confirm before going live", async () => {
+    render(wrap(<ShadowMode />));
+
+    expect(await screen.findByRole("button", { name: "Promote to Active" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Active" }));
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: /promote to active/i });
+    expect(dialog).toHaveTextContent("shadow_payment_probe_v1");
+    expect(dialog).toHaveTextContent(/becomes live/i);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => {
+      expect(client.shadow.setPackMode).toHaveBeenCalledWith(
+        "shadow_payment_probe_v1.json",
+        "active",
+      );
+    });
+  });
+
   it("cancel on Promote confirm leaves the pack in shadow", async () => {
     render(wrap(<ShadowMode />));
 

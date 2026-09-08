@@ -58,6 +58,7 @@ export function L2DraftButtons({
 
   return (
     <div data-testid="l2-draft-controls" className="flex flex-wrap items-center gap-1">
+      {overrideWhy.trim().length < 8 ? (
       <label className="flex items-center gap-1 text-[10px] text-gray-500">
         why
         <input
@@ -70,6 +71,7 @@ export function L2DraftButtons({
           className="w-44 bg-surface-900 border border-surface-600 rounded px-1.5 py-1 text-[11px] text-gray-200"
         />
       </label>
+      ) : null}
       <button
         type="button"
         data-testid="draft-observe-pack"
