@@ -11,7 +11,7 @@ Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). Observe
 ## 1. Observe contract (`metadata.shadow: true`)
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/decisions/evaluate \
+curl -s -X POST http://localhost:8000/decisions/v1/decisions/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "demo",
@@ -38,7 +38,7 @@ python3 scripts/oss/shadow_promote_gate_smoke.py
 ## 2. Single rule pack run (synthetic)
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/simulation/run \
+curl -s -X POST http://localhost:8000/decisions/v1/simulation/run \
   -H "Content-Type: application/json" \
   -d '{"scenario": "bot_attack", "evaluate_rules": true, "include_ml": false}'
 ```
@@ -48,7 +48,7 @@ Response includes **`experiment_guardrails`** — read the **notes** before trea
 ## 3. A/B two rule sets (same synthetic traffic)
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/simulation/ab-test \
+curl -s -X POST http://localhost:8000/decisions/v1/simulation/ab-test \
   -H "Content-Type: application/json" \
   -d '{
     "scenario": "baseline",
@@ -64,7 +64,7 @@ Inspect **`comparison`** (`precision_delta`, `recall_delta`, `f1_delta`, …).
 ## 4. Vertical pack vs baseline
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/simulation/benchmark/vertical \
+curl -s -X POST http://localhost:8000/decisions/v1/simulation/benchmark/vertical \
   -H "Content-Type: application/json" \
   -d '{"scenario": "high_fraud", "vertical": "fintech"}'
 ```

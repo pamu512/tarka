@@ -422,7 +422,7 @@ Full ingress options, rate limits, and cloud runbooks: **[Collaboration chat & c
 | Variable           | Default                 | Description                            |
 | ------------------ | ----------------------- | -------------------------------------- |
 | `NATS_URL`         | `nats://localhost:4222` | NATS server URL                        |
-| `DECISION_API_URL` | `http://localhost:8000` | Decision API URL for forwarding events |
+| `DECISION_API_URL` | `http://localhost:8000/decisions` | Decision API URL for forwarding events |
 | `STREAM_NAME`      | `FRAUD_EVENTS`          | NATS JetStream stream name             |
 | `SUBJECT_PREFIX`   | `fraud.events`          | NATS subject prefix                    |
 | `BATCH_FLUSH_MS`   | `100`                   | Batch flush interval in ms             |
