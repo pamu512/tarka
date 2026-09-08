@@ -85,10 +85,11 @@ Claim **GitLab-grade** only after the locked 2026-09-08 plan items **G0–G8** l
 | G2 | Digest-pin CI (`--digest-map` + `helm_prod_digest_honesty.py`) | yes |
 | G4 | SSO (OIDC for desk humans; API keys stay the machine path) | yes |
 | G6 | Backup drill docs ([production-backup-restore](../docs/guides/production-backup-restore.md)) | yes |
-| G7 | Upgrade docs ([production-upgrade](../docs/guides/production-upgrade.md)) | **this PR** |
+| G7 | Upgrade docs ([production-upgrade](../docs/guides/production-upgrade.md)) | yes |
+| G8 | Commercial SUPPORT.md | **this PR** |
 | G9 | Named-pilot checklist | no |
 
-G3, G5, and G8 remain on the locked plan. Do not treat a green `helm template` of `prod-on-k8s` as the grade.
+G3 and G5 remain on the locked plan. Do not treat a green `helm template` of `prod-on-k8s` as the grade.
 
 ## What each skin may claim
 

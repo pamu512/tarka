@@ -25,6 +25,7 @@
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
 | `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
+| Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -47,6 +48,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
+| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../../SUPPORT.md)) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade from SUPPORT.md |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
 | `prod-on-k8s` is core-api HA (external PG/Redis). Generate requires `--digest-map` (`sha256:<64-hex>`) for a grade claim. Empty digest (`--allow-empty-digest`) is a limitation / non-grade `helm template`, not an immutable image. No sqlite/`emptyDir` for decisions/audit/labels/packs in production-labeled presets. See [production-install-v1](../contracts/production-install-v1.md). | GitLab-grade already achieved; GA from preset; in-cluster PG/Redis as production; mutable tag as the recommended prod pin |
 | CI `helm_prod_honesty` fails sqlite / durable emptyDir / in-cluster PG on `prod-on-k8s` and `enterprise-desk-on-k8s` (G1 beachhead) | GitLab-grade complete production install; every `environment: prod` overlay scanned |
