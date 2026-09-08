@@ -10,7 +10,8 @@
 #   data on age-postgres     — Hunt sidecar, not core DATABASE_URL
 #   data on nats             — broker ephemeral
 #
-# Empty image digest may warn (G2). This script does not fail on empty digest.
+# Empty image digest may warn here. G2 helm_prod_digest_honesty.py fails empty
+# digest on the publish / grade path. This script does not fail on empty digest.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -172,11 +173,17 @@ render_preset() {
     echo "FAIL: missing $GEN" >&2
     return 2
   fi
+  local gen_extra=()
+  if [[ "$preset" == "prod-on-k8s" ]]; then
+    # G1 sqlite/emptyDir scan is not the digest grade path.
+    gen_extra+=(--allow-empty-digest)
+  fi
   python3 "$GEN" \
     --preset "$preset" \
     --image-registry registry.example.com/tarka \
     --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
     --redis-url 'rediss://elasticache:6379/0' \
+    "${gen_extra[@]}" \
     --output "$out_values" \
     >/dev/null
   local extra=()
