@@ -14,9 +14,20 @@
 
 ## 0. CUT / MODULES / BAU / FAIL
 
-Buyer stack (keep; do not invent extras): Drools + Groovy (**~600 rules** — only **~20% Time Eval** / ~120 sync evaluate-time rules; **~80%** async counters, thresholds, or reactive blocks) · **~40** supervised models in **8 microservices** (Hive scores; FI **mid-60s**, a few **high ~80**) · shared MLOps **Bedrock** · Excel/Jupyter · Tableau (BI-owned) · S3/BQ/Azure/GCP · skip-only Janus · ~**7% GMV** detected loss · ~1.9B orders/year (buyer-given; not tip-proved).
+Buyer stack (keep; do not invent extras): Drools + Groovy (**~600 rules**) · **~40** supervised models in **8 microservices** (Hive scores; FI **mid-60s**, a few **high ~80**) · shared MLOps **Bedrock** · Excel/Jupyter · Tableau (BI-owned) · S3/BQ/Azure/GCP · skip-only Janus · ~**7% GMV** detected loss · ~1.9B orders/year (buyer-given; not tip-proved).
 
-**Ops buy-in lock:** ops buy in **only if** opex reduction is still **significant** vs the **~20% Time Eval** set (plus the 40-model / 8-loop fleet staying put). Not vs the full 600.
+### Rule-mix lock (buyer-given — do not flatten to “600”)
+
+Of **~600** Drools/Groovy rules:
+
+| Mix | What they are | Day-1 Tarka? |
+|-----|----------------|--------------|
+| **~20% Time Eval (~120)** | Sync evaluate-time decision rules | **Yes — 1–N high-pain Time Eval JSON packs only.** This is the only place significant opex can live. |
+| **~80%** | Async counters, thresholds, or reactive blocks — **not** Time Eval | **No.** Stay BAU. Tip evaluate is Time Eval-shaped. Do **not** invent a Day-1 home. |
+
+**FAIL** if pain hours sit mostly on the ~80% non-Time-Eval estate or on the **8** supervised loops. **FAIL** a 600-rule migrate.
+
+**Ops buy-in lock:** ops buy in **only if** opex reduction is still **significant** vs the **~20% Time Eval** set (~120). Not vs the full 600. The 40-model / 8-loop fleet stays.
 
 Allowed improvement axes vs BAU: **significant opex** (fewer eng hours on rule change, shorter signal→live pack SLA, less dual-write thrash), **faster pack/iterate**, **clearer receipt-why / override**. **MUST-NOT:** higher FI · detect more than ~7% GMV · auto-migrate 600 Drools → JSON · replace the 8 loops / 40 models.
 
@@ -48,7 +59,7 @@ Tip today: no proved FI uplift (**MUST-NOT** claim mid-60s → 80 anyway). No pr
 
 **Where significant opex would have to come from (name it or FAIL):** change traffic on **1–N high-pain Time Eval** rules inside the ~20% / ~120 — not the full 600, not the ~80% non-Time-Eval estate, not the 8 supervised loops. If pain hours sit mostly on async counters / thresholds / reactive blocks or the 40-model fleet, adding Tarka is another plane with **no** rule/ops time savings → **FAIL Tarka**.
 
-**FAIL Tarka** if BAU (600 Drools + 8 loops + Tableau + skip-Janus) is already stable and we cannot name that pain-rule opex. **FAIL** if the only ask is FI or GMV. **FAIL** a RiskOps-led desk cut until F1–F3.
+**FAIL Tarka** if BAU (600 Drools + 8 loops + Tableau + skip-Janus) is already stable and we cannot name **Time Eval** pain-rule opex. **FAIL** if the only ask is FI or GMV. **FAIL** a RiskOps-led desk cut until F1–F3.
 
 ### MODULES — full stack vs few modules?
 
