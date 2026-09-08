@@ -22,6 +22,8 @@
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
+| GitLab-grade install claim (G9) | Allowed **only** when G0–G8 have landed **and** [`docs/docs/guides/production-install-soak-checklist.md`](../docs/guides/production-install-soak-checklist.md) is **signed** for a **named** pilot (internal or buyer). This row is not the grade. Separate from “primary decisioner” maturity. |
+| Production / GitLab-grade install | Intended: [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md) (G0 PR #405 — **not on master**). Until merge, the G9 checklist + [SUPPORT.md](../../SUPPORT.md) stub-note that path. Do not claim the grade from a green `helm template`. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -45,5 +47,6 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
+| Soak checklist exists (G9). “GitLab-grade install” only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Beta, no GA, no SOC 2 from us. | GitLab-grade already achieved; primary decisioner; SOC 2 / PCI cert; GA from this file or from `prod-on-k8s` existing |
 
 **Provision warning:** `shadow_auto_promote` exists as a tenant file + host gate (`auto_promote` defaults **False**). Never advertise always-on auto-Promote as Day-1. Enabling requires explicit tenant promote gates (thresholds already in the provision file).

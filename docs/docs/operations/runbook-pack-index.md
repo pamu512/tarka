@@ -30,6 +30,7 @@ Unified index for on-call and release operators. Linked from Prometheus `runbook
 |---------|-------------|
 | [Productionization](../guides/repo-productionization-runbook.md) | Desk-strict, trend tick, honesty knobs |
 | [Deployment](../guides/deployment.md) | Compose profiles + Helm (Helm is scale-out, not day-1) |
+| [Production install soak checklist](../guides/production-install-soak-checklist.md) | G9 named-pilot sign-off. GitLab-grade only after G0–G8. Not primary decisioner. |
 
 ## Observability entry points
 
