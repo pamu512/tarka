@@ -34,6 +34,7 @@ class TestProductionUpgradeGuide(unittest.TestCase):
         self.assertIn("TARKA_ENFORCEMENT_MODE", text)
         self.assertIn('"role"', text)
         self.assertIn("alembic upgrade head", text)
+        self.assertIn("--digest-map", text)
         self.assertIn("G6", text)
         self.assertIn("production-backup-restore.md", text)
         self.assertIn("G8", text)
@@ -45,10 +46,11 @@ class TestProductionUpgradeGuide(unittest.TestCase):
     def test_g6_backup_link_does_not_block(self) -> None:
         text = _GUIDE.read_text(encoding="utf-8")
         self.assertIn("production-backup-restore.md", text)
-        self.assertIn("do not block", text.lower())
-        # File may be absent on this branch (G6 in-flight). Guide still loads.
-        if not _BACKUP.is_file():
-            self.assertTrue(_GUIDE.is_file())
+        self.assertTrue(
+            _BACKUP.is_file(),
+            "G6 production-backup-restore.md should be on tip after merge",
+        )
+        self.assertIn("production-backup-restore.md", text)
 
     def test_links_production_install_and_deployment(self) -> None:
         text = _GUIDE.read_text(encoding="utf-8")

@@ -2,7 +2,7 @@
 
 Helm upgrade playbook between two **beta** tags or **sha256 digests** on a single-cluster `prod-on-k8s` beachhead. Practice rollback on the named pilot before a grade claim.
 
-Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** This page does not claim GitLab-grade. Grade still requires G0–G8 plus the G9 checklist on a **named** last-mile / food / q-comm / gig / retail pilot — see [production-install-v1](../../contracts/production-install-v1.md) (G0; may still be landing). Chart catalog and `helm upgrade --install` first-apply: [deployment.md](deployment.md).
+Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** This page does not claim GitLab-grade. Grade still requires G0–G8 plus the G9 checklist on a **named** last-mile / food / q-comm / gig / retail pilot — see [production-install-v1](../../contracts/production-install-v1.md). Chart catalog and `helm upgrade --install` first-apply: [deployment.md](deployment.md).
 
 **Digests preferred for prod.** A mutable `1.3.0-beta` tag is not a pin. Tag is ignored when `coreApi.digest` / `signalApi.digest` / `investigationAgent.digest` is set.
 
@@ -16,9 +16,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (**ELv2
 
 ## Backup (G6)
 
-Run the backup drill in [production-backup-restore.md](production-backup-restore.md) **when that file is on the branch you apply**. G6 is in-flight — do not block this playbook if the file is missing.
-
-If G6 is not on the tip yet: take a buyer-owned Postgres snapshot (decisions, audit, labels, packs, investigation schema) and a Redis snapshot (or accept Redis as rebuildable). Record the **current** digest or Helm revision before you touch images. Keep the previous digest pullable.
+Run the backup drill in [production-backup-restore.md](production-backup-restore.md) before upgrade. Record the **current** digest or Helm revision before you touch images. Keep the previous digest pullable. Redis is ephemeral (rebuild from new events).
 
 ## Preflight
 
@@ -38,22 +36,26 @@ If G6 is not on the tip yet: take a buyer-owned Postgres snapshot (decisions, au
 
 5. **Enforcement.** `GET /decisions/v1/ops/enforcement-mode` returns `emit_only`. If it is `handoff`, force emit-only first (kill switches) or postpone.
 
-6. **Template the to-pin** (same values, new digests). CI does this without a cluster:
+6. **Template the to-pin** (same values, new digests via `--digest-map`). Empty digest is not a grade pin (`--allow-empty-digest` is CI-only).
 
    ```bash
+   cat >/tmp/to-pin.digests.map <<'EOF'
+   coreApi=sha256:<64-hex-B>
+   signalApi=sha256:<64-hex-B>
+   investigationAgent=sha256:<64-hex-B>
+   EOF
+
    python3 infra/scripts/deploy/generate_cloud_values.py \
      --preset prod-on-k8s \
      --image-registry <registry>/tarka \
      --db-url "$DATABASE_URL" \
      --redis-url "$REDIS_URL" \
+     --digest-map /tmp/to-pin.digests.map \
      --output /tmp/prod-on-k8s.values.yaml
 
    helm template tarka infra/deploy/helm/fraud-stack \
      -f /tmp/prod-on-k8s.values.yaml \
      --set global.appSecretsName=tarka-app-secrets \
-     --set coreApi.digest=sha256:<64-hex-B> \
-     --set signalApi.digest=sha256:<64-hex-B> \
-     --set investigationAgent.digest=sha256:<64-hex-B> \
      >/tmp/tarka-to.yaml
    ```
 
@@ -69,10 +71,7 @@ Same release name (`tarka`), same namespace, same values file. Only the image pi
 helm upgrade tarka infra/deploy/helm/fraud-stack \
   -n fraud \
   -f /tmp/prod-on-k8s.values.yaml \
-  --set global.appSecretsName=tarka-app-secrets \
-  --set coreApi.digest=sha256:<64-hex-B> \
-  --set signalApi.digest=sha256:<64-hex-B> \
-  --set investigationAgent.digest=sha256:<64-hex-B>
+  --set global.appSecretsName=tarka-app-secrets
 ```
 
 Wait for evaluate:
