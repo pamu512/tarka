@@ -30,6 +30,13 @@
 
 global:
   environment: prod
+  # Default-on: NetworkPolicy + ServiceMonitor. Mesh stays off.
+  # Opt-out without dropping other prod fail-closes:
+  #   --set global.networkPolicy.enabled=false --set global.serviceMonitor.enabled=false
+  networkPolicy:
+    enabled: true
+  serviceMonitor:
+    enabled: true
   imageRegistry: "__IMAGE_REGISTRY__"
   externalServices:
     postgres:
