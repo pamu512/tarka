@@ -10,6 +10,7 @@ Canonical operator docs.
 | **Product Day-1** — `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
 | **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
 | **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
+| **Buyer / LOI** — what the self-host install pack is (and is not) | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) |
 
 Investigators do not author rules; strategy analysts do. Work **arrives** on `/leftovers`. Work **happens** on Hunt (`/graph`). Fat `/cases` stays hidden in lean. ALLOW never becomes a leftover.
 
@@ -42,6 +43,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 | Enforcement contract-gated; default emit-only | Handoff as Day-1 default |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Omniscient AI author loop; model ALLOW/DENY; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft (AI backtest required). FP late-label → Observe soften. Beachhead seeds stay Observe | Beachhead = banks; seeds = live |
+| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../SUPPORT.md)). Grade: [production-install-v1](contracts/production-install-v1.md) (G0 — **not on master**) | 99.99% SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade already achieved |
 
 ## Product locks
 
