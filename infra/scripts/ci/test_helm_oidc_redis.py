@@ -275,6 +275,10 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         self.assertIn("AGE_POSTGRES_PASSWORD", r.stdout)
         self.assertIn("AGE_DATABASE_URL", r.stdout)
         self.assertNotIn(":fraud@", r.stdout)
+        preset = (
+            _CHART / "presets" / "enterprise-desk-on-k8s.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("password: fraud", preset)
 
 
 if __name__ == "__main__":

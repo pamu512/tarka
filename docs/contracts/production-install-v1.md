@@ -6,7 +6,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 
 Beachhead for a CE-shaped VPC install: last-mile / food / q-comm / gig / retail. Not banks as P0.
 
-See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
+See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md). Rotation: [production-secrets-rotation](../docs/guides/production-secrets-rotation.md).
 
 ## Locks (do not smash)
 
@@ -15,7 +15,8 @@ See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
 - Empty plane URL = that plane off.
 - Demo ≠ product compose ≠ sales-only overlay (`brochure` token).
 - No sqlite / `emptyDir` for decisions, audit, labels, or packs in any preset labeled production.
-- OIDC optional. API keys are the machine path. Empty `API_KEYS` + empty `OIDC_ISSUER` + insecure off = **fail closed** (503), not “no auth”.
+- OIDC optional. API keys are the machine path. Empty `API_KEYS` + empty `OIDC_ISSUER` + insecure off = **fail closed** (503), not “no auth”. Missing secrets must not leave evaluate open.
+- No Vault / External Secrets Operator as a hard dependency. Kubernetes Secret + `global.appSecretsName` is enough. Vault/ESO are optional operator tooling.
 - No named fraud / risk product incumbents as reference points.
 
 ## Pass / fail — beachhead VPC CE-shaped
@@ -44,6 +45,9 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | `API_KEYS` | **Required** | Machine path. Empty + empty `OIDC_ISSUER` + insecure off → 503. |
 | `EVIDENCE_SIGNING_SECRET` | **Required** | `CASE_API_PRODUCTION_MODE` refuses the default HMAC. |
 | `RULE_GOVERNANCE_SECRET` | Required on **enterprise-desk** | Two-person live-rule. Optional on evaluate-only `prod-on-k8s`. |
+| Buyer Postgres URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.postgres.databaseUrl` (operator-supplied). In-cluster PG **off**. Never document `fraud` as a prod password. |
+| Buyer Redis URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.redis.redisUrl`. In-cluster Redis **off**. Required when `OIDC_ISSUER` is set (no in-process OIDC state). |
+| `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` | Optional | Desk humans. Set via `coreApi.extraEnv` or `coreApi.oidc`. Empty issuer = API-key mode. G4 wires first-class SSO. |
 | `OIDC_CLIENT_SECRET` | If issuer set | Desk humans only. Not a substitute for `API_KEYS`. |
 | `ATTESTATION_HMAC_SECRET` | If attestation on | Empty = that plane off. |
 | `OPENAI_API_KEY` / `UPSTREAM_API_KEY` | If Advise / investigation LLM on | Chart Shadow stays **OFF**. Investigation-agent on `prod-on-k8s` also needs `COPILOT_PRODUCTION_MODE` (no `ALLOWED_ANALYSTS=*`). |
@@ -60,7 +64,7 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | Machines / evaluate | `API_KEYS` (`X-API-Key`) | Yes |
 | Desk humans | OIDC optional (`OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv`; secret key `OIDC_CLIENT_SECRET`) | No. G4 lands SSO code; empty issuer stays valid. |
 
-Empty keys + empty OIDC + insecure off = fail closed. OIDC is not a first-class Helm values key.
+Empty keys + empty OIDC + insecure off = fail closed. Missing secrets must not leave evaluate open. OIDC is not a first-class Helm values key.
 
 ## Frontend / Shadow on `prod-on-k8s`
 
@@ -105,4 +109,5 @@ Sales-only overlay (`VITE_DESK_PROFILE=brochure`) is pitch pages. Not a producti
 - Case CRM
 - Consortium SKU
 - Implementing G2–G9 in this PR (G1 is the Helm honesty CI gate; not the grade)
+- Vault operator required
 - Claiming GitLab-grade already achieved

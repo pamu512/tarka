@@ -2,6 +2,8 @@
 
 **SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
 
+**Production secrets:** [secrets matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G0 PR #405 may replace the contract stub with the full GitLab-grade claim SoT — keep the matrix.
+
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
 
@@ -134,7 +136,7 @@ postgres:
   enabled: true
   auth:
     username: fraud
-    password: fraud       # override in production
+    password: fraud       # chart/dev default only — prod-on-k8s / enterprise-desk use secretKeyRef
     database: fraud
 
 redis:
@@ -239,7 +241,8 @@ python3 infra/scripts/deploy/generate_cloud_values.py \
   --digest-map /path/to/image-digests.map \
   --output /tmp/prod-on-k8s.values.yaml
 
-# Create a Secret named tarka-app-secrets with key API_KEYS (and OIDC extras if used).
+# Create a Secret named tarka-app-secrets (API_KEYS, EVIDENCE_SIGNING_SECRET, …).
+# Matrix + rotation: docs/contracts/production-install-v1.md and production-secrets-rotation.md
 helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   -n fraud --create-namespace \
   -f /tmp/prod-on-k8s.values.yaml \
@@ -484,9 +487,10 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 
 ### Secrets
 
-- Store `OPENAI_API_KEY` in a secrets manager (Vault, AWS Secrets Manager, K8s secrets)
-- Store `ATTESTATION_HMAC_SECRET` in a secrets manager
-- Never commit `.env` files to version control
+- Mount `API_KEYS` / `EVIDENCE_SIGNING_SECRET` / `RULE_GOVERNANCE_SECRET` from `global.appSecretsName` (Kubernetes Secret). Vault / External Secrets are optional, not required.
+- Store `ATTESTATION_HMAC_SECRET` / `OPENAI_API_KEY` the same way when those planes are on
+- Rotate per [production-secrets-rotation](./production-secrets-rotation.md)
+- Never commit `.env` files or reusable default passwords (`password: fraud`) to production presets
 
 ### Monitoring
 
