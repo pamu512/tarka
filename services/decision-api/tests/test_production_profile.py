@@ -93,7 +93,7 @@ def test_prod_presets_do_not_ship_password_fraud():
     for name in ("prod-on-k8s.yaml", "enterprise-desk-on-k8s.yaml"):
         text = (presets / name).read_text(encoding="utf-8")
         assert "password: fraud" not in text, f"{name} still ships password: fraud"
-        assert 'password: "fraud"' not in text, f"{name} still ships password: \"fraud\""
+        assert 'password: "fraud"' not in text, f'{name} still ships password: "fraud"'
 
 
 def test_production_install_v1_documents_secrets_matrix():
@@ -104,7 +104,9 @@ def test_production_install_v1_documents_secrets_matrix():
         / "contracts"
         / "production-install-v1.md"
     )
-    assert contract.is_file(), "docs/contracts/production-install-v1.md missing (G0 stub + G3 matrix)"
+    assert contract.is_file(), (
+        "docs/contracts/production-install-v1.md missing (G0 stub + G3 matrix)"
+    )
     text = contract.read_text(encoding="utf-8")
     for key in (
         "API_KEYS",
