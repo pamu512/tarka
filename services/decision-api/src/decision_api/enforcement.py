@@ -47,6 +47,40 @@ class EnforcementIntent:
     recommended_action: str | None
 
 
+def enforcement_mode() -> str:
+    env = os.environ.get("TARKA_ENFORCEMENT_MODE", "").strip().lower()
+    if env in {"emit_only", "handoff"}:
+        return env
+    try:
+        from desk_provision import enforcement_mode as desk_mode
+
+        return desk_mode()
+    except Exception:
+        return "emit_only"
+
+
+def suggested_actions(
+    decision: str, recommended_action: str | None = None
+) -> list[str]:
+    """Always-on advisory list for buyer systems. Empty list is valid."""
+    d = (decision or "").strip().lower()
+    rec = (recommended_action or "").strip().lower()
+    out: list[str] = []
+    if d in {"deny", "block"}:
+        out.append("deny")
+    if d in {"review", "flag"}:
+        out.append("review" if d == "review" else "flag")
+    if "payout" in rec or "hold" in rec:
+        out.append("hold_payout")
+    if "promo" in rec:
+        out.append("deny_promo")
+    if "courier" in rec:
+        out.append("suspend_courier")
+    if is_step_up_recommended(recommended_action):
+        out.append("step_up")
+    return out
+
+
 def is_step_up_recommended(recommended_action: str | None) -> bool:
     """True when recommended_action is a step-up / challenge class hint."""
     rec = (recommended_action or "").strip().lower().replace(" ", "_").replace("-", "_")
@@ -187,6 +221,16 @@ def _build_payload(
         "score": score,
         "tags": list(tags),
         "challenge_metadata": challenge_metadata or {},
+        "suggested_actions": suggested_actions(
+            intent.decision, intent.recommended_action
+        ),
+        "enforcement_mode": enforcement_mode(),
+        "authority": enforcement_mode() == "handoff",
+        "webhook_event": (
+            "decision.enforced"
+            if enforcement_mode() == "handoff"
+            else "decision.emitted"
+        ),
     }
 
 
@@ -209,9 +253,17 @@ async def apply_enforcement_adapters(
     Fail soft: webhook/metric errors are logged; never raises into evaluate.
     """
     intent = resolve_enforcement_intent(decision, recommended_action)
+    mode = enforcement_mode()
+    hints = suggested_actions(decision, recommended_action)
     summary: dict[str, Any] = {
         "enforcement_action": intent.action,
+        "enforcement_mode": mode,
+        "authority": mode == "handoff",
+        "suggested_actions": hints,
         "webhook": None,
+        "webhook_event": "decision.enforced"
+        if mode == "handoff"
+        else "decision.emitted",
     }
 
     if metrics_inc is not None:
@@ -238,6 +290,8 @@ async def apply_enforcement_adapters(
         "enforcement_action": intent.action,
         "decision": intent.decision,
         "recommended_action": intent.recommended_action,
+        "enforcement_mode": mode,
+        "webhook_event": summary["webhook_event"],
     }
 
     if not url:

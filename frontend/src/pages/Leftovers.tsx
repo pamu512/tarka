@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 
 import { Link } from "react-router";
 
-import { cases, type LeftoverRow } from "../api/client";
+import { cases, decisions, type LeftoverRow } from "../api/client";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { L2DraftButtons } from "../components/L2DraftButtons";
 import { PageTitle } from "../components/PageTitle";
@@ -17,10 +17,16 @@ export default function Leftovers() {
   const [rows, setRows] = useState<LeftoverRow[]>([]);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<{ connected: boolean; last_ok_at?: string | null; last_error_at?: string | null; last_error?: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setErr("");
+    decisions.queueSeam().then((s) => {
+      if (!cancelled) setQueue(s);
+    }).catch(() => {
+      if (!cancelled) setQueue({ connected: false });
+    });
     cases
       .listLeftovers(tenantId || "demo")
       .then((r) => {
@@ -57,6 +63,14 @@ export default function Leftovers() {
         nextLabel="Receipts"
       />
       <p className="text-sm text-gray-500">Work arrives here. Work happens on Hunt.</p>
+      <p className="text-xs text-gray-500" data-testid="queue-honesty">
+        {queue?.connected
+          ? `Queue last outbound: ${queue.last_error ? `error ${queue.last_error_at || ""}` : `ok ${queue.last_ok_at || ""}`}`.trim()
+          : "Connect your queue — leftovers are residual. Tarka is not your case CRM."}{" "}
+        <a href="/help#leftovers" className="text-brand-300 hover:underline">
+          queue-seam-sop
+        </a>
+      </p>
       {err ? (
         <p className="text-sm text-rose-300" role="alert">
           {err} Leftover Hold is unavailable — do not treat an empty table as “no work.”
@@ -82,7 +96,7 @@ export default function Leftovers() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={10} className="px-3 py-6 text-gray-500">
-                  No leftovers. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
+                  No leftovers. Connect your queue — leftovers are residual. Tarka is not your case CRM. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
             ) : null}

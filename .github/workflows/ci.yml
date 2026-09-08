@@ -180,6 +180,7 @@ jobs:
         run: |
           pip install pyyaml
           python3 infra/scripts/ci/test_q2_wave4_contracts.py
+          python3 infra/scripts/ci/test_postgap_contracts.py
       - name: Policy-as-code gate (make policy-check)
         run: |
           pip install pydantic sqlalchemy

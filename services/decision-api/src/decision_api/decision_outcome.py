@@ -15,6 +15,7 @@ from typing import Any, Callable, Awaitable
 
 from decision_api.enforcement import (
     apply_enforcement_adapters,
+    enforcement_mode,
     resolve_enforcement_action,
 )
 
@@ -229,6 +230,13 @@ def schedule_decision_outcomes(
     mint_decisions = (
         ("deny", "review", "flag") if flag_mints_leftover else ("deny", "review")
     )
+    if not ctx.shadow_request and ctx.decision in mint_decisions:
+        add(
+            _emit_queue_upsert,
+            http=http,
+            ctx=ctx,
+        )
+
     if (
         not ctx.shadow_request
         and case_create_on_deny_review
@@ -339,6 +347,32 @@ def _emit_decision_metrics(
     except TypeError:
         metrics_inc(f"fraud_decisions_{ctx.decision}_total")
         metrics_inc("fraud_evaluations_total")
+
+
+async def _emit_queue_upsert(*, http: Any, ctx: DecisionOutcomeContext) -> None:
+    try:
+        from decision_api.queue_seam import emit_queue_upsert
+
+        why = ",".join(str(t) for t in (ctx.tags or [])[:6])
+        await emit_queue_upsert(
+            http=http,
+            tenant_id=ctx.tenant_id,
+            leftover_id=ctx.trace_id,
+            trace_id=ctx.trace_id,
+            entity_id=ctx.entity_id,
+            action=ctx.decision,
+            pack_why_summary=why,
+            evaluation_token=ctx.trace_id,
+            flag_id=ctx.trace_id if ctx.decision == "flag" else "",
+            enforcement_mode=enforcement_mode(),
+        )
+    except Exception:
+        log.warning(
+            "queue_upsert_swallowed tenant_id=%s trace_id=%s",
+            ctx.tenant_id,
+            ctx.trace_id,
+            exc_info=True,
+        )
 
 
 async def maybe_create_case_for_outcome(

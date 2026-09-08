@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "seed_collusion_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_collusion_order",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "order" },
+        { "field": "amount", "op": "gte", "value": 300 }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Multi-party collusion seed on first-party order fields. Observe only."
+    }
+  ],
+  "tag_rules": []
+}
