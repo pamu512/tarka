@@ -63,6 +63,64 @@ def test_production_profile_does_not_require_oidc_issuer():
     )
 
 
+def test_empty_api_keys_empty_oidc_insecure_off_fails_closed():
+    """G3: empty API_KEYS + empty OIDC + insecure off is fail-closed, not open evaluate."""
+    errs = check_production_env(
+        {
+            "API_KEYS": "",
+            "OIDC_ISSUER": "",
+            "ALLOW_INSECURE_NO_AUTH": "false",
+            "TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY": "true",
+            "RULE_GOVERNANCE_SECRET": "gov-secret",
+            "SAR_TRANSPORT": "off",
+        },
+        rust_available=True,
+    )
+    assert any("API_KEYS" in e for e in errs)
+    assert not any("OIDC" in e for e in errs)
+
+
+def test_prod_presets_do_not_ship_password_fraud():
+    """G3: prod/enterprise examples use secretKeyRef, not reusable default passwords."""
+    presets = (
+        Path(__file__).resolve().parents[3]
+        / "infra"
+        / "deploy"
+        / "helm"
+        / "fraud-stack"
+        / "presets"
+    )
+    for name in ("prod-on-k8s.yaml", "enterprise-desk-on-k8s.yaml"):
+        text = (presets / name).read_text(encoding="utf-8")
+        assert "password: fraud" not in text, f"{name} still ships password: fraud"
+        assert 'password: "fraud"' not in text, f'{name} still ships password: "fraud"'
+
+
+def test_production_install_v1_documents_secrets_matrix():
+    """G3: secrets matrix lives in production-install-v1 (G0 contract + G3 rows)."""
+    contract = (
+        Path(__file__).resolve().parents[3]
+        / "docs"
+        / "contracts"
+        / "production-install-v1.md"
+    )
+    assert contract.is_file(), (
+        "docs/contracts/production-install-v1.md missing (G0 stub + G3 matrix)"
+    )
+    text = contract.read_text(encoding="utf-8")
+    for key in (
+        "API_KEYS",
+        "EVIDENCE_SIGNING_SECRET",
+        "RULE_GOVERNANCE_SECRET",
+        "OIDC",
+        "fail closed",
+        "Postgres",
+        "Redis",
+        "AGE_POSTGRES_PASSWORD",
+    ):
+        assert key in text, f"secrets matrix missing {key}"
+
+
 def test_wildcard_tenant_scope_rejected_in_production_profile():
     errs = check_production_env(
         _ok(API_KEY_TENANT_MAP='{"k1": "*"}'),

@@ -30,6 +30,7 @@ def test_validate_prod_fails_issuer_without_redis():
     assert "OIDC_ISSUER" in text
     assert "REDIS_URL" in text
     assert "no in-process OIDC state fallback" in text
+    assert "coreApi).oidc).issuer" in text
     assert 'hasKey $extraEnv "OIDC_ISSUER"' in text
     # Must run outside the prod-on-k8s PDB+HPA gate (core-on-aws leftover).
     oidc_at = text.index("OIDC_ISSUER is set in production but REDIS_URL")

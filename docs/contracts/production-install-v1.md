@@ -6,7 +6,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 
 Beachhead for a CE-shaped VPC install: last-mile / food / q-comm / gig / retail. Not banks as P0.
 
-See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
+See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md). Rotation: [production-secrets-rotation](../docs/guides/production-secrets-rotation.md).
 
 ## Locks (do not smash)
 
@@ -15,7 +15,8 @@ See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
 - Empty plane URL = that plane off.
 - Demo ≠ product compose ≠ sales-only overlay (`brochure` token).
 - No sqlite / `emptyDir` for decisions, audit, labels, or packs in any preset labeled production.
-- OIDC optional. API keys are the machine path. Empty `API_KEYS` + empty `OIDC_ISSUER` + insecure off = **fail closed** (503), not “no auth”.
+- OIDC optional. API keys are the machine path. Empty `API_KEYS` + empty `OIDC_ISSUER` + insecure off = **fail closed** (503), not “no auth”. Missing secrets must not leave evaluate open.
+- No Vault / External Secrets Operator as a hard dependency. Kubernetes Secret + `global.appSecretsName` is enough. Vault/ESO are optional operator tooling.
 - No named fraud / risk product incumbents as reference points.
 
 ## Pass / fail — beachhead VPC CE-shaped
@@ -44,10 +45,15 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | `API_KEYS` | **Required** | Machine path. Empty + empty `OIDC_ISSUER` + insecure off → 503. |
 | `EVIDENCE_SIGNING_SECRET` | **Required** | `CASE_API_PRODUCTION_MODE` refuses the default HMAC. |
 | `RULE_GOVERNANCE_SECRET` | Required on **enterprise-desk** | Two-person live-rule. Optional on evaluate-only `prod-on-k8s`. |
+| Buyer Postgres URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.postgres.databaseUrl` (operator-supplied). In-cluster PG **off**. Never document `fraud` as a prod password. |
+| Buyer Redis URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.redis.redisUrl`. In-cluster Redis **off**. Required when `OIDC_ISSUER` is set (no in-process OIDC state). |
+| `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` | Optional | Desk humans. Helm values SoT (not extraEnv). Empty issuer = API-key mode. |
 | `OIDC_CLIENT_SECRET` | If issuer set | Desk humans only. Not a substitute for `API_KEYS`. |
 | `ATTESTATION_HMAC_SECRET` | If attestation on | Empty = that plane off. |
 | `OPENAI_API_KEY` / `UPSTREAM_API_KEY` | If Advise / investigation LLM on | Chart Shadow stays **OFF**. Investigation-agent on `prod-on-k8s` also needs `COPILOT_PRODUCTION_MODE` (no `ALLOWED_ANALYSTS=*`). |
 | `POSTGRES_PASSWORD` | Do not use in-cluster PG | External URL carries buyer credentials. Never document `fraud` as a prod password. |
+| `AGE_POSTGRES_PASSWORD` | Required on **enterprise-desk** | Hunt sidecar. `secretKeyRef`, not chart default `fraud`. |
+| `AGE_DATABASE_URL` | Required on **enterprise-desk** | Graph-service AGE URL via `secretKeyRef`. |
 
 `TARKA_DEPLOYMENT_PROFILE=production` runs the same fail-closed checks as Helm prod. Setting individual knobs without the profile leaves those checks off.
 
@@ -56,9 +62,9 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | Actor | Path | Required for grade? |
 |-------|------|---------------------|
 | Machines / evaluate | `API_KEYS` (`X-API-Key`) | Yes |
-| Desk humans | OIDC optional (`OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv`; secret key `OIDC_CLIENT_SECRET`) | No. G4 lands SSO code; empty issuer stays valid. |
+| Desk humans | OIDC optional (`coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}`; secret key `OIDC_CLIENT_SECRET`) | No. Empty issuer stays valid. |
 
-Empty keys + empty OIDC + insecure off = fail closed. OIDC is not a first-class Helm values key.
+Empty keys + empty OIDC + insecure off = fail closed. Missing secrets must not leave evaluate open. `coreApi.oidc.*` is the first-class Helm values SoT.
 
 ## Frontend / Shadow on `prod-on-k8s`
 
@@ -72,12 +78,12 @@ Frontend **OFF** and Shadow **OFF** on the prod chart are **intentional grade po
 
 Claim **GitLab-grade** only after the locked 2026-09-08 plan items **G0–G8** land **and** a **named** beachhead pilot passes the **G9** checklist.
 
-| Id | Gate | This PR |
-|----|------|---------|
+| Id | Gate | Landed |
+|----|------|--------|
 | G0 | This contract | yes |
-| G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | no |
-| G2 | Digest-pin CI | no |
-| G4 | SSO (OIDC for desk humans; API keys stay the machine path) | no |
+| G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | yes |
+| G2 | Digest-pin CI (`--digest-map` + `helm_prod_digest_honesty.py`) | yes |
+| G4 | SSO (OIDC for desk humans; API keys stay the machine path) | yes |
 | G6 | Backup drill docs ([production-backup-restore](../docs/guides/production-backup-restore.md)) | **this PR** |
 | G7 | Upgrade docs | no |
 | G9 | Named-pilot checklist | no |
@@ -102,5 +108,6 @@ Sales-only overlay (`VITE_DESK_PROFILE=brochure`) is pitch pages. Not a producti
 - Hosted Tarka Cloud / providing Tarka to third parties as a managed service
 - Case CRM
 - Consortium SKU
-- Implementing G1–G9 in this PR
+- Implementing G2–G9 in this PR (G1 is the Helm honesty CI gate; not the grade)
+- Vault operator required
 - Claiming GitLab-grade already achieved

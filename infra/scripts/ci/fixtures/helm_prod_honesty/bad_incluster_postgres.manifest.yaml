@@ -1,0 +1,13 @@
+# One G1 fail class only. --self-check must report in-cluster core Postgres.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarka-tarka-postgres
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: "fraud"

@@ -1,14 +1,15 @@
-{{- /* Default-deny in-cluster traffic when global.environment=prod.
-     Dev/default (environment=dev) emits nothing. No values.networkPolicy key —
-     same environment gate style as validate-prod.yaml (prod-on-k8s also sets
-     environment=prod). */ -}}
-{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- /* Default-deny in-cluster traffic on production profile / prod-on-k8s.
+     Lite/dev emit nothing. Opt-out: global.networkPolicy.enabled=false.
+     Mesh stays optional. */ -}}
+{{- if eq (include "tarka.networkPolicy.enabled" .) "true" }}
 {{- $fullname := include "tarka.fullname" . }}
+{{- $extraEnvOidc := ((.Values.coreApi).extraEnv | default dict) }}
 {{- $oidc := false }}
-{{- range $k, $_ := ((.Values.coreApi).extraEnv | default dict) }}
-{{- if hasPrefix "OIDC_" $k }}
+{{- if ne (trim (toString (((.Values.coreApi).oidc).issuer | default ""))) "" }}
 {{- $oidc = true }}
 {{- end }}
+{{- if and (hasKey $extraEnvOidc "OIDC_ISSUER") (ne (trim (toString (index $extraEnvOidc "OIDC_ISSUER"))) "") }}
+{{- $oidc = true }}
 {{- end }}
 {{- $frontendUpstreams := or .Values.coreApi.enabled .Values.signalApi.enabled .Values.investigationAgent.enabled .Values.integrationIngress.enabled .Values.graphService.enabled .Values.dataPlane.enabled .Values.graphqlGateway.enabled }}
 apiVersion: networking.k8s.io/v1
