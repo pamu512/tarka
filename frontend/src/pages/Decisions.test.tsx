@@ -234,6 +234,57 @@ describe("Decisions stream", () => {
     expect(screen.getByTestId("device-integrity-biometrics")).toHaveTextContent("missing");
   });
 
+  it("falls back to minimal audit when analyst detail is 403 and mounts PackWhyStrip from the real payload", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockImplementation(async (_tid, _tenant, opts) => {
+      if (opts?.detail_level === "analyst") {
+        throw new client.ApiRequestError("403 analyst role required for full audit detail", { status: 403 });
+      }
+      return {
+        trace_id: "tr-login-1",
+        entity_id: "ent-1",
+        tenant_id: "demo",
+        event_type: "login",
+        decision: "review",
+        score: 62,
+        tags: [],
+        rule_hits: ["sdk_rooted"],
+        rule_pack_file: "device_signals.json",
+        created_at: "2026-08-24T08:00:00Z",
+      };
+    });
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+
+    expect(await screen.findByTestId("pack-why-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-pack")).toHaveTextContent("device_signals");
+    expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("sdk_rooted");
+    expect(screen.queryByText("Audit detail unavailable")).not.toBeInTheDocument();
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", { detail_level: "analyst" });
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", { detail_level: "minimal" });
+  });
+
+  it("shows the fail-closed banner only when analyst and minimal audit both fail", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW],
+    });
+    vi.mocked(client.decisions.getAudit).mockRejectedValue(
+      new client.ApiRequestError("403 analyst role required for full audit detail", { status: 403 }),
+    );
+
+    render(wrap(<Decisions />, "/decisions/tr-login-1"));
+
+    expect(await screen.findByText("Audit detail unavailable")).toBeInTheDocument();
+    expect(screen.queryByTestId("pack-why-strip")).not.toBeInTheDocument();
+    expect(screen.queryByText("sdk_rooted")).not.toBeInTheDocument();
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", { detail_level: "analyst" });
+    expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", { detail_level: "minimal" });
+  });
+
   it("surfaces pack, rule, and missing integrity on an evaluate-born FLAG row", async () => {
     const flagRow = {
       ...LOGIN_REVIEW,

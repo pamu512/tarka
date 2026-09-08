@@ -13,6 +13,7 @@ import { PageTitle } from "../components/PageTitle";
 import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
 import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
+import { getAuditForPackWhy } from "../utils/auditDetail";
 import { packIdFromRulePackFile, resolvePackWhy } from "../utils/packWhy";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
 
@@ -156,7 +157,7 @@ export default function Decisions() {
     setDetail(null);
     (async () => {
       try {
-        const row = await decisions.getAudit(traceId, tenantId, { detail_level: "analyst" });
+        const row = await getAuditForPackWhy(decisions.getAudit, traceId, tenantId);
         if (!cancelled) setDetail(row);
       } catch (e) {
         if (!cancelled) {

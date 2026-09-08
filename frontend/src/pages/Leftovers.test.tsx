@@ -118,6 +118,36 @@ describe("Leftovers", () => {
     expect((await screen.findAllByRole("button", { name: /author via byo/i })).length).toBeGreaterThan(0);
   });
 
+  it("does not treat leftover brief as override why; Create draft stays disabled until a typed why", async () => {
+    vi.mocked(client.rules.createL2Draft).mockReset();
+    vi.mocked(client.rules.createL2Draft).mockResolvedValue({
+      file: "l2.json",
+      pack: { mode: "shadow" },
+    });
+    render(wrap(<Leftovers />));
+    const create = (await screen.findAllByRole("button", { name: /create draft/i }))[0];
+    expect(create).toBeDisabled();
+    fireEvent.click(create);
+    expect(client.rules.createL2Draft).not.toHaveBeenCalled();
+    const why = screen.getAllByTestId("leftover-override-why")[0];
+    fireEvent.change(why, { target: { value: "human leftover why" } });
+    expect(create).toBeEnabled();
+    fireEvent.click(create);
+    await waitFor(() => {
+      expect(client.rules.createL2Draft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          leftover_id: "c-free",
+          override_why: "human leftover why",
+        }),
+        "demo",
+      );
+    });
+    expect(client.rules.createL2Draft).toHaveBeenCalledWith(
+      expect.not.objectContaining({ override_why: freeRow.brief }),
+      "demo",
+    );
+  });
+
   it("says leftovers are not a case CRM when queue is off", async () => {
     vi.mocked(client.cases.listLeftovers).mockResolvedValue({ leftovers: [], truncated: false });
     render(wrap(<Leftovers />));

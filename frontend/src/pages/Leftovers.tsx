@@ -149,7 +149,6 @@ export default function Leftovers() {
                       leftoverId={row.leftover_id}
                       traceId={row.trace_id}
                       tenantId={tenantId || "demo"}
-                      overrideWhy={row.brief || ""}
                     />
                   </td>
                 </tr>

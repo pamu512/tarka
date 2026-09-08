@@ -34,6 +34,7 @@ export default function ShadowMode() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingPack, setTogglingPack] = useState<string | null>(null);
+  const [promoteConfirm, setPromoteConfirm] = useState<{ file: string; name: string } | null>(null);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -115,6 +116,52 @@ export default function ShadowMode() {
         </div>
       )}
 
+      {promoteConfirm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="presentation"
+          onClick={() => setPromoteConfirm(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="promote-to-active-title"
+            data-testid="promote-to-active-confirm"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border border-surface-700 bg-surface-900 p-5 shadow-2xl space-y-3"
+          >
+            <h2 id="promote-to-active-title" className="text-sm font-semibold text-gray-100">
+              Promote to Active
+            </h2>
+            <p className="text-sm text-gray-300">
+              <span className="font-medium text-gray-100">{promoteConfirm.name}</span> becomes live / Active.
+              A human must confirm. Cancel leaves the pack in Observe.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPromoteConfirm(null)}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-600 text-gray-300 hover:border-surface-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                data-testid="promote-to-active-confirm-yes"
+                onClick={() => {
+                  const file = promoteConfirm.file;
+                  setPromoteConfirm(null);
+                  void handleModeChange(file, "active");
+                }}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard title="Total Observations" value={String(stats?.total ?? 0)} accent="text-brand-400" />
@@ -186,7 +233,7 @@ export default function ShadowMode() {
                       active={currentMode === "active"}
                       disabled={isBusy}
                       color="bg-green-600"
-                      onClick={() => handleModeChange(file, "active")}
+                      onClick={() => setPromoteConfirm({ file, name: pack.name || file })}
                     />
                     <ModeButton
                       label="Shadow"
@@ -205,7 +252,7 @@ export default function ShadowMode() {
 
                     {currentMode === "shadow" && (
                       <button
-                        onClick={() => handleModeChange(file, "active")}
+                        onClick={() => setPromoteConfirm({ file, name: pack.name || file })}
                         disabled={isBusy}
                         data-testid={`promote-to-active-${file}`}
                         className="ml-2 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-colors whitespace-nowrap"

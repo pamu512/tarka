@@ -60,11 +60,17 @@ describe("Observe pack modes", () => {
     });
   });
 
-  it("lists shadow packs and promotes via setPackMode", async () => {
+  it("lists shadow packs and promotes via setPackMode after confirm", async () => {
     render(wrap(<ShadowMode />));
 
     expect(await screen.findByText("shadow_payment_probe_v1.json")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Promote to Active" }));
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: /promote to active/i });
+    expect(dialog).toHaveTextContent("shadow_payment_probe_v1");
+    expect(dialog).toHaveTextContent(/becomes live/i);
+    expect(dialog).toHaveTextContent(/Active/);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
       expect(client.shadow.setPackMode).toHaveBeenCalledWith(
@@ -76,5 +82,37 @@ describe("Observe pack modes", () => {
       expect(screen.queryByRole("button", { name: "Promote to Active" })).not.toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Active" })).toBeDisabled();
+  });
+
+  it("Active mode pill uses the same Promote confirm before going live", async () => {
+    render(wrap(<ShadowMode />));
+
+    expect(await screen.findByRole("button", { name: "Promote to Active" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Active" }));
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: /promote to active/i });
+    expect(dialog).toHaveTextContent("shadow_payment_probe_v1");
+    expect(dialog).toHaveTextContent(/becomes live/i);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => {
+      expect(client.shadow.setPackMode).toHaveBeenCalledWith(
+        "shadow_payment_probe_v1.json",
+        "active",
+      );
+    });
+  });
+
+  it("cancel on Promote confirm leaves the pack in shadow", async () => {
+    render(wrap(<ShadowMode />));
+
+    expect(await screen.findByRole("button", { name: "Promote to Active" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Promote to Active" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Promote to Active" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shadow" })).toBeDisabled();
   });
 });
