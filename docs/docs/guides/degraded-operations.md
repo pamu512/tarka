@@ -51,7 +51,7 @@ Use the smoke script to verify the explanation chain after deploy:
 ```bash
 python infra/scripts/ci/investigation_e2e_smoke.py \
   --tenant-id demo \
-  --decision-api-url http://localhost:8000 \
+  --decision-api-url http://localhost:8000/decisions \
   --case-api-url http://localhost:8000/cases
 ```
 
