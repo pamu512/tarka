@@ -27,6 +27,7 @@
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
 | Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 | GitLab-grade install claim (G9) | Allowed **only** when G0–G8 have landed **and** [`docs/docs/guides/production-install-soak-checklist.md`](../docs/guides/production-install-soak-checklist.md) is **signed** for a **named** pilot (internal or buyer). This row is not the grade. Separate from “primary decisioner” maturity. |
+| Buyer VPC / self-host diligence (2026-09-08) | [`2026-09-08-buyer-pilot-assessment.md`](./2026-09-08-buyer-pilot-assessment.md) — claims vs proof; not a grade; not traction. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -44,8 +45,10 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
-| Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
+| Optional `vendor_score` is a buyer HTTP slot. Empty URL = off. Fetch is fail-soft and lands on the **receipt** after packs run — it does not feed decide-time JSON. Packs read inbound payload fields the buyer already published. Tarka does not replace Hive / supervised microservices. | Bundled third-party score SKU; Tarka as the model brain; migrate training off Hive / Bedrock; AutoML replacing buyer models |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| Advise is optional BYO. Gemini / Claude / Qwen / vLLM / OpenAI-compat presets exist on `shadow_agent`. Empty URL = off. Day-1 `make demo` never starts `shadow_agent`. `SHADOW_LLM_BACKEND=azure`, `vertex`, or `bedrock` **refuses** (use `self-hosted` + OpenAI-compat URL — including a Bedrock-compat proxy). Tarka `COPILOT_*` is investigation-agent assurance, not Microsoft Copilot. No Tarka-sold tokens. | Microsoft Copilot / BI-chat as a Tarka plane; native Azure / Vertex / Bedrock SDK; Vertex-only Advise; Tarka-branded model; closed omniscient author loop |
+| Observe bake-off JSON (`GET /v1/observe/loop-metrics`) + receipt export (`GET /v1/exports/receipts`) are API feeds. Buyer BI / Tableau owns leadership KPIs. Empty object sink = local only. | Tarka replaces Tableau; Tarka-hosted warehouse / BigQuery; desk Analytics as the reporting SoR |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
