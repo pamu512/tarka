@@ -18,14 +18,16 @@ export function L2DraftButtons({
 }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [typedWhy, setTypedWhy] = useState("");
   const ready = Boolean(traceId.trim() && (leftoverId.trim() || hilEventId.trim()));
+  const why = typedWhy.trim() || overrideWhy.trim();
+  const whyOk = why.length >= 8;
 
   async function submit(kind: "human" | "byo") {
-    if (!ready || busy) return;
+    if (!ready || busy || !whyOk) return;
     setBusy(true);
     setMsg("");
     try {
-      const why = overrideWhy.trim();
       const out = await rules.createL2Draft(
         {
           leftover_id: leftoverId.trim(),
@@ -56,10 +58,24 @@ export function L2DraftButtons({
 
   return (
     <div data-testid="l2-draft-controls" className="flex flex-wrap items-center gap-1">
+      {overrideWhy.trim().length < 8 ? (
+      <label className="flex items-center gap-1 text-[10px] text-gray-500">
+        why
+        <input
+          type="text"
+          data-testid="leftover-override-why"
+          value={typedWhy}
+          onChange={(e) => setTypedWhy(e.target.value)}
+          minLength={8}
+          placeholder="why this leftover becomes an Observe draft"
+          className="w-44 bg-surface-900 border border-surface-600 rounded px-1.5 py-1 text-[11px] text-gray-200"
+        />
+      </label>
+      ) : null}
       <button
         type="button"
         data-testid="draft-observe-pack"
-        disabled={!ready || busy}
+        disabled={!ready || busy || !whyOk}
         onClick={() => void submit("human")}
         className="px-2 py-1 text-[11px] font-medium rounded-lg bg-sky-800/80 hover:bg-sky-700 disabled:opacity-50 text-sky-50"
       >
@@ -68,7 +84,7 @@ export function L2DraftButtons({
       <button
         type="button"
         data-testid="l2-draft-byo"
-        disabled={!ready || busy}
+        disabled={!ready || busy || !whyOk}
         onClick={() => void submit("byo")}
         className="px-2 py-1 text-[11px] font-medium rounded-lg bg-surface-700 hover:bg-surface-600 disabled:opacity-50 text-gray-100"
       >
