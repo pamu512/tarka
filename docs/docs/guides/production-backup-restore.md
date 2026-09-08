@@ -8,7 +8,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 
 ## What is source of truth
 
-Buyer `DATABASE_URL` (Helm `global.externalServices.postgres.databaseUrl`) holds evaluate + desk state for `prod-on-k8s` / `enterprise-desk-on-k8s`. Dump the tables that exist. Skip names that are absent on an evaluate-only install.
+Buyer `DATABASE_URL` (Helm `global.externalServices.postgres.databaseUrl`) is the SoR for **decisions, audit, packs, and labels** on `prod-on-k8s` / `enterprise-desk-on-k8s`. Dump the tables that exist. Skip names that are absent on an evaluate-only install. Other desk tables (SAR, disputes, comments, `entity_signature_state`, investigation-agent schema) are not in this G6 set — add them to your own dump list if you run those planes.
 
 | Family | Tables (if present) | Why |
 |--------|---------------------|-----|
@@ -33,9 +33,11 @@ Include these **only when the operator turned them on**. Missing path = that pla
 
 | Artifact | Env / default | Restore |
 |----------|---------------|---------|
-| Immutable decision JSONL | `DECISION_LOG_PATH` (`./data/decision_logs/decision-log.jsonl`) | Copy the file (or warehouse export). Hash chain is append-only. |
-| Pack GitOps export | `PACK_GITOPS_EXPORT_PATH` or `rules/_loop/promote_export.jsonl` | Copy the JSONL. Git is backup of Promote events, not the live pack. |
+| Immutable decision JSONL | `DECISION_LOG_PATH`, else `./data/decision_logs/decision-log.jsonl` if that file exists | Copy the file (or warehouse export). Hash chain is append-only. |
+| Pack GitOps export | `PACK_GITOPS_EXPORT_PATH`, else `./rules/_loop/promote_export.jsonl` if that file exists | Copy the JSONL. Git is backup of Promote events, not the live pack. |
 | Warehouse dual-write | `DECISION_LOG_WAREHOUSE_URL` | Buyer warehouse job; Tarka does not host it. |
+
+Unset env **and** missing default file = that plane off. The drill does not invent a bucket.
 
 See [immutable-decision-records](./immutable-decision-records.md) and [pack-gitops](./pack-gitops.md).
 
@@ -69,7 +71,9 @@ bash infra/scripts/deploy/backup_restore_drill.sh --dry-run
 # Isolated Postgres in Docker (safe). Proves dump → restore → row identity.
 bash infra/scripts/deploy/backup_restore_drill.sh --docker-smoke
 
-# Operator scratch restore. Source is never dropped. Target must be a *different* database.
+# Operator scratch restore. Source is never dropped.
+# Create an *empty* scratch database first (no SoR tables). Target must differ.
+createdb fraud_restore_scratch   # or your RDS equivalent
 TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
   DATABASE_URL='postgresql://user:pw@rds:5432/fraud' \
   TARKA_BACKUP_RESTORE_URL='postgresql://user:pw@rds:5432/fraud_restore_scratch' \
@@ -79,10 +83,11 @@ TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
 ### Prerequisites (`--live`)
 
 - External Postgres you own. `prod-on-k8s` / `enterprise-desk` already require this.
-- `pg_dump`, `pg_restore`, `psql` on PATH **or** Docker (the script can exec client tools from `postgres:16`).
-- `TARKA_BACKUP_RESTORE_URL` is a **scratch** database (different name or host). The script refuses when source and target normalize to the same URL.
+- `pg_dump`, `pg_restore`, `psql`, and `python3` on PATH. `--docker-smoke` is the Docker path; `--live` does not wrap client tools in a container.
+- `TARKA_BACKUP_RESTORE_URL` is a **scratch** database you already created, **empty of SoR tables**, different name or host. The script refuses the same host:port/db fingerprint and refuses a scratch that already has SoR tables.
 - Confirm env `TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND`.
-- Object-export paths optional: set `DECISION_LOG_PATH` / `PACK_GITOPS_EXPORT_PATH` if you want those files copied into the backup dir.
+- Object-export paths optional. Env wins; otherwise the documented default files are copied when they exist under the current working directory.
+- Dumps default to `TARKA_BACKUP_DIR` (`/tmp/tarka-sor-backup-drill`). Treat that directory as **PII**. Delete it after the drill.
 
 `--dry-run` is the CI default. Live restore onto the production database is not offered.
 
@@ -99,4 +104,4 @@ TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
 
 - [Deployment](./deployment.md) — external PG/Redis, `prod-on-k8s`
 - [SRE Compose profiles](../operations/sre-compose-profiles.md) — Lite AGE on the same laptop PG is **not** this drill
-- Governance checklist item `stateful-backup-restore` — this guide + the script are the rehearsal
+- Governance checklist item `stateful-backup-restore` — this guide + the script cover **SoR Postgres** (and point at the existing AGE volume drill). Analytics / ClickHouse is not in this dump.

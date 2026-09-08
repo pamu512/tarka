@@ -91,11 +91,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Documented defaults when env is unset (cwd-relative; missing file = plane off).
+if [[ -z "${DECISION_LOG_PATH:-}" && -f "./data/decision_logs/decision-log.jsonl" ]]; then
+  DECISION_LOG_PATH="./data/decision_logs/decision-log.jsonl"
+fi
+if [[ -z "${PACK_GITOPS_EXPORT_PATH:-}" && -f "./rules/_loop/promote_export.jsonl" ]]; then
+  PACK_GITOPS_EXPORT_PATH="./rules/_loop/promote_export.jsonl"
+fi
+
 echo "=== Tarka SoR backup/restore drill (${MODE}) ==="
 echo "SoR tables: ${SOR_TABLES[*]}"
 echo "Redis: ephemeral velocity — not dumped. Empty Redis after restore is expected."
 echo "AGE Hunt: volume restore only (scripts/oss/age_restore_drill.sh). Not in this dump."
-echo "Object export: DECISION_LOG_PATH / PACK_GITOPS_EXPORT_PATH if set and present."
+echo "Object export: DECISION_LOG_PATH / PACK_GITOPS_EXPORT_PATH if set or default file present."
 echo "Out: Tarka-operated backup SaaS."
 
 copy_object_exports() {
@@ -204,6 +212,12 @@ dump_and_restore() {
     return 1
   fi
   echo "dumping: ${found[*]}"
+  local dest_existing
+  dest_existing="$(existing_tables_sql "$dst" | tr -d '[:space:]')"
+  if [[ -n "$dest_existing" ]]; then
+    echo "refuse: scratch already has SoR tables; create an empty database" >&2
+    return 2
+  fi
   local args=()
   local t
   for t in "${found[@]}"; do
@@ -214,7 +228,7 @@ dump_and_restore() {
   copy_object_exports "$BACKUP_DIR"
 
   echo "restoring into scratch…"
-  pg_restore --no-owner --no-acl --dbname="$dst" "$dump_file"
+  pg_restore --exit-on-error --no-owner --no-acl --dbname="$dst" "$dump_file"
 
   echo "verifying row counts…"
   for t in "${found[@]}"; do
@@ -253,6 +267,7 @@ live_mode() {
     exit 1
   fi
   echo "source=$(url_fingerprint "$src") target=$(url_fingerprint "$dst")"
+  echo "scratch must already exist and have no SoR tables. Dump dir ${BACKUP_DIR} is PII."
   dump_and_restore "$src" "$dst"
 }
 
@@ -276,12 +291,16 @@ docker_smoke() {
   cleanup
   docker network create "$net" >/dev/null
 
+  local src_port="${TARKA_BACKUP_SMOKE_SRC_PORT:-55432}"
+  local dst_port="${TARKA_BACKUP_SMOKE_DST_PORT:-55433}"
   docker run -d --name "$src_c" --network "$net" \
+    -p "127.0.0.1:${src_port}:5432" \
     -e POSTGRES_USER="$user_name" \
     -e POSTGRES_PASSWORD="$pass" \
     -e POSTGRES_DB="$db" \
     "$PG_IMAGE" >/dev/null
   docker run -d --name "$dst_c" --network "$net" \
+    -p "127.0.0.1:${dst_port}:5432" \
     -e POSTGRES_USER="$user_name" \
     -e POSTGRES_PASSWORD="$pass" \
     -e POSTGRES_DB="$db" \
@@ -354,30 +373,42 @@ SQL
 )
   docker exec -i "$src_c" psql -U "$user_name" -d "$db" -v ON_ERROR_STOP=1 <<<"$seed"
 
-  mkdir -p "$BACKUP_DIR"
-  local dump_file="${BACKUP_DIR}/sor.dump"
-  rm -f "$dump_file"
-  docker exec "$src_c" pg_dump -U "$user_name" -d "$db" --format=custom --no-owner --no-acl \
-    -t public.decision_audit \
-    -t public.rule_approvals \
-    -t public.investigation_label_drafts \
-    -t public.leftover_promote_acks \
-    -f /tmp/sor.dump
-  docker cp "${src_c}:/tmp/sor.dump" "$dump_file"
-  docker cp "$dump_file" "${dst_c}:/tmp/sor.dump"
-  docker exec "$dst_c" pg_restore --no-owner --no-acl -U "$user_name" -d "$db" /tmp/sor.dump
-
-  local obj_dir="${BACKUP_DIR}/object-export"
-  mkdir -p "$obj_dir"
+  local obj_src
+  obj_src="$(mktemp -d)"
   printf '%s\n' '{"schema_id":"tarka.decision_log/v1","trace_id":"22222222-2222-2222-2222-222222222222"}' \
-    >"${obj_dir}/decision-log.jsonl"
+    >"${obj_src}/decision-log.jsonl"
   printf '%s\n' '{"schema_id":"tarka.pack_promote_export/v1","pack":"smoke-pack"}' \
-    >"${obj_dir}/promote_export.jsonl"
+    >"${obj_src}/promote_export.jsonl"
+  export DECISION_LOG_PATH="${obj_src}/decision-log.jsonl"
+  export PACK_GITOPS_EXPORT_PATH="${obj_src}/promote_export.jsonl"
 
-  local hop
+  if have_cmd pg_dump && have_cmd pg_restore && have_cmd psql; then
+    echo "docker-smoke: host clients — using dump_and_restore (same path as --live)"
+    local src_url dst_url
+    src_url="postgresql://${user_name}:${pass}@127.0.0.1:${src_port}/${db}"
+    dst_url="postgresql://${user_name}:${pass}@127.0.0.1:${dst_port}/${db}"
+    dump_and_restore "$src_url" "$dst_url"
+  else
+    echo "docker-smoke: host clients missing — docker exec fallback"
+    mkdir -p "$BACKUP_DIR"
+    local dump_file="${BACKUP_DIR}/sor.dump"
+    rm -f "$dump_file"
+    docker exec "$src_c" pg_dump -U "$user_name" -d "$db" --format=custom --no-owner --no-acl \
+      -t public.decision_audit \
+      -t public.rule_approvals \
+      -t public.investigation_label_drafts \
+      -t public.leftover_promote_acks \
+      -f /tmp/sor.dump
+    docker cp "${src_c}:/tmp/sor.dump" "$dump_file"
+    docker cp "$dump_file" "${dst_c}:/tmp/sor.dump"
+    docker exec "$dst_c" pg_restore --exit-on-error --no-owner --no-acl -U "$user_name" -d "$db" /tmp/sor.dump
+    copy_object_exports "$BACKUP_DIR"
+    verify_object_exports "$BACKUP_DIR"
+  fi
+
+  local hop packs labels acks
   hop="$(docker exec "$dst_c" psql -U "$user_name" -d "$db" -t -A -v ON_ERROR_STOP=1 -c \
     "SELECT decision || ':' || score FROM decision_audit WHERE trace_id='22222222-2222-2222-2222-222222222222';")"
-  local packs labels acks
   packs="$(docker exec "$dst_c" psql -U "$user_name" -d "$db" -t -A -c "SELECT count(*) FROM rule_approvals;" | tr -d '[:space:]')"
   labels="$(docker exec "$dst_c" psql -U "$user_name" -d "$db" -t -A -c "SELECT count(*) FROM investigation_label_drafts;" | tr -d '[:space:]')"
   acks="$(docker exec "$dst_c" psql -U "$user_name" -d "$db" -t -A -c "SELECT count(*) FROM leftover_promote_acks;" | tr -d '[:space:]')"
@@ -386,7 +417,7 @@ SQL
     echo "docker-smoke failed: SoR identity missing after restore" >&2
     exit 1
   fi
-  if [[ ! -f "${obj_dir}/decision-log.jsonl" || ! -f "${obj_dir}/promote_export.jsonl" ]]; then
+  if [[ ! -f "${BACKUP_DIR}/object-export/decision-log.jsonl" || ! -f "${BACKUP_DIR}/object-export/promote_export.jsonl" ]]; then
     echo "docker-smoke failed: object export missing" >&2
     exit 1
   fi
