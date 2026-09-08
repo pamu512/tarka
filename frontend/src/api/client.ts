@@ -3408,6 +3408,31 @@ export const rules = {
     return request<{ packs: RulePack[] }>("/api/decisions/v1/rules");
   },
 
+  proposeDemote(filename: string, reason: string, tenantId?: string) {
+    const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+    return request<{
+      file?: string;
+      mode?: string;
+      demote?: { state?: string; proposed_by?: string };
+    }>(`/api/decisions/v1/rules/${encodeURIComponent(filename)}/propose-demote${q}`, {
+      method: "POST",
+      headers: _ruleActorHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  confirmDemote(filename: string, reason: string) {
+    return request<{
+      file?: string;
+      mode?: string;
+      demote?: { state?: string };
+    }>(`/api/decisions/v1/rules/${encodeURIComponent(filename)}/confirm-demote`, {
+      method: "POST",
+      headers: _ruleActorHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+  },
+
   changeLog(limit: number = 50) {
     return request<{ items: Array<{ ts: string; action: string; file: string; actor: string; detail?: unknown }> }>(
       `/api/decisions/v1/rules/change-log?limit=${limit}`,

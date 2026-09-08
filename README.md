@@ -47,7 +47,7 @@ OIDC optional.
 |--------|-------------|
 | ELv2 source-available (not OSS). Beta, no GA. | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
-| Observe = canary. Human Promote. Founder-in-the-loop | Live unattended hops; auto-Promote; auto-demote |
+| Observe = canary. Human Promote. Human Propose Demote → Confirm. Model never demotes. | Live unattended hops; auto-Promote; auto-demote |
 | Hop packs (`USES_DEVICE` …) `mode=shadow`. Live overlay only via pack Promote | Always-on graph; “every evaluate is on the graph”; GNN live |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Closed omniscient AI author loop; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft; AI backtest required first. FP late-label → Observe soften (not CRM) | Beachhead seeds as live; banks as the beachhead |

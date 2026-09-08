@@ -49,7 +49,7 @@ export default function Notifications() {
     <div className="mx-auto max-w-3xl px-6 py-8 space-y-4">
       <PageTitle module="notifications">Notifications</PageTitle>
       <p className="text-sm text-gray-500">
-        Observe events only: ready to Promote, or a live rule slipped. This is not leftovers. A click does not Promote or demote.
+        Observe events only: ready to Promote, or a live rule slipped / demote proposed. This is not leftovers. A click does not Promote or Confirm demote. Scout does not auto-demote.
       </p>
       {err ? (
         <p className="text-sm text-rose-300" role="alert">

@@ -38,7 +38,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 | True | Not shipped |
 |------|-------------|
 | ELv2 source-available. Beta, no GA. `make doctor && make demo` | OSS; ready-for-beta testers; unattended merchant beta |
-| Observe ≠ live. Human Promote. Hop packs `mode=shadow` | Live unattended hops; auto-Promote; GNN live; always-on graph |
+| Observe ≠ live. Human Promote. Human Propose Demote → Confirm. Model never demotes. | Live unattended hops; auto-Promote; auto-demote; GNN live; always-on graph |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Omniscient AI author loop; model ALLOW/DENY; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft (AI backtest required). FP late-label → Observe soften. Beachhead seeds stay Observe | Beachhead = banks; seeds = live |
 
