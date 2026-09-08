@@ -35,6 +35,9 @@ def _run_for_preset(preset: str) -> None:
         "--output",
         str(output_path),
     ]
+    if preset == "prod-on-k8s":
+        # Smoke render only. Empty digest is a limitation / non-grade.
+        cmd.append("--allow-empty-digest")
     subprocess.run(cmd, check=True)
     contents = output_path.read_text(encoding="utf-8")
     if "__" in contents:
@@ -52,12 +55,23 @@ def main() -> int:
     subprocess.run([sys.executable, str(digest_script)], check=True)
     oidc_script = Path("infra/scripts/ci/test_helm_oidc_redis.py")
     subprocess.run([sys.executable, str(oidc_script)], check=True)
-    for name in (
-        "test_helm_upgrade_dry_run.py",
-        "test_schema_migration_policy.py",
-        "test_production_upgrade_guide.py",
+    digest_honesty = Path("infra/scripts/ci/test_generate_cloud_values_digests.py")
+    subprocess.run([sys.executable, str(digest_honesty)], check=True)
+    honesty_tests = Path("infra/scripts/ci/test_helm_prod_digest_honesty.py")
+    subprocess.run([sys.executable, str(honesty_tests)], check=True)
+    digest_gate = Path("infra/scripts/ci/helm_prod_digest_honesty.py")
+    subprocess.run([sys.executable, str(digest_gate), "--self-check"], check=True)
+    honesty = Path("infra/scripts/ci/helm_prod_honesty.sh")
+    subprocess.run(["bash", str(honesty), "--self-check"], check=True)
+    for extra in (
+        Path("infra/scripts/ci/test_helm_networkpolicy.py"),
+        Path("infra/scripts/ci/test_helm_servicemonitor.py"),
+        Path("infra/scripts/ci/test_production_observability_guide.py"),
+        Path("infra/scripts/ci/test_helm_upgrade_dry_run.py"),
+        Path("infra/scripts/ci/test_schema_migration_policy.py"),
+        Path("infra/scripts/ci/test_production_upgrade_guide.py"),
     ):
-        subprocess.run([sys.executable, str(Path("infra/scripts/ci") / name)], check=True)
+        subprocess.run([sys.executable, str(extra)], check=True)
     return 0
 
 

@@ -61,6 +61,10 @@ def _prod_values(tmp: Path) -> Path:
             "rediss://redis.internal:6379/0",
             "--output",
             str(out),
+            # ponytail: G2 requires --digest-map for a grade pin; this dry-run
+            # overlays digest A/B via helm --set. Upgrade to --digest-map files
+            # if generate stops emitting overlay-able empty digest values.
+            "--allow-empty-digest",
         ],
         cwd=str(_REPO),
         capture_output=True,
