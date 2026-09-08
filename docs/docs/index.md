@@ -17,6 +17,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Graph-risk / Ring-score challenger](guides/gnn-label-loop.md) | Offline label/holdout. Never “GNN live.” `GRAPH_GNN_BETA_URL` unset in compose |
 | [SRE Compose profiles](operations/sre-compose-profiles.md) | Linux VM capacity, health, what pages |
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, desk-strict knobs |
+| [Production upgrade / rollback](guides/production-upgrade.md) | Helm digest-to-digest, evaluate verify, rollback, kill switches |
 | [Operator hub](../INDEX.md) | Documentation index |
 
 ## Compose paths
