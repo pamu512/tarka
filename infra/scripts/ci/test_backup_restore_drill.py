@@ -45,6 +45,9 @@ class TestBackupRestoreDrill(unittest.TestCase):
         self.assertIn("enterprise-desk", text)
         self.assertIn("age_restore_drill.sh", text)
         self.assertIn("DECISION_LOG_PATH", text)
+        self.assertIn("python3", text)
+        self.assertIn("empty of SoR tables", text)
+        self.assertNotIn("the script can exec client tools from", text)
         self.assertTrue(
             "not a sla" in lowered or "not slas" in lowered or "not commitments" in lowered,
             "RPO/RTO must be tenant policy examples, not SLAs",
@@ -77,6 +80,10 @@ class TestBackupRestoreDrill(unittest.TestCase):
         self.assertIn("ephemeral", text.lower())
         # Live must refuse same-URL restore. AGE Hunt is not dumped here.
         self.assertIn("fingerprint", text)
+        self.assertIn("scratch already has SoR tables", text)
+        self.assertIn("same path as --live", text)
+        self.assertIn("./data/decision_logs/decision-log.jsonl", text)
+        self.assertIn("./rules/_loop/promote_export.jsonl", text)
         self.assertNotRegex(text, r"(?m)^\s*pg_dump\b.*age")
 
     def test_dry_run_exits_zero_without_database(self) -> None:
