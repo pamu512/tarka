@@ -14,6 +14,10 @@
 # Required Secret keys: API_KEYS, EVIDENCE_SIGNING_SECRET, RULE_GOVERNANCE_SECRET.
 # Frontend image must be built with VITE_GRAPH_SERVICE_URL=/api/graph (Hunt on).
 # Do not point DATABASE_URL at the age-postgres service (production_profile refuses).
+# AGE Hunt backup: volume / filesystem restore only. Logical pg_dump breaks hops
+# (catalog OIDs in graphids). Drill: scripts/oss/age_restore_drill.sh
+# SoR (decisions/audit/packs/labels) is the buyer Postgres — see
+# docs/docs/guides/production-backup-restore.md. Not a Tarka backup SaaS.
 
 global:
   environment: prod
