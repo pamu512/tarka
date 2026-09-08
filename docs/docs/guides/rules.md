@@ -262,7 +262,7 @@ Instead of editing JSON files directly, you can manage rules via the REST API.
 ### Create a Rule Pack
 
 ```bash
-curl -X POST http://localhost:8000/v1/rules \
+curl -X POST http://localhost:8000/decisions/v1/rules \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Custom Payment Rules",
@@ -282,7 +282,7 @@ curl -X POST http://localhost:8000/v1/rules \
 ### Add a Rule to an Existing Pack
 
 ```bash
-curl -X POST http://localhost:8000/v1/rules/custom_payment_rules.json/rules \
+curl -X POST http://localhost:8000/decisions/v1/rules/custom_payment_rules.json/rules \
   -H "Content-Type: application/json" \
   -d '{
     "id": "custom_night_payment",
@@ -299,7 +299,7 @@ curl -X POST http://localhost:8000/v1/rules/custom_payment_rules.json/rules \
 ### Delete a Rule
 
 ```bash
-curl -X DELETE http://localhost:8000/v1/rules/custom_payment_rules.json/rules/custom_night_payment
+curl -X DELETE http://localhost:8000/decisions/v1/rules/custom_payment_rules.json/rules/custom_night_payment
 ```
 
 ---
@@ -309,7 +309,7 @@ curl -X DELETE http://localhost:8000/v1/rules/custom_payment_rules.json/rules/cu
 Before deploying new rules to production, test them against historical events using the replay endpoint:
 
 ```bash
-curl -X POST http://localhost:8000/v1/replay \
+curl -X POST http://localhost:8000/decisions/v1/replay \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "acme",

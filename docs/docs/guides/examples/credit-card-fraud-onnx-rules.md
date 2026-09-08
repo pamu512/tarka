@@ -34,7 +34,7 @@ Without ONNX, `ml-scoring` still returns **heuristic + explainability** signals 
 High amount + velocity + risky device flags:
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/decisions/evaluate \
+curl -s -X POST http://localhost:8000/decisions/v1/decisions/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "demo",
