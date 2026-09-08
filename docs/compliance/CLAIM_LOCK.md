@@ -22,8 +22,11 @@
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
+| Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
+| `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
+| Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
+| Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 | GitLab-grade install claim (G9) | Allowed **only** when G0–G8 have landed **and** [`docs/docs/guides/production-install-soak-checklist.md`](../docs/guides/production-install-soak-checklist.md) is **signed** for a **named** pilot (internal or buyer). This row is not the grade. Separate from “primary decisioner” maturity. |
-| Production / GitLab-grade install | Intended: [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md) (G0 PR #405 — **not on master**). Until merge, the G9 checklist + [SUPPORT.md](../../SUPPORT.md) stub-note that path. Do not claim the grade from a green `helm template`. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -46,7 +49,12 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
+| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../../SUPPORT.md)) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade from SUPPORT.md |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
+| `prod-on-k8s` is core-api HA (external PG/Redis). Generate requires `--digest-map` (`sha256:<64-hex>`) for a grade claim. Empty digest (`--allow-empty-digest`) is a limitation / non-grade `helm template`, not an immutable image. No sqlite/`emptyDir` for decisions/audit/labels/packs in production-labeled presets. See [production-install-v1](../contracts/production-install-v1.md). | GitLab-grade already achieved; GA from preset; in-cluster PG/Redis as production; mutable tag as the recommended prod pin |
+| CI `helm_prod_honesty` fails sqlite / durable emptyDir / in-cluster PG on `prod-on-k8s` and `enterprise-desk-on-k8s` (G1 beachhead) | GitLab-grade complete production install; every `environment: prod` overlay scanned |
+| CI `helm_prod_digest_honesty` **fails** empty digest on the prod-on-k8s honesty / publish path. Lite/demo are not this path. | Empty digest as a grade / immutable claim |
+| Prod/enterprise examples use `secretKeyRef` (no reusable default passwords). Empty `API_KEYS` + empty OIDC + insecure off → 503. Matrix: [production-install-v1](../contracts/production-install-v1.md) | Vault/ESO required; open evaluate when secrets missing; GitLab-grade already achieved |
 | Soak checklist exists (G9). “GitLab-grade install” only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Beta, no GA, no SOC 2 from us. | GitLab-grade already achieved; primary decisioner; SOC 2 / PCI cert; GA from this file or from `prod-on-k8s` existing |
 
 **Provision warning:** `shadow_auto_promote` exists as a tenant file + host gate (`auto_promote` defaults **False**). Never advertise always-on auto-Promote as Day-1. Enabling requires explicit tenant promote gates (thresholds already in the provision file).

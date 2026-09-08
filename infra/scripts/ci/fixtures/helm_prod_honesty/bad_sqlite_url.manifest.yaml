@@ -1,0 +1,13 @@
+# One G1 fail class only. --self-check must report a sqlite URL failure.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarka-tarka-core-api
+spec:
+  template:
+    spec:
+      containers:
+        - name: core-api
+          env:
+            - name: DATABASE_URL
+              value: "sqlite+aiosqlite:////data/tarka.sqlite"

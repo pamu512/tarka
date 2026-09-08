@@ -119,6 +119,24 @@ def test_production_profile_empty_keys_503_without_oidc(monkeypatch):
     assert resp.status_code == 503
 
 
+def test_empty_string_api_keys_empty_oidc_insecure_off_is_503(monkeypatch):
+    """G3: empty-string secrets (not just unset) + insecure off must not open evaluate."""
+    monkeypatch.setenv("API_KEYS", "")
+    monkeypatch.setenv("OIDC_ISSUER", "")
+    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
+    monkeypatch.setenv("TARKA_DEPLOYMENT_PROFILE", "production")
+    app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
+
+    @app.post("/v1/decisions/evaluate")
+    async def evaluate():
+        return {"ok": True}
+
+    with TestClient(app) as client:
+        resp = client.post("/v1/decisions/evaluate", json={"event_id": "e1"})
+    assert resp.status_code == 503
+    assert "API_KEYS" in resp.json()["detail"]
+
+
 def _protected_app():
     app = FastAPI(dependencies=[pytest.importorskip("fastapi").Depends(require_api_key)])
 

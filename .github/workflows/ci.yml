@@ -269,7 +269,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: pip install pytest fastapi httpx sqlalchemy
+        run: pip install pytest fastapi httpx sqlalchemy PyJWT cryptography
       - name: Shared auth + tenant binding regression (TENANT_BINDING_REQUIRED=${{ matrix.tenant_binding_required }})
         run: pytest -v tests/
         working-directory: services/shared
@@ -1033,8 +1033,11 @@ jobs:
             --image-registry registry.example.com/tarka \
             --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
             --redis-url 'redis://redis.internal:6379/0' \
+            --allow-empty-digest \
             --output /tmp/prod-on-k8s.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml
+      - name: Helm prod digest honesty (G2 empty digest fails grade path)
+        run: python3 infra/scripts/ci/helm_prod_digest_honesty.py --self-check
       - name: Helm template (generated enterprise-desk preset)
         run: |
           python3 infra/scripts/deploy/generate_cloud_values.py \
@@ -1049,7 +1052,22 @@ jobs:
             >/tmp/tarka-enterprise-desk.yaml
           grep -q age-postgres /tmp/tarka-enterprise-desk.yaml
           grep -q graph-service /tmp/tarka-enterprise-desk.yaml
+      - name: Helm prod honesty (G1 no-sqlite / no durable emptyDir / no in-cluster PG)
+        run: bash infra/scripts/ci/helm_prod_honesty.sh --self-check
+      - name: Helm upgrade dry-run (G7 digest A → B)
+        run: python3 infra/scripts/ci/test_helm_upgrade_dry_run.py
+      - name: Schema migration expand/contract policy
+        run: python3 infra/scripts/ci/test_schema_migration_policy.py
+      - name: Production upgrade guide gate
+        run: python3 infra/scripts/ci/test_production_upgrade_guide.py
       - name: AGE restore drill contract
         run: python3 infra/scripts/ci/test_age_restore_drill.py
       - name: AGE restore drill (docker)
         run: bash scripts/oss/age_restore_drill.sh
+      - name: SoR backup/restore drill contract
+        run: python3 infra/scripts/ci/test_backup_restore_drill.py
+      - name: SoR backup/restore docker smoke
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql-client
+          bash infra/scripts/deploy/backup_restore_drill.sh --docker-smoke

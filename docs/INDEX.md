@@ -10,6 +10,7 @@ Canonical operator docs.
 | **Product Day-1** — `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
 | **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
 | **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
+| **Buyer / LOI** — what the self-host install pack is (and is not) | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) |
 
 Investigators do not author rules; strategy analysts do. Work **arrives** on `/leftovers`. Work **happens** on Hunt (`/graph`). Fat `/cases` stays hidden in lean. ALLOW never becomes a leftover.
 
@@ -23,7 +24,7 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 | **Observe** | Pack canary + leftover promote + live-rule slip on `/ops/shadow` (always-on lean). RFP "shadow mode" = Observe evaluate (`metadata.shadow`) only — not the LLM. [Shadow / A/B guide](docs/guides/shadow-and-ab-testing.md). |
 | **Advise (optional)** | [services/SHADOW.md](../services/SHADOW.md) · Shadow agent LLM · BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM. Off until operator wires `SHADOW_AGENT_URL`. |
 | **Cases (residual / SAR)** | case-api + [feature data flows §3](docs/guides/feature-data-flows.md#3-leftovers-hunt-brief-sar). Leftover list is not fat `/cases`. |
-| **Deploy / SRE** | [SRE Compose profiles](docs/operations/sre-compose-profiles.md) · [quickstart](docs/quickstart.md) · [productionization](docs/guides/repo-productionization-runbook.md) · [production install soak checklist](docs/guides/production-install-soak-checklist.md) (G9; grade gated) |
+| **Deploy / SRE** | [SRE Compose profiles](docs/operations/sre-compose-profiles.md) · [deployment / Helm OIDC](docs/guides/deployment.md) · [quickstart](docs/quickstart.md) · [productionization](docs/guides/repo-productionization-runbook.md) · [secrets matrix](contracts/production-install-v1.md) · [secrets rotation](docs/guides/production-secrets-rotation.md) · [production observability](docs/guides/production-observability.md) · [production backup / restore](docs/guides/production-backup-restore.md) · [production upgrade / rollback](docs/guides/production-upgrade.md) · [production install soak checklist](docs/guides/production-install-soak-checklist.md) (G9; grade gated) |
 | **MkDocs site** | `docs/docs/` + `docs/mkdocs.yml` (`mkdocs serve` from `docs/`) |
 
 ## QA: two separate loops
@@ -42,6 +43,9 @@ Do not collapse them into one workflow. Do not invent review rates.
 | Enforcement contract-gated; default emit-only | Handoff as Day-1 default |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Omniscient AI author loop; model ALLOW/DENY; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft (AI backtest required). FP late-label → Observe soften. Beachhead seeds stay Observe | Beachhead = banks; seeds = live |
+| `prod-on-k8s` is core-api HA (external PG/Redis). `--digest-map` required for a grade claim. Empty digest is non-grade, not immutable. No sqlite/`emptyDir` for decisions/audit/labels/packs. [production-install-v1](contracts/production-install-v1.md) | GitLab-grade already achieved; GA from preset; mutable tag as the recommended prod pin |
+| Prod examples use secret refs. Empty `API_KEYS` + empty OIDC + insecure off → 503 | Vault required; open evaluate when secrets missing; GitLab-grade already achieved |
+| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../SUPPORT.md)). Grade: [production-install-v1](contracts/production-install-v1.md) | 99.99% SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade already achieved |
 | Soak checklist exists (G9). GitLab-grade only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. | GitLab-grade already achieved; SOC 2 from us; GA from `prod-on-k8s` |
 
 ## Product locks
