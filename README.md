@@ -53,7 +53,8 @@ OIDC optional.
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Closed omniscient AI author loop; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft; AI backtest required first. FP late-label → Observe soften (not CRM) | Beachhead seeds as live; banks as the beachhead |
 | Graph-risk / ring-score challenger. Beachhead Observe seeds (promo / COD / payout) stay Observe | Users / LOI / ARR as traction |
-| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](SUPPORT.md)). Grade contract: [production-install-v1](docs/contracts/production-install-v1.md) (G0 — **not on master**). | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade already achieved |
+| `prod-on-k8s` is core-api HA (external PG/Redis). Generate requires `--digest-map` (`sha256`) for a grade claim. Empty digest is non-grade, not immutable. No sqlite/`emptyDir` for decisions/audit/labels/packs. [production-install-v1](docs/contracts/production-install-v1.md) | GitLab-grade already achieved; GA from preset; mutable tag as the recommended prod pin |
+| Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](SUPPORT.md)). Grade contract: [production-install-v1](docs/contracts/production-install-v1.md) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade already achieved |
 
 **Docs:** [`docs/INDEX.md`](docs/INDEX.md) · [`SECURITY.md`](SECURITY.md) · [`SUPPORT.md`](SUPPORT.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 

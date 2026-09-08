@@ -1,0 +1,13 @@
+# One G1 fail class only. --self-check must report INVESTIGATION_STORE=sqlite.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarka-tarka-investigation-agent
+spec:
+  template:
+    spec:
+      containers:
+        - name: investigation-agent
+          env:
+            - name: INVESTIGATION_STORE
+              value: "sqlite"

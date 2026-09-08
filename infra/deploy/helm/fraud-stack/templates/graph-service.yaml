@@ -25,6 +25,11 @@ spec:
             - name: DATABASE_URL
               {{- if .Values.graphService.databaseUrl }}
               value: {{ .Values.graphService.databaseUrl | quote }}
+              {{- else if and .Values.agePostgres.enabled .Values.global.appSecretsName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: AGE_DATABASE_URL
               {{- else if .Values.agePostgres.enabled }}
               value: "postgresql://{{ .Values.agePostgres.auth.username }}:{{ .Values.agePostgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-{{ .Values.agePostgres.serviceName | default "age-postgres" }}:5432/{{ .Values.agePostgres.auth.database }}"
               {{- else if .Values.global.externalServices.postgres.enabled }}

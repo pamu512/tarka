@@ -56,6 +56,18 @@ items:
     owner: security-engineering
     ci_required: true
 
+  - id: oidc-values-first
+    title: Desk SSO uses coreApi.oidc.* (issuer/audience/jwksUrl/rolesClaim); empty issuer remains API-key OK
+    section: tenant-security
+    owner: security-engineering
+    ci_required: true
+
+  - id: promote-maker-checker-optional
+    title: Optional Promote maker-checker documented as install governance only (not a second policy language)
+    section: documentation
+    owner: compliance-ops
+    ci_required: false
+
   - id: production-auth-idempotency-fail-closed
     title: Production profile fail-closed (API_KEYS, no ALLOW_INSECURE_NO_AUTH, evaluate idempotency required)
     section: tenant-security
