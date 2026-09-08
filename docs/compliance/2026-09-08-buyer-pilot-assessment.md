@@ -55,6 +55,27 @@ The bottleneck is **supervised-model FI** in Hive microservices (buyer: most mod
 
 ---
 
+## 0a. Switch economics (given metrics only)
+
+Buyer-given — do not invent others. This is the switch question, not a feature tour.
+
+| Metric | Given | What a switch would have to buy |
+|--------|-------|----------------------------------|
+| Supervised FI | most models **mid-60s**; a few **high ~80** | Tarka is **not** that plane. **MUST-NOT** “move FI to 80.” If Hive FI is the bottleneck, **do not switch**. |
+| Loss detected rate | **~7% of GMV** (detected loss / GMV) | Their current **coverage** of loss they already catch. **MUST-NOT** “detect more GMV” or treat 7% as a Tarka target. |
+
+**Does it make sense to switch to Tarka?**
+
+| If the bottleneck is… | Switch? |
+|-----------------------|---------|
+| Hive supervised-model FI (mid-60s) | **No.** Tarka does not train those models and does not claim to move FI to 80. |
+| Operating / iterating already-detected loss beside Drools + Hive scores (packs, receipts, override why, late-label, Observe→Promote) | **Conditional yes** — parallel evaluate plane only. **Not** rip-replace. **Not** “detect more GMV.” **Not** an FI promise. |
+| Frontline / strategy *desk* loop on that ~7% | **Not yet.** Tip helps *work that loss* only if desk loops work. **F1** (receipt-why 403 / PackWhyStrip), **F2** (leftover Create draft without why), **F3** (silent Observe Promote) are **open** — blockers for RiskOps/frontline use of the loop. Eng-led API dual-run (`emit_only`) is still the honest path. |
+
+**Locked call:** yes parallel plane / no rip-replace / no FI promise.
+
+---
+
 ## 1. Buyer frame
 
 Shape only. No company name.
@@ -354,7 +375,7 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | **Graph / hop / Hunt** | **NO-GO** week 1 | Queryable graph later. Skip-Janus = enrichment. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** Pilot beside Drools — do not switch the estate. Tarka operates/iterates already-detected loss (receipts, labels, Observe→Promote); it will not raise mid-60 FI or the ~7% GMV detected-loss number.
+**Anoop one-liner:** Conditional switch: yes parallel plane beside Drools + Hive scores; no rip-replace; no FI-to-80 or detect-more-GMV promise. Work the ~7% already-detected loss on the desk only after F1–F3.
 
 ---
 
