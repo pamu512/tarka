@@ -20,3 +20,11 @@ Include:
 - Branch or commit SHA (development is on `master`)
 
 Do not file undisclosed security vulnerabilities as public issues — see [SECURITY.md](SECURITY.md).
+
+## GitLab-grade install (not claimed here)
+
+A **GitLab-grade** claim is allowed **only** when G0–G8 have landed **and** a **named** pilot (internal or buyer) has signed the [production-install soak checklist](docs/docs/guides/production-install-soak-checklist.md). This page is not that sign-off and is not “primary decisioner” maturity.
+
+Intended grade contract: [`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md) (G0 PR #405 — **not on `master`**). Helm catalog: [deployment.md](docs/docs/guides/deployment.md). Honesty lock: [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md).
+
+Beta, no GA, no SOC 2 from us, beachhead CE (not banks), Elastic License 2.0 source-available (not OSS).

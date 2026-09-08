@@ -3,7 +3,8 @@
 **SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
-**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
+**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
+**Soak / GitLab-grade gate (G9):** [production-install-soak-checklist](./production-install-soak-checklist.md) — claim allowed only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Intended contract: [production-install-v1](../../contracts/production-install-v1.md) (G0 — may still be landing). Buyer-facing support: [SUPPORT.md](../../../SUPPORT.md).
 
 ---
 
