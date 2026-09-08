@@ -7,7 +7,7 @@ This directory contains **structured compliance documentation** intended for **i
 | Document | Purpose |
 |----------|---------|
 | [SOC 2 / PCI DSS mapping suite](./soc2-pci/README.md) | Index, scope, system descriptions, and formal control mapping matrix |
-| [Buyer pilot assessment (2026-09-08)](./2026-09-08-buyer-pilot-assessment.md) | CUT only if significant opex vs ~600 Drools + 40 models / 8 loops. Few modules beside Drools. Not FI / GMV. Not a 600-rule migrate. |
+| [Buyer pilot assessment (2026-09-08)](./2026-09-08-buyer-pilot-assessment.md) | CUT only if significant opex vs **~20% Time Eval** (~120 of ~600). Few modules beside Drools. Not a home for the ~80% async/threshold/reactive set. Not FI / GMV. |
 
 ## Interpretation
 

@@ -10,7 +10,7 @@ Canonical operator docs.
 | **Product Day-1** — `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
 | **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
 | **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
-| **Buyer / LOI** — CUT only if significant opex vs ~600 Drools + 40 models / 8 loops; few modules beside Drools | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) · [buyer pilot assessment](compliance/2026-09-08-buyer-pilot-assessment.md) |
+| **Buyer / LOI** — CUT only if significant opex vs **~20% Time Eval** (~120 of ~600 Drools); few modules beside Drools | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) · [buyer pilot assessment](compliance/2026-09-08-buyer-pilot-assessment.md) |
 
 Investigators do not author rules; strategy analysts do. Work **arrives** on `/leftovers`. Work **happens** on Hunt (`/graph`). Fat `/cases` stays hidden in lean. ALLOW never becomes a leftover.
 
