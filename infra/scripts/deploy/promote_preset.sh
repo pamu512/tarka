@@ -9,12 +9,20 @@ cd "$REPO_ROOT"
 GENERATED="infra/deploy/generated/${PRESET}.values.yaml"
 STAGING="infra/deploy/hosted/k8s/overlays/staging/${PRESET}.values.yaml"
 
-python3 infra/scripts/deploy/generate_cloud_values.py \
-  --preset "$PRESET" \
-  --image-registry "${IMAGE_REGISTRY:-registry.example.com/tarka}" \
-  --db-url "${DATABASE_URL:-postgresql+asyncpg://fraud:pw@db.internal:5432/fraud}" \
-  --redis-url "${REDIS_URL:-redis://redis.internal:6379/0}" \
+GEN_ARGS=(
+  --preset "$PRESET"
+  --image-registry "${IMAGE_REGISTRY:-registry.example.com/tarka}"
+  --db-url "${DATABASE_URL:-postgresql+asyncpg://fraud:pw@db.internal:5432/fraud}"
+  --redis-url "${REDIS_URL:-redis://redis.internal:6379/0}"
   --output "$GENERATED"
+)
+if [[ -n "${DIGEST_MAP:-}" ]]; then
+  GEN_ARGS+=(--digest-map "$DIGEST_MAP")
+elif [[ "$PRESET" == "prod-on-k8s" ]]; then
+  # Limitation / non-grade. Grade promote sets DIGEST_MAP.
+  GEN_ARGS+=(--allow-empty-digest)
+fi
+python3 infra/scripts/deploy/generate_cloud_values.py "${GEN_ARGS[@]}"
 
 mkdir -p "$(dirname "$STAGING")"
 cp "$GENERATED" "$STAGING"

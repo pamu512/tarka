@@ -220,12 +220,23 @@ Default `values.yaml` is a **dev** chart: in-cluster Postgres/Redis/ClickHouse (
 
 Use the `prod-on-k8s` overlay (managed PG/Redis required, in-cluster stores off, PDB + HPA on evaluate, `allowInsecureNoAuth: false`, `tenantBindingRequired: true`). Investigation-agent is **on** with `dataPersistence.mode=postgres` and `replicaCount: 2` (same external `databaseUrl` as core-api). `local-sqlite` still forbids `replicaCount > 1`. CI (`infra/scripts/ci/helm_prod_honesty.sh`, `cloud-preset-smoke`) fails if `prod-on-k8s` or `enterprise-desk-on-k8s` would run decisions/audit on sqlite, put decision/audit/pack/label data on `emptyDir`, or enable in-cluster Postgres for core. That is a no-sqlite-prod honesty gate for those two overlays, not a scan of every `environment: prod` preset and not a GitLab-grade complete install. Claim language: [production-install-v1](../../contracts/production-install-v1.md).
 
+Mutable `1.3.0-beta` tags alone are **not** the grade path. Production publishes pin `sha256:<64-hex>` via `--digest-map`. Empty digest is a limitation / non-grade (`--allow-empty-digest` for CI `helm template` of placeholders), not an immutable claim. See [production-install-v1](../../contracts/production-install-v1.md) (G0) and CI `helm_prod_digest_honesty.py` (G2). Lite/demo compose are not this path.
+
+**Documented command** (writes `coreApi.digest` / `signalApi.digest` when signal-api is enabled / `investigationAgent.digest` when enabled):
+
 ```bash
+# After the image build/push in CI, record RepoDigests (do not treat a moving tag as a pin):
+#   docker buildx imagetools inspect "$REG/tarka-core-api:1.3.0-beta" --format '{{json .Manifest.Digest}}'
+# Write one line per enabled image (JSON object also accepted):
+#   coreApi=sha256:<64-hex>
+#   signalApi=sha256:<64-hex>
+#   investigationAgent=sha256:<64-hex>
 python3 infra/scripts/deploy/generate_cloud_values.py \
   --preset prod-on-k8s \
   --image-registry <your-registry>/tarka \
   --db-url postgresql+asyncpg://user:pw@rds:5432/fraud \
   --redis-url rediss://elasticache:6379/0 \
+  --digest-map /path/to/image-digests.map \
   --output /tmp/prod-on-k8s.values.yaml
 
 # Create a Secret named tarka-app-secrets with key API_KEYS (and OIDC extras if used).
@@ -235,10 +246,12 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   --set global.appSecretsName=tarka-app-secrets
 ```
 
+CI (`cloud-preset-smoke` + `infra/scripts/ci/helm_prod_digest_honesty.py --self-check`) **fails** an empty digest on the prod-on-k8s honesty / publish path. `--allow-empty-digest` remains only so placeholder `helm template` still works — that render is not a grade.
+
 OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). When `OIDC_ISSUER` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 
 When `global.environment=prod`, the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs — the chart will not invent `values.networkPolicy`), and HTTPS 443 from core-api when `coreApi.extraEnv` includes `OIDC_*`. Dev/default values emit no NetworkPolicy. Ingress from another namespace is operator-owned.
-Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. Set optional `coreApi.digest` / `signalApi.digest` / `investigationAgent.digest` to a `sha256:<64-hex>` pin to render `image: repo@sha256:…` (tag is ignored when digest is set). Leave digest empty on the preset so `helm template` of CI placeholders still works; operators should pin digests before a real prod apply.
+Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. The documented generate command above **requires** `--digest-map` so values contain `sha256:<64-hex>` pins (`image: repo@sha256:…`; tag is ignored when digest is set). An empty digest on the committed preset is only so CI can `--allow-empty-digest` and `helm template` placeholders — that is **not** immutable and **not** a GitLab-grade claim.
 When `global.environment=prod`, the chart emits Prometheus Operator `ServiceMonitor` objects for each enabled HTTP API that already exposes `/metrics` on its Service port (core-api `:8000`, signal-api `:8004`, investigation-agent `:8006`; 30s scrape). Default/dev values emit none. This uses the existing `app` labels and Service ports — there is no `values.serviceMonitor` key. The cluster must already run Prometheus Operator.
 
 ### Custom Values for Production
