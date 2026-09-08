@@ -24,5 +24,11 @@ describe("LoopScoreboard", () => {
     expect(el).toHaveTextContent("50%");
     expect(el).toHaveTextContent("3 / 13");
     expect(el.textContent || "").not.toMatch(/case|inbox|CRM/i);
+    expect(screen.getByTestId("bakeoff-help")).toHaveTextContent(/tenant policy/i);
+  });
+
+  it("empty labels say no labels yet", () => {
+    render(<LoopScoreboard metrics={{ fp_count: 0, fp_cost_sum: 0 }} />);
+    expect(screen.getByTestId("loop-scoreboard")).toHaveTextContent("no labels yet");
   });
 });

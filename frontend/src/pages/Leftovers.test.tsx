@@ -25,6 +25,10 @@ vi.mock("@/api/client", async (importOriginal) => {
       ...actual.rules,
       createL2Draft: vi.fn(),
     },
+    decisions: {
+      ...actual.decisions,
+      queueSeam: vi.fn(),
+    },
   };
 });
 
@@ -70,8 +74,10 @@ describe("Leftovers", () => {
   beforeEach(() => {
     vi.mocked(client.cases.listLeftovers).mockReset();
     vi.mocked(client.cases.claimLeftover).mockReset();
+    vi.mocked(client.decisions.queueSeam).mockReset();
     vi.mocked(client.cases.listLeftovers).mockResolvedValue({ leftovers: [freeRow, takenRow], truncated: false });
     vi.mocked(client.cases.claimLeftover).mockResolvedValue(freeRow);
+    vi.mocked(client.decisions.queueSeam).mockResolvedValue({ connected: false });
   });
 
   it("claims a free row then opens Hunt", async () => {
@@ -110,6 +116,12 @@ describe("Leftovers", () => {
     render(wrap(<Leftovers />));
     expect((await screen.findAllByRole("button", { name: /create draft/i })).length).toBeGreaterThan(0);
     expect((await screen.findAllByRole("button", { name: /author via byo/i })).length).toBeGreaterThan(0);
+  });
+
+  it("says leftovers are not a case CRM when queue is off", async () => {
+    vi.mocked(client.cases.listLeftovers).mockResolvedValue({ leftovers: [], truncated: false });
+    render(wrap(<Leftovers />));
+    expect(await screen.findByTestId("queue-honesty")).toHaveTextContent(/not your case CRM/i);
   });
 
   it("shows leftover brief or em dash", async () => {

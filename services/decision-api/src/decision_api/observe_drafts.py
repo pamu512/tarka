@@ -47,3 +47,30 @@ async def get_loop_metrics(tenant_id: str = Query(..., min_length=1, max_length=
         ai_blocked=blocked,
         ai_passed=passed,
     )
+
+
+ops_router = APIRouter(prefix="/v1/ops", tags=["observe-drafts"])
+
+
+@ops_router.get("/bakeoff")
+async def get_bakeoff(tenant_id: str = Query(..., min_length=1, max_length=128)):
+    return await get_loop_metrics(tenant_id)
+
+
+@ops_router.get("/queue-seam")
+async def get_queue_seam():
+    from decision_api.queue_seam import last_queue_status
+
+    return last_queue_status()
+
+
+@ops_router.get("/enforcement-mode")
+async def get_enforcement_mode():
+    from decision_api.enforcement import enforcement_mode
+
+    mode = enforcement_mode()
+    return {
+        "enforcement_mode": mode,
+        "authority": mode == "handoff",
+        "default": "emit_only",
+    }

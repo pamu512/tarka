@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "seed_ato_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_ato_velocity",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "login" },
+        { "field": "event_count_1h", "op": "gte", "value": 20 }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "ATO velocity seed. Observe only."
+    }
+  ],
+  "tag_rules": []
+}

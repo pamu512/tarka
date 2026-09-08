@@ -22,7 +22,9 @@ from decision_api.gnn_loop.receipts import (
 from decision_api.y_label_store import merge_y_labels
 
 SCHEMA_ID = "tarka.late_label/v1"
-LABEL_KINDS = frozenset({"fp", "fraud", "other"})
+LABEL_KINDS = frozenset(
+    {"fp", "fraud", "other", "promo_abuse", "collusion", "chargeback"}
+)
 LABEL_SOURCES = frozenset({"care", "finance", "crm", "evaluate"})
 RESTRICTIVE_DECISIONS = frozenset(
     {"deny", "block", "review", "step_up", "step-up", "stepup", "challenge"}
@@ -50,7 +52,7 @@ def normalize_label_kind(kind: str) -> str:
     if token not in LABEL_KINDS:
         raise LateLabelError(
             "invalid_label_kind",
-            "label_kind must be one of fp, fraud, other",
+            "label_kind must be one of fp, fraud, other, promo_abuse, collusion, chargeback",
         )
     return token
 
