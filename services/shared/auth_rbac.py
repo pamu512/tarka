@@ -97,15 +97,21 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
         raise HTTPException(401, "JWKS unavailable — cannot verify JWT signature")
 
     try:
-        from jwt import PyJWKClient
-
-        jwk_client = PyJWKClient("")
-        jwk_client.jwk_set = pyjwt.PyJWKSet.from_dict(jwks)
+        jwk_set = pyjwt.PyJWKSet.from_dict(jwks)
         header = pyjwt.get_unverified_header(token)
-        key = jwk_client.get_signing_key(header.get("kid", ""))
+        kid = header.get("kid")
+        signing = None
+        for item in jwk_set.keys:
+            if kid and item.key_id == kid:
+                signing = item
+                break
+            if not kid and signing is None:
+                signing = item
+        if signing is None:
+            raise HTTPException(401, "JWKS key not found for token")
         return pyjwt.decode(
             token,
-            key.key,
+            signing.key,
             algorithms=["RS256", "ES256"],
             audience=OIDC_AUDIENCE,
             issuer=OIDC_ISSUER or None,

@@ -43,7 +43,7 @@ Use replay tooling to compare historical decisions with current runtime behavior
 ```bash
 python scripts/replay/replay_decision_logs.py \
   --input ./data/decision_logs/decision-log.jsonl \
-  --base-url http://localhost:8000 \
+  --base-url http://localhost:8000/decisions \
   --api-key "$API_KEY" \
   --max-allowed-decision-change-rate 0.05 \
   --max-allowed-drift-rate 0.10

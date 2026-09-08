@@ -11,7 +11,7 @@ Two tracks. Do not smash them.
 | **Community** | Anyone who cloned | [GitHub issues](https://github.com/pamu512/tarka/issues). Best-effort. **No SLA**, **no paid channel**, **no on-call**, **no incident bridge**. |
 | **Commercial install pack** | Named beachhead buyer (purchase) | VPC install assist, Helm values review, SSO wiring, pack GitOps export help, and severity-class **response intent**. Not an availability percentage. |
 
-Honesty lock: [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md). Grade contract: [production-install-v1](docs/contracts/production-install-v1.md) (G0 — **not on master**; stub below). Day-1 skins: [README](README.md) · [product Day-1](docs/docs/guides/product-day1-install.md).
+Honesty lock: [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md). Grade contract: [production-install-v1](docs/contracts/production-install-v1.md). Day-1 skins: [README](README.md) · [product Day-1](docs/docs/guides/product-day1-install.md).
 
 ---
 
@@ -91,9 +91,9 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 
 ---
 
-## production-install-v1 (G0 stub)
+## production-install-v1
 
-[`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md) is the intended single source of truth for when Tarka may claim a GitLab-grade / production install (G0 PR #405). **That file is not on `master`.** Until G0 merges, treat [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md) and this page as the buyer-facing support claims. Do not treat this SUPPORT.md as the grade contract, and do not claim GitLab-grade from a green `helm template` of `prod-on-k8s`.
+[`docs/contracts/production-install-v1.md`](docs/contracts/production-install-v1.md) is the single source of truth for when Tarka may claim a GitLab-grade / production install. This SUPPORT.md is G8 (commercial pack / severity intent). It is not the grade contract. Do not claim GitLab-grade from a green `helm template` of `prod-on-k8s`.
 
 ---
 
@@ -103,7 +103,7 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 |-----|------|
 | [README](README.md) | Day-1 clone-and-run; tip honesty table |
 | [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md) | Allowed language; must-not-ship |
-| [production-install-v1](docs/contracts/production-install-v1.md) | Grade gates (G0 — stub until merged) |
+| [production-install-v1](docs/contracts/production-install-v1.md) | Grade gates (G0–G8 + G9 checklist) |
 | [product Day-1](docs/docs/guides/product-day1-install.md) | `make product` vs Helm skins |
 | [pack GitOps](docs/docs/guides/pack-gitops.md) | Promote is live; git is export |
 | [deployment](docs/docs/guides/deployment.md) | Helm `prod-on-k8s`, OIDC extraEnv |
