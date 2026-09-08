@@ -27,7 +27,7 @@
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
 | Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 | GitLab-grade install claim (G9) | Allowed **only** when G0–G8 have landed **and** [`docs/docs/guides/production-install-soak-checklist.md`](../docs/guides/production-install-soak-checklist.md) is **signed** for a **named** pilot (internal or buyer). This row is not the grade. Separate from “primary decisioner” maturity. |
-| Buyer VPC / self-host diligence (2026-09-08) | [`2026-09-08-buyer-pilot-assessment.md`](./2026-09-08-buyer-pilot-assessment.md) — claims vs proof; not a grade; not traction. |
+| Buyer VPC / self-host diligence (2026-09-08) | [`2026-09-08-buyer-pilot-assessment.md`](./2026-09-08-buyer-pilot-assessment.md) — **switch/adopt** north star for this buyer shape. Rec: **pilot beside Drools**, not rip-replace. Not a grade; not traction. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -40,6 +40,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
 | JSON packs are the evaluate plane. No Drools / Groovy importer. Parallel / phased cutover only. | Drop-in Drools import; no-code NLP replaces Drools; replace the Drools estate in a 2-week pilot |
+| Tarka evaluate + packs + receipts **operate and iterate** already-detected / labeled loss (override why, late-label bind, Observe→Promote). Offline / fixture holdouts prove wiring, not buyer FI or GMV. Buyer **~7% GMV detected loss** is their current coverage, not a Tarka target. | Tarka detects more GMV; Tarka raises supervised-model FI; Tarka will hit a GMV detected-loss %; “get FI to 80”; chargeback / guarantee as the SKU |
 | Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
