@@ -1,0 +1,306 @@
+# Buyer pilot assessment — claims vs proof
+
+**Tip:** `a0a35918c88aed52456fffac969021c953948735` (`origin/master`, 2026-09-08). Merge of G9 soak-checklist PR #414.
+
+**What this is:** diligence memo for a **paid VPC / self-host pilot**. Not a brochure. Not a GitLab-grade install claim. Not traction.
+
+**What this is not:** users, LOI volume, ARR, named live tenants, or a SOC 2 / PCI cert. Those are **MUST-NOT**.
+
+**UI F1–F3** (receipt-why 403 / leftover Create draft without why / silent Observe Promote) are **open on this tip**. A separate agent owns the fix. This memo treats them as **pilot blockers**.
+
+---
+
+## 1. Buyer frame
+
+Shape only. No company name.
+
+| Fact the buyer brings | What the 2–4 week pilot is trying to prove |
+|-----------------------|--------------------------------------------|
+| Multi-modal marketplace: ~20 countries, ~400 cities, on the order of **1.9B orders/year** | Evaluate + JSON packs + receipts run on **their** VPC. Tip does **not** claim 1.9B. Laptop / founder-ops figures are not product traction. |
+| Lean shared engineering — not a greenfield platform team | A small eng slice can land `make doctor && make demo` (or product compose) **without** owning MLOps. |
+| LLM already in BI (Gemini and/or Microsoft Copilot). **Shared MLOps owns AWS Bedrock** (+ broader AWS). Risk owns **supervised scoring microservices**; outputs land in **Hive**. | Tarka is evaluate / packs / receipts. Advise is BYO or **off**. Tarka does **not** replace Hive models, Bedrock training, or those microservices. No Tarka-sold tokens. |
+| Ops analysis: **Excel + Jupyter**. Leadership KPIs: **Tableau, owned by BI** — not the risk desk. | Tarka must not assume a pack-authoring desk culture or that RiskOps owns reporting. Desk does **not** replace Tableau. |
+| Data plane is messy multi-cloud: **S3, BigQuery, Azure, GCP** | First-party evaluate works **without** one warehouse. Tarka SoR for decisions is buyer **Postgres + Redis**, not their lake. |
+| **Frontline** handles residual review. **Strategy is siloed** (promo / refund / payout / device / …). | Pack-why on leftovers without strategy background. Siloed authors can ship JSON **without** waiting on shared MLOps — and without a husk builder. |
+
+**Org boundaries (do not smash):**
+
+| Owner | Owns | Does not own |
+|-------|------|----------------|
+| Shared MLOps | Bedrock / AWS training loops | Tarka evaluate; live pack Promote |
+| Risk (supervised services) | Existing model microservices + Hive scores | Tarka desk; Tableau |
+| BI | Tableau / leadership KPIs | Tarka leftover queue |
+| Strategy (siloed) | Policy intent in Excel / notebooks | Production model training |
+| Frontline | Residual review | Pack authoring; reporting SoR |
+| Tarka (this product) | Evaluate + JSON packs + receipts + Observe canary | Hive warehouse; Tableau; Bedrock; their microservices |
+
+**Pilot success (2–4 weeks), if it is a go:**
+
+1. Evaluate plane on their infra (compose first; Helm `prod-on-k8s` is core-api HA — **desk OFF**).
+2. Shipped + buyer JSON packs return ALLOW / REVIEW / DENY with a receipt.
+3. Observe canary → **human** Promote (model never evaluates or Promotes).
+4. Empty plane URL = that plane off.
+5. `enforcement.mode = emit_only` unless they later contract handoff.
+6. Eng hands BI **export/join contracts** — Tarka desk does not become Tableau.
+
+**Pilot non-goals:** GitLab-grade install (G9 unsigned). Primary decisioner. Banks. Consortium. Hosted Tarka Cloud. 1.9B soak. Migrating Hive/Bedrock training onto Tarka. Replacing Tableau.
+
+---
+
+## 2. Buyer questions (this shape)
+
+### Q1 — Can a small eng slice land evaluate + packs + receipts without owning MLOps?
+
+**Yes, for clone / compose.** Rust JSON packs decide. Shared MLOps is not on the Day-1 path.
+
+| Proof | Gap |
+|-------|-----|
+| `make doctor && make demo` → lite + fraud-desk + `walk_receipts.py`. | CI runs **mocked** doctor + walk only. No job runs full `make demo`. |
+| Evaluate is Rust (`crates/tarka-core`, `tarka_rule_engine`). | Host Postgres/Redis on `5432`/`6379` **fails doctor**. |
+| `GRAPH_GNN_BETA_URL` unset in compose. Ring / graph-risk is a challenger. | Turning GNN/L2 on later **would** touch shared MLOps. Do not do that in week 1. |
+
+**Helm honesty:** `prod-on-k8s` is evaluate HA (external PG/Redis, frontend **OFF**, Shadow **OFF**). Frontline/strategy desk is `make product` or `enterprise-desk-on-k8s` — still beta, **not** the grade.
+
+### Q2 — Can siloed strategy author / Promote without a husk builder, without MLOps, from Excel / Jupyter?
+
+**Author JSON: possible after a translator step. There is no Excel / notebook → pack path. Promote to live: not desk-safe.**
+
+| Proof | Gap |
+|-------|-----|
+| JSON packs are the SoT ([`rules.md`](../docs/guides/rules.md)). Visual builder is a **product-skin** job — not required. | Tarka does **not** assume a pack-authoring desk culture. No `.xlsx` / `.ipynb` importer. Credit-card example: “export features in your notebook and POST evaluate” — scoring, not pack compile. |
+| Event types include `promo`, `cod`, `payout`, `order`, `delivery`, `refund`. Field registry maps buyer keys → pack fields (product Postgres overlay). | Siloed teams share **one** Observe desk. No per-department namespace. Demo PUT maps **403**. |
+| Human Promote gated on `POST …/shadow-packs/{id}/promote`. Auto-promote default **off**. | **F3 OPEN:** `/ops/shadow` Promote has **no confirm**. Lean `/observe` “Promote to Active” **bypasses** leftover/science gates. |
+
+A husk builder is **not** the blocker. **Excel/Jupyter are not Tarka author surfaces.** Eng (or a trained analyst) must write JSON. **Silent Promote is.**
+
+### Q3 — Can frontline see pack-why on leftovers without strategy background?
+
+**Not reliably. Frontline blocker.**
+
+| What exists | What frontline hits |
+|-------------|---------------------|
+| Leftover row: `pack_id` + `rule_hits` text + receipt link. | Pack id is **not** a `/rules` link. Hunt leftover pack props are **unused**. |
+| `PackWhyStrip` never hides, never invents. | `/decisions/:traceId` uses **analyst** audit. Missing role → **403**. Strip starved. **F1 OPEN.** |
+| Workbench / Hunt fall back to `minimal`. | Receipt click from leftovers does **not**. |
+| REVIEW / DENY mint leftovers. | Empty graph URL **hides** `/leftovers`. |
+
+**F2 OPEN:** Create draft sends `skip_reason: "desk skip"`.
+
+### Q4 — BYO LLM (BI Gemini / Copilot) and Bedrock (shared MLOps)?
+
+**Empty URL = off (honest). Gemini API: factory-proved, not Day-1. Microsoft Copilot: no plane. Bedrock: OpenAI-compat proxy only — no native SDK. Not Vertex-only. Not Tarka-hosted.**
+
+| Buyer assumption | Tip fact | Status |
+|------------------|----------|--------|
+| No Tarka tokens / branded model | `make demo` never starts `shadow_agent`. Helm Shadow **OFF**. | **PROVED** / **MUST-NOT** sell tokens |
+| Microsoft Copilot / BI chat authors packs | No connector. `COPILOT_*` is investigation-agent assurance. | **MUST-NOT-CLAIM** |
+| Gemini already in BI | `SHADOW_LLM_BACKEND=gemini` + `GEMINI_API_KEY` → Google OpenAI-compat URL. New wire, not a BI embed. | **PROVED after config** (unit). Not Day-1. |
+| Shared MLOps Bedrock | Factory comment: **no** `azure` / `vertex` / `bedrock` backend name (`llm_client.py`). `SHADOW_LLM_BACKEND=bedrock` **refuses**. Use `self-hosted` + OpenAI-compat URL (Bedrock proxy if they have one). VISION / older INDEX listed Bedrock as first-class — **over-broad**. INDEX Advise line tightened this PR. | **PARTIAL** |
+| Closed omniscient author loop | Scout may draft Observe. Humans Promote. | **MUST-NOT** as shipped |
+
+Shared MLOps keeps Bedrock. Risk does not need MLOps to evaluate. Advise is optional later.
+
+### Q5 — Multi-party / multi-modal (diner + driver + vendor)?
+
+**PARTIAL.** `parties[]` persist on the receipt. Empty graph invents no edges. Not a live three-sided SKU.
+
+Allowlist `entity_type`: `user, device, ip, phone, payment, place, promo, order` — **not** diner / driver / vendor. Unsigned types **422**. Fixture tenant `mkt-demo-2026` ≠ live marketplace. Hop packs stay `mode=shadow`.
+
+### Q6 — Scale (1.9B)?
+
+**MUST-NOT claim 1.9B — or any production TPS — from tip.** README: local figures only. `hey` / `k6` deferred. G9 TPS row blank.
+
+Pilot must prove: named cluster + digest pin + **buyer event shape** + measured p95/5xx at **their** TPS. Founder-ops ≠ traction. No invented users / LOI / ARR.
+
+### Q7 — Data plane: evaluate without one warehouse? Tarka SoR vs S3 / BQ / Azure / GCP?
+
+**Evaluate does not require their lake. Tarka’s decision SoR is Postgres + Redis (AGE if Hunt is on). That is a new store — not a Hive / BQ / S3 replacement.**
+
+| Claim | Tip honesty |
+|-------|-------------|
+| Ingest / evaluate on first-party events without one warehouse | **PROVED.** `POST /decisions/v1/decisions/evaluate` or event-ingest → NATS. No BQ/S3/Azure required. |
+| Late-label / label fabric vs warehouse-grade reality | **PARTIAL.** Bind is `POST /v1/webhooks/late-label` onto the **Tarka receipt** (`evaluation_token`). Export `GET /v1/exports/receipts` (`tarka.receipt_label_export/v1`) — buyer **loads the lake**. Tarka does **not** host Snowflake/BigQuery (`warehouse-sink-v1.md`). No Hive / BQ connector. Analyst role required on export. |
+| Single SoR | **MUST-NOT** claim Tarka unifies S3+BQ+Azure+GCP. SUPPORT: buyer owns warehouse / queue. |
+
+**Thin seams (what Tarka actually wants locally vs their estate):**
+
+| Tarka plane | Tip default | Buyer estate | Honesty |
+|-------------|-------------|--------------|---------|
+| Decisions / audit / packs / labels | **Postgres** (external on `prod-on-k8s`) | Not BQ / Hive | New SoR. G6 backup is PG drill, not lake snapshot. |
+| Velocity / OIDC state / ingest idempotency | **Redis** (ephemeral) | — | Empty Redis after restore is expected. |
+| Hunt / hops | **AGE** on same PG, or `GRAPH_SERVICE_URL` | — | Empty URL = hops off. AGE restore is **volume**, not `pg_dump`. |
+| Analytics OLAP | Optional **ClickHouse** | They have BQ / Hive / Tableau | ClickHouse is **not** evaluate SoR. Do not require it for the pilot. |
+| Object / PIT ML export | Optional S3 prefix / local parquet | They have S3 | `POST /v1/ml/export/pit-parquet` + `cold_tier_evidence_to_s3.py` — opt-in, not Day-1. Weekly scorecard script is a **stub**. |
+| Lake | Buyer-owned | S3 / BQ / Azure / GCP | JSON export + example SQL. Empty sink = local only. |
+
+### Q8 — Tableau (BI-owned) vs Tarka “dashboards”?
+
+**Tarka must not assume RiskOps owns reporting. Desk bake-off is not Tableau. Do not replace Tableau.**
+
+| Surface | What it is | BI-wireable? |
+|---------|------------|--------------|
+| `GET /v1/observe/loop-metrics` (alias `/v1/ops/bakeoff`) | Observe loop JSON (`tarka.loop_metrics/v1`). `evaluate_count` / `rule_hit_rate` still **null** (forward). Empty tenant → zeros / nulls. | **Yes** — HTTP JSON. Thresholds are **tenant policy**, not Tarka morals. |
+| `LoopScoreboard` on `/ops/shadow` | Desk chrome over the same JSON. | **No** — not a BI extract. |
+| `GET /v1/exports/receipts` | Receipts + labels + `training_rows`. Join = `evaluation_token`. | **Yes** — this is what eng should hand BI. Role `analyst`. |
+| `decision.emitted` webhook | Every evaluate (emit-only). | **Yes** — stream into their bus → Tableau extracts. Empty URL = off. |
+| Late-label webhook **inbound** | BI/finance/Hive jobs **push** labels in. | **Yes** — they already own late outcomes. |
+| `GET /v1/analytics/scorecard` + `export_weekly_scorecard_json.py` | Decision mix / rule hits. Script README: **N4.2 stub**. | **PARTIAL / theater** as a weekly KPI product. |
+| Frontend `/analytics` | Product-skin desk. | **MUST-NOT** as leadership SoR. |
+| Grafana SLO burn | Operator / SRE, not Risk KPI. | Separate from Tableau. |
+| `service-slos-v1` nines | Aspirational / buyer-owned. | **MUST-NOT** as a Tarka SLA. |
+
+**What eng must hand BI (pilot):**
+
+1. `tarka.receipt_label_export/v1` schema + `evaluation_token` join (`warehouse-sink-v1`, `label-join-v1`).
+2. Optional `decision.emitted` webhook contract (`enforcement-v1`).
+3. Optional loop-metrics JSON (know the null fields).
+4. Who holds the `analyst` API key for export.
+
+**What Tarka desk replaces:** leftover queue + Observe canary + Hunt. **Not** Tableau.
+
+### Q9 — Can packs sit beside Hive-published supervised scores without migrating models?
+
+**Sit beside: yes, if the score is already on the evaluate payload. `VENDOR_SCORE_URL` is not a Hive connector and does not feed packs. ML sidecar is not AutoML and does not replace their microservices.**
+
+| Path | Tip fact | Status |
+|------|----------|--------|
+| Buyer microservice keeps scoring; includes `score` on `POST …/evaluate` payload | Packs read **mapped registry fields**. Seed registry has **no** `vendor_score`. Overlay a `mapped_buyer` row on product Postgres, then author `when[].field`. | **PROVED after config** (payload + registry). Their Hive / microservices stay put. |
+| `VENDOR_SCORE_URL` HTTP GET | Empty = off. 50ms timeout, fail-soft. Writes `vendor_score` / `vendor_decision` onto **`snap_extra` (receipt) after `evaluate_json_rules`** (`pipeline.py` ~909 vs ~1421). Packs have **already run**. Query is `tenant_id` + `entity_id` — not a Hive table scan. | **PARTIAL** — receipt overlay / sit-beside annotation. **Not** decide-time pack input. **Not** a Hive client. |
+| `FEATURE_STORE_URL` L2 | Empty = off. Redis L1 ≠ production FS. | **PROVED after config** if they build an HTTP L2 in front of Hive. Not shipped. |
+| Graph-risk / ring-score challenger | Offline holdout; serve off unless it beats `heuristic_v1`; live FLAG only via a **Promoted pack**. Compose URL unset. | **PROVED** as challenger. **MUST-NOT** as AutoML / model brain / migrate-off-Hive. |
+| Tarka `ml-scoring` / ONNX examples | Optional overlay; skip on failure. | **MUST-NOT** as replacement for risk’s supervised fleet. |
+
+**Org:** shared MLOps = Bedrock. Risk = supervised services + Hive. Tarka evaluate **reads** (payload) or **annotates** (URL slot). It does not train those models and does not require moving training off Hive / Bedrock / AWS.
+
+---
+
+## 3. Claims vs pilot proof
+
+Status key: **PROVED on clone/demo today** · **PROVED only after config** · **PARTIAL / theater** · **MUST-NOT-CLAIM**
+
+| Claim | Where said | Proof on tip | Status |
+|-------|------------|--------------|--------|
+| `make doctor && make demo` Day-1 | README, clone-demo, CLAIM_LOCK | Scripts + offline CI | **PROVED** (scripts). **PARTIAL** (no compose e2e CI). Host `5432`/`6379` friction. |
+| ELv2 source-available, not OSS; beta, no GA | README, LICENSE, SUPPORT | LICENSE + CI phrase gate | **PROVED** |
+| Rust evaluate + receipts + pack-why | README, VISION | tarka-core + walk + packWhy tests | **PROVED** (API). **PARTIAL** on desk (F1). |
+| Observe ≠ live; human Promote; auto-promote default off; model never Promotes / evaluates | README, CLAIM_LOCK | Provision default; 409 `never_auto_promote`; hop `mode=shadow` | **PROVED** (API). **PARTIAL** (F3 UI). |
+| Empty `GRAPH_SERVICE_URL` = hops off | README, PlaneOff | `graph:missing` tests | **PROVED**. Leftovers hidden if desk graph URL empty. |
+| Hop / `USES_DEVICE` Observe-until-Promote | Hop JSON, CI | `test_hop_packs_stay_shadow` | **PROVED** |
+| Enforcement default emit-only | enforcement-v1 + runtime | `test_enforcement_authority.py` | **PROVED** (runtime). |
+| GitLab-grade G0–G9 | production-install-v1, soak | G0–G8 landed. G9 **unsigned** | **MUST-NOT-CLAIM** the grade |
+| OIDC optional; digests; helm honesty; secrets 503; NetPol/SM; backup drill docs; SUPPORT intent | CLAIM_LOCK, G1–G8 | CI + docs | **PROVED only after config** (as documented). Grade still off. |
+| BYO LLM / no omniscient loop | VISION, CLAIM_LOCK | Factory; empty URL off | **PARTIAL** — Q4. Closed loop **MUST-NOT**. |
+| L2 leftover → Observe; FP soften | CLAIM_LOCK | API tests | **PROVED** (API). **PARTIAL** (F2; late-label webhook-only). |
+| ML sidecar / graph-risk challenger | CLAIM_LOCK, gnn-label-loop | URL unset; Promote-shaped | **PROVED** as off challenger. **MUST-NOT** GNN live / AutoML / replace Hive. |
+| `vendor_score` URL slot; empty = off | CLAIM_LOCK, vendor-score-slot-v1 | `vendor_score.py`; empty/timeout tests | **PARTIAL** — receipt after packs; not Hive; not pack input |
+| Packs sit beside buyer scores | (buyer need) | Payload + field registry | **PROVED after config**. URL slot alone is not enough. |
+| Warehouse export; buyer owns lake | warehouse-sink-v1 | `GET /v1/exports/receipts` | **PROVED after config**. No BQ/Hive host. |
+| Bake-off / loop-metrics feed BI | bakeoff-metrics-v1, LoopScoreboard | API + desk chrome; some fields null | **PARTIAL**. Desk ≠ Tableau. |
+| Weekly analytics scorecard | scripts/analytics README | **Stub** | **PARTIAL / theater** |
+| Tarka replaces Tableau / Hive / supervised microservices / Bedrock training | (buyer risk) | — | **MUST-NOT-CLAIM** |
+| Users / LOI / ARR / OSS / 1.9B TPS | README must-not | CI banned phrases | **MUST-NOT-CLAIM** |
+| Microsoft Copilot / BI Gemini as Tarka author plane | (buyer assumption) | No connector | **MUST-NOT-CLAIM** |
+| Multi-party marketplace SKU | graph-planes `parties[]` | Persist + honesty test | **PARTIAL** |
+| Excel / Jupyter → pack | (buyer ops) | No importer | **UNPROVED** / **MUST-NOT** as shipped |
+
+---
+
+## 4. Pilot walkthrough gaps (desk)
+
+| Step | Tip | Blocker for |
+|------|-----|-------------|
+| Leftover REVIEW | Hidden if graph URL empty | Frontline on evaluate-only |
+| Receipt-why | Analyst audit **403** → PackWhyStrip missing. **F1 OPEN.** | **Frontline** |
+| Override + why | Create draft `"desk skip"`. **F2 OPEN.** | **Frontline / strategy** |
+| Promote confirm | One-click + `/observe` bypass. **F3 OPEN.** | **Strategy** |
+| Pack findability | Text id only | Siloed strategy |
+| Late-label | Webhook only | Needs processor / Hive job — **good** for BI; no desk form |
+| Excel → pack | Does not exist | Strategy culture |
+| Tableau | No connector; export/webhook only | BI (eng must wire) |
+
+---
+
+## 5. Thin / scaffold / fail-soft
+
+| Surface | What it is |
+|---------|------------|
+| F1 / F2 / F3 | Open scorecard holes (separate UI agent). |
+| `VENDOR_SCORE_URL` | Looks like “packs read their score.” Fetch is **post-pack**, receipt-only, 50ms, not Hive. |
+| VISION Azure / Vertex / Bedrock | Named backends **refuse**. OpenAI-compat only. |
+| `COPILOT_*` | Not Microsoft Copilot. |
+| LoopScoreboard / `/analytics` | Desk theater if sold as leadership KPI. |
+| `export_weekly_scorecard_json.py` | Documented stub. |
+| ClickHouse / Grafana | Optional ops, not Tableau. |
+| Ring / GNN | Challenger; no HTTP ring job API. |
+| Doctor `5432`/`6379` | First lean-eng stall. |
+| Helm `prod-on-k8s` | Evaluate HA; desk **OFF**. |
+| G9 sheet | Unsigned. Landing ≠ grade. |
+| Marketplace demo tenant | Fixture. |
+
+---
+
+## 6. Post-gap W1–W8
+
+**No locked W-week plan file in the tree.** Breakdown lives in GitHub PR **#404**. Do not confuse with **G0–G9**.
+
+| Week | Tip |
+|------|-----|
+| W0–W5, W7–W8, OPT vendor_score | **Landed** (contracts + tests; W1/W3/W7 unlabeled in-tree) |
+| W6 ring | **PARTIAL** — helper + tests; no HTTP API |
+| W2/W8 contract prose | Still says “implements in W*” — stale |
+
+---
+
+## 7. Go / no-go
+
+| Pilot type | Verdict | Until / condition |
+|------------|---------|-------------------|
+| **Eng-led VPC clone** — evaluate + packs + receipts; no MLOps; Hive models stay | **GO** (doctor port friction) | No 1.9B claim; no desk on `prod-on-k8s`; scores on **inbound payload** if packs must read them; hand BI the export contract (do not replace Tableau). |
+| **Siloed strategy** — Excel / Jupyter → live packs | **NO-GO** as drop-in. **CONDITIONAL** if eng translates JSON + Observe-only | F3 confirm; no `/observe` bypass; no `auto_promote`; one shared queue. |
+| **Frontline leftover review** | **NO-GO** | F1 + leftovers without graph + F2. |
+| **Advise from BI Copilot / Gemini / native Bedrock** | **NO-GO** as sold | Separate OpenAI-compat (or `gemini` + key). Bedrock = proxy URL or **off**. |
+| **Replace Hive / supervised microservices / Tableau / Bedrock training** | **MUST-NOT** | Out of scope. Sit beside. |
+| **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
+
+**Anoop one-liner:** GO for a lean-eng VPC clone of evaluate+receipts beside their Hive/supervised services (no MLOps, no Tableau replacement); NO-GO for frontline leftover review, Excel→pack culture, and BI-Copilot/native-Bedrock Advise; strategy JSON authoring needs an eng translator and is not Promote-safe until F3; GitLab-grade remains off.
+
+---
+
+## 8. Remediation before kickoff (blocker first)
+
+1. **F1** — Receipt pack-why on `minimal` when analyst 403s.
+2. **F3** — Confirm Promote; close `/observe` bypass.
+3. **F2** — Mandatory why on Create draft.
+4. **Score sit-beside** — If packs must use Hive scores: publish onto evaluate **payload** + registry map. Do not sell `VENDOR_SCORE_URL` as decide-time Hive. Optional: thin HTTP adapter later (still post-pack today).
+5. **BI handoff** — Eng delivers receipt export + `evaluation_token` + optional `decision.emitted`. Do not pitch desk Analytics as Tableau.
+6. **BYO copy** — Bedrock/Azure/Vertex = OpenAI-compat URL or off. No Copilot plane. (CLAIM_LOCK + INDEX Advise tightened this PR.)
+7. **Excel/Jupyter** — Budget an eng translator to JSON. No importer this pilot.
+8. **Doctor ports / multi-party vtypes / buyer TPS** — as needed; not week-1 grade.
+9. **G9** — Only if they later want a grade claim.
+
+UI F1–F3 are a **separate** agent. This PR does not fix them.
+
+---
+
+## 9. Locks
+
+- No named incumbents as analogues. No “X-class” copy in claims.
+- No invented users, LOI, or ARR.
+- GitLab-grade **OFF** without signed G9 soak on a named pilot.
+- Model never evaluates or Promotes. `emit_only` default.
+- ELv2, not OSS. Beta, no GA. No Tarka-sold tokens.
+- Empty plane URL = off.
+- Tarka does not replace Tableau, Hive, supervised microservices, or Bedrock training.
+- Shared MLOps ≠ risk supervised services ≠ BI.
+
+---
+
+## Sources (tip)
+
+- Buyer-facing: [`README.md`](../../README.md), [`VISION.md`](../../VISION.md), [`SUPPORT.md`](../../SUPPORT.md), [`docs/INDEX.md`](../INDEX.md), [`CLAIM_LOCK.md`](./CLAIM_LOCK.md)
+- Contracts: `production-install-v1`, `warehouse-sink-v1`, `label-join-v1`, `vendor-score-slot-v1`, `feature-store-posture-v1`, `bakeoff-metrics-v1`, `enforcement-v1`
+- Score / ML: `services/decision-api/src/decision_api/vendor_score.py`, `evaluate/pipeline.py` (rules ~909, vendor fetch ~1421), `docs/docs/guides/gnn-label-loop.md`
+- Export / BI: `receipt_export.py`, `frontend/src/components/LoopScoreboard.tsx`, `scripts/analytics/README.md`
+- LLM: `services/shadow_agent/providers/factory.py`, `llm_client.py`
+- Desk holes: `Decisions.tsx`, `Leftovers.tsx`, `OpsShadow.tsx`, `ShadowMode.tsx`, `L2DraftButtons.tsx`
+- Honesty CI: `test_walk_receipts.py`, `test_postgap_contracts.py`, `test_production_install_soak_checklist.py`
