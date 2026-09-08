@@ -33,6 +33,7 @@ If Docker is not available, doctor exits with that message. The walk logic is st
 
 ```bash
 PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
+PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_sdk_walk.py
 ```
 
 ## What it does
@@ -74,4 +75,4 @@ If every receipt is ALLOW, that is an honest pack outcome on this desk, not a fa
 
 ## Deeper path
 
-Step-by-step compose, curl, and troubleshooting: [15-minute first decision](./oss-15-minute-first-decision.md) (`python3 scripts/oss/first_decision_smoke.py`).
+Step-by-step compose, curl, and troubleshooting: [15-minute first decision](./oss-15-minute-first-decision.md) (`python3 scripts/oss/first_decision_smoke.py`). Optional SDK path (same three cases via `DecisionClient`, desk already up): `make sdk-walk` — not a second Day-1 promise.
