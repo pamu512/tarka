@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "seed_refund_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_refund_amount",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "refund" },
+        { "field": "amount", "op": "gte", "value": 200 }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Refund-loop seed. Observe only."
+    }
+  ],
+  "tag_rules": []
+}

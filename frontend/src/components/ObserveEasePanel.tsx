@@ -250,6 +250,15 @@ export function ObserveEasePanel({
           </button>
           <button
             type="button"
+            data-testid="promote-undo"
+            disabled={!selectedLive || !reasonReady || busy}
+            onClick={() => void proposeDemoteSelected()}
+            className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50"
+          >
+            Promote undo
+          </button>
+          <button
+            type="button"
             disabled={!selectedLive || !reasonReady || !demoteProposed || busy}
             onClick={() => void confirmDemoteSelected()}
             className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50"

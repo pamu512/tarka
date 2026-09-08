@@ -11,7 +11,7 @@ Related: [repo-productionization-runbook](repo-productionization-runbook.md) · 
 
 Analyst UI / SDK / merchant → nginx → **core-api** `/decisions` → **decision-api** evaluate pipeline.
 
-Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured` — hops off, **not sibling identity**; packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph. Hop packs stay `mode=shadow`. Live overlay effect only via pack Promote. Not GNN live.
+Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured` — hops off, **not sibling identity**; packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph. Hop packs stay `mode=shadow`. Live overlay effect only after promote gates pass (ungated → human Promote). Not GNN live.
 
 ```mermaid
 flowchart TD

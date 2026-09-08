@@ -24,7 +24,13 @@ from decision_api.currency import normalize_amount
 from decision_api.decision_log import build_decision_log_record, emit_decision_log
 from decision_api.device_integrity import device_integrity_snapshot, integrity_presence
 from decision_api.device_scoring import extract_device_entropy_tags
-from decision_api.enforcement import resolve_enforcement_action
+from decision_api.enforcement import (
+    enforcement_mode,
+    resolve_enforcement_action,
+    suggested_actions,
+)
+from decision_api.feature_l2 import resolve_feature_source, write_event_features
+from decision_api.receipt_join import join_keys_from_event
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
 from decision_api.eval_steps import run_evaluation_step
@@ -1265,6 +1271,9 @@ async def run_evaluate_decision(
             body.payload,
         )
         enforcement_action = resolve_enforcement_action(decision, recommended_action)
+        suggested = suggested_actions(decision, recommended_action)
+        enf_mode = enforcement_mode()
+        feature_source = resolve_feature_source(redis_url=settings.redis_url)
 
         graph_decision_explanation = build_graph_decision_explanation_v1(
             trace_id=str(trace_id),
@@ -1343,6 +1352,10 @@ async def run_evaluate_decision(
             "inference_context": inf_ctx,
             "recommended_action": recommended_action,
             "enforcement_action": enforcement_action,
+            "suggested_actions": suggested,
+            "enforcement_mode": enf_mode,
+            "enforcement_authority": enf_mode == "handoff",
+            "feature_source": feature_source,
             "challenge_metadata": ch_meta,
             "step_trace": step_trace,
             "typologies": typology_results,
@@ -1383,6 +1396,35 @@ async def run_evaluate_decision(
             snap_extra["parties"] = [
                 p.model_dump() if hasattr(p, "model_dump") else p for p in body.parties
             ]
+        try:
+            snap_extra.update(
+                join_keys_from_event(
+                    trace_id=str(trace_id),
+                    tenant_id=body.tenant_id,
+                    entity_id=body.entity_id,
+                    payload=body.payload if isinstance(body.payload, dict) else None,
+                    metadata=body.metadata if isinstance(body.metadata, dict) else None,
+                )
+            )
+        except ValueError:
+            raise HTTPException(
+                400, detail={"code": "receipt_join_incomplete", "detail": "entity_id"}
+            ) from None
+        write_event_features(
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            payload=body.payload if isinstance(body.payload, dict) else None,
+        )
+        try:
+            from decision_api.vendor_score import fetch_vendor_score
+
+            vendor_feats = await fetch_vendor_score(
+                http, tenant_id=body.tenant_id, entity_id=body.entity_id
+            )
+            if vendor_feats:
+                snap_extra.update(vendor_feats)
+        except Exception:
+            pass
 
         snap_extra["counter_version"] = _audit_counter_version_label()
         snap_extra["rule_pack_file"] = ",".join(json_rule_pack_files)
@@ -1541,6 +1583,10 @@ async def run_evaluate_decision(
             signal_availability_notes=signal_notes,
             recommended_action=recommended_action,
             enforcement_action=enforcement_action,
+            suggested_actions=suggested,
+            enforcement_mode=enf_mode,
+            enforcement_authority=enf_mode == "handoff",
+            feature_source=feature_source,
             challenge_policy_id=ch_meta.get("policy_id"),
             challenge_metadata=ch_meta,
             fallback_reason=fb_reason,

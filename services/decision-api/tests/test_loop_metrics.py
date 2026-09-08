@@ -52,6 +52,11 @@ def test_loop_metrics_from_drafts_and_fp_labels():
     assert out["leftover_to_draft_ms"]["p50"] == 200
     assert out["promote_ttl_ms"]["p50"] == 10000
     assert out["label_latency_ms"]["p50"] == 5000
+    assert out["leftover_mint_rate"] == 0.5
+    assert out["demote_propose_count"] == 0
+    assert out["evaluate_count"] is None
+    assert "label_latency_hours" in out
+    assert "promote_ttl_hours" in out
 
 
 def test_loop_metrics_empty():
@@ -85,3 +90,28 @@ async def test_http_loop_metrics(tmp_path, monkeypatch):
     body = r.json()
     assert body["schema_id"] == "tarka.loop_metrics/v1"
     assert body["drafts_to_observe"]["human"] == 1
+    assert "leftover_mint_rate" in body
+    assert "demote_propose_count" in body
+
+
+@pytest.mark.asyncio
+async def test_http_bakeoff_alias(tmp_path, monkeypatch):
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from decision_api.config import settings
+    from decision_api.observe_drafts import ops_router
+
+    monkeypatch.setattr(settings, "rules_path", str(tmp_path))
+    app = FastAPI()
+    app.include_router(ops_router)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.get("/v1/ops/bakeoff", params={"tenant_id": "acme"})
+        q = await c.get("/v1/ops/queue-seam")
+        e = await c.get("/v1/ops/enforcement-mode")
+    assert r.status_code == 200
+    assert r.json()["schema_id"] == "tarka.loop_metrics/v1"
+    assert q.status_code == 200
+    assert q.json()["connected"] is False
+    assert e.json()["enforcement_mode"] == "emit_only"

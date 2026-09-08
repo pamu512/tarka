@@ -69,7 +69,7 @@ export default function Help() {
       <Section id="overview" title="Overview">
         <p>
           Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
-          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. The left nav lists the desk surface
+          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. Bake-off numbers on Observe inform Promote; thresholds are tenant policy. The left nav lists the desk surface
           {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}

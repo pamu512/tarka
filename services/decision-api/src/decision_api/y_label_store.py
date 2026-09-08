@@ -70,7 +70,9 @@ def _str_map(raw: Any) -> dict[str, str]:
     return {str(k): str(v) for k, v in raw.items() if str(k).strip() and str(v)}
 
 
-_LABEL_KINDS = frozenset({"fp", "fraud", "other"})
+_LABEL_KINDS = frozenset(
+    {"fp", "fraud", "other", "promo_abuse", "collusion", "chargeback"}
+)
 _LABEL_SOURCES = frozenset({"care", "finance", "crm", "evaluate"})
 
 

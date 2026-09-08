@@ -1855,12 +1855,31 @@ export const decisions = {
       schema_id: string;
       leftover_to_draft_ms?: { p50?: number | null; p95?: number | null };
       drafts_to_observe?: { human?: number; ai?: number };
+      leftover_mint_rate?: number | null;
       ai_backtest_block_rate?: number | null;
       fp_count?: number;
       fp_cost_sum?: number;
       label_latency_ms?: { p50?: number | null; p95?: number | null };
+      label_latency_hours?: { p50?: number | null; p95?: number | null };
       promote_ttl_ms?: { p50?: number | null; p95?: number | null };
+      promote_ttl_hours?: { p50?: number | null; p95?: number | null };
+      demote_propose_count?: number;
+      demote_confirm_count?: number;
+      evaluate_count?: number | null;
+      action_mix?: Record<string, number> | null;
+      rule_hit_rate?: number | null;
+      shadow_divergence?: number | null;
     }>(`/api/decisions/v1/observe/loop-metrics?${q}`);
+  },
+
+  queueSeam() {
+    return request<{
+      connected: boolean;
+      last_ok_at?: string | null;
+      last_error_at?: string | null;
+      last_error?: string | null;
+      mode?: string;
+    }>("/api/decisions/v1/ops/queue-seam");
   },
 
   listObserveNotify(tenantId: string) {

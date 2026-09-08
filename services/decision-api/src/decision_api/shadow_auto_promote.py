@@ -182,6 +182,19 @@ def activate_shadow_pack(
     from decision_api.rule_api import _append_rule_change
 
     _append_rule_change(reason, fname, actor=actor, detail=rec)
+    try:
+        from decision_api.promote_gitops import emit_promote_export
+
+        emit_promote_export(
+            pack_id=want,
+            pack_hash=str(pack.get("pack_hash") or ""),
+            mode="active",
+            actor=actor,
+            reason=reason,
+            file=fname,
+        )
+    except Exception:
+        pass
     return {"promoted": True, "draft_id": want, "file": fname, "mode": "active"}
 
 

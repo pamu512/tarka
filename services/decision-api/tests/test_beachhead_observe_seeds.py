@@ -15,6 +15,10 @@ _SEEDS = (
     "seed_promo_observe_v1.json",
     "seed_cod_observe_v1.json",
     "seed_payout_observe_v1.json",
+    "seed_refund_observe_v1.json",
+    "seed_ato_observe_v1.json",
+    "seed_delivery_observe_v1.json",
+    "seed_collusion_observe_v1.json",
 )
 _BEACHHEAD_TYPES = ("promo", "cod", "payout", "order", "delivery", "refund")
 
@@ -40,7 +44,7 @@ def test_unknown_event_type_still_422():
     assert exc.value.status_code == 422
 
 
-def test_three_seeds_are_observe_never_active(tmp_path, monkeypatch):
+def test_beachhead_seeds_are_observe_never_active(tmp_path, monkeypatch):
     from decision_api import json_rules
     from decision_api.config import settings
 

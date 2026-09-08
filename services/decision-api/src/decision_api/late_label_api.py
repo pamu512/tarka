@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 
 from decision_api.config import settings
+from decision_api.disposition_map import UnknownDisposition, resolve_label_kind
 from decision_api.gnn_loop.late_label import LateLabelError, bind_late_label
 from decision_api.shared_path import ensure_services_shared_on_path
 
@@ -57,13 +58,20 @@ async def late_label_webhook(request: Request) -> dict[str, Any]:
     dispute = payload.get("dispute") if isinstance(payload.get("dispute"), dict) else {}
     outcome = str(dispute.get("outcome") or "").strip()
     try:
+        label_kind = resolve_label_kind(payload)
+    except UnknownDisposition as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"reason_code": exc.code, "message": str(exc)},
+        ) from exc
+    try:
         return bind_late_label(
             tenant_id,
             outcome=outcome,
             trace_id=str(payload.get("trace_id") or ""),
             evaluation_token=str(payload.get("evaluation_token") or ""),
             decision_token=str(payload.get("decision_token") or ""),
-            label_kind=str(payload.get("label_kind") or ""),
+            label_kind=label_kind,
             source=str(payload.get("source") or ""),
             prior_override_id=str(payload.get("prior_override_id") or ""),
             entity_id=str(payload.get("entity_id") or ""),
