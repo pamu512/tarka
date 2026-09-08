@@ -44,6 +44,7 @@ class TestBackupRestoreDrill(unittest.TestCase):
         self.assertIn("not", lowered)
         self.assertIn("enterprise-desk", text)
         self.assertIn("age_restore_drill.sh", text)
+        self.assertIn("production-install-v1", text)
         self.assertIn("DECISION_LOG_PATH", text)
         self.assertIn("python3", text)
         self.assertIn("empty of SoR tables", text)

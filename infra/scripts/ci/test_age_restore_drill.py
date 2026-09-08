@@ -22,6 +22,10 @@ class TestAgeRestoreDrill(unittest.TestCase):
         self.assertIn("Person", text)
         self.assertIn("USES_DEVICE", text)
         self.assertIn("volume", text.lower())
+        # Wait must require consecutive ready (initdb restart flake) and still fail on timeout.
+        self.assertIn("3 consecutive", text)
+        self.assertIn("pg_isready timeout", text)
+        self.assertIn("docker logs", text)
         # Must not invoke logical restore (AGE OID break). Comment mentioning it is OK.
         self.assertNotRegex(text, r"(?m)^\s*pg_restore\b")
         self.assertNotRegex(text, r"(?m)^\s*pg_dump\b")
