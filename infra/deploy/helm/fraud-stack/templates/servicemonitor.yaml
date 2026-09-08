@@ -1,6 +1,7 @@
-{{- /* Prometheus Operator ServiceMonitors for prod (same gate as NetworkPolicy).
-     Scrapes existing /metrics on the Service http port. Dev/default emits none. */ -}}
-{{- if eq (default "dev" .Values.global.environment) "prod" }}
+{{- /* Prometheus Operator ServiceMonitors on production profile / prod-on-k8s
+     (same gate as NetworkPolicy). Scrapes existing /metrics. Lite/dev emit none.
+     Opt-out: global.serviceMonitor.enabled=false. */ -}}
+{{- if eq (include "tarka.serviceMonitor.enabled" .) "true" }}
 {{- if .Values.coreApi.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
