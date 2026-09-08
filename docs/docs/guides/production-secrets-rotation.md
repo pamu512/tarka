@@ -25,6 +25,8 @@ kubectl create secret generic tarka-app-secrets \
   --from-literal=API_KEYS="$(openssl rand -hex 32)" \
   --from-literal=EVIDENCE_SIGNING_SECRET="$(openssl rand -hex 32)" \
   --from-literal=RULE_GOVERNANCE_SECRET="$(openssl rand -hex 32)"
+# enterprise-desk also needs AGE_POSTGRES_PASSWORD + AGE_DATABASE_URL
+# (Hunt sidecar; not core SoR). Add them when that preset is on.
 
 # Helm already points at it:
 #   --set global.appSecretsName=tarka-app-secrets
@@ -35,11 +37,13 @@ Patch + restart (API keys with overlap):
 ```bash
 # 1. Read current keys, append the new one (operator-local; do not echo into tickets).
 kubectl get secret tarka-app-secrets -o jsonpath='{.data.API_KEYS}' | base64 -d
-# 2. Patch both keys into the Secret (old,new).
-kubectl patch secret tarka-app-secrets --type merge -p \
-  "{\"data\":{\"API_KEYS\":\"$(printf '%s' 'old-key,new-key' | base64 -w0)\"}}"
-# 3. Roll core-api (and any other consumer) so pods pick up the new env.
-kubectl rollout restart deploy -l app=tarka-core-api
+# 2. Patch both keys into the Secret (old,new). GNU or BSD base64:
+b64=$(printf '%s' 'old-key,new-key' | base64 | tr -d '\n')
+kubectl patch secret tarka-app-secrets --type merge -p "{\"data\":{\"API_KEYS\":\"${b64}\"}}"
+# 3. Secret env is fixed at pod start. Roll every Deployment that mounts
+#    global.appSecretsName. helm upgrade --install tarka names core-api
+#    tarka-tarka-core-api (not app=tarka-core-api).
+kubectl rollout restart deploy/tarka-tarka-core-api
 # 4. Point callers at new-key, then patch Secret to new-key only and roll again.
 ```
 

@@ -2,7 +2,7 @@
 
 **SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
 
-**Production secrets:** [secrets matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G0 PR #405 may replace the contract stub with the full GitLab-grade claim SoT — keep the matrix.
+**Production secrets:** [secrets matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G0–G2 contract + honesty/digest CI stay; this page does not replace them.
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
@@ -136,7 +136,7 @@ postgres:
   enabled: true
   auth:
     username: fraud
-    password: fraud       # chart/dev default only — prod-on-k8s / enterprise-desk use secretKeyRef
+    password: ""          # chart/dev values.yaml still defaults to fraud; prod presets leave this empty
     database: fraud
 
 redis:
@@ -225,6 +225,8 @@ Use the `prod-on-k8s` overlay (managed PG/Redis required, in-cluster stores off,
 Mutable `1.3.0-beta` tags alone are **not** the grade path. Production publishes pin `sha256:<64-hex>` via `--digest-map`. Empty digest is a limitation / non-grade (`--allow-empty-digest` for CI `helm template` of placeholders), not an immutable claim. See [production-install-v1](../../contracts/production-install-v1.md) (G0) and CI `helm_prod_digest_honesty.py` (G2). Lite/demo compose are not this path.
 
 **Documented command** (writes `coreApi.digest` / `signalApi.digest` when signal-api is enabled / `investigationAgent.digest` when enabled):
+
+Secrets: [matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G1 PR #406 (if merged) adds `helm_prod_honesty.sh` for sqlite / durable emptyDir / in-cluster PG — keep that sentence; this G3 page does not replace it.
 
 ```bash
 # After the image build/push in CI, record RepoDigests (do not treat a moving tag as a pin):
