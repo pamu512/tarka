@@ -22,6 +22,8 @@ Shape only. No company name.
 | Ops analysis: **Excel + Jupyter**. Leadership KPIs: **Tableau, owned by BI** — not the risk desk. | Tarka must not assume a pack-authoring desk culture or that RiskOps owns reporting. Desk does **not** replace Tableau. |
 | Data plane is messy multi-cloud: **S3, BigQuery, Azure, GCP** | First-party evaluate works **without** one warehouse. Tarka SoR for decisions is buyer **Postgres + Redis**, not their lake. |
 | **Frontline** handles residual review. **Strategy is siloed** (promo / refund / payout / device / …). | Pack-why on leftovers without strategy background. Siloed authors can ship JSON **without** waiting on shared MLOps — and without a husk builder. |
+| Graph today: **JanusGraph**, severely limited — nodes largely **non-queryable**; engine can only return **skip** from **configured node relations** (not rich hop/pack evaluate on arbitrary reads). | Do not treat that as a rich queryable identity graph. Tarka empty `GRAPH_SERVICE_URL` = hops off. Wiring AGE / Hunt / named hops is a **second workstream**, not a free Janus upgrade. |
+| Rule base today: **Drools + Groovy** (not Tarka JSON packs). | No drop-in Drools import on tip. Tarka is a **parallel evaluate plane** or phased cutover. Drools may stay residual during the pilot. |
 
 **Org boundaries (do not smash):**
 
@@ -30,20 +32,21 @@ Shape only. No company name.
 | Shared MLOps | Bedrock / AWS training loops | Tarka evaluate; live pack Promote |
 | Risk (supervised services) | Existing model microservices + Hive scores | Tarka desk; Tableau |
 | BI | Tableau / leadership KPIs | Tarka leftover queue |
-| Strategy (siloed) | Policy intent in Excel / notebooks | Production model training |
+| Strategy (siloed) | Policy intent in Excel / notebooks + Drools / Groovy authors | Production model training; Tarka JSON as a second language |
 | Frontline | Residual review | Pack authoring; reporting SoR |
-| Tarka (this product) | Evaluate + JSON packs + receipts + Observe canary | Hive warehouse; Tableau; Bedrock; their microservices |
+| Tarka (this product) | Evaluate + JSON packs + receipts + Observe canary | Hive warehouse; Tableau; Bedrock; their microservices; buyer Janus skip-graph |
 
 **Pilot success (2–4 weeks), if it is a go:**
 
 1. Evaluate plane on their infra (compose first; Helm `prod-on-k8s` is core-api HA — **desk OFF**).
-2. Shipped + buyer JSON packs return ALLOW / REVIEW / DENY with a receipt.
+2. **1–N JSON Observe packs beside Drools** (not a Drools rewrite). Receipts from Tarka evaluate.
 3. Observe canary → **human** Promote (model never evaluates or Promotes).
 4. Empty plane URL = that plane off.
 5. `enforcement.mode = emit_only` unless they later contract handoff.
 6. Eng hands BI **export/join contracts** — Tarka desk does not become Tableau.
+7. Phase 1 graph **off** (or skip-relations as payload enrichment only). Named-hop / Hunt is phase 2.
 
-**Pilot non-goals:** GitLab-grade install (G9 unsigned). Primary decisioner. Banks. Consortium. Hosted Tarka Cloud. 1.9B soak. Migrating Hive/Bedrock training onto Tarka. Replacing Tableau.
+**Pilot non-goals:** GitLab-grade install (G9 unsigned). Primary decisioner. Banks. Consortium. Hosted Tarka Cloud. 1.9B soak. Migrating Hive/Bedrock training onto Tarka. Replacing Tableau. Treating skip-only Janus as Tarka hops. Replacing the Drools/Groovy estate in 2 weeks.
 
 ---
 
@@ -156,7 +159,7 @@ Pilot must prove: named cluster + digest pin + **buyer event shape** + measured 
 3. Optional loop-metrics JSON (know the null fields).
 4. Who holds the `analyst` API key for export.
 
-**What Tarka desk replaces:** leftover queue + Observe canary + Hunt. **Not** Tableau.
+**What Tarka desk replaces:** leftover queue + Observe canary. Hunt only if a queryable graph is on (phase 2). **Not** Tableau.
 
 ### Q9 — Can packs sit beside Hive-published supervised scores without migrating models?
 
@@ -172,6 +175,36 @@ Pilot must prove: named cluster + digest pin + **buyer event shape** + measured 
 
 **Org:** shared MLOps = Bedrock. Risk = supervised services + Hive. Tarka evaluate **reads** (payload) or **annotates** (URL slot). It does not train those models and does not require moving training off Hive / Bedrock / AWS.
 
+### Q10 — Buyer Janus is skip-relations only. Is that Tarka graph?
+
+**No. Do not assess as a rich queryable identity graph.** Empty `GRAPH_SERVICE_URL` is the honest phase-1 default. Wiring Tarka graph-service (AGE / Janus / Neo4j) + Hunt is a **pilot workstream**, not a free upgrade of their Janus.
+
+| Buyer Janus (today) | Tarka hop / Hunt (tip) |
+|---------------------|------------------------|
+| Nodes largely **non-queryable** | Hop atoms need a **returned hop view** (`has_etype`, `has_multi_id`, `sibling_prior_flag`) from graph-service |
+| **Skip** from **configured** relations only | Named edges (`USES_DEVICE`, …) on the receipt; empty URL → `graph:missing`, packs that need hops **do not fire** |
+| Not arbitrary graph reads | `GRAPH_BACKEND=janusgraph` on Tarka graph-service is a **different** contract (Gremlin + indexes + subgraph). Pointing `GRAPH_SERVICE_URL` at their skip store without that contract is **not** proved |
+
+Lite `make demo` **sets** `GRAPH_SERVICE_URL` to AGE (`docker-compose.lite.yml`). That is Tarka’s Day-1 Hunt demo — **not** their Janus. A buyer VPC clone that wants graph-off must empty the URL (or use a micro overlay). Leftovers nav **hides** when the desk graph URL is empty — frontline queue is then a phase-2 cost.
+
+Hop packs (`USES_DEVICE` …) stay `mode=shadow` until Promote. They **cannot** assume skip-relations are enough. Treating skip as the brain while demo copy shows live multi-hop / Hunt person is **PARTIAL / theater**.
+
+**Phase 1:** evaluate + JSON packs + receipts; graph URL **empty**; skip-relations may ride on the **payload** as enrichment (same sit-beside pattern as Hive scores).  
+**Phase 2:** queryable graph URL (Tarka AGE, or graph-service in front of a **queryable** Janus) + Observe hop packs + Hunt. Their current skip-only Janus is enrichment, not that URL.
+
+### Q11 — Drools + Groovy today. Drop-in, or parallel plane?
+
+**Parallel plane / phased cutover. Tip must not claim Drools import.** `rules_import.py` loads **Tarka AST / JSON** into `engine_rules` — not `.drl` / Groovy. No Drools converter in-repo.
+
+| Path | Tip honesty | Status |
+|------|-------------|--------|
+| Eng stands up Tarka evaluate + receipts + **1–N** JSON packs; Drools keeps serving residual | Same HTTP evaluate; buyer can dual-write or shadow-compare. `emit_only` default. | **PROVED** as coexistence shape. Wiring their traffic splitter is **their** eng. |
+| Siloed Excel / Jupyter + Drools authors land first Observe packs **without** rewriting the estate | JSON is a **new** author language. Visual builder is product-skin (`RequireRole` RiskArchitect), still JSON under the hood. No `.drl` import. BYO LLM may **draft** Observe JSON (`authored_by=scout`); humans Promote. | **CONDITIONAL** — a few packs yes; whole estate **NO-GO**. |
+| No-code / NLP replaces Drools | VISION: BYO scout drafts Observe; no closed omniscient loop; model never Promotes. Visual canvas ≠ Drools replacement. | **MUST-NOT-CLAIM**. Honest path: LLM drafts JSON Observe; Drools stays residual. |
+| Replace Drools in 2 weeks | No importer; F3 Promote unsafe; siloed authors; no dual-run harness shipped | **NO-GO** unless a named dual-run is proved on **their** traffic (not on tip). |
+
+`enforcement.mode=emit_only` is the honest dual-run default: Tarka receipts are advisory while Drools still enforces (or the reverse), until they contract handoff.
+
 ---
 
 ## 3. Claims vs pilot proof
@@ -184,8 +217,9 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | ELv2 source-available, not OSS; beta, no GA | README, LICENSE, SUPPORT | LICENSE + CI phrase gate | **PROVED** |
 | Rust evaluate + receipts + pack-why | README, VISION | tarka-core + walk + packWhy tests | **PROVED** (API). **PARTIAL** on desk (F1). |
 | Observe ≠ live; human Promote; auto-promote default off; model never Promotes / evaluates | README, CLAIM_LOCK | Provision default; 409 `never_auto_promote`; hop `mode=shadow` | **PROVED** (API). **PARTIAL** (F3 UI). |
-| Empty `GRAPH_SERVICE_URL` = hops off | README, PlaneOff | `graph:missing` tests | **PROVED**. Leftovers hidden if desk graph URL empty. |
-| Hop / `USES_DEVICE` Observe-until-Promote | Hop JSON, CI | `test_hop_packs_stay_shadow` | **PROVED** |
+| Empty `GRAPH_SERVICE_URL` = hops off | README, PlaneOff | `graph:missing` tests | **PROVED**. Leftovers hidden if desk graph URL empty. Lite demo **turns AGE on** — buyer phase-1 must empty the URL. |
+| Hop / `USES_DEVICE` Observe-until-Promote | Hop JSON, CI | `test_hop_packs_stay_shadow` | **PROVED** as Observe packs on Tarka hops. **PARTIAL** vs buyer skip-only Janus — not a substitute. |
+| Buyer Janus skip-relations = Tarka graph / Hunt | (buyer stack) | graph-service Janus adapter is a different Gremlin contract | **MUST-NOT-CLAIM**. Connecting graph is a workstream. |
 | Enforcement default emit-only | enforcement-v1 + runtime | `test_enforcement_authority.py` | **PROVED** (runtime). |
 | GitLab-grade G0–G9 | production-install-v1, soak | G0–G8 landed. G9 **unsigned** | **MUST-NOT-CLAIM** the grade |
 | OIDC optional; digests; helm honesty; secrets 503; NetPol/SM; backup drill docs; SUPPORT intent | CLAIM_LOCK, G1–G8 | CI + docs | **PROVED only after config** (as documented). Grade still off. |
@@ -202,6 +236,10 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | Microsoft Copilot / BI Gemini as Tarka author plane | (buyer assumption) | No connector | **MUST-NOT-CLAIM** |
 | Multi-party marketplace SKU | graph-planes `parties[]` | Persist + honesty test | **PARTIAL** |
 | Excel / Jupyter → pack | (buyer ops) | No importer | **UNPROVED** / **MUST-NOT** as shipped |
+| Drop-in Drools / Groovy import | (buyer rule base) | `rules_import.py` is Tarka AST/JSON only | **MUST-NOT-CLAIM** |
+| JSON packs as parallel plane beside Drools | README / rules.md | Rust JSON evaluate; emit-only | **PROVED** (Tarka side). Dual-run harness **UNPROVED**. |
+| No-code NLP replaces Drools | (buyer risk / VISION scout) | Scout drafts Observe; human Promote | **MUST-NOT-CLAIM** |
+| Replace Drools estate in 2 weeks | (buyer wish) | — | **MUST-NOT-CLAIM** / **NO-GO** |
 
 ---
 
@@ -217,6 +255,8 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | Late-label | Webhook only | Needs processor / Hive job — **good** for BI; no desk form |
 | Excel → pack | Does not exist | Strategy culture |
 | Tableau | No connector; export/webhook only | BI (eng must wire) |
+| Hunt / hop why | Needs queryable graph URL | Phase 2. Skip-Janus ≠ hop brain |
+| Drools → JSON | No importer | Eng translator or BYO draft Observe |
 
 ---
 
@@ -236,6 +276,9 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | Helm `prod-on-k8s` | Evaluate HA; desk **OFF**. |
 | G9 sheet | Unsigned. Landing ≠ grade. |
 | Marketplace demo tenant | Fixture. |
+| Lite AGE + Hunt `NEXT:` | Demo implies graph-on Day-1. Buyer Janus is skip-only. Empty URL is the honest VPC start. |
+| Tarka `GRAPH_BACKEND=janusgraph` | Queryable Gremlin + indexes — **not** their skip-relation store. |
+| Visual / NLP author | Product canvas + BYO scout draft Observe. Still JSON. Not Drools import. |
 
 ---
 
@@ -255,14 +298,16 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 
 | Pilot type | Verdict | Until / condition |
 |------------|---------|-------------------|
-| **Eng-led VPC clone** — evaluate + packs + receipts; no MLOps; Hive models stay | **GO** (doctor port friction) | No 1.9B claim; no desk on `prod-on-k8s`; scores on **inbound payload** if packs must read them; hand BI the export contract (do not replace Tableau). |
+| **Eng-led VPC clone** — evaluate + receipts + **1–N JSON packs beside Drools**; graph **off** | **GO** (doctor port friction) | Empty `GRAPH_SERVICE_URL`. Drools stays residual. No 1.9B claim; no desk on `prod-on-k8s`; scores / skip-flags on payload; hand BI the export contract. |
+| **RiskOps-led “replace Drools in 2 weeks”** | **NO-GO** | No Drools importer. Whole-estate rewrite unproved. F3 Promote unsafe. |
+| **Graph / hop Observe / Hunt** | **NO-GO** in week 1 | Queryable graph URL (AGE or graph-service), or keep skip-Janus as payload enrichment only. Not a free Janus upgrade. |
 | **Siloed strategy** — Excel / Jupyter → live packs | **NO-GO** as drop-in. **CONDITIONAL** if eng translates JSON + Observe-only | F3 confirm; no `/observe` bypass; no `auto_promote`; one shared queue. |
 | **Frontline leftover review** | **NO-GO** | F1 + leftovers without graph + F2. |
 | **Advise from BI Copilot / Gemini / native Bedrock** | **NO-GO** as sold | Separate OpenAI-compat (or `gemini` + key). Bedrock = proxy URL or **off**. |
 | **Replace Hive / supervised microservices / Tableau / Bedrock training** | **MUST-NOT** | Out of scope. Sit beside. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** GO for a lean-eng VPC clone of evaluate+receipts beside their Hive/supervised services (no MLOps, no Tableau replacement); NO-GO for frontline leftover review, Excel→pack culture, and BI-Copilot/native-Bedrock Advise; strategy JSON authoring needs an eng translator and is not Promote-safe until F3; GitLab-grade remains off.
+**Anoop one-liner:** GO for a lean-eng VPC clone of evaluate+receipts + 1–N JSON packs **beside Drools** (graph off, Hive/supervised stay, no Tableau replacement); NO-GO for replace-Drools-in-2-weeks, frontline leftover review, Excel→pack culture, and BI-Copilot/native-Bedrock Advise; hop/Hunt is phase 2 after a queryable graph; GitLab-grade remains off.
 
 ---
 
@@ -274,9 +319,10 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 4. **Score sit-beside** — If packs must use Hive scores: publish onto evaluate **payload** + registry map. Do not sell `VENDOR_SCORE_URL` as decide-time Hive. Optional: thin HTTP adapter later (still post-pack today).
 5. **BI handoff** — Eng delivers receipt export + `evaluation_token` + optional `decision.emitted`. Do not pitch desk Analytics as Tableau.
 6. **BYO copy** — Bedrock/Azure/Vertex = OpenAI-compat URL or off. No Copilot plane. (CLAIM_LOCK + INDEX Advise tightened this PR.)
-7. **Excel/Jupyter** — Budget an eng translator to JSON. No importer this pilot.
-8. **Doctor ports / multi-party vtypes / buyer TPS** — as needed; not week-1 grade.
-9. **G9** — Only if they later want a grade claim.
+7. **Excel/Jupyter + Drools** — Budget an eng translator to **1–N** JSON Observe packs. No `.drl` / Groovy importer. Do not sell NLP as Drools replacement.
+8. **Graph** — Phase 1 empty URL. Skip-Janus as payload enrichment only. Hop/Hunt later.
+9. **Doctor ports / multi-party vtypes / buyer TPS** — as needed; not week-1 grade.
+10. **G9** — Only if they later want a grade claim.
 
 UI F1–F3 are a **separate** agent. This PR does not fix them.
 
@@ -290,7 +336,7 @@ UI F1–F3 are a **separate** agent. This PR does not fix them.
 - Model never evaluates or Promotes. `emit_only` default.
 - ELv2, not OSS. Beta, no GA. No Tarka-sold tokens.
 - Empty plane URL = off.
-- Tarka does not replace Tableau, Hive, supervised microservices, or Bedrock training.
+- Tarka does not replace Tableau, Hive, supervised microservices, Bedrock training, skip-only Janus, or the Drools/Groovy estate.
 - Shared MLOps ≠ risk supervised services ≠ BI.
 
 ---
