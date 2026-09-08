@@ -42,6 +42,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 | Enforcement contract-gated; default emit-only | Handoff as Day-1 default |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Omniscient AI author loop; model ALLOW/DENY; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft (AI backtest required). FP late-label → Observe soften. Beachhead seeds stay Observe | Beachhead = banks; seeds = live |
+| `prod-on-k8s` is core-api HA (external PG/Redis). Digest pin required for a grade claim. No sqlite/`emptyDir` for decisions/audit/labels/packs. [production-install-v1](contracts/production-install-v1.md) | GitLab-grade already achieved; GA from preset |
 
 ## Product locks
 
