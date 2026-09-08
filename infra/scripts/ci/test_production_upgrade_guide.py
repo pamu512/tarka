@@ -32,6 +32,8 @@ class TestProductionUpgradeGuide(unittest.TestCase):
         ):
             self.assertIn(needle, lowered if needle.islower() else text)
         self.assertIn("TARKA_ENFORCEMENT_MODE", text)
+        self.assertIn('"role"', text)
+        self.assertIn("alembic upgrade head", text)
         self.assertIn("G6", text)
         self.assertIn("production-backup-restore.md", text)
         self.assertIn("G8", text)
@@ -43,26 +45,22 @@ class TestProductionUpgradeGuide(unittest.TestCase):
     def test_g6_backup_link_does_not_block(self) -> None:
         text = _GUIDE.read_text(encoding="utf-8")
         self.assertIn("production-backup-restore.md", text)
-        if _BACKUP.is_file():
-            self.assertIn("production-backup-restore.md", text)
-        # Missing G6 file is allowed — playbook must not require it to exist.
-        self.assertTrue(_GUIDE.is_file())
+        self.assertIn("do not block", text.lower())
+        # File may be absent on this branch (G6 in-flight). Guide still loads.
+        if not _BACKUP.is_file():
+            self.assertTrue(_GUIDE.is_file())
 
     def test_links_production_install_and_deployment(self) -> None:
         text = _GUIDE.read_text(encoding="utf-8")
         self.assertIn("production-install-v1.md", text)
         self.assertIn("deployment.md", text)
-        self.assertTrue(
-            (_REPO / "docs" / "docs" / "guides" / "deployment.md").is_file()
-        )
+        self.assertTrue((_REPO / "docs" / "docs" / "guides" / "deployment.md").is_file())
         # G0 contract may still be in-flight on another branch.
         if _INSTALL.is_file():
             self.assertIn("GitLab-grade", _INSTALL.read_text(encoding="utf-8"))
 
     def test_pack_loader_fail_closed_unknown_version(self) -> None:
-        loader = (
-            _REPO / "services" / "decision-api" / "src" / "decision_api" / "json_rules.py"
-        )
+        loader = _REPO / "services" / "decision-api" / "src" / "decision_api" / "json_rules.py"
         text = loader.read_text(encoding="utf-8")
         self.assertIn("unsupported pack version", text)
         self.assertIn("fail-closed, not loaded", text)

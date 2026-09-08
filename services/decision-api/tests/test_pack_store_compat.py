@@ -87,5 +87,7 @@ def test_disabled_mode_is_not_active(tmp_path):
     with patch("decision_api.json_rules.settings") as mock:
         mock.rules_path = str(tmp_path)
         load_rules()
-    assert "off.json" not in [p.get("_source_file") for p in get_active_packs_snapshot()]
+    assert "off.json" not in [
+        p.get("_source_file") for p in get_active_packs_snapshot()
+    ]
     assert "off.json" in [p.get("_source_file") for p in get_disabled_mode_packs()]
