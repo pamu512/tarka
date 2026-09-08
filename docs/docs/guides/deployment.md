@@ -7,7 +7,8 @@
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
 **Backup / restore (SoR Postgres + AGE Hunt note):** [production-backup-restore](./production-backup-restore.md)  
-**Upgrade / rollback:** [production-upgrade](./production-upgrade.md)
+**Upgrade / rollback:** [production-upgrade](./production-upgrade.md)  
+**Soak / GitLab-grade gate (G9):** [production-install-soak-checklist](./production-install-soak-checklist.md) — claim allowed only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Grade contract: [production-install-v1](../../contracts/production-install-v1.md). Buyer-facing support: [SUPPORT.md](../../../SUPPORT.md).
 
 ---
 

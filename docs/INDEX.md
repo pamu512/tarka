@@ -24,7 +24,7 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 | **Observe** | Pack canary + leftover promote + live-rule slip on `/ops/shadow` (always-on lean). RFP "shadow mode" = Observe evaluate (`metadata.shadow`) only — not the LLM. [Shadow / A/B guide](docs/guides/shadow-and-ab-testing.md). |
 | **Advise (optional)** | [services/SHADOW.md](../services/SHADOW.md) · Shadow agent LLM · BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM. Off until operator wires `SHADOW_AGENT_URL`. |
 | **Cases (residual / SAR)** | case-api + [feature data flows §3](docs/guides/feature-data-flows.md#3-leftovers-hunt-brief-sar). Leftover list is not fat `/cases`. |
-| **Deploy / SRE** | [SRE Compose profiles](docs/operations/sre-compose-profiles.md) · [deployment / Helm OIDC](docs/guides/deployment.md) · [quickstart](docs/quickstart.md) · [productionization](docs/guides/repo-productionization-runbook.md) · [secrets matrix](contracts/production-install-v1.md) · [secrets rotation](docs/guides/production-secrets-rotation.md) · [production observability](docs/guides/production-observability.md) · [production backup / restore](docs/guides/production-backup-restore.md) · [production upgrade / rollback](docs/guides/production-upgrade.md) |
+| **Deploy / SRE** | [SRE Compose profiles](docs/operations/sre-compose-profiles.md) · [deployment / Helm OIDC](docs/guides/deployment.md) · [quickstart](docs/quickstart.md) · [productionization](docs/guides/repo-productionization-runbook.md) · [secrets matrix](contracts/production-install-v1.md) · [secrets rotation](docs/guides/production-secrets-rotation.md) · [production observability](docs/guides/production-observability.md) · [production backup / restore](docs/guides/production-backup-restore.md) · [production upgrade / rollback](docs/guides/production-upgrade.md) · [production install soak checklist](docs/guides/production-install-soak-checklist.md) (G9; grade gated) |
 | **MkDocs site** | `docs/docs/` + `docs/mkdocs.yml` (`mkdocs serve` from `docs/`) |
 
 ## QA: two separate loops
@@ -46,6 +46,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 | `prod-on-k8s` is core-api HA (external PG/Redis). `--digest-map` required for a grade claim. Empty digest is non-grade, not immutable. No sqlite/`emptyDir` for decisions/audit/labels/packs. [production-install-v1](contracts/production-install-v1.md) | GitLab-grade already achieved; GA from preset; mutable tag as the recommended prod pin |
 | Prod examples use secret refs. Empty `API_KEYS` + empty OIDC + insecure off → 503 | Vault required; open evaluate when secrets missing; GitLab-grade already achieved |
 | Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../SUPPORT.md)). Grade: [production-install-v1](contracts/production-install-v1.md) | 99.99% SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade already achieved |
+| Soak checklist exists (G9). GitLab-grade only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. | GitLab-grade already achieved; SOC 2 from us; GA from `prod-on-k8s` |
 
 ## Product locks
 
