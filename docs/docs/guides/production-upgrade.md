@@ -32,7 +32,7 @@ If G6 is not on the tip yet: take a buyer-owned Postgres snapshot (decisions, au
 
 2. **Confirm stores.** External Postgres + Redis. In-cluster PG/Redis stay **off**. No sqlite DSN on core-api / investigation-agent.
 
-3. **Schema.** Upcoming SQL must be expand/contract (next section). Do not apply an UP that `DROP TABLE` / `DROP COLUMN` / `TRUNCATE`s durable names (`audit_logs`, `decisions`, `cases`, outbox, labels).
+3. **Schema.** Diff `alembic heads` against the running revision. This image may only ship **expand** revisions. Production Postgres runs `alembic upgrade head` on core-api / case-api **start** (before evaluate is ready). Helm rollback does **not** undo that. Do not ship an `upgrade()` / UP that `DROP TABLE` / `DROP COLUMN` / `TRUNCATE`s durable names (`decision_audit`, `audit_logs`, `investigation_cases`, packs, labels).
 
 4. **Packs.** Every live file under `RULES_PATH` is pack `version` **1** (field optional; default 1). Unknown versions are **not** loaded — fail closed, logged, not silent.
 
@@ -98,15 +98,20 @@ curl -fsS -H "X-API-Key: $API_KEY" "$CORE/decisions/v1/ready"
 curl -fsS -H "X-API-Key: $API_KEY" "$CORE/decisions/v1/ops/enforcement-mode"
 # expect: "enforcement_mode": "emit_only"
 
-# one real evaluate (idempotency required on production profile)
+# one real evaluate (idempotency + role required on production profile)
 curl -fsS -X POST "$CORE/decisions/v1/decisions/evaluate" \
   -H "X-API-Key: $API_KEY" \
   -H "Idempotency-Key: upgrade-verify-$(date +%s)" \
   -H "Content-Type: application/json" \
-  -d '{"tenant_id":"<pilot>","event_type":"payment","entity_id":"upgrade-canary","payload":{"amount":1}}'
+  -d '{"tenant_id":"<pilot>","event_type":"payment","entity_id":"upgrade-canary","role":"<pilot-role>","payload":{"amount":1}}'
+
+# pack count vs preflight (field is rule_packs.active_pack_count)
+curl -fsS -H "X-API-Key: $API_KEY" "$CORE/decisions/v1/ops/governance"
 ```
 
-Pass: HTTP 200, pack-why / receipt present, `enforcement_mode` is `emit_only`, no 5xx burst on `/metrics`. Fail: 503 fail-closed (empty `API_KEYS`), missing idempotency, unknown pack version emptying live rules, or ready probe red — **rollback**.
+`role` is required. Empty role registry accepts a safe token (e.g. `member`); a locked registry must use a registered pilot role — unsigned / missing role is **422**, not a reason to rollback the image.
+
+Pass: HTTP 200, pack-why / receipt present, `enforcement_mode` is `emit_only`, `rule_packs.active_pack_count` matches preflight, no 5xx burst on `/metrics`. Fail: 503 fail-closed (empty `API_KEYS`), missing idempotency, unknown pack version emptying live rules, or ready probe red — **rollback**.
 
 ## Rollback
 
@@ -116,6 +121,8 @@ Practiced, not theoretical. Use the revision you recorded in preflight.
 helm history tarka -n fraud
 helm rollback tarka <from-revision> -n fraud
 kubectl -n fraud rollout status deploy/tarka-tarka-core-api
+kubectl -n fraud rollout status deploy/tarka-tarka-signal-api
+kubectl -n fraud rollout status deploy/tarka-tarka-investigation-agent
 ```
 
 Re-run **Verify evaluate**. Buyer systems stay on their previous decisioning path until that check is green (see kill switches).
@@ -134,7 +141,7 @@ Expand/contract. **Never silent destroy.**
 | **Dual-run** | New code reads new then old; old code ignores unknown columns | Require the new column on the old binary |
 | **Contract** (later release, after rollback window) | Drop unused columns/tables in a **second** UP, only after the previous digest is gone | Drop in the same release that stops writing the old shape |
 
-Repo SQL files that contain both halves use `-- UP` / `-- DOWN` markers (`migrations/*.sql`). Apply **UP only** on upgrade. DOWN is for an explicit schema rollback, not `helm rollback`.
+The migrator production actually runs is **Alembic** (`services/decision-api/alembic/`, `services/case-api/alembic/`) via `alembic upgrade head` on pod start. Repo SQL files with `-- UP` / `-- DOWN` markers (`migrations/*.sql`) are the same policy for ops scripts. Apply **UP / `upgrade()` only**. DOWN / `downgrade()` is an explicit schema rollback, not `helm rollback`.
 
 Durable names: `audit_logs`, `decisions`, `cases`, `tarka_outbox`, `tarka_label_dlq`, `normalized_labels`. CI: `python3 infra/scripts/ci/test_schema_migration_policy.py`.
 
@@ -160,7 +167,7 @@ Product-side: Tarka evaluate is **advisory** unless the buyer has contracted `ha
 | Switch | How | Product-side |
 |--------|-----|----------------|
 | **Disable pack** | `PUT /decisions/v1/rules/{filename}/mode` body `{"mode":"disabled"}` with `X-Rule-Governance-Secret`. Or set `"mode": "disabled"` on the JSON and reload. | That pack stops scoring. Other live packs still evaluate. Not a CRM “Kill” button. Live → Observe demote is propose→confirm; disable is the incident switch. |
-| **Force `emit_only`** | `TARKA_ENFORCEMENT_MODE=emit_only` on core-api (`coreApi.extraEnv` or Secret). Confirm `GET /decisions/v1/ops/enforcement-mode`. | HTTP `action` is advisory. `decision.enforced` webhooks stop. Product copy must not say Tarka blocked. Contract: [enforcement-v1](../../contracts/enforcement-v1.md). |
+| **Force `emit_only`** | `TARKA_ENFORCEMENT_MODE=emit_only` on core-api (`coreApi.extraEnv` or `kubectl set env deploy/tarka-tarka-core-api`). Env is read at process start — rollout the pod. Confirm `GET /decisions/v1/ops/enforcement-mode`. | HTTP `action` is advisory. `decision.enforced` webhooks stop. Product copy must not say Tarka blocked. Contract: [enforcement-v1](../../contracts/enforcement-v1.md). |
 | **Drain to previous decisioning** | 1) Force `emit_only`. 2) Disable the new/bad pack if the pin is otherwise fine. 3) `helm rollback` to the from-pin. 4) Buyer systems ignore Tarka `action` until verify is green. | Drain is **buyer-owned**. Tarka does not host the payment/promo/courier path. Empty enforcement webhook URL = that sink off. |
 
 Dependency kill-switches (`disable_graph`, `rules_only` blend) stay in [fallback-emergency-runbook.md](fallback-emergency-runbook.md). They do not replace pack disable or helm rollback.
