@@ -52,6 +52,12 @@ def main() -> int:
     subprocess.run([sys.executable, str(digest_script)], check=True)
     oidc_script = Path("infra/scripts/ci/test_helm_oidc_redis.py")
     subprocess.run([sys.executable, str(oidc_script)], check=True)
+    for name in (
+        "test_helm_upgrade_dry_run.py",
+        "test_schema_migration_policy.py",
+        "test_production_upgrade_guide.py",
+    ):
+        subprocess.run([sys.executable, str(Path("infra/scripts/ci") / name)], check=True)
     return 0
 
 

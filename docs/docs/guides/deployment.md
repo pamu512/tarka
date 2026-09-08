@@ -3,7 +3,8 @@
 **SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
-**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
+**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
+**Upgrade / rollback:** [production-upgrade](./production-upgrade.md)
 
 ---
 
@@ -234,6 +235,8 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   -f /tmp/prod-on-k8s.values.yaml \
   --set global.appSecretsName=tarka-app-secrets
 ```
+
+Digest-to-digest upgrade, evaluate verify, rollback, schema expand/contract, pack fail-closed, kill switches: [production-upgrade.md](production-upgrade.md). Grade contract: [production-install-v1](../../contracts/production-install-v1.md) (G0; may still be landing). Backup drill: [production-backup-restore.md](production-backup-restore.md) when G6 is present.
 
 OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). When `OIDC_ISSUER` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 

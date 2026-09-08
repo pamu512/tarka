@@ -369,7 +369,14 @@ def load_rules() -> None:
     for f in sorted(path.glob("*.json")):
         try:
             pack = json.loads(f.read_text(encoding="utf-8"))
-            if pack.get("version", 1) != 1:
+            ver = pack.get("version", 1)
+            if ver != 1:
+                log.warning(
+                    "skipping rule file %s: unsupported pack version %s (want 1); "
+                    "fail-closed, not loaded",
+                    f,
+                    ver,
+                )
                 continue
             pack["_source_file"] = f.name
             mode = pack.get("mode", "active")
