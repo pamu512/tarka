@@ -63,6 +63,12 @@ def main() -> int:
     subprocess.run([sys.executable, str(digest_gate), "--self-check"], check=True)
     honesty = Path("infra/scripts/ci/helm_prod_honesty.sh")
     subprocess.run(["bash", str(honesty), "--self-check"], check=True)
+    for extra in (
+        Path("infra/scripts/ci/test_helm_networkpolicy.py"),
+        Path("infra/scripts/ci/test_helm_servicemonitor.py"),
+        Path("infra/scripts/ci/test_production_observability_guide.py"),
+    ):
+        subprocess.run([sys.executable, str(extra)], check=True)
     return 0
 
 

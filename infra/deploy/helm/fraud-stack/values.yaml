@@ -18,6 +18,13 @@ global:
   imageRegistry: ""
   imagePullPolicy: IfNotPresent
   environment: dev
+  # Unset follows production profile (environment=prod or TARKA_DEPLOYMENT_PROFILE).
+  # Lite/dev stay open. Explicit opt-out does not drop other prod fail-closes.
+  # Mesh stays optional — do not require Istio.
+  networkPolicy:
+    enabled: null
+  serviceMonitor:
+    enabled: null
   serviceMesh:
     enabled: false
     provider: istio
