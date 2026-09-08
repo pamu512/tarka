@@ -74,6 +74,7 @@ nav:
       - Deployment: guides/deployment.md
       - Production secrets rotation: guides/production-secrets-rotation.md
       - Production observability: guides/production-observability.md
+      - Production backup / restore: guides/production-backup-restore.md
       - Service ports: guides/service-ports.md
       - Ingest & replay: guides/ingest-replay-onboarding.md
       - Graph analysis: guides/graph-analysis.md

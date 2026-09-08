@@ -5,7 +5,8 @@
 **Production secrets:** [secrets matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G0–G2 contract + honesty/digest CI stay; this page does not replace them.
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
-**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)
+**Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
+**Backup / restore (SoR Postgres + AGE Hunt note):** [production-backup-restore](./production-backup-restore.md)
 
 ---
 
@@ -475,6 +476,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Decision API and Case API can share a Postgres instance but use separate databases.
 - **Schema migrations:** both services ship **Alembic** (`services/decision-api/alembic/`, `services/case-api/alembic/`). On startup, **PostgreSQL** URLs run `alembic upgrade head` automatically; **SQLite** (tests / local quick runs) still uses `create_all`. For manual upgrades: `cd services/decision-api && DATABASE_URL=postgresql+psycopg://… alembic upgrade head` (and the same for `case-api` with its `DATABASE_URL`). If you already created tables with `create_all` and the schema matches the initial revision, run `**alembic stamp head`** once instead of `upgrade` to avoid “already exists” errors.
 - Audit records grow linearly with traffic. Implement a retention policy (e.g., archive records older than 90 days).
+- **Backup / restore:** buyer-owned external Postgres is the SoR for decisions, audit, packs, and labels. Rehearse [production-backup-restore](./production-backup-restore.md). Redis velocity is ephemeral. AGE Hunt on `enterprise-desk` is a volume restore, not `pg_dump`.
 - Add read replicas for Case API list queries under high load.
 
 ### Neo4j
@@ -517,7 +519,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Change default Postgres password (`fraud:fraud`) to a strong password
 - Change default Neo4j password (compose default `neo4j/tarka2026`) to a strong password
 - Enable Postgres SSL connections in production
-- Implement database backup and recovery procedures
+- Rehearse [production backup / restore](./production-backup-restore.md) against a scratch database (never the source URL)
 
 ### Secrets
 
