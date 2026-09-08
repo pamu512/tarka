@@ -47,7 +47,7 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | `RULE_GOVERNANCE_SECRET` | Required on **enterprise-desk** | Two-person live-rule. Optional on evaluate-only `prod-on-k8s`. |
 | Buyer Postgres URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.postgres.databaseUrl` (operator-supplied). In-cluster PG **off**. Never document `fraud` as a prod password. |
 | Buyer Redis URL | **Required** on `prod-on-k8s` / enterprise-desk | `global.externalServices.redis.redisUrl`. In-cluster Redis **off**. Required when `OIDC_ISSUER` is set (no in-process OIDC state). |
-| `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` | Optional | Desk humans. Set via `coreApi.extraEnv` or `coreApi.oidc`. Empty issuer = API-key mode. G4 wires first-class SSO. |
+| `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` | Optional | Desk humans. Helm values SoT (not extraEnv). Empty issuer = API-key mode. |
 | `OIDC_CLIENT_SECRET` | If issuer set | Desk humans only. Not a substitute for `API_KEYS`. |
 | `ATTESTATION_HMAC_SECRET` | If attestation on | Empty = that plane off. |
 | `OPENAI_API_KEY` / `UPSTREAM_API_KEY` | If Advise / investigation LLM on | Chart Shadow stays **OFF**. Investigation-agent on `prod-on-k8s` also needs `COPILOT_PRODUCTION_MODE` (no `ALLOWED_ANALYSTS=*`). |
@@ -62,9 +62,9 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | Actor | Path | Required for grade? |
 |-------|------|---------------------|
 | Machines / evaluate | `API_KEYS` (`X-API-Key`) | Yes |
-| Desk humans | OIDC optional (`OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv`; secret key `OIDC_CLIENT_SECRET`) | No. G4 lands SSO code; empty issuer stays valid. |
+| Desk humans | OIDC optional (`coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}`; secret key `OIDC_CLIENT_SECRET`) | No. Empty issuer stays valid. |
 
-Empty keys + empty OIDC + insecure off = fail closed. Missing secrets must not leave evaluate open. OIDC is not a first-class Helm values key.
+Empty keys + empty OIDC + insecure off = fail closed. Missing secrets must not leave evaluate open. `coreApi.oidc.*` is the first-class Helm values SoT.
 
 ## Frontend / Shadow on `prod-on-k8s`
 
@@ -83,7 +83,7 @@ Claim **GitLab-grade** only after the locked 2026-09-08 plan items **G0–G8** l
 | G0 | This contract | yes |
 | G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | yes |
 | G2 | Digest-pin CI (`--digest-map` + `helm_prod_digest_honesty.py`) | yes |
-| G4 | SSO (OIDC for desk humans; API keys stay the machine path) | no |
+| G4 | SSO (OIDC for desk humans; API keys stay the machine path) | yes |
 | G6 | Backup drill docs | no |
 | G7 | Upgrade docs | no |
 | G9 | Named-pilot checklist | no |

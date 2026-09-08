@@ -113,8 +113,12 @@ spec:
               value: /etc/tarka/desk_provision.json
             {{- end }}
             {{- range $k, $v := .Values.coreApi.extraEnv }}
+            {{- /* coreApi.oidc.* is SoT; extraEnv OIDC_* is leftover fallback when issuer is empty. */ -}}
+            {{- if and $oidcIssuer (has $k (list "OIDC_ISSUER" "OIDC_AUDIENCE" "OIDC_JWKS_URL" "OIDC_ROLES_CLAIM")) }}
+            {{- else }}
             - name: {{ $k }}
               value: {{ $v | quote }}
+            {{- end }}
             {{- end }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEYS

@@ -241,8 +241,9 @@ python3 infra/scripts/deploy/generate_cloud_values.py \
   --digest-map /path/to/image-digests.map \
   --output /tmp/prod-on-k8s.values.yaml
 
-# Create a Secret named tarka-app-secrets (API_KEYS, EVIDENCE_SIGNING_SECRET, …).
-# Matrix + rotation: docs/contracts/production-install-v1.md and production-secrets-rotation.md
+# Create a Secret named tarka-app-secrets (API_KEYS, EVIDENCE_SIGNING_SECRET, …;
+# OIDC_CLIENT_SECRET if desk SSO is on). Matrix + rotation:
+# docs/contracts/production-install-v1.md and production-secrets-rotation.md
 helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   -n fraud --create-namespace \
   -f /tmp/prod-on-k8s.values.yaml \
@@ -251,11 +252,42 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
 
 CI (`cloud-preset-smoke` + `infra/scripts/ci/helm_prod_digest_honesty.py --self-check`) **fails** an empty digest on the prod-on-k8s honesty / publish path. `--allow-empty-digest` remains only so placeholder `helm template` still works — that render is not a grade.
 
-OIDC is not a first-class values key. Set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` via `coreApi.extraEnv` (the preset includes empty placeholders). When `OIDC_ISSUER` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
+Desk SSO is first-class Helm values: `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` (chart `values.yaml` is SoT). Empty `issuer` keeps API keys as the machine path (`GET /auth/config` returns `oidc_enabled: false`). Do not set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` / `OIDC_ROLES_CLAIM` via `coreApi.extraEnv` unless you are on a leftover overlay — first-class keys win when `issuer` is set. `OIDC_CLIENT_ID` stays `extraEnv`; `OIDC_CLIENT_SECRET` is the `global.appSecretsName` key. When `issuer` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 
-When `global.environment=prod`, the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs — the chart will not invent `values.networkPolicy`), and HTTPS 443 from core-api when `coreApi.extraEnv` includes `OIDC_*`. Dev/default values emit no NetworkPolicy. Ingress from another namespace is operator-owned.
+When `global.environment=prod`, the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs — the chart will not invent `values.networkPolicy`), and HTTPS 443 from core-api when `coreApi.oidc.issuer` is set (or leftover `coreApi.extraEnv` `OIDC_ISSUER`). Dev/default values emit no NetworkPolicy. Ingress from another namespace is operator-owned. G5 owns NetworkPolicy tightening; this page only documents the first-class issuer gate.
 Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. The documented generate command above **requires** `--digest-map` so values contain `sha256:<64-hex>` pins (`image: repo@sha256:…`; tag is ignored when digest is set). An empty digest on the committed preset is only so CI can `--allow-empty-digest` and `helm template` placeholders — that is **not** immutable and **not** a GitLab-grade claim.
 When `global.environment=prod`, the chart emits Prometheus Operator `ServiceMonitor` objects for each enabled HTTP API that already exposes `/metrics` on its Service port (core-api `:8000`, signal-api `:8004`, investigation-agent `:8006`; 30s scrape). Default/dev values emit none. This uses the existing `app` labels and Service ports — there is no `values.serviceMonitor` key. The cluster must already run Prometheus Operator.
+
+### Enterprise desk (Helm)
+
+`enterprise-desk-on-k8s` is the thin Hunt desk on buyer SoR Postgres + Redis (AGE sidecar). Same OIDC SoT as prod-on-k8s: `coreApi.oidc.*`. Empty issuer is valid. Frontend is on; still beta — not GitLab-grade.
+
+```yaml
+coreApi:
+  oidc:
+    issuer: "https://idp.example.com"
+    audience: "tarka"
+    jwksUrl: "https://idp.example.com/jwks"
+    rolesClaim: "roles"
+  extraEnv:
+    OIDC_CLIENT_ID: "tarka-desk"
+```
+
+`--preset enterprise-desk-on-k8s` via `generate_cloud_values.py`. `RULE_FORCE_LIVE_TWO_PERSON` is force-live two-person, not a Promote policy language.
+
+## Install governance
+
+Operator process for a named beachhead install. Not a second product policy language.
+
+| Topic | Install choice | Not this |
+|-------|----------------|----------|
+| Desk humans | Optional `coreApi.oidc.issuer` | Building an IdP; SAML mandatory |
+| Machines | `API_KEYS` | OIDC required to evaluate |
+| Roles | IdP claim values = desk strings (`RiskArchitect` / `FraudAnalyst`) | A second mapping DSL |
+| Promote two-person | Optional operator maker-checker (document who may click Promote). Existing `RULE_FORCE_LIVE_TWO_PERSON` covers force-live only. | Shipping a new Promote policy engine in this chart |
+| Grade claim | [production-install-v1](../../contracts/production-install-v1.md) | Claiming GitLab-grade from `helm template` |
+
+Release checklist: `infra/deploy/release/governance-checklist.yaml`.
 
 ### Custom Values for Production
 
@@ -469,7 +501,9 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Set `API_KEYS` on all services with strong, unique keys
 - Rotate API keys on a regular schedule
 - Use separate API keys for each client application
-- Desk SSO is a core-api BFF: set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, and `OIDC_JWKS_URL` on core-api via Helm `coreApi.extraEnv` only (no `values.oidcIssuer` key). Put `OIDC_CLIENT_SECRET` on the existing `global.appSecretsName` secret under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. When `OIDC_ISSUER` is empty the desk stays in local mode (`GET /auth/config` returns `oidc_enabled: false`; `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` still work). Production + a non-empty issuer requires a resolved `REDIS_URL` (Helm fail at render; process refuse at start) — no in-process OIDC state fallback.
+- Desk SSO is a core-api BFF. Set `coreApi.oidc.issuer` / `audience` / `jwksUrl` / `rolesClaim` in Helm values (SoT). Set `OIDC_CLIENT_ID` via `coreApi.extraEnv`. Put `OIDC_CLIENT_SECRET` on `global.appSecretsName` under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. Empty issuer = API-key / local mode (`GET /auth/config` returns `oidc_enabled: false`). Production + a non-empty issuer requires a resolved `REDIS_URL` (Helm fail at render; process refuse at start) — no in-process OIDC state fallback. Tarka does not ship an IdP and does not require SAML.
+- Roles claim → desk roles (no second policy language). `coreApi.oidc.rolesClaim` (default `roles`) is the JWT claim name. Claim values **are** the desk role strings: `RiskArchitect` (visual builder, field map, calibration-window override on Promote) vs `FraudAnalyst` (investigator — Hunt / leftovers; does not author rules). API RBAC hierarchy remains `admin` / `analyst` / `viewer` / `service` on the same claim when you use those strings. Do not invent a second mapping DSL.
+- Optional maker-checker for **Promote** is install governance only (operator two-person process / existing `RULE_FORCE_LIVE_TWO_PERSON` for force-live). It is not a second product policy language and is not required for API-key machines. See [Install governance](#install-governance) below. Grade claim SoT: [production-install-v1](../../contracts/production-install-v1.md).
 
 ### Network
 

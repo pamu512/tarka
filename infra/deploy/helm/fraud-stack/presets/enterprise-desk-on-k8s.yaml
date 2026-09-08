@@ -15,6 +15,13 @@
 # AGE_POSTGRES_PASSWORD, AGE_DATABASE_URL (Hunt sidecar; not core SoR).
 # Frontend image must be built with VITE_GRAPH_SERVICE_URL=/api/graph (Hunt on).
 # Do not point DATABASE_URL at the age-postgres service (production_profile refuses).
+#
+# Desk SSO: coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim} (values.yaml SoT).
+# Empty issuer = API-key machine path. Non-empty issuer requires resolved Redis.
+# OIDC_CLIENT_ID via extraEnv; OIDC_CLIENT_SECRET on global.appSecretsName.
+# rolesClaim strings are desk roles (RiskArchitect vs FraudAnalyst investigator)
+# — no second policy language. Optional Promote maker-checker is install
+# governance only (see deployment.md); RULE_FORCE_LIVE_TWO_PERSON is force-live.
 
 global:
   environment: prod

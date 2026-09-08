@@ -16,11 +16,13 @@
 # Required Secret keys in global.appSecretsName: API_KEYS,
 # EVIDENCE_SIGNING_SECRET, RULE_GOVERNANCE_SECRET. Matrix:
 # docs/contracts/production-install-v1.md. Empty API_KEYS + empty
-# OIDC_ISSUER + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
+# coreApi.oidc.issuer + ALLOW_INSECURE_NO_AUTH=false is 503, not "no auth".
 # TARKA_DEPLOYMENT_PROFILE=production runs those fail-closed checks.
-# OIDC is not a first-class values key — set issuer via extraEnv.
-# Production profile does not require OIDC_ISSUER (API keys are the machine path).
-# If OIDC_ISSUER is set, Redis must be resolved (same fail-closed rule as core-api).
+# Desk SSO is first-class: coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}
+# (chart values.yaml is SoT — not extraEnv). Empty issuer = API-key machine path.
+# Production does not require an issuer. Non-empty issuer requires resolved Redis
+# (same fail-closed rule as core-api; no in-process OIDC state fallback).
+# OIDC_CLIENT_ID stays extraEnv; OIDC_CLIENT_SECRET is the app-secrets key.
 # investigation-agent uses the already-required external Postgres (no new values keys).
 # COPILOT_PRODUCTION_MODE is the same Python lock as compose production-hardening
 # (API_KEYS required, no ALLOWED_ANALYSTS=*, LLM key required). ExtraEnv without that
@@ -58,6 +60,11 @@ coreApi:
   replicaCount: 2
   allowInsecureNoAuth: false
   tenantBindingRequired: true
+  oidc:
+    issuer: ""
+    audience: "tarka"
+    jwksUrl: ""
+    rolesClaim: "roles"
   podDisruptionBudget:
     enabled: true
     minAvailable: 1
@@ -71,10 +78,6 @@ coreApi:
     TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY: "true"
     CASE_API_PRODUCTION_MODE: "true"
     SAR_TRANSPORT: "off"
-    OIDC_ISSUER: ""
-    OIDC_AUDIENCE: "tarka"
-    OIDC_JWKS_URL: ""
-    OIDC_ROLES_CLAIM: "roles"
 
 signalApi:
   enabled: true

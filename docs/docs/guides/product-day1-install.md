@@ -78,7 +78,8 @@ Do **not** treat these as `make product`. Chart `values.yaml` defaults `graphSer
 
 | Preset | Desk | Graph | Shadow / Advise | Notes |
 |--------|------|-------|-----------------|-------|
-| **prod-on-k8s** | frontend **OFF** | not the product desk | Shadow **OFF** | core-api HA. `desk_provision` ConfigMap still mounts on core-api. No Hunt glass. |
+| **prod-on-k8s** | frontend **OFF** | not the product desk | Shadow **OFF** | core-api HA. `desk_provision` ConfigMap still mounts on core-api. No Hunt glass. Desk SSO is optional `coreApi.oidc.*` (empty issuer = API keys). |
+| **enterprise-desk-on-k8s** | frontend **ON** | AGE Hunt sidecar | Shadow **OFF** | Buyer SoR Postgres + Redis. Same `coreApi.oidc.*` SoT. Still beta. |
 | **evaluate-only** | frontend **ON** | `graphService` **OFF** | investigation **OFF** | Evaluate-shaped cluster + a frontend. Not lite compose (lite compose still has AGE + graph-service). Hunt hidden unless you bake a graph URL. |
 | **lite-on-k8s** | frontend **OFF** | not Hunt glass | investigation **ON** | Not evaluate-only. Not `make product`. |
 
@@ -101,6 +102,17 @@ helm install tarka infra/deploy/helm/fraud-stack \
 ```
 
 prod-on-k8s is a separate HA overlay. It is not this evaluate-only shape and it is not `make product`.
+
+### Helm desk SSO (values-first)
+
+`coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` on the chart — not extraEnv lore. Empty issuer = machines stay on `API_KEYS`. Non-empty issuer requires resolved Redis.
+
+| Claim value | Desk job |
+|-------------|---------|
+| `RiskArchitect` | Visual builder, field map, calibration-window override on Promote |
+| `FraudAnalyst` | Investigator — Hunt / leftovers. Does not author rules. |
+
+Same claim name (`rolesClaim`, default `roles`). No second policy language. Optional Promote maker-checker is [install governance](./deployment.md#install-governance) only. Grade contract: [production-install-v1](../../contracts/production-install-v1.md).
 
 ## What this page does not promise
 

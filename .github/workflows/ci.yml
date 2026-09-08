@@ -268,7 +268,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install test dependencies
-        run: pip install pytest fastapi httpx sqlalchemy
+        run: pip install pytest fastapi httpx sqlalchemy PyJWT cryptography
       - name: Shared auth + tenant binding regression (TENANT_BINDING_REQUIRED=${{ matrix.tenant_binding_required }})
         run: pytest -v tests/
         working-directory: services/shared
