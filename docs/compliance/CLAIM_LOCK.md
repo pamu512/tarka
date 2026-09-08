@@ -22,7 +22,7 @@
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
-| Commercial install pack / support claims | [`../../SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
+| Commercial install pack / support claims | [`SUPPORT.md`](../../SUPPORT.md) — VPC / Helm / SSO / pack-GitOps assist + severity **intent**. Not a 99.99% SLA. |
 | Production / GitLab-grade install | Intended: [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md) (G0 PR #405 — **not on master**). Until merge, [SUPPORT.md](../../SUPPORT.md) stub-notes that path. Do not claim the grade from this row. |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
