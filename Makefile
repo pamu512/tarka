@@ -10,13 +10,14 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor help
+.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor sdk-walk help
 
 help:
-	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick"
+	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk"
 	@echo "  doctor   preflight: Docker, day-1 ports, ~4 GB RAM"
 	@echo "  demo     clone-and-run: lite+desk up, honest evaluate walk, one printed click"
 	@echo "  product  product skin + desk_provision; Shadow only when LLM URL is set"
+	@echo "  sdk-walk optional: same three evaluate cases via Python DecisionClient (desk already up)"
 
 # Day-1 preflight (no compose). See docs/docs/guides/clone-demo.md
 doctor:
@@ -29,6 +30,11 @@ demo:
 # Product skin + desk_provision.json. Does not change make demo.
 product:
 	bash "$(ROOT)/scripts/oss/up_product.sh"
+
+# Optional SDK path: same three shipped-pack evaluate POSTs via DecisionClient.
+# Desk must already be up. Not a second Day-1 promise.
+sdk-walk:
+	PYTHONPATH="$(ROOT)/packages/fraud-sdk-python/src:$(ROOT)/scripts/oss" python3 "$(ROOT)/scripts/oss/sdk_walk.py"
 
 # Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
 policy-check:
