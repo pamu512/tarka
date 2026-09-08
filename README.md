@@ -53,6 +53,7 @@ OIDC optional.
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Closed omniscient AI author loop; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft; AI backtest required first. FP late-label → Observe soften (not CRM) | Beachhead seeds as live; banks as the beachhead |
 | Graph-risk / ring-score challenger. Beachhead Observe seeds (promo / COD / payout) stay Observe | Users / LOI / ARR as traction |
+| `prod-on-k8s` is core-api HA (external PG/Redis). Digest pin required for a grade claim. No sqlite/`emptyDir` for decisions/audit/labels/packs in production-labeled presets. [production-install-v1](docs/contracts/production-install-v1.md) | GitLab-grade already achieved; GA from preset |
 
 **Docs:** [`docs/INDEX.md`](docs/INDEX.md) · [`SECURITY.md`](SECURITY.md) · [`SUPPORT.md`](SUPPORT.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
