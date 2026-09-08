@@ -16,7 +16,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 CHART="$ROOT_DIR/infra/deploy/helm/fraud-stack"
 GEN="$ROOT_DIR/infra/scripts/deploy/generate_cloud_values.py"
-BAD_FIXTURE="$ROOT_DIR/infra/scripts/ci/fixtures/helm_prod_honesty_bad.manifest.yaml"
+BAD_FIXTURE_DIR="$ROOT_DIR/infra/scripts/ci/fixtures/helm_prod_honesty"
 
 usage() {
   cat <<'EOF'
@@ -44,13 +44,13 @@ if re.search(r"sqlite(\+|://|:)|[A-Za-z0-9_./-]+\.sqlite3?", text, re.I):
 if re.search(r"name:\s+TREND_AGENT_(DATA_DIR|DB_NAME)\b", text):
     errors.append("TREND sqlite durable path env (TREND_AGENT_DATA_DIR / TREND_AGENT_DB_NAME)")
 if re.search(
-    r"name:\s+INVESTIGATION_STORE\n\s+value:\s+\"sqlite\"",
+    r"name:\s+INVESTIGATION_STORE\n\s+value:\s+[\"']?sqlite[\"']?",
     text,
 ):
     errors.append("INVESTIGATION_STORE=sqlite")
 
 # chart-default password fraud (user name "fraud" in dummy URLs is allowed)
-if re.search(r"name:\s+POSTGRES_PASSWORD\n\s+value:\s+\"fraud\"", text):
+if re.search(r"name:\s+POSTGRES_PASSWORD\n\s+value:\s+[\"']?fraud[\"']?", text):
     errors.append("POSTGRES_PASSWORD uses chart-default 'fraud'")
 if re.search(r":fraud@", text):
     errors.append("connection string embeds password 'fraud'")
@@ -225,16 +225,40 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$SELF_CHECK" -eq 1 ]]; then
-  if [[ ! -f "$BAD_FIXTURE" ]]; then
-    echo "FAIL: missing negative fixture $BAD_FIXTURE" >&2
+  if [[ ! -d "$BAD_FIXTURE_DIR" ]]; then
+    echo "FAIL: missing negative fixture dir $BAD_FIXTURE_DIR" >&2
     exit 2
   fi
-  echo "self-check: negative fixture must fail"
-  if scan_manifest "$BAD_FIXTURE"; then
-    echo "FAIL: negative fixture passed honesty scan (gate is blind)" >&2
-    exit 1
-  fi
-  echo "OK: negative fixture failed as required"
+  # One fixture per fail class. A single OR-blob would stay green if one check dies.
+  declare -A EXPECTED_FAIL=(
+    [bad_sqlite_url]="sqlite connection string"
+    [bad_trend_path]="TREND sqlite durable path"
+    [bad_investigation_store]="INVESTIGATION_STORE=sqlite"
+    [bad_emptydir_durable]="emptyDir on durable volume"
+    [bad_incluster_postgres]="in-cluster core Postgres Deployment"
+    [bad_password_fraud]="password"
+  )
+  for class in bad_sqlite_url bad_trend_path bad_investigation_store \
+    bad_emptydir_durable bad_incluster_postgres bad_password_fraud; do
+    fixture="$BAD_FIXTURE_DIR/${class}.manifest.yaml"
+    if [[ ! -f "$fixture" ]]; then
+      echo "FAIL: missing per-class fixture $fixture" >&2
+      exit 2
+    fi
+    echo "self-check: $class must fail"
+    errf="$(mktemp)"
+    if scan_manifest "$fixture" 2>"$errf"; then
+      echo "FAIL: $class passed honesty scan (gate is blind)" >&2
+      cat "$errf" >&2
+      exit 1
+    fi
+    if ! grep -q "${EXPECTED_FAIL[$class]}" "$errf"; then
+      echo "FAIL: $class failed but not for '${EXPECTED_FAIL[$class]}'" >&2
+      cat "$errf" >&2
+      exit 1
+    fi
+    echo "OK: $class failed as required"
+  done
   echo "self-check: prod-on-k8s must pass"
   prod_manifest="$(render_preset prod-on-k8s)"
   scan_manifest "$prod_manifest"
