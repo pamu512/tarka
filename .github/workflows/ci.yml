@@ -1052,3 +1052,7 @@ jobs:
         run: python3 infra/scripts/ci/test_age_restore_drill.py
       - name: AGE restore drill (docker)
         run: bash scripts/oss/age_restore_drill.sh
+      - name: SoR backup/restore drill contract
+        run: python3 infra/scripts/ci/test_backup_restore_drill.py
+      - name: SoR backup/restore docker smoke
+        run: bash infra/scripts/deploy/backup_restore_drill.sh --docker-smoke
