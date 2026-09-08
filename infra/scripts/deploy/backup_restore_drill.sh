@@ -276,6 +276,7 @@ docker_smoke() {
     echo "docker required for --docker-smoke" >&2
     exit 1
   fi
+  # Hardcoded so EXIT trap + set -u still works after locals unwind.
   local net="tarka-sor-backup-net"
   local src_c="tarka-sor-backup-src"
   local dst_c="tarka-sor-backup-dst"
@@ -284,8 +285,8 @@ docker_smoke() {
   local db="${TARKA_BACKUP_PGDATABASE:-fraud}"
 
   cleanup() {
-    docker rm -f "$src_c" "$dst_c" >/dev/null 2>&1 || true
-    docker network rm "$net" >/dev/null 2>&1 || true
+    docker rm -f tarka-sor-backup-src tarka-sor-backup-dst >/dev/null 2>&1 || true
+    docker network rm tarka-sor-backup-net >/dev/null 2>&1 || true
   }
   trap cleanup EXIT
   cleanup
@@ -306,16 +307,29 @@ docker_smoke() {
     -e POSTGRES_DB="$db" \
     "$PG_IMAGE" >/dev/null
 
+  # Same initdb-restart race as AGE: first pg_isready is not stable.
   wait_ready() {
     local c="$1"
+    local ready=0
     local i
-    for i in $(seq 1 60); do
+    for i in $(seq 1 90); do
       if docker exec "$c" pg_isready -U "$user_name" -d "$db" >/dev/null 2>&1; then
-        return 0
+        ready=$((ready + 1))
+        if [[ "$ready" -ge 3 ]]; then
+          return 0
+        fi
+      else
+        ready=0
+        if ! docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null | grep -q true; then
+          echo "postgres container not running: $c" >&2
+          docker logs "$c" >&2 || true
+          return 1
+        fi
       fi
       sleep 1
     done
-    echo "postgres not ready: $c" >&2
+    echo "postgres not ready: $c (90s, need 3 consecutive)" >&2
+    docker logs "$c" >&2 || true
     return 1
   }
   echo "waiting for smoke Postgres…"
