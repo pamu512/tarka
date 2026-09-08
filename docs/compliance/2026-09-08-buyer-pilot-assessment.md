@@ -20,6 +20,17 @@ Buyer stack (keep; do not invent extras): Drools + Groovy (**~600 rules**) · **
 
 Allowed improvement axes vs BAU: **significant opex** (fewer eng hours on rule change, shorter signal→live pack SLA, less dual-write thrash), **faster pack/iterate**, **clearer receipt-why / override**. **MUST-NOT:** higher FI · detect more than ~7% GMV · auto-migrate 600 Drools → JSON · replace the 8 loops / 40 models.
 
+### Primary vs cherry
+
+Do not elevate cherry to must-have. Ops buy-in still hinges on **significant opex** vs ~600 rules / ~40 models / 8 supervised microservices.
+
+| Layer | Axes | Gate? |
+|-------|------|-------|
+| **Primary (cut bar)** | **Opex**, **eng load**, **SLA** — named pain-rule hours, signal→live pack, less dual-write | **Yes.** FAIL if no significant opex path. |
+| **Cherry (nice, not the cut)** | Anything tip can *prove* in **(a) uplift** or **(b) compute-cost reduction** | **No.** FI uplift and infra-$ are **not** PASS/FAIL. Unproved cherry is omitted, not invented. |
+
+Tip today: no proved FI uplift (**MUST-NOT** claim mid-60s → 80 anyway). No proved compute-$ vs their 8 loops / Hive / Bedrock. A later named-pilot measurement may fill cherry; it still does not move the cut bar. Modules stay thin beside Drools; BAU untouched.
+
 ### CUT — does Tarka even make the cut?
 
 **Conditional PASS** — only if we can **name** where significant opex comes from at this scale. Not FI. Not GMV. Not a 600-rule rewrite.
@@ -405,7 +416,7 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | **FAIL** — desk leftover / Promote as week-1 | **NO** until F1–F3 | Receipt-why 403; leftover draft without why; silent Promote. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** CUT: PASS only if 1–N high-pain packs cut significant opex vs maintaining ~600 Drools/Groovy + ~40 models / 8 supervised loops (fewer eng hours, shorter signal→live SLA, less dual-write) — FAIL FI/GMV, FAIL a 600-rule migrate, FAIL if Tarka is just another plane. MODULES: evaluate + JSON packs + receipts beside Drools; do not replace the 8 loops or 40 models. BAU: 600 Drools stay live; selective pain-rule packs; Hive/Bedrock stay. Desk leftover/Promote FAIL until F1–F3.
+**Anoop one-liner:** CUT: PASS only if 1–N high-pain packs cut significant opex vs maintaining ~600 Drools/Groovy + ~40 models / 8 supervised loops (opex / eng / SLA) — FAIL if no significant opex path. FI uplift and compute-$ are cherry, not the gate. MODULES: evaluate + JSON packs + receipts beside Drools; do not replace the 8 loops or 40 models. BAU: 600 Drools stay live; selective pain-rule packs; Hive/Bedrock stay. Desk leftover/Promote FAIL until F1–F3.
 
 ---
 
