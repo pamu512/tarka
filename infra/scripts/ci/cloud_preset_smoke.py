@@ -67,6 +67,9 @@ def main() -> int:
         Path("infra/scripts/ci/test_helm_networkpolicy.py"),
         Path("infra/scripts/ci/test_helm_servicemonitor.py"),
         Path("infra/scripts/ci/test_production_observability_guide.py"),
+        Path("infra/scripts/ci/test_helm_upgrade_dry_run.py"),
+        Path("infra/scripts/ci/test_schema_migration_policy.py"),
+        Path("infra/scripts/ci/test_production_upgrade_guide.py"),
     ):
         subprocess.run([sys.executable, str(extra)], check=True)
     return 0
