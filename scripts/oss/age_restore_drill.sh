@@ -36,6 +36,36 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Official AGE/Postgres images restart once after initdb. One pg_isready hit
+# then an immediate docker exec is the CI flake (exit 1 right after "waiting…").
+# Require 3 consecutive successes. Timeout still fails — no fake green.
+wait_pg() {
+  local name="$1"
+  local label="$2"
+  local ready=0
+  local i
+  echo "waiting for ${label}..."
+  for i in $(seq 1 90); do
+    if docker exec "$name" pg_isready -U "$USER_NAME" -d "$DB" >/dev/null 2>&1; then
+      ready=$((ready + 1))
+      if [[ "$ready" -ge 3 ]]; then
+        return 0
+      fi
+    else
+      ready=0
+      if ! docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null | grep -q true; then
+        echo "${label}: container not running" >&2
+        docker logs "$name" >&2 || true
+        return 1
+      fi
+    fi
+    sleep 1
+  done
+  echo "${label}: pg_isready timeout (90s, need 3 consecutive)" >&2
+  docker logs "$name" >&2 || true
+  return 1
+}
+
 cleanup
 docker network create "$NET" >/dev/null
 docker volume create "$VOL_SRC" >/dev/null
@@ -48,14 +78,7 @@ docker run -d --name "$SRC" --network "$NET" \
   "$IMAGE" \
   postgres -c shared_preload_libraries=age >/dev/null
 
-echo "waiting for AGE source..."
-for _ in $(seq 1 60); do
-  if docker exec "$SRC" pg_isready -U "$USER_NAME" -d "$DB" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
-docker exec "$SRC" pg_isready -U "$USER_NAME" -d "$DB" >/dev/null
+wait_pg "$SRC" "AGE source"
 
 seed_sql=$(cat <<'SQL'
 CREATE EXTENSION IF NOT EXISTS age;
@@ -98,14 +121,7 @@ docker run -d --name "$DST" --network "$NET" \
   "$IMAGE" \
   postgres -c shared_preload_libraries=age >/dev/null
 
-echo "waiting for AGE restore target..."
-for _ in $(seq 1 60); do
-  if docker exec "$DST" pg_isready -U "$USER_NAME" -d "$DB" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 1
-done
-docker exec "$DST" pg_isready -U "$USER_NAME" -d "$DB" >/dev/null
+wait_pg "$DST" "AGE restore target"
 
 hop_sql=$(cat <<'SQL'
 LOAD 'age';
