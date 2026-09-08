@@ -89,6 +89,7 @@ class TestHelmNetworkPolicy(unittest.TestCase):
                     "postgresql+asyncpg://fraud:pw@db.internal:5432/fraud",
                     "--redis-url",
                     "rediss://redis.internal:6379/0",
+                    "--allow-empty-digest",
                     "--output",
                     str(out),
                 ],

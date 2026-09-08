@@ -88,9 +88,9 @@ Do **not** treat these as `make product`. Chart `values.yaml` defaults `graphSer
 
 | Setting | Honesty |
 |---------|---------|
-| `coreApi.tag: "1.3.0-beta"` (empty `digest`) | Tag can move. Chart forbids `:latest` in prod; it does **not** make beta immutable. |
-| `coreApi.digest: "sha256:<64-hex>"` (same for `signalApi` / `investigationAgent`) | Renders `image: repo@sha256:…`. Tag is ignored. Pin this before a real prod apply. |
-| Empty digest in CI presets | Allowed so `helm template` of placeholders still works. |
+| `coreApi.tag: "1.3.0-beta"` (empty `digest`) | Tag can move. Chart forbids `:latest` in prod; it does **not** make beta immutable. Empty digest ≠ grade. |
+| `coreApi.digest: "sha256:<64-hex>"` (same for `signalApi` / `investigationAgent` when enabled) | Renders `image: repo@sha256:…`. Tag is ignored. Documented generate: `--digest-map` (see [deployment](deployment.md#large-org--prod-on-k8s)). |
+| Empty digest in CI presets | `--allow-empty-digest` so `helm template` of placeholders still works. Limitation / non-grade. CI honesty **fails** empty digest on the prod-on-k8s publish path. |
 
 Helm `deskProvision.enabled` writes a ConfigMap (`schema_id` `tarka.desk_provision/v1`) and sets `TARKA_DESK_PROVISION_PATH`. Env still wins. Empty hook URLs stay off.
 

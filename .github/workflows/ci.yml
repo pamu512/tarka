@@ -1032,8 +1032,11 @@ jobs:
             --image-registry registry.example.com/tarka \
             --db-url 'postgresql+asyncpg://fraud:pw@db.internal:5432/fraud' \
             --redis-url 'redis://redis.internal:6379/0' \
+            --allow-empty-digest \
             --output /tmp/prod-on-k8s.values.yaml
           helm template tarka infra/deploy/helm/fraud-stack -f /tmp/prod-on-k8s.values.yaml >/tmp/tarka-prod-on-k8s.yaml
+      - name: Helm prod digest honesty (G2 empty digest fails grade path)
+        run: python3 infra/scripts/ci/helm_prod_digest_honesty.py --self-check
       - name: Helm template (generated enterprise-desk preset)
         run: |
           python3 infra/scripts/deploy/generate_cloud_values.py \
