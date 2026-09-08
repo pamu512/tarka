@@ -85,6 +85,9 @@ class TestBackupRestoreDrill(unittest.TestCase):
         self.assertIn("same path as --live", text)
         self.assertIn("./data/decision_logs/decision-log.jsonl", text)
         self.assertIn("./rules/_loop/promote_export.jsonl", text)
+        # EXIT trap must not read locals (set -u: src_c unbound). Hardcoded names.
+        self.assertIn("docker rm -f tarka-sor-backup-src tarka-sor-backup-dst", text)
+        self.assertIn("need 3 consecutive", text)
         self.assertNotRegex(text, r"(?m)^\s*pg_dump\b.*age")
 
     def test_dry_run_exits_zero_without_database(self) -> None:
