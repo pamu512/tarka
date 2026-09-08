@@ -39,6 +39,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 |-------------|--------------------------|
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
+| JSON packs are the evaluate plane. No Drools / Groovy importer. Parallel / phased cutover only. | Drop-in Drools import; no-code NLP replaces Drools; replace the Drools estate in a 2-week pilot |
 | Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
@@ -46,7 +47,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
 | Optional `vendor_score` is a buyer HTTP slot. Empty URL = off. Fetch is fail-soft and lands on the **receipt** after packs run — it does not feed decide-time JSON. Packs read inbound payload fields the buyer already published. Tarka does not replace Hive / supervised microservices. | Bundled third-party score SKU; Tarka as the model brain; migrate training off Hive / Bedrock; AutoML replacing buyer models |
-| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| Empty `GRAPH_SERVICE_URL` = hops off (`graph:missing`), not sibling identity. Evaluate never waits on graph. Connecting AGE / graph-service / Hunt is a workstream. Configured skip-relations on an existing graph are enrichment, not Tarka named-hop packs (`USES_DEVICE` …). | Always-on graph; live multi-hop from skip-only Janus; Hunt as a free upgrade of the buyer graph; closed omniscient AI author loop |
 | Advise is optional BYO. Gemini / Claude / Qwen / vLLM / OpenAI-compat presets exist on `shadow_agent`. Empty URL = off. Day-1 `make demo` never starts `shadow_agent`. `SHADOW_LLM_BACKEND=azure`, `vertex`, or `bedrock` **refuses** (use `self-hosted` + OpenAI-compat URL — including a Bedrock-compat proxy). Tarka `COPILOT_*` is investigation-agent assurance, not Microsoft Copilot. No Tarka-sold tokens. | Microsoft Copilot / BI-chat as a Tarka plane; native Azure / Vertex / Bedrock SDK; Vertex-only Advise; Tarka-branded model; closed omniscient author loop |
 | Observe bake-off JSON (`GET /v1/observe/loop-metrics`) + receipt export (`GET /v1/exports/receipts`) are API feeds. Buyer BI / Tableau owns leadership KPIs. Empty object sink = local only. | Tarka replaces Tableau; Tarka-hosted warehouse / BigQuery; desk Analytics as the reporting SoR |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
