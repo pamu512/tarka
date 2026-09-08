@@ -15,7 +15,7 @@ docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
 Tight velocity + automation hints:
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/decisions/evaluate \
+curl -s -X POST http://localhost:8000/decisions/v1/decisions/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "demo",
