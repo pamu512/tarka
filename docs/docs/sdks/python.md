@@ -37,7 +37,7 @@ pip install -e ".[dev]"
 from fraud_stack_sdk import DecisionClient
 
 client = DecisionClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8000/decisions",
     api_key="your-api-key",
 )
 
@@ -86,7 +86,7 @@ import asyncio
 from fraud_stack_sdk import DecisionClient
 
 client = DecisionClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8000/decisions",
     api_key="your-api-key",
 )
 
@@ -150,7 +150,7 @@ Enable `server_signals=True` and pass the client IP:
 
 ```python
 client = DecisionClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8000/decisions",
     api_key="your-api-key",
     server_signals=True,
 )
@@ -272,7 +272,7 @@ from fraud_stack_sdk import DecisionClient
 
 app = FastAPI()
 fraud_client = DecisionClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8000/decisions",
     server_signals=True,
 )
 
@@ -306,7 +306,7 @@ async def checkout(request: Request):
 from fraud_stack_sdk import DecisionClient
 
 fraud_client = DecisionClient(
-    base_url="http://localhost:8000",
+    base_url="http://localhost:8000/decisions",
     api_key="your-api-key",
     server_signals=True,
 )
