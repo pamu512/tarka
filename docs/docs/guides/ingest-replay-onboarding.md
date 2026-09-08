@@ -24,7 +24,7 @@ Install from `packages/fraud-sdk-python` (`pip install -e .`).
 ```python
 from fraud_stack_sdk import DecisionClient, EventIngestClient
 
-decision = DecisionClient("http://localhost:8000", api_key="...")
+decision = DecisionClient("http://localhost:8000/decisions", api_key="...")
 ingest = EventIngestClient("http://localhost:8007", api_key="...")
 
 # Sync evaluate
