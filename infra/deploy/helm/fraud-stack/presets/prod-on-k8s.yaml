@@ -79,13 +79,13 @@ coreApi:
 signalApi:
   enabled: true
   tag: "1.3.0-beta"
-  # Optional digest pin (same as coreApi.digest). Empty is allowed for CI.
+  # Empty here is the same limitation as coreApi.digest. Grade generate --digest-map.
   digest: ""
 
 investigationAgent:
   enabled: true
   tag: "1.3.0-beta"
-  # Optional digest pin when this workload is enabled in prod.
+  # Empty here is the same limitation as coreApi.digest. Grade generate --digest-map.
   digest: ""
   replicaCount: 2
   dataPersistence:

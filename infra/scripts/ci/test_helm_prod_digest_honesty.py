@@ -98,6 +98,7 @@ class TestHelmProdDigestHonesty(unittest.TestCase):
             ).stdout
         self.assertIn(f"tarka-core-api@{CORE}", rendered)
         self.assertIn(f"tarka-signal-api@{SIGNAL}", rendered)
+        self.assertIn(f"tarka-investigation-agent@{AGENT}", rendered)
 
     def test_lite_values_are_not_a_grade_fail(self) -> None:
         with tempfile.TemporaryDirectory() as td:

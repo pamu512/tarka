@@ -100,6 +100,8 @@ def validate_sha256_digest(value: str) -> bool:
 
 
 def parse_digest_map(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        raise SystemExit(f"digest-map file not found: {path}")
     raw = path.read_text(encoding="utf-8")
     if not raw.strip():
         raise SystemExit(f"digest-map empty: {path}")
@@ -143,15 +145,25 @@ def parse_digest_map(path: Path) -> dict[str, str]:
 
 def apply_digest_map(rendered: str, digest_map: dict[str, str]) -> str:
     current = ""
+    written: set[str] = set()
     out: list[str] = []
+
+    def _flush_digest() -> None:
+        if current in digest_map and current not in written:
+            out.append(f'  digest: "{digest_map[current]}"')
+            written.add(current)
+
     for line in rendered.splitlines():
         top = _TOP_KEY_RE.match(line)
         if top:
+            _flush_digest()
             current = top.group(1)
         if current in digest_map and _DIGEST_LINE_RE.match(line):
             out.append(f'  digest: "{digest_map[current]}"')
+            written.add(current)
             continue
         out.append(line)
+    _flush_digest()
     return "\n".join(out)
 
 
@@ -180,9 +192,9 @@ def enabled_digest_keys(rendered: str) -> tuple[str, ...]:
     fields = _section_fields(rendered)
     keys: list[str] = []
     for key in DIGEST_FIELD_KEYS:
-        info = fields.get(key) or {}
-        if "digest" not in info:
+        if key not in fields:
             continue
+        info = fields[key]
         enabled = info.get("enabled", "true").lower()
         if enabled == "true":
             keys.append(key)

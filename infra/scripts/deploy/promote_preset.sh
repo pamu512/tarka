@@ -16,11 +16,14 @@ GEN_ARGS=(
   --redis-url "${REDIS_URL:-redis://redis.internal:6379/0}"
   --output "$GENERATED"
 )
-if [[ -n "${DIGEST_MAP:-}" ]]; then
+if [[ "$PRESET" == "prod-on-k8s" ]]; then
+  if [[ -z "${DIGEST_MAP:-}" ]]; then
+    echo "FAIL: prod-on-k8s promote requires DIGEST_MAP=/path/to/image-digests.map (sha256 pins). Empty digest is not a grade." >&2
+    exit 1
+  fi
   GEN_ARGS+=(--digest-map "$DIGEST_MAP")
-elif [[ "$PRESET" == "prod-on-k8s" ]]; then
-  # Limitation / non-grade. Grade promote sets DIGEST_MAP.
-  GEN_ARGS+=(--allow-empty-digest)
+elif [[ -n "${DIGEST_MAP:-}" ]]; then
+  GEN_ARGS+=(--digest-map "$DIGEST_MAP")
 fi
 python3 infra/scripts/deploy/generate_cloud_values.py "${GEN_ARGS[@]}"
 

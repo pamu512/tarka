@@ -57,6 +57,8 @@ def main() -> int:
     subprocess.run([sys.executable, str(oidc_script)], check=True)
     digest_honesty = Path("infra/scripts/ci/test_generate_cloud_values_digests.py")
     subprocess.run([sys.executable, str(digest_honesty)], check=True)
+    honesty_tests = Path("infra/scripts/ci/test_helm_prod_digest_honesty.py")
+    subprocess.run([sys.executable, str(honesty_tests)], check=True)
     digest_gate = Path("infra/scripts/ci/helm_prod_digest_honesty.py")
     subprocess.run([sys.executable, str(digest_gate), "--self-check"], check=True)
     honesty = Path("infra/scripts/ci/helm_prod_honesty.sh")

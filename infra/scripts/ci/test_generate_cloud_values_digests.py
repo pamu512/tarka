@@ -6,6 +6,8 @@ Run: python3 infra/scripts/ci/test_generate_cloud_values_digests.py
 
 from __future__ import annotations
 
+import importlib.util
+import os
 import subprocess
 import tempfile
 import unittest
@@ -32,6 +34,15 @@ def _gen(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
         capture_output=True,
         text=True,
     )
+
+
+def _load_gen():
+    spec = importlib.util.spec_from_file_location("generate_cloud_values", GEN)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {GEN}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def _prod_base(out: Path) -> list[str]:
@@ -97,6 +108,51 @@ class TestGenerateCloudValuesDigests(unittest.TestCase):
             r = _gen([*_prod_base(out), "--digest-map", str(digest_map)])
         self.assertNotEqual(r.returncode, 0, r.stdout)
         self.assertIn("sha256", (r.stderr + r.stdout).lower())
+
+    def test_enabled_image_without_digest_field_is_empty(self) -> None:
+        gen = _load_gen()
+        text = "coreApi:\n  enabled: true\n  tag: 1.3.0-beta\n"
+        self.assertIn("coreApi", gen.empty_enabled_digests(text))
+
+    def test_apply_digest_map_inserts_missing_digest_line(self) -> None:
+        gen = _load_gen()
+        text = "coreApi:\n  enabled: true\n  tag: 1.3.0-beta\nsignalApi:\n  enabled: false\n"
+        out = gen.apply_digest_map(text, {"coreApi": CORE})
+        self.assertIn(f'  digest: "{CORE}"', out)
+
+    def test_missing_digest_map_file_exits(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "values.yaml"
+            r = _gen([*_prod_base(out), "--digest-map", str(Path(td) / "nope.map")])
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("digest-map", (r.stderr + r.stdout).lower())
+
+    def test_json_digest_map_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "values.yaml"
+            digest_map = Path(td) / "digests.json"
+            digest_map.write_text(
+                f'{{"coreApi":"{CORE}","signalApi":"{SIGNAL}","investigationAgent":"{AGENT}"}}\n',
+                encoding="utf-8",
+            )
+            r = _gen([*_prod_base(out), "--digest-map", str(digest_map)])
+            self.assertEqual(r.returncode, 0, r.stderr + r.stdout)
+            text = out.read_text(encoding="utf-8")
+        self.assertIn(f'digest: "{CORE}"', text)
+
+    def test_promote_prod_on_k8s_requires_digest_map(self) -> None:
+        promote = ROOT / "infra/scripts/deploy/promote_preset.sh"
+        env = os.environ.copy()
+        env.pop("DIGEST_MAP", None)
+        r = subprocess.run(
+            ["bash", str(promote), "prod-on-k8s"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn("DIGEST_MAP", r.stderr + r.stdout)
 
     def test_lite_on_k8s_does_not_require_digest_map(self) -> None:
         with tempfile.TemporaryDirectory() as td:

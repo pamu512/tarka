@@ -256,6 +256,8 @@ When `global.environment=prod`, the chart emits Prometheus Operator `ServiceMoni
 
 ### Custom Values for Production
 
+Not the grade path. `prod-on-k8s` publishes use `--digest-map` above; this block is tag-only and is not an immutable pin.
+
 ```bash
 helm install tarka infra/deploy/helm/fraud-stack \
   --namespace fraud \

@@ -141,6 +141,9 @@ def self_check() -> int:
             if f"tarka-signal-api@{SIGNAL}" not in rendered.stdout:
                 print("FAIL: helm template missing signal-api@sha256 pin", file=sys.stderr)
                 return 1
+            if f"tarka-investigation-agent@{AGENT}" not in rendered.stdout:
+                print("FAIL: helm template missing investigation-agent@sha256 pin", file=sys.stderr)
+                return 1
             print("OK: helm template renders @sha256 pins")
         else:
             print("WARN: helm not on PATH; skipped template pin check", file=sys.stderr)
