@@ -6,7 +6,52 @@
 
 **What this is not:** users, LOI volume, ARR, named live tenants, or a SOC 2 / PCI cert. Those are **MUST-NOT**.
 
-**UI F1–F3** (receipt-why 403 / leftover Create draft without why / silent Observe Promote) are **open on this tip**. A separate agent owns the fix. This memo treats them as **pilot blockers**.
+**UI F1–F3** (receipt-why 403 / leftover Create draft without why / silent Observe Promote) are **open on this tip**. A separate agent owns the fix. This memo treats them as **pilot blockers** for RiskOps/frontline — not for an eng-led parallel plane.
+
+**North star:** Does it make sense for **this** buyer to switch to (or adopt) Tarka? Not a feature tour.
+
+---
+
+## 0. Switch recommendation
+
+**Adopt as a parallel evaluate plane beside Drools. Do not rip-replace. Do not switch the Hive/Bedrock model stack.**
+
+| Option | Verdict |
+|--------|---------|
+| Switch now (cut over Drools + Hive + Janus + Tableau) | **NO** |
+| Pilot beside Drools (eng-led; 1–N JSON packs; graph off; emit-only) | **YES — conditional go** |
+| Do not adopt yet | **NO** — an eng-led parallel plane is justified; a RiskOps-led switch is not |
+
+**When Tarka helps this buyer**
+
+The bottleneck is **policy iteration and residual operations**, not model FI. Siloed promo / refund / payout / COD / false-decline rules live in Drools + Groovy + Excel/Jupyter. Tarka’s proved plane is: Rust JSON packs, receipts with pack-why, Observe canary, human Promote, late-label bind on `evaluation_token`, export for BI. That is how you **operate and iterate** loss you already see.
+
+**When Tarka does not help**
+
+The bottleneck is **supervised-model FI** in Hive microservices (buyer: most models **mid-60s FI**, a few **high ~80**). Tarka does not train those models, does not replace Bedrock/Hive, and **will not raise mid-60 FI by itself**. If the ask is “get FI to 80” or “detect more than ~7% of GMV,” tip does not prove that.
+
+**What Tarka can move vs cannot**
+
+| Can move (tip-proved plane) | Cannot move (MUST-NOT) |
+|-----------------------------|------------------------|
+| Evaluate + JSON packs + receipts | FI of Hive / Bedrock supervised models |
+| Observe → human Promote (API; desk F3 still thin) | Detected-loss **% of GMV** as a Tarka outcome |
+| Late-label / override-why **join** onto a receipt | Chargeback / guarantee as the product SKU |
+| Dual-run `emit_only` beside Drools | Drop-in Drools/Groovy import |
+| Sit-beside Hive scores **on the inbound payload** | Become the model brain / AutoML |
+| Empty graph = hops off (honest) | Make skip-only Janus queryable; live multi-hop |
+
+**Buyer loss types in scope for packs (beachhead, Observe first):** promo / refund / payout / COD / false declines. Chargeback is a **late label** on a receipt, not the SKU.
+
+**~7% GMV detected loss** (buyer-given: detected loss / GMV — their current **coverage of loss they already catch**, not a Tarka target).
+
+| Honest use of that number | Dishonest |
+|--------------------------|-----------|
+| Pilot proves they can **label, override-why, late-bind, and Promote packs** against that already-detected stream | “Tarka will lift detected loss above 7% of GMV” |
+| Export receipts + labels to Tableau/BI so leadership KPIs stay BI-owned | Tarka desk Analytics as the GMV SoR |
+| Fixture / holdout FI in Tarka is **wiring**, not their mid-60s / ~80 models | “Tarka will get FI to 80” |
+
+**Blockers if someone hears “switch” instead of “parallel plane”:** desk F1 403 / pack-why, F2 leftover draft without why, F3 silent Promote; no Drools import; BYO LLM empty unless they wire OpenAI-compat/Gemini (not Copilot, not native Bedrock); Janus skip-only ≠ Tarka hops; shared MLOps ≠ risk models; Tableau stays BI.
 
 ---
 
@@ -24,6 +69,7 @@ Shape only. No company name.
 | **Frontline** handles residual review. **Strategy is siloed** (promo / refund / payout / device / …). | Pack-why on leftovers without strategy background. Siloed authors can ship JSON **without** waiting on shared MLOps — and without a husk builder. |
 | Graph today: **JanusGraph**, severely limited — nodes largely **non-queryable**; engine can only return **skip** from **configured node relations** (not rich hop/pack evaluate on arbitrary reads). | Do not treat that as a rich queryable identity graph. Tarka empty `GRAPH_SERVICE_URL` = hops off. Wiring AGE / Hunt / named hops is a **second workstream**, not a free Janus upgrade. |
 | Rule base today: **Drools + Groovy** (not Tarka JSON packs). | No drop-in Drools import on tip. Tarka is a **parallel evaluate plane** or phased cutover. Drools may stay residual during the pilot. |
+| Supervised FI: most models **~mid-60s**; a few **~high 80**. Detected loss **~7% of GMV** (buyer-given; not a Tarka KPI). | Tarka does **not** raise Hive FI. Tip helps **operate/iterate** already-detected loss — not claim a higher GMV %. |
 
 **Org boundaries (do not smash):**
 
@@ -240,6 +286,7 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | JSON packs as parallel plane beside Drools | README / rules.md | Rust JSON evaluate; emit-only | **PROVED** (Tarka side). Dual-run harness **UNPROVED**. |
 | No-code NLP replaces Drools | (buyer risk / VISION scout) | Scout drafts Observe; human Promote | **MUST-NOT-CLAIM** |
 | Replace Drools estate in 2 weeks | (buyer wish) | — | **MUST-NOT-CLAIM** / **NO-GO** |
+| Tarka raises Hive FI (mid-60s → 80) or detects more than ~7% GMV | (buyer KPI risk) | Evaluate plane operates already-detected loss; no model training | **MUST-NOT-CLAIM** |
 
 ---
 
@@ -294,20 +341,20 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 
 ---
 
-## 7. Go / no-go
+## 7. Go / no-go (switch)
 
-| Pilot type | Verdict | Until / condition |
-|------------|---------|-------------------|
-| **Eng-led VPC clone** — evaluate + receipts + **1–N JSON packs beside Drools**; graph **off** | **GO** (doctor port friction) | Empty `GRAPH_SERVICE_URL`. Drools stays residual. No 1.9B claim; no desk on `prod-on-k8s`; scores / skip-flags on payload; hand BI the export contract. |
-| **RiskOps-led “replace Drools in 2 weeks”** | **NO-GO** | No Drools importer. Whole-estate rewrite unproved. F3 Promote unsafe. |
-| **Graph / hop Observe / Hunt** | **NO-GO** in week 1 | Queryable graph URL (AGE or graph-service), or keep skip-Janus as payload enrichment only. Not a free Janus upgrade. |
-| **Siloed strategy** — Excel / Jupyter → live packs | **NO-GO** as drop-in. **CONDITIONAL** if eng translates JSON + Observe-only | F3 confirm; no `/observe` bypass; no `auto_promote`; one shared queue. |
-| **Frontline leftover review** | **NO-GO** | F1 + leftovers without graph + F2. |
-| **Advise from BI Copilot / Gemini / native Bedrock** | **NO-GO** as sold | Separate OpenAI-compat (or `gemini` + key). Bedrock = proxy URL or **off**. |
-| **Replace Hive / supervised microservices / Tableau / Bedrock training** | **MUST-NOT** | Out of scope. Sit beside. |
+| Ask | Verdict | Until / condition |
+|-----|---------|-------------------|
+| **Switch now** — cut over Drools, Hive models, Janus, Tableau | **NO** | See §0. FI / GMV / estate rewrite unproved. |
+| **Pilot beside Drools** — eng-led parallel plane, 1–N JSON packs, graph off, emit-only | **CONDITIONAL GO** | Empty `GRAPH_SERVICE_URL`. Drools residual. Hive scores on payload if packs need them. Hand BI the export. No FI/GMV lift claim. |
+| **Do not adopt at all** | **NO** | Parallel plane is justified if the bottleneck is policy/ops iteration. |
+| **RiskOps-led “replace Drools in 2 weeks”** | **NO-GO** | No importer. F3 Promote unsafe. |
+| **Frontline leftover review as the first win** | **NO-GO** until F1–F2 | Analyst 403 / pack-why; leftovers hide if graph off. |
+| **Raise Hive FI (mid-60s → 80) or detected-loss GMV %** | **MUST-NOT** | Wrong plane. Shared MLOps / risk models own that. |
+| **Graph / hop / Hunt** | **NO-GO** week 1 | Queryable graph later. Skip-Janus = enrichment. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** GO for a lean-eng VPC clone of evaluate+receipts + 1–N JSON packs **beside Drools** (graph off, Hive/supervised stay, no Tableau replacement); NO-GO for replace-Drools-in-2-weeks, frontline leftover review, Excel→pack culture, and BI-Copilot/native-Bedrock Advise; hop/Hunt is phase 2 after a queryable graph; GitLab-grade remains off.
+**Anoop one-liner:** Pilot beside Drools — do not switch the estate. Tarka operates/iterates already-detected loss (receipts, labels, Observe→Promote); it will not raise mid-60 FI or the ~7% GMV detected-loss number.
 
 ---
 
@@ -337,6 +384,7 @@ UI F1–F3 are a **separate** agent. This PR does not fix them.
 - ELv2, not OSS. Beta, no GA. No Tarka-sold tokens.
 - Empty plane URL = off.
 - Tarka does not replace Tableau, Hive, supervised microservices, Bedrock training, skip-only Janus, or the Drools/Groovy estate.
+- Do not claim Tarka raises buyer FI or detected-loss GMV %. Chargeback / guarantee is not the SKU.
 - Shared MLOps ≠ risk supervised services ≠ BI.
 
 ---
