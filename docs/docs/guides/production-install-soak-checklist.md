@@ -16,17 +16,19 @@ This soak is **install-side**. It is **not** “primary decisioner” maturity (
 - No sqlite / `emptyDir` for decisions, audit, labels, or packs on a production-labeled apply.
 - No named fraud / risk product incumbents as a reference.
 
-## Related (G0–G8 may still be landing)
+## Related (G0–G8 landed on tip)
 
-| Doc | Role | On this tip? |
-|-----|------|----------------|
-| [production-install-v1](../../contracts/production-install-v1.md) | G0 contract — when a grade *may* be claimed | **Not on `master`** (PR #405). Stub: treat this checklist + [CLAIM_LOCK](../../compliance/CLAIM_LOCK.md) until G0 merges. |
-| [SUPPORT.md](../../../SUPPORT.md) | Community issues (no SLA). G8 commercial install-pack language is in-flight (#413). | Community page is on tip. Do not read it as the grade. |
-| [deployment.md](deployment.md) | Helm catalog, `prod-on-k8s`, digest + NetworkPolicy notes | Yes |
-| [production-secrets-rotation.md](production-secrets-rotation.md) | G3 rotate `API_KEYS` / signing secrets | In-flight (#407). Date the rotation even if you used `kubectl` without that runbook. |
-| [production-backup-restore.md](production-backup-restore.md) | G6 SoR Postgres drill | In-flight (#411). Row stays **fail** until the drill is dated. |
-| [production-upgrade.md](production-upgrade.md) | G7 digest-to-digest dry-run + practiced rollback | In-flight (#412). Row stays **fail** until the dry-run is dated. |
-| [service-slos-v1.md](service-slos-v1.md) | Aspirational / buyer-owned SLO *targets* | Yes. Not a Tarka nines SLA. |
+Docs below are on this tip. A row still stays **fail** until the *pilot* work is dated — landing the file is not a pass.
+
+| Doc | Role |
+|-----|------|
+| [production-install-v1](../../contracts/production-install-v1.md) | G0 contract — when a grade *may* be claimed. Not the grade. |
+| [SUPPORT.md](../../../SUPPORT.md) | G8 commercial pack + community (no SLA). Not the grade. |
+| [deployment.md](deployment.md) | Helm catalog, `prod-on-k8s`, digest + NetworkPolicy |
+| [production-secrets-rotation.md](production-secrets-rotation.md) | G3 rotate `API_KEYS` / signing secrets |
+| [production-backup-restore.md](production-backup-restore.md) | G6 SoR Postgres drill |
+| [production-upgrade.md](production-upgrade.md) | G7 digest-to-digest dry-run + practiced rollback |
+| [service-slos-v1.md](service-slos-v1.md) | Aspirational / buyer-owned SLO *targets*. Not a Tarka nines SLA. |
 
 ## Named pilot
 
@@ -62,13 +64,13 @@ Every row needs **pass** or **fail**, a **date**, and an **owner**. Blank date o
 
 **Pass:** The values **applied** to this pilot pin `sha256:<64-hex>` on every enabled image (`coreApi`, and `signalApi` / `investigationAgent` when those workloads are on). Tag is ignored when digest is set. Mutable `1.3.0-beta` without digest is **fail**. Empty digest is allowed only so CI `helm template` of placeholders still works — that apply is **not** this row.
 
-How: [deployment.md](deployment.md) (`coreApi.digest`). G2 (#408) makes `--digest-map` required on the `prod-on-k8s` publish helper.
+How: [deployment.md](deployment.md) (`coreApi.digest`). G2: `generate_cloud_values.py --digest-map` is required on the `prod-on-k8s` publish helper.
 
 ### 2 — Secrets rotated once
 
 **Pass:** After first apply, `API_KEYS` and required signing secrets (`EVIDENCE_SIGNING_SECRET`, plus `OIDC_CLIENT_SECRET` / `RULE_GOVERNANCE_SECRET` if those planes are on) were rotated **once** on this pilot and evaluate still fail-closes when keys are empty. Chart default `fraud` / `tarka-evidence-dev-secret` as the live secret is **fail**.
 
-How: Kubernetes Secret named by `global.appSecretsName`. G3 runbook when present: [production-secrets-rotation.md](production-secrets-rotation.md). Vault / ESO optional, not required.
+How: Kubernetes Secret named by `global.appSecretsName`. Runbook: [production-secrets-rotation.md](production-secrets-rotation.md). Vault / ESO optional, not required.
 
 ### 3 — OIDC or API-key path proven
 
@@ -79,25 +81,25 @@ How: Kubernetes Secret named by `global.appSecretsName`. G3 runbook when present
 | **API keys** (machines / evaluate) | `X-API-Key` evaluate returns 200 + pack-why. Empty keys + empty issuer + insecure off = **503**, not open. |
 | **OIDC** (desk humans, optional) | Non-empty issuer: desk `GET /auth/config` → `oidc_enabled: true`, login works, Redis resolved (no in-process OIDC state fallback). |
 
-Either path is enough. Both empty + insecure off is **fail**. OIDC is not required to boot evaluate. G4 (#410) first-class `coreApi.oidc.*` may still be landing; extraEnv `OIDC_*` on current tip is the same proof.
+Either path is enough. Both empty + insecure off is **fail**. OIDC is not required to boot evaluate. G4 SoT is first-class Helm `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` ([deployment.md](deployment.md)). ExtraEnv `OIDC_*` is leftover fallback only.
 
 ### 4 — Backup drill dated (G6)
 
 **Pass:** Dated run of the G6 SoR drill (decisions + audit + packs + labels on **external** Postgres). Redis is ephemeral velocity — an empty Redis after restore is expected. AGE Hunt on `enterprise-desk` is a **volume** restore, not `pg_dump`.
 
-How: [production-backup-restore.md](production-backup-restore.md) when that file is on the tip you apply (PR #411). If the guide is missing, this row stays **fail** — do not claim grade on an undated buyer snapshot lore.
+How: [production-backup-restore.md](production-backup-restore.md). Undated buyer snapshot lore is **fail**.
 
 ### 5 — Upgrade dry-run dated (G7)
 
 **Pass:** Dated digest-to-digest (or recorded Helm revision) dry-run on this single-cluster beachhead: preflight, `helm upgrade` **or** `helm template` of the to-pin, verify evaluate, practiced rollback. Expand/contract only. Not multi-region.
 
-How: [production-upgrade.md](production-upgrade.md) when present (PR #412). If the playbook is missing, this row stays **fail**.
+How: [production-upgrade.md](production-upgrade.md). Undated dry-run is **fail**.
 
 ### 6 — NetworkPolicy on
 
-**Pass:** The running `prod-on-k8s` (or `global.environment=prod`) apply emits default-deny NetworkPolicy plus the chart allow rules (kube-dns, same-namespace, evaluate ingress). `kubectl -n <ns> get networkpolicy` shows them. Opt-out (`global.networkPolicy.enabled=false` once G5 lands) is **fail** for this row.
+**Pass:** The running `prod-on-k8s` (or `global.environment=prod`) apply emits default-deny NetworkPolicy plus the chart allow rules (kube-dns, same-namespace, evaluate ingress). `kubectl -n <ns> get networkpolicy` shows them. Opt-out (`global.networkPolicy.enabled=false`) is **fail** for this row.
 
-How: [deployment.md](deployment.md). G5 (#409) makes the flag explicit; current tip already emits policies when `global.environment=prod`. Lite / default values emitting none is correct and is **not** this pilot.
+How: [deployment.md](deployment.md). G5: `prod-on-k8s` sets `global.networkPolicy.enabled: true`. Lite / default values emitting none is correct and is **not** this pilot.
 
 ### 7 — Evaluate SLOs on buyer TPS (placeholder metrics)
 

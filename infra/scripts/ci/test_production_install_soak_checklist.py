@@ -62,8 +62,19 @@ class TestProductionInstallSoakChecklist(unittest.TestCase):
         self.assertIn("production-install-soak-checklist.md", deploy)
         self.assertIn("SUPPORT.md", deploy)
         self.assertTrue(_DEPLOY.is_file())
-        if _INSTALL.is_file():
-            self.assertIn("GitLab-grade", _INSTALL.read_text(encoding="utf-8"))
+        self.assertTrue(_INSTALL.is_file(), "G0 contract must be on tip")
+        install = _INSTALL.read_text(encoding="utf-8")
+        self.assertIn("GitLab-grade", install)
+        self.assertIn("production-install-soak-checklist.md", install)
+        for rel in (
+            "docs/docs/guides/production-backup-restore.md",
+            "docs/docs/guides/production-upgrade.md",
+            "docs/docs/guides/production-secrets-rotation.md",
+        ):
+            self.assertTrue((_REPO / rel).is_file(), rel)
+        checklist = _CHECKLIST.read_text(encoding="utf-8").lower()
+        self.assertNotIn("not on master", checklist)
+        self.assertNotIn("in-flight", checklist)
 
 
 if __name__ == "__main__":
