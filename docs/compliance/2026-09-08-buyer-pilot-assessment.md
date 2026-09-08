@@ -288,9 +288,9 @@ Hop packs (`USES_DEVICE` …) stay `mode=shadow` until Promote. They **cannot** 
 **Phase 1:** evaluate + JSON packs + receipts; graph URL **empty**; skip-relations may ride on the **payload** as enrichment (same sit-beside pattern as Hive scores).  
 **Phase 2:** queryable graph URL (Tarka AGE, or graph-service in front of a **queryable** Janus) + Observe hop packs + Hunt. Their current skip-only Janus is enrichment, not that URL.
 
-### Q11 — Drools + Groovy today. Drop-in, or parallel plane?
+### Q11 — Drools + Groovy today (~600 rules). Drop-in, or parallel plane?
 
-**Parallel plane / phased cutover. Tip must not claim Drools import.** `rules_import.py` loads **Tarka AST / JSON** into `engine_rules` — not `.drl` / Groovy. No Drools converter in-repo.
+**Parallel plane. ~600 stay live. Tip must not claim Drools import or a 600-rule migrate.** `rules_import.py` loads **Tarka AST / JSON** into `engine_rules` — not `.drl` / Groovy. No Drools converter in-repo. Pilot is **1–N high-pain** packs only.
 
 | Path | Tip honesty | Status |
 |------|-------------|--------|
@@ -335,7 +335,8 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 | Drop-in Drools / Groovy import | (buyer rule base) | `rules_import.py` is Tarka AST/JSON only | **MUST-NOT-CLAIM** |
 | JSON packs as parallel plane beside Drools | README / rules.md | Rust JSON evaluate; emit-only | **PROVED** (Tarka side). Dual-run harness **UNPROVED**. |
 | No-code NLP replaces Drools | (buyer risk / VISION scout) | Scout drafts Observe; human Promote | **MUST-NOT-CLAIM** |
-| Replace Drools estate in 2 weeks | (buyer wish) | — | **MUST-NOT-CLAIM** / **NO-GO** |
+| Replace Drools estate in 2 weeks / auto-migrate ~600 Drools → JSON | (buyer wish) | No importer | **MUST-NOT-CLAIM** / **NO-GO** |
+| Replace ~40 models / 8 supervised microservices | (buyer scale) | Tarka evaluate does not train Hive/Bedrock | **MUST-NOT-CLAIM** |
 | Tarka raises Hive FI (mid-60s → 80) or detects more than ~7% GMV | (buyer KPI risk) | Evaluate plane operates already-detected loss; no model training | **MUST-NOT-CLAIM** |
 
 ---
