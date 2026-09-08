@@ -52,6 +52,8 @@ def main() -> int:
     subprocess.run([sys.executable, str(digest_script)], check=True)
     oidc_script = Path("infra/scripts/ci/test_helm_oidc_redis.py")
     subprocess.run([sys.executable, str(oidc_script)], check=True)
+    honesty = Path("infra/scripts/ci/helm_prod_honesty.sh")
+    subprocess.run(["bash", str(honesty), "--self-check"], check=True)
     return 0
 
 
