@@ -6,7 +6,8 @@
 
 **Public cloud:** [AWS](./deployment-aws.md) · [Azure](./deployment-azure.md) · [GCP](./deployment-gcp.md)  
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
-**Backup / restore (SoR Postgres + AGE Hunt note):** [production-backup-restore](./production-backup-restore.md)
+**Backup / restore (SoR Postgres + AGE Hunt note):** [production-backup-restore](./production-backup-restore.md)  
+**Upgrade / rollback:** [production-upgrade](./production-upgrade.md)
 
 ---
 
@@ -250,6 +251,8 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
   -f /tmp/prod-on-k8s.values.yaml \
   --set global.appSecretsName=tarka-app-secrets
 ```
+
+Digest-to-digest upgrade, evaluate verify, rollback, schema expand/contract, pack fail-closed, kill switches: [production-upgrade.md](production-upgrade.md). Grade contract: [production-install-v1](../../contracts/production-install-v1.md). Backup drill: [production-backup-restore.md](production-backup-restore.md).
 
 CI (`cloud-preset-smoke` + `infra/scripts/ci/helm_prod_digest_honesty.py --self-check`) **fails** an empty digest on the prod-on-k8s honesty / publish path. `--allow-empty-digest` remains only so placeholder `helm template` still works — that render is not a grade.
 

@@ -19,6 +19,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | [Productionization](guides/repo-productionization-runbook.md) | Trend tick, desk-strict knobs |
 | [Production observability](guides/production-observability.md) | Prod NetworkPolicy + ServiceMonitor scrape; evaluate 5xx/latency examples |
 | [Production backup / restore](guides/production-backup-restore.md) | External Postgres SoR drill; Redis ephemeral; AGE Hunt volume note |
+| [Production upgrade / rollback](guides/production-upgrade.md) | Helm digest-to-digest, evaluate verify, rollback, kill switches |
 | [Operator hub](../INDEX.md) | Documentation index |
 
 ## Compose paths

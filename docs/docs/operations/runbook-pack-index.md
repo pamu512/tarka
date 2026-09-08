@@ -30,6 +30,7 @@ Unified index for on-call and release operators. Linked from Prometheus `runbook
 |---------|-------------|
 | [Productionization](../guides/repo-productionization-runbook.md) | Desk-strict, trend tick, honesty knobs |
 | [Deployment](../guides/deployment.md) | Compose profiles + Helm (Helm is scale-out, not day-1) |
+| [Production upgrade / rollback](../guides/production-upgrade.md) | Digest-to-digest helm, evaluate verify, rollback, pack/schema kill switches |
 
 ## Observability entry points
 
