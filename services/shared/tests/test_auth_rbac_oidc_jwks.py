@@ -146,9 +146,7 @@ def test_mock_jwks_custom_roles_claim(monkeypatch, rsa_pair):
     monkeypatch.setattr(auth_rbac, "OIDC_JWKS_URL", JWKS_URL)
     monkeypatch.setattr(auth_rbac, "OIDC_ROLES_CLAIM", "tarka_roles")
 
-    token = _token(
-        private_key, kid=kid, roles=["RiskArchitect"], claim="tarka_roles"
-    )
+    token = _token(private_key, kid=kid, roles=["RiskArchitect"], claim="tarka_roles")
     with TestClient(_desk_app()) as client:
         resp = client.get("/whoami", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200, resp.text
