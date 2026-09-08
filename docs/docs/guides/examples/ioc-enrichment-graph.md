@@ -40,7 +40,7 @@ Use your deployment’s graph upsert endpoints (see `services/graph-service` Ope
 Evaluate an event tied to the same **entity_id** you stored in Neo4j so Decision API can include **graph-derived** features when **`GRAPH_SERVICE_URL`** is set:
 
 ```bash
-curl -s -X POST http://localhost:8000/v1/decisions/evaluate \
+curl -s -X POST http://localhost:8000/decisions/v1/decisions/evaluate \
   -H "Content-Type: application/json" \
   -d '{
     "tenant_id": "demo",

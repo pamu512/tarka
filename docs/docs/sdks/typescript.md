@@ -53,7 +53,7 @@ npm run build
 import { DecisionClient } from "@tarka/sdk";
 
 const client = new DecisionClient({
-  baseUrl: "http://localhost:8000",
+  baseUrl: "http://localhost:8000/decisions",
   apiKey: "your-api-key",
   autoCollectSignals: true,
 });
@@ -271,7 +271,7 @@ export async function middleware(request: NextRequest) {
   import { DecisionClient } from "@tarka/sdk";
 
   const client = new DecisionClient({
-    baseUrl: "http://localhost:8000",
+    baseUrl: "http://localhost:8000/decisions",
   });
 
   document.getElementById("login-form").addEventListener("submit", async (e) => {

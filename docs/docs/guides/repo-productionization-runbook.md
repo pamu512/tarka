@@ -18,7 +18,7 @@
 
 ```bash
 # Host loop
-DECISION_API_URL=http://127.0.0.1:8000 ./scripts/trend_tick_loop.sh
+DECISION_API_URL=http://127.0.0.1:8000/decisions ./scripts/trend_tick_loop.sh
 
 # Compose profile (v2 ingest stack)
 docker compose -f infra/deploy/docker-compose.v2-ingest.yml --profile trend-tick up -d
