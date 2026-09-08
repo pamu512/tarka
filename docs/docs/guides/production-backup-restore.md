@@ -1,6 +1,6 @@
 # Production backup / restore (decisions + audit)
 
-Operator drill for the **buyer SoR** on external Postgres. This is not a Tarka-operated backup product and not a GitLab-grade claim by itself.
+Operator drill for the **buyer SoR** on external Postgres. This is not a Tarka-operated backup product and not a GitLab-grade claim by itself. Grade gate: [production-install-v1](../../contracts/production-install-v1.md) (G6 row).
 
 Tarka application code is **source-available** under Elastic License 2.0 (not open-source). Production requires **external Postgres**. In-cluster PG / sqlite / `emptyDir` are not a production restore target.
 
@@ -102,6 +102,7 @@ TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
 
 ## Related
 
+- [Production install contract](../../contracts/production-install-v1.md) — G6 is a grade gate, not the grade
 - [Deployment](./deployment.md) — external PG/Redis, `prod-on-k8s`
 - [SRE Compose profiles](../operations/sre-compose-profiles.md) — Lite AGE on the same laptop PG is **not** this drill
 - Governance checklist item `stateful-backup-restore` — this guide + the script cover **SoR Postgres** (and point at the existing AGE volume drill). Analytics / ClickHouse is not in this dump.

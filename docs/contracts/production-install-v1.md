@@ -32,7 +32,7 @@ Applies when an operator labels a cluster **production** (`TARKA_DEPLOYMENT_PROF
 | Case / evidence | `CASE_API_PRODUCTION_MODE=true`. `EVIDENCE_SIGNING_SECRET` required (default HMAC refused). | sqlite fallback on Postgres bootstrap failure. |
 | Evaluate | `TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true`. | Production profile without idempotency. |
 | Frontend / Shadow | `prod-on-k8s` keeps frontend **OFF** and Shadow **OFF**. | Treating that as a missing feature, or claiming the product desk from this chart. |
-| Backup + upgrade | Backup drill docs (G6) and upgrade docs (G7) exist and have been run on the named pilot. | Grade claim before G6/G7 land. |
+| Backup + upgrade | Backup drill docs ([G6](../docs/guides/production-backup-restore.md)) and upgrade docs (G7) exist and have been run on the named pilot. Redis is ephemeral. AGE Hunt is volume restore, not `pg_dump`. Not a hosted backup product. | Grade claim before G6/G7 land. Treating Redis dump or AGE `pg_dump` as SoR. |
 | Grade | G0–G8 landed **and** G9 checklist on a **named** beachhead pilot. | Claiming GitLab-grade from this contract, from a green `helm template`, or from the preset existing. |
 
 ## Secrets matrix
@@ -78,7 +78,7 @@ Claim **GitLab-grade** only after the locked 2026-09-08 plan items **G0–G8** l
 | G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | no |
 | G2 | Digest-pin CI | no |
 | G4 | SSO (OIDC for desk humans; API keys stay the machine path) | no |
-| G6 | Backup drill docs | no |
+| G6 | Backup drill docs ([production-backup-restore](../docs/guides/production-backup-restore.md)) | **this PR** |
 | G7 | Upgrade docs | no |
 | G9 | Named-pilot checklist | no |
 
