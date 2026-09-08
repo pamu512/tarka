@@ -14,38 +14,39 @@
 
 ## 0. CUT / MODULES / BAU / FAIL
 
-Buyer stack (keep; do not invent extras): Drools + Groovy (**~600 rules**) · **~40** supervised models in **8 microservices** (Hive scores; FI **mid-60s**, a few **high ~80**) · shared MLOps **Bedrock** · Excel/Jupyter · Tableau (BI-owned) · S3/BQ/Azure/GCP · skip-only Janus · ~**7% GMV** detected loss · ~1.9B orders/year (buyer-given; not tip-proved).
+Buyer stack (keep; do not invent extras): Drools + Groovy (**~600 rules** — only **~20% Time Eval** / ~120 sync evaluate-time rules; **~80%** async counters, thresholds, or reactive blocks) · **~40** supervised models in **8 microservices** (Hive scores; FI **mid-60s**, a few **high ~80**) · shared MLOps **Bedrock** · Excel/Jupyter · Tableau (BI-owned) · S3/BQ/Azure/GCP · skip-only Janus · ~**7% GMV** detected loss · ~1.9B orders/year (buyer-given; not tip-proved).
 
-**Ops buy-in lock:** ops buy in **only if** opex reduction is still **significant** vs maintaining those 600 rules + the 40-model / 8-loop fleet.
+**Ops buy-in lock:** ops buy in **only if** opex reduction is still **significant** vs the **~20% Time Eval** set (plus the 40-model / 8-loop fleet staying put). Not vs the full 600.
 
 Allowed improvement axes vs BAU: **significant opex** (fewer eng hours on rule change, shorter signal→live pack SLA, less dual-write thrash), **faster pack/iterate**, **clearer receipt-why / override**. **MUST-NOT:** higher FI · detect more than ~7% GMV · auto-migrate 600 Drools → JSON · replace the 8 loops / 40 models.
 
 ### Primary vs cherry
 
-Do not elevate cherry to must-have. Ops buy-in still hinges on **significant opex** vs ~600 rules / ~40 models / 8 supervised microservices.
+Do not elevate cherry to must-have. Ops buy-in still hinges on **significant opex** vs the **~20% Time Eval** slice (~120 of ~600) / ~40 models / 8 supervised microservices — not the ~80% async / threshold / reactive majority.
 
 | Layer | Axes | Gate? |
 |-------|------|-------|
-| **Primary (cut bar)** | **Opex**, **eng load**, **SLA** — named pain-rule hours, signal→live pack, less dual-write | **Yes.** FAIL if no significant opex path. |
+| **Primary (cut bar)** | **Opex**, **eng load**, **SLA** — named **Time Eval** pain-rule hours, signal→live pack, less dual-write | **Yes.** FAIL if no significant opex path on Time Eval. |
 | **Cherry (nice, not the cut)** | Anything tip can *prove* in **(a) uplift** or **(b) compute-cost reduction** | **No.** FI uplift and infra-$ are **not** PASS/FAIL. Unproved cherry is omitted, not invented. |
 
 Tip today: no proved FI uplift (**MUST-NOT** claim mid-60s → 80 anyway). No proved compute-$ vs their 8 loops / Hive / Bedrock. A later named-pilot measurement may fill cherry; it still does not move the cut bar. Modules stay thin beside Drools; BAU untouched.
 
 ### CUT — does Tarka even make the cut?
 
-**Conditional PASS** — only if we can **name** where significant opex comes from at this scale. Not FI. Not GMV. Not a 600-rule rewrite.
+**Conditional PASS** — only if we can **name** significant opex on the **~20% Time Eval** set (~120 rules). Not the ~80% async/threshold/reactive majority. Not FI. Not GMV. Not a 600-rule rewrite.
 
 | Axis vs this scale | Tip can promise? | Evidence |
 |--------------------|------------------|----------|
-| Fewer eng hours on **high-pain** rule change | **Yes, on 1–N packs only** — JSON Observe→Promote for the rules that churn. Tip does **not** auto-migrate ~600 Drools/Groovy | Rust evaluate + `rule_api` Promote; no `.drl` importer |
-| Shorter SLA signal→live pack | **Yes, on those packs** — GitOps JSON + human Promote vs Drools estate change | `emit_only` dual-run; Promote API |
-| Less dual-write thrash | **Yes, only if** those pain rules **stop** being edited in Drools + Excel/Jupyter | Otherwise Tarka is a **third** plane → opex **up** → **FAIL** |
+| Fewer eng hours on **high-pain Time Eval** | **Yes, on 1–N Time Eval packs only** — JSON Observe→Promote. Tip does **not** auto-migrate ~600 Drools/Groovy | Rust evaluate is **Time Eval-shaped**; `rule_api` Promote; no `.drl` importer |
+| Shorter SLA signal→live pack | **Yes, on those Time Eval packs** — GitOps JSON + human Promote | `emit_only` dual-run; Promote API |
+| Less dual-write thrash | **Yes, only if** those Time Eval rules **stop** being edited in Drools + Excel/Jupyter | Otherwise Tarka is a **third** plane → opex **up** → **FAIL** |
+| Opex vs **~80% async counters / thresholds / reactive** | **No Day-1.** Those stay BAU. Do not invent a Tarka home | Tip evaluate is Time Eval-shaped — not their async/threshold/reactive estate |
 | Opex vs **~40 models / 8 supervised loops** | **No.** Those stay. Tarka does not train them | Hive / Bedrock / shared MLOps |
-| Measured $ / FTE | **MUST-NOT** invent a number | Plane + named pain-rule subset only |
+| Measured $ / FTE | **MUST-NOT** invent a number | Plane + named Time Eval subset only |
 | Higher FI (mid-60s → 80) | **FAIL** | Wrong plane |
 | Detect more than ~7% GMV | **FAIL** | 7% is their coverage |
 
-**Where significant opex would have to come from (name it or FAIL):** change traffic on a **small set of high-pain Drools rules** — not the 600-rule corpus, not the 8 supervised loops. If most hours sit on the 40-model fleet or on keeping all 600 Drools in sync, adding Tarka is another plane with **no** rule/ops time savings → **FAIL Tarka**.
+**Where significant opex would have to come from (name it or FAIL):** change traffic on **1–N high-pain Time Eval** rules inside the ~20% / ~120 — not the full 600, not the ~80% non-Time-Eval estate, not the 8 supervised loops. If pain hours sit mostly on async counters / thresholds / reactive blocks or the 40-model fleet, adding Tarka is another plane with **no** rule/ops time savings → **FAIL Tarka**.
 
 **FAIL Tarka** if BAU (600 Drools + 8 loops + Tableau + skip-Janus) is already stable and we cannot name that pain-rule opex. **FAIL** if the only ask is FI or GMV. **FAIL** a RiskOps-led desk cut until F1–F3.
 
@@ -56,7 +57,7 @@ Tip today: no proved FI uplift (**MUST-NOT** claim mid-60s → 80 anyway). No pr
 | In the day-1 cut (beside Drools) | OUT unless the buyer asks later |
 |----------------------------------|----------------------------------|
 | Rust evaluate | Graph / hop (buyer Janus is **non-queryable** / skip-only) |
-| 1–N JSON packs on **high-pain** rules, Observe → human Promote | Hunt; 600-rule Drools→JSON migrate |
+| 1–N JSON packs on **high-pain Time Eval** rules, Observe → human Promote | Hunt; 600-rule migrate; Day-1 home for **async counters / thresholds / reactive blocks** |
 | Receipts + override why + late-label join | Advise / native Bedrock (`SHADOW_LLM_BACKEND=bedrock` **refuses**) |
 | Hive scores as **payload enrichment** only | The **8 supervised loops** / **~40 models**; residual case CRM; Tableau replacement |
 
@@ -68,7 +69,7 @@ Parallel plane only. **~600 Drools rules stay live.** No rip of the **8** superv
 
 | BAU stays | Tarka does |
 |-----------|------------|
-| Drools + Groovy **~600 rules live** | 1–N Observe packs on **high-pain** rules only — **not** a 600-rule migration |
+| Drools + Groovy **~600 rules live** (incl. ~80% async / threshold / reactive) | 1–N Observe packs on **high-pain Time Eval** only — **not** a 600-rule migration |
 | **8 microservices / ~40 models** + Hive scores | Sit-beside on the **inbound payload** (not `VENDOR_SCORE_URL` as decide-time Hive) |
 | Tableau / BI owns KPIs | Export / webhook feed only |
 | Skip-only Janus | `GRAPH_SERVICE_URL` **empty** (hops off) |
@@ -80,14 +81,14 @@ GitOps JSON packs + VPC clone (`make doctor && make demo` or product compose). N
 
 ### FAIL — when not to switch
 
-- Cannot name where **significant** opex comes from vs ~600 rules + 40 models / 8 loops (Tarka is just another plane).
+- Cannot name where **significant** opex comes from vs the **~20% Time Eval** set (Tarka is just another plane), or pain hours sit on the **~80%** async/threshold/reactive estate or the 8 loops.
 - Ask is “get FI to 80,” “detect more than ~7% GMV,” or “migrate the 600.”
 - Replace the 8 supervised microservices / 40 models.
 - Full-stack / rip-replace Drools + Hive + Janus + Tableau.
 - Desk-led leftover / Promote as week-1 (F1–F3).
 - Ops buy-in required significant opex and tip cannot show it on pain-rule hours / SLA / dual-write.
 
-**Locked call:** CUT = PASS only if 1–N high-pain packs cut significant opex vs this scale. MODULES = evaluate + packs + receipts; 8 loops / 40 models stay. BAU = 600 Drools live. Else FAIL.
+**Locked call:** CUT = PASS only if 1–N high-pain **Time Eval** packs cut significant opex vs the ~20% / ~120. MODULES = evaluate + Time Eval packs + receipts; async/threshold/reactive + 8 loops / 40 models stay BAU. Else FAIL.
 
 ---
 
@@ -97,7 +98,7 @@ Buyer-given — do not invent others. This is the switch question, not a feature
 
 | Metric | Given | What a switch would have to buy |
 |--------|-------|----------------------------------|
-| Rules plane | **~600** Drools / Groovy | **Not** a 600-rule migrate. Opex only if **1–N high-pain** rules stop dual-write. |
+| Rules plane | **~600** Drools / Groovy — **~20% Time Eval** (~120); **~80%** async counters / thresholds / reactive | **Not** a 600-rule migrate. Opex only if **1–N high-pain Time Eval** packs stop dual-write. Async/threshold/reactive stay BAU. |
 | Supervised fleet | **~40** models · **8** microservices | Stay. Tarka does **not** replace the loops. Scores = enrichment. |
 | Supervised FI | most **mid-60s**; a few **high ~80** | **MUST-NOT** “move FI to 80.” If Hive FI is the bottleneck, **FAIL**. |
 | Loss detected rate | **~7% of GMV** (detected loss / GMV) | Coverage they already catch. **MUST-NOT** “detect more GMV.” |
@@ -108,8 +109,8 @@ Buyer-given — do not invent others. This is the switch question, not a feature
 | If the bottleneck is… | Switch? |
 |-----------------------|---------|
 | Maintaining ~40 models / 8 supervised loops (or mid-60s FI) | **No.** Wrong plane. |
-| Maintaining all ~600 Drools as a corpus migrate | **No.** Tip has no importer. That is more opex. |
-| Change traffic on a **named** set of high-pain rules (eng hours, signal→live SLA, dual-write) | **Conditional yes** — 1–N packs beside the 600. **Not** FI. **Not** more GMV. |
+| Maintaining all ~600 Drools, or the ~80% async / threshold / reactive set | **No.** Tip evaluate is Time Eval-shaped. No Day-1 home for that majority. |
+| Change traffic on a **named** set of high-pain **Time Eval** rules (~20% / ~120) | **Conditional yes** — 1–N Time Eval packs beside the 600. **Not** FI. **Not** more GMV. |
 | Frontline / strategy *desk* loop on the ~7% | **Not yet.** F1–F3 open. Eng-led API dual-run still honest. |
 
 **Locked call:** significant opex vs this scale = pain-rule iterate, not the 8 loops and not FI mid-60s → 80. See §0.
@@ -129,7 +130,7 @@ Shape only. No company name.
 | Data plane is messy multi-cloud: **S3, BigQuery, Azure, GCP** | First-party evaluate works **without** one warehouse. Tarka SoR for decisions is buyer **Postgres + Redis**, not their lake. |
 | **Frontline** handles residual review. **Strategy is siloed** (promo / refund / payout / device / …). | Pack-why on leftovers without strategy background. Siloed authors can ship JSON **without** waiting on shared MLOps — and without a husk builder. |
 | Graph today: **JanusGraph**, severely limited — nodes largely **non-queryable**; engine can only return **skip** from **configured node relations** (not rich hop/pack evaluate on arbitrary reads). | Do not treat that as a rich queryable identity graph. Tarka empty `GRAPH_SERVICE_URL` = hops off. Wiring AGE / Hunt / named hops is a **second workstream**, not a free Janus upgrade. |
-| Rule base today: **Drools + Groovy**, **~600 rules** (not Tarka JSON packs). Ops buy in only if opex cut is still **significant**. | No drop-in Drools import. **Not** a 600-rule migrate. Pilot = **1–N high-pain** JSON packs; the 600 stay live. |
+| Rule base today: **Drools + Groovy**, **~600 rules** — **~20% Time Eval** (~120 sync evaluate-time); **~80%** async counters / thresholds / reactive. Ops buy in only if opex cut is still **significant**. | No Drools import. **Not** a 600-rule migrate. Pilot = **1–N high-pain Time Eval** JSON packs. Async/threshold/reactive stay BAU. |
 | Supervised fleet: **~40** models, **8** microservices (Hive). FI most **~mid-60s**; a few **~high 80**. Detected loss **~7% of GMV**. | Do **not** replace the 8 loops / 40 models. Tarka does **not** raise FI. Scores = payload enrichment. |
 
 **Org boundaries (do not smash):**
@@ -301,7 +302,7 @@ Hop packs (`USES_DEVICE` …) stay `mode=shadow` until Promote. They **cannot** 
 
 ### Q11 — Drools + Groovy today (~600 rules). Drop-in, or parallel plane?
 
-**Parallel plane. ~600 stay live. Tip must not claim Drools import or a 600-rule migrate.** `rules_import.py` loads **Tarka AST / JSON** into `engine_rules` — not `.drl` / Groovy. No Drools converter in-repo. Pilot is **1–N high-pain** packs only.
+**Parallel plane. ~600 stay live. Tip must not claim Drools import or a 600-rule migrate.** Only **~20%** are Time Eval; tip evaluate is **Time Eval-shaped**. Do **not** invent a Day-1 Tarka home for async counters / thresholds / reactive blocks. `rules_import.py` loads **Tarka AST / JSON** into `engine_rules` — not `.drl` / Groovy. Pilot is **1–N high-pain Time Eval** packs only.
 
 | Path | Tip honesty | Status |
 |------|-------------|--------|
@@ -407,16 +408,16 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 
 | Ask | Verdict | Until / condition |
 |-----|---------|-------------------|
-| **CUT** — significant opex vs ~600 Drools + ~40 models / 8 loops | **CONDITIONAL PASS** | Named high-pain 1–N packs only. **FAIL** if Tarka is just another plane. **FAIL** FI/GMV. |
-| **MODULES** — few modules vs full stack | **FEW** | Evaluate + packs + receipts. **8 loops / 40 models stay.** Graph / Hunt / Advise / Tableau **OUT**. |
-| **BAU** — 600 Drools live; no rip of 8 loops | **YES** | `emit_only`; selective pain-rule packs; Hive enrichment; graph URL empty. |
-| **FAIL** — cannot name significant opex at this scale | **FAIL Tarka** | Ops buy-in requires it. |
-| **FAIL** — migrate 600 or replace 8 loops / 40 models | **NO** | No importer. Wrong plane. |
+| **CUT** — significant opex vs **~20% Time Eval** (~120 of ~600) | **CONDITIONAL PASS** | 1–N high-pain **Time Eval** packs only. **FAIL** if pain hours sit on the ~80% non-Time-Eval estate or the 8 loops. **FAIL** FI/GMV. |
+| **MODULES** — few modules vs full stack | **FEW** | Evaluate + Time Eval packs + receipts. Async/threshold/reactive + **8 loops / 40 models stay BAU.** Graph / Hunt / Advise / Tableau **OUT**. |
+| **BAU** — 600 Drools live (incl. ~80% non-Time-Eval); no rip of 8 loops | **YES** | `emit_only`; selective Time Eval packs; Hive enrichment; graph URL empty. |
+| **FAIL** — cannot name significant opex on Time Eval | **FAIL Tarka** | Ops buy-in requires it. |
+| **FAIL** — migrate 600, replace async/threshold/reactive, or rip 8 loops / 40 models | **NO** | No importer. Tip is Time Eval-shaped. |
 | **FAIL** — FI-to-80 or detect-more-GMV | **MUST-NOT** | Wrong plane. 7% is their coverage. |
 | **FAIL** — desk leftover / Promote as week-1 | **NO** until F1–F3 | Receipt-why 403; leftover draft without why; silent Promote. |
 | **GitLab-grade install** | **MUST-NOT** | Signed G9 on a **named** pilot. |
 
-**Anoop one-liner:** CUT: PASS only if 1–N high-pain packs cut significant opex vs maintaining ~600 Drools/Groovy + ~40 models / 8 supervised loops (opex / eng / SLA) — FAIL if no significant opex path. FI uplift and compute-$ are cherry, not the gate. MODULES: evaluate + JSON packs + receipts beside Drools; do not replace the 8 loops or 40 models. BAU: 600 Drools stay live; selective pain-rule packs; Hive/Bedrock stay. Desk leftover/Promote FAIL until F1–F3.
+**Anoop one-liner:** CUT: PASS only if 1–N high-pain Time Eval packs cut significant opex vs the ~20% Time Eval slice (~120 of ~600 Drools/Groovy) — FAIL if pain hours sit on the ~80% async/threshold/reactive estate or the 8 supervised loops. FI uplift and compute-$ are cherry, not the gate. MODULES: evaluate + Time Eval JSON packs + receipts beside Drools; do not invent a Day-1 home for async counters / thresholds / reactive; do not replace the 8 loops or 40 models. BAU: 600 Drools stay live; selective Time Eval packs; Hive/Bedrock stay. Desk leftover/Promote FAIL until F1–F3.
 
 ---
 
@@ -428,7 +429,7 @@ Status key: **PROVED on clone/demo today** · **PROVED only after config** · **
 4. **Score sit-beside** — If packs must use Hive scores: publish onto evaluate **payload** + registry map. Do not sell `VENDOR_SCORE_URL` as decide-time Hive. Optional: thin HTTP adapter later (still post-pack today).
 5. **BI handoff** — Eng delivers receipt export + `evaluation_token` + optional `decision.emitted`. Do not pitch desk Analytics as Tableau.
 6. **BYO copy** — Bedrock/Azure/Vertex = OpenAI-compat URL or off. No Copilot plane. (CLAIM_LOCK + INDEX Advise tightened this PR.)
-7. **Excel/Jupyter + ~600 Drools** — Budget an eng translator to **1–N high-pain** JSON Observe packs. No `.drl` importer. Do **not** sell a 600-rule migrate or NLP-as-Drools. The 8 loops / 40 models stay.
+7. **Excel/Jupyter + ~600 Drools** — Budget an eng translator to **1–N high-pain Time Eval** JSON Observe packs (~20% / ~120 pool). No `.drl` importer. Do **not** sell a 600-rule migrate, a Day-1 async/threshold/reactive plane, or NLP-as-Drools. The 8 loops / 40 models stay.
 8. **Graph** — Phase 1 empty URL. Skip-Janus as payload enrichment only. Hop/Hunt later.
 9. **Doctor ports / multi-party vtypes / buyer TPS** — as needed; not week-1 grade.
 10. **G9** — Only if they later want a grade claim.
