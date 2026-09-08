@@ -168,5 +168,12 @@
 {{- if contains $ageName $dbUrl }}
 {{- fail "SoR databaseUrl must not point at Tarka AGE Hunt postgres (split-plane: buyer Postgres for SoR)" }}
 {{- end }}
+{{- $agePw := default "" ((.Values.agePostgres.auth).password) }}
+{{- if eq $agePw "fraud" }}
+{{- fail "global.environment=prod forbids leftover agePostgres.auth.password=fraud (chart default); use secretKeyRef AGE_POSTGRES_PASSWORD via global.appSecretsName" }}
+{{- end }}
+{{- if not .Values.global.appSecretsName }}
+{{- fail "global.environment=prod agePostgres requires global.appSecretsName (AGE_POSTGRES_PASSWORD and AGE_DATABASE_URL secretKeyRef; no chart-default password)" }}
+{{- end }}
 {{- end }}
 {{- end }}

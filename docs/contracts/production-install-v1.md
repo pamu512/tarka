@@ -48,6 +48,8 @@ Mount via `global.appSecretsName`. Do not put values in Helm values, compose exa
 | `ATTESTATION_HMAC_SECRET` | If attestation on | Empty = that plane off. |
 | `OPENAI_API_KEY` / `UPSTREAM_API_KEY` | If Advise / investigation LLM on | Chart Shadow stays **OFF**. Investigation-agent on `prod-on-k8s` also needs `COPILOT_PRODUCTION_MODE` (no `ALLOWED_ANALYSTS=*`). |
 | `POSTGRES_PASSWORD` | Do not use in-cluster PG | External URL carries buyer credentials. Never document `fraud` as a prod password. |
+| `AGE_POSTGRES_PASSWORD` | Required on **enterprise-desk** | Hunt sidecar. `secretKeyRef`, not chart default `fraud`. |
+| `AGE_DATABASE_URL` | Required on **enterprise-desk** | Graph-service AGE URL via `secretKeyRef`. |
 
 `TARKA_DEPLOYMENT_PROFILE=production` runs the same fail-closed checks as Helm prod. Setting individual knobs without the profile leaves those checks off.
 
@@ -72,10 +74,10 @@ Frontend **OFF** and Shadow **OFF** on the prod chart are **intentional grade po
 
 Claim **GitLab-grade** only after the locked 2026-09-08 plan items **G0–G8** land **and** a **named** beachhead pilot passes the **G9** checklist.
 
-| Id | Gate | This PR |
-|----|------|---------|
+| Id | Gate | Landed |
+|----|------|--------|
 | G0 | This contract | yes |
-| G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | no |
+| G1 | Helm prod honesty CI (`helm_prod_honesty.sh`) | yes |
 | G2 | Digest-pin CI | no |
 | G4 | SSO (OIDC for desk humans; API keys stay the machine path) | no |
 | G6 | Backup drill docs | no |
@@ -102,5 +104,5 @@ Sales-only overlay (`VITE_DESK_PROFILE=brochure`) is pitch pages. Not a producti
 - Hosted Tarka Cloud / providing Tarka to third parties as a managed service
 - Case CRM
 - Consortium SKU
-- Implementing G1–G9 in this PR
+- Implementing G2–G9 in this PR (G1 is the Helm honesty CI gate; not the grade)
 - Claiming GitLab-grade already achieved

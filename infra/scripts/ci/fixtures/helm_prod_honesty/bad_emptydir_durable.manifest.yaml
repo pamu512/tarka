@@ -1,0 +1,15 @@
+# One G1 fail class only. --self-check must report durable emptyDir.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tarka-tarka-core-api
+spec:
+  template:
+    spec:
+      volumes:
+        - name: audit-data
+          emptyDir: {}
+        - name: pack-store
+          emptyDir: {}
+        - name: label-data
+          emptyDir: {}

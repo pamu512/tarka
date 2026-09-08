@@ -48,5 +48,6 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
 | `prod-on-k8s` is core-api HA (external PG/Redis). Digest pin required for a grade claim. No sqlite/`emptyDir` for decisions/audit/labels/packs in production-labeled presets. See [production-install-v1](../contracts/production-install-v1.md). | GitLab-grade already achieved; GA from preset; in-cluster PG/Redis as production |
+| CI `helm_prod_honesty` fails sqlite / durable emptyDir / in-cluster PG on `prod-on-k8s` and `enterprise-desk-on-k8s` (G1 beachhead) | GitLab-grade complete production install; every `environment: prod` overlay scanned |
 
 **Provision warning:** `shadow_auto_promote` exists as a tenant file + host gate (`auto_promote` defaults **False**). Never advertise always-on auto-Promote as Day-1. Enabling requires explicit tenant promote gates (thresholds already in the provision file).

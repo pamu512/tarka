@@ -1048,6 +1048,8 @@ jobs:
             >/tmp/tarka-enterprise-desk.yaml
           grep -q age-postgres /tmp/tarka-enterprise-desk.yaml
           grep -q graph-service /tmp/tarka-enterprise-desk.yaml
+      - name: Helm prod honesty (G1 no-sqlite / no durable emptyDir / no in-cluster PG)
+        run: bash infra/scripts/ci/helm_prod_honesty.sh --self-check
       - name: AGE restore drill contract
         run: python3 infra/scripts/ci/test_age_restore_drill.py
       - name: AGE restore drill (docker)

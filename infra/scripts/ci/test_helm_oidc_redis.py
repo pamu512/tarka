@@ -270,6 +270,9 @@ class TestHelmOidcRequiresRedis(unittest.TestCase):
         self.assertIn("TARKA_AGE_POSTGRES_SERVICE", r.stdout)
         self.assertIn("RULE_FORCE_LIVE_TWO_PERSON", r.stdout)
         self.assertIn("RULE_GOVERNANCE_SECRET", r.stdout)
+        self.assertIn("AGE_POSTGRES_PASSWORD", r.stdout)
+        self.assertIn("AGE_DATABASE_URL", r.stdout)
+        self.assertNotIn(":fraud@", r.stdout)
 
 
 if __name__ == "__main__":
