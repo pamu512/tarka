@@ -45,6 +45,36 @@ def _kind_names(rendered: str, kind: str) -> list[str]:
     return [_doc_name(doc) for doc in _kind_docs(rendered, kind)]
 
 
+def _render_prod_on_k8s() -> str:
+    if not _GEN.exists():
+        raise unittest.SkipTest("generate_cloud_values.py missing")
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "prod-on-k8s.values.yaml"
+        gen = subprocess.run(
+            [
+                sys.executable,
+                str(_GEN),
+                "--preset",
+                "prod-on-k8s",
+                "--image-registry",
+                "registry.example.com/tarka",
+                "--db-url",
+                "postgresql+asyncpg://fraud:pw@db.internal:5432/fraud",
+                "--redis-url",
+                "rediss://redis.internal:6379/0",
+                "--allow-empty-digest",
+                "--output",
+                str(out),
+            ],
+            cwd=str(_REPO),
+            capture_output=True,
+            text=True,
+        )
+        if gen.returncode != 0:
+            raise AssertionError(gen.stderr + gen.stdout)
+        return _helm("-f", str(out))
+
+
 class TestHelmServiceMonitor(unittest.TestCase):
     def test_default_values_emit_no_servicemonitor(self) -> None:
         rendered = _helm("-f", str(_CHART / "values.yaml"))
@@ -58,9 +88,11 @@ class TestHelmServiceMonitor(unittest.TestCase):
             "--set",
             "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
             "--set",
-            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
-            "--set",
             "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+            "--set",
+            "coreApi.extraEnv.SAR_TRANSPORT=off",
+            "--set",
+            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
             "--set",
             "signalApi.enabled=true",
             "--set",
@@ -92,9 +124,11 @@ class TestHelmServiceMonitor(unittest.TestCase):
             "--set",
             "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
             "--set",
-            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
-            "--set",
             "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+            "--set",
+            "coreApi.extraEnv.SAR_TRANSPORT=off",
+            "--set",
+            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
             "--set",
             "coreApi.enabled=false",
             "--set",
@@ -106,36 +140,53 @@ class TestHelmServiceMonitor(unittest.TestCase):
         self.assertNotIn("tarka-tarka-investigation-agent", names)
 
     def test_prod_on_k8s_preset_emits_core_and_signal(self) -> None:
-        if not _GEN.exists():
-            raise unittest.SkipTest("generate_cloud_values.py missing")
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "prod-on-k8s.values.yaml"
-            gen = subprocess.run(
-                [
-                    sys.executable,
-                    str(_GEN),
-                    "--preset",
-                    "prod-on-k8s",
-                    "--image-registry",
-                    "registry.example.com/tarka",
-                    "--db-url",
-                    "postgresql+asyncpg://fraud:pw@db.internal:5432/fraud",
-                    "--redis-url",
-                    "rediss://redis.internal:6379/0",
-                    "--allow-empty-digest",
-                    "--output",
-                    str(out),
-                ],
-                cwd=str(_REPO),
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(gen.returncode, 0, msg=gen.stderr + gen.stdout)
-            rendered = _helm("-f", str(out))
+        rendered = _render_prod_on_k8s()
         names = _kind_names(rendered, "ServiceMonitor")
         self.assertIn("tarka-tarka-core-api", names)
         self.assertIn("tarka-tarka-signal-api", names)
         self.assertIn("tarka-tarka-investigation-agent", names)
+        core = next(doc for doc in _kind_docs(rendered, "ServiceMonitor") if "tarka-tarka-core-api" in doc)
+        self.assertIn("path: /metrics", core)
+        self.assertIn("port: http", core)
+        self.assertIn("interval: 30s", core)
+
+    def test_lite_on_k8s_emits_no_servicemonitor(self) -> None:
+        rendered = _helm("-f", str(_CHART / "presets" / "lite-on-k8s.yaml"))
+        self.assertNotIn("kind: ServiceMonitor", rendered)
+        self.assertEqual(_kind_names(rendered, "ServiceMonitor"), [])
+
+    def test_production_profile_without_environment_emits(self) -> None:
+        rendered = _helm(
+            "--set",
+            "coreApi.extraEnv.TARKA_DEPLOYMENT_PROFILE=production",
+            "--set",
+            "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+            "--set",
+            "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+            "--set",
+            "coreApi.extraEnv.SAR_TRANSPORT=off",
+            "--set",
+            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
+        )
+        self.assertIn("tarka-tarka-core-api", _kind_names(rendered, "ServiceMonitor"))
+
+    def test_explicit_opt_out_suppresses_servicemonitor(self) -> None:
+        rendered = _helm(
+            "--set",
+            "global.environment=prod",
+            "--set",
+            "global.serviceMonitor.enabled=false",
+            "--set",
+            "coreApi.extraEnv.TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true",
+            "--set",
+            "coreApi.extraEnv.CASE_API_PRODUCTION_MODE=true",
+            "--set",
+            "coreApi.extraEnv.SAR_TRANSPORT=off",
+            "--set",
+            "dataPlane.extraEnv.INGEST_REQUIRE_IDEMPOTENCY_KEY=true",
+        )
+        self.assertNotIn("kind: ServiceMonitor", rendered)
+        self.assertEqual(_kind_names(rendered, "ServiceMonitor"), [])
 
 
 if __name__ == "__main__":
