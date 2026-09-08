@@ -97,7 +97,7 @@ def test_prod_presets_do_not_ship_password_fraud():
 
 
 def test_production_install_v1_documents_secrets_matrix():
-    """G3: secrets matrix lives in production-install-v1 (stub if G0 not on master)."""
+    """G3: secrets matrix lives in production-install-v1 (G0 contract + G3 rows)."""
     contract = (
         Path(__file__).resolve().parents[3]
         / "docs"

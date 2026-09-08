@@ -226,8 +226,6 @@ Mutable `1.3.0-beta` tags alone are **not** the grade path. Production publishes
 
 **Documented command** (writes `coreApi.digest` / `signalApi.digest` when signal-api is enabled / `investigationAgent.digest` when enabled):
 
-Secrets: [matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G1 PR #406 (if merged) adds `helm_prod_honesty.sh` for sqlite / durable emptyDir / in-cluster PG — keep that sentence; this G3 page does not replace it.
-
 ```bash
 # After the image build/push in CI, record RepoDigests (do not treat a moving tag as a pin):
 #   docker buildx imagetools inspect "$REG/tarka-core-api:1.3.0-beta" --format '{{json .Manifest.Digest}}'
