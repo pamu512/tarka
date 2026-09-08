@@ -53,6 +53,21 @@ def load_desk_provision(path: str | os.PathLike[str] | None = None) -> dict[str,
     return data
 
 
+def enforcement_mode() -> str:
+    """emit_only (default) | handoff. Env wins; never default handoff."""
+    raw = _env_raw("TARKA_ENFORCEMENT_MODE")
+    if raw is not None and raw.strip():
+        token = raw.strip().lower()
+        return token if token in {"emit_only", "handoff"} else "emit_only"
+    data = load_desk_provision()
+    block = data.get("enforcement")
+    if isinstance(block, dict):
+        token = str(block.get("mode") or "").strip().lower()
+        if token in {"emit_only", "handoff"}:
+            return token
+    return "emit_only"
+
+
 def leftover_flag(env_name: str, provision_key: str) -> bool:
     raw = _env_raw(env_name)
     if raw is not None and raw.strip() != "":
@@ -106,10 +121,12 @@ def graph_service_url() -> str:
 _HOOK_URL_ENV = {
     "enforcement": "TARKA_ENFORCEMENT_WEBHOOK_URL",
     "observe_notify": "TARKA_OBSERVE_NOTIFY_WEBHOOK_URL",
+    "queue": "QUEUE_WEBHOOK_URL",
 }
 _HOOK_SECRET_ENV = {
     "enforcement": "TARKA_ENFORCEMENT_WEBHOOK_SECRET",
     "observe_notify": "TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET",
+    "queue": "QUEUE_WEBHOOK_SECRET",
 }
 
 

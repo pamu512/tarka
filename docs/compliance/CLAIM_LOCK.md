@@ -16,6 +16,12 @@
 | Feature authority | [`docs/docs/guides/feature-data-flows.md`](../docs/guides/feature-data-flows.md) |
 | AI / trend ops | [`docs/docs/guides/repo-productionization-runbook.md`](../docs/guides/repo-productionization-runbook.md) |
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
+| Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
+| Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
+| Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) |
+| Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
+| Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
+| Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
 
 Historical “maturity 4.x” scorecards and competitive matrices were removed in the docs cleanup.
 
@@ -27,10 +33,17 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 |-------------|--------------------------|
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
-| Observe ≠ live. Human Promote. Human Propose Demote → Confirm. Model never demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; auto-Promote; auto-demote |
-| Hop packs `mode=shadow`. Live overlay only via pack Promote | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
+| Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
+| Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
+| Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
+| Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
+| Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
+| Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
+| Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
+
+**Provision warning:** `shadow_auto_promote` exists as a tenant file + host gate (`auto_promote` defaults **False**). Never advertise always-on auto-Promote as Day-1. Enabling requires explicit tenant promote gates (thresholds already in the provision file).

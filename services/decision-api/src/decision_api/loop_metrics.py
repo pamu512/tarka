@@ -108,6 +108,7 @@ def compute_loop_metrics(
 ) -> dict[str, Any]:
     human_n = 0
     ai_n = 0
+    leftover_n = 0
     leftover_ms: list[float] = []
     promote_ms: list[float] = []
     for pack in packs:
@@ -117,6 +118,8 @@ def compute_loop_metrics(
         state = str(life.get("state") or "")
         ai = bool(pack.get("is_ai_authored"))
         if state in {"observe", "promoted"}:
+            if str(pack.get("source_key") or "").startswith("leftover:"):
+                leftover_n += 1
             if ai:
                 ai_n += 1
             else:
@@ -152,6 +155,21 @@ def compute_loop_metrics(
     blocked = max(0, int(ai_blocked))
     passed = max(0, int(ai_passed))
     denom = blocked + passed
+    demote_propose = 0
+    demote_confirm = 0
+    for pack in packs:
+        if not isinstance(pack, dict):
+            continue
+        demote = (pack.get("lifecycle") or {}).get("demote")
+        if isinstance(demote, dict):
+            state = str(demote.get("state") or "")
+            if state == "proposed":
+                demote_propose += 1
+            if state == "confirmed":
+                demote_confirm += 1
+    observe_n = human_n + ai_n
+    label_p50 = _percentile(label_ms, 50)
+    promote_p50 = _percentile(promote_ms, 50)
     return {
         "schema_id": SCHEMA_ID,
         "leftover_to_draft_ms": {
@@ -159,15 +177,34 @@ def compute_loop_metrics(
             "p95": _percentile(leftover_ms, 95),
         },
         "drafts_to_observe": {"human": human_n, "ai": ai_n},
+        "leftover_mint_rate": (leftover_n / observe_n) if observe_n else None,
         "ai_backtest_block_rate": (blocked / denom) if denom else None,
         "fp_count": len(fp_keys),
         "fp_cost_sum": fp_cost_sum,
         "label_latency_ms": {
-            "p50": _percentile(label_ms, 50),
+            "p50": label_p50,
             "p95": _percentile(label_ms, 95),
         },
+        "label_latency_hours": {
+            "p50": (label_p50 / 3_600_000.0) if label_p50 is not None else None,
+            "p95": None
+            if _percentile(label_ms, 95) is None
+            else _percentile(label_ms, 95) / 3_600_000.0,
+        },
         "promote_ttl_ms": {
-            "p50": _percentile(promote_ms, 50),
+            "p50": promote_p50,
             "p95": _percentile(promote_ms, 95),
         },
+        "promote_ttl_hours": {
+            "p50": (promote_p50 / 3_600_000.0) if promote_p50 is not None else None,
+            "p95": None
+            if _percentile(promote_ms, 95) is None
+            else _percentile(promote_ms, 95) / 3_600_000.0,
+        },
+        "demote_propose_count": demote_propose,
+        "demote_confirm_count": demote_confirm,
+        "evaluate_count": None,
+        "action_mix": None,
+        "rule_hit_rate": None,
+        "shadow_divergence": None,
     }

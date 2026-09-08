@@ -43,6 +43,17 @@ describe("L2DraftButtons", () => {
     });
   });
 
+  it("409 draft_exists shows open draft", async () => {
+    vi.mocked(client.rules.createL2Draft).mockRejectedValue(
+      new Error('409 {"code":"draft_exists","draft_id":"l2_lo-1","name":"l2_lo-1"}'),
+    );
+    render(
+      <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /create draft/i }));
+    expect(await screen.findByTestId("open-existing-draft")).toHaveTextContent("Open draft l2_lo-1");
+  });
+
   it("Author via BYO requires backtest (no skip)", async () => {
     render(
       <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" />,

@@ -102,12 +102,28 @@ class AgentContextIn(BaseModel):
     integrity: IntegrityIn | None = None
 
 
+_PARTY_ENTITY_TYPES = frozenset(
+    {"user", "device", "ip", "phone", "payment", "place", "promo", "order"}
+)
+
+
 class EvaluatePartyIn(BaseModel):
     """Other users on the same event. Primary score subject stays EvaluateRequest.entity_id."""
 
     role: str
     entity_id: str | None = None
     user_id: str | None = None
+    entity_type: str | None = None
+
+    @field_validator("entity_type", mode="before")
+    @classmethod
+    def _known_entity_type(cls, v: Any) -> str | None:
+        if v is None or str(v).strip() == "":
+            return None
+        token = str(v).strip().lower()
+        if token not in _PARTY_ENTITY_TYPES:
+            raise ValueError("unsigned entity_type refused")
+        return token
 
     @model_validator(mode="after")
     def _need_id(self) -> EvaluatePartyIn:
@@ -230,6 +246,22 @@ class EvaluateResponse(BaseModel):
     enforcement_action: str | None = Field(
         default=None,
         description='Platform protect verb: "allow" | "step_up" | "block" (from decision + recommended_action)',
+    )
+    suggested_actions: list[str] = Field(
+        default_factory=list,
+        description="Always-on advisory actions for buyer systems (emit_only or handoff).",
+    )
+    enforcement_mode: str | None = Field(
+        default=None,
+        description="emit_only (advisory) or handoff (authoritative).",
+    )
+    enforcement_authority: bool = Field(
+        default=False,
+        description="True only in handoff. emit_only never claims we blocked.",
+    )
+    feature_source: str | None = Field(
+        default=None,
+        description="l2 | l1 | raw. Empty FEATURE_STORE_URL is not l2.",
     )
     challenge_policy_id: str | None = Field(
         default=None,

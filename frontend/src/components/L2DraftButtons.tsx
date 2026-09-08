@@ -42,6 +42,12 @@ export function L2DraftButtons({
       const file = (out as { file?: string }).file || "Observe";
       setMsg(`${file} is in Observe. A human owns the next step.`);
     } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e ?? "");
+      if (/draft_exists/.test(raw)) {
+        const name = /"name":\s*"([^"]+)"/.exec(raw)?.[1] || /"draft_id":\s*"([^"]+)"/.exec(raw)?.[1] || "";
+        setMsg(name ? `Open draft ${name}` : "Open draft");
+        return;
+      }
       setMsg(toUserFacingError(e, { subject: "Draft", action: "create Observe draft" }));
     } finally {
       setBusy(false);
@@ -68,7 +74,15 @@ export function L2DraftButtons({
       >
         Author via BYO
       </button>
-      {msg ? <span className="text-[11px] text-gray-400">{msg}</span> : null}
+      {msg ? (
+        /Open draft/.test(msg) ? (
+          <a href="/ops/shadow" className="text-[11px] text-brand-300 hover:underline" data-testid="open-existing-draft">
+            {msg}
+          </a>
+        ) : (
+          <span className="text-[11px] text-gray-400">{msg}</span>
+        )
+      ) : null}
     </div>
   );
 }

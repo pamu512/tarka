@@ -5,7 +5,7 @@
 | Limitation | Truth |
 |------------|--------|
 | Shipped hop packs | `graph_v1_*` stay `mode=shadow` (`USES_DEVICE`, `HAS_EMAIL` / `HAS_PHONE` / `HAS_CARD`, `HAS_LIST`) |
-| Live FLAG | Human Promote on `/ops/shadow` only. Do not flip `mode` to `active` in the file |
+| Live FLAG | Promote on `/ops/shadow` after gates pass (ungated → human). Do not flip `mode` to `active` in the file |
 | Empty `GRAPH_SERVICE_URL` | Hops off. Receipt `graph:missing`. **Not sibling identity.** No invented neighbors |
 | Evaluate | Fail-soft. Never waits on graph. Not “every evaluate is on the graph” |
 | L2 leftover / HIL override | Observe draft. AI author needs a backtest pass first (`409 backtest_required`) |

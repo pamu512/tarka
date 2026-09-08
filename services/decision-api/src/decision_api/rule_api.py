@@ -913,6 +913,7 @@ async def create_l2_draft(
             409,
             detail={
                 "code": "draft_exists",
+                "draft_id": hit.get("name"),
                 "file": hit.get("_file"),
                 "name": hit.get("name"),
             },
