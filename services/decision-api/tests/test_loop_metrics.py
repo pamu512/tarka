@@ -98,7 +98,7 @@ def test_pack_metrics_from_shadow_observations():
         observations=observations,
     )
     assert out["rule_hit_rate"] is None
-    assert out["shadow_divergence"] is None
+    assert out["shadow_divergence"] == 0.5
     rows = out["pack_metrics"]
     assert len(rows) == 1
     row = rows[0]
