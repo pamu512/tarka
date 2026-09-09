@@ -70,6 +70,9 @@ describe("Observe pack modes", () => {
     expect(dialog).toHaveTextContent("shadow_payment_probe_v1");
     expect(dialog).toHaveTextContent(/becomes live/i);
     expect(dialog).toHaveTextContent(/Active/);
+    expect(screen.getByTestId("promote-pack-metrics")).toHaveTextContent(/not loaded/i);
+    expect(screen.getByTestId("promote-rule-hit-rate")).toHaveTextContent(/not loaded/i);
+    expect(screen.getByTestId("promote-shadow-divergence")).toHaveTextContent(/not loaded/i);
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() => {
