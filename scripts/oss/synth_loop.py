@@ -174,7 +174,7 @@ def build_label_payload(
     label_kind: str,
 ) -> dict[str, Any]:
     kind = str(label_kind or "").strip() or "fp"
-    out: dict[str, Any] = {"tenant_id": tenant, "label_kind": kind, "source": "evaluate"}
+    out: dict[str, Any] = {"tenant_id": tenant, "label_kind": kind}
     token = str(eval_out.get("evaluation_token") or "").strip()
     if token:
         out["evaluation_token"] = token
