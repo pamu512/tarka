@@ -10,10 +10,12 @@ import {
   type GraphSearchHit,
 } from "../api/client";
 import { GraphContextPanel } from "../components/GraphContextPanel";
+import { HuntDepthHonestyStrip } from "../components/HuntDepthHonestyStrip";
 import { LinkAnalysisForceGraph } from "../components/LinkAnalysisForceGraph";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { SupportIdHint } from "../components/SupportIdHint";
+import PlaneOff from "./PlaneOff";
 import { useFailoverPlanes } from "../context/FailoverPlaneContext";
 import {
   filterWorkspaceNodes,
@@ -38,6 +40,12 @@ import {
   type GrowthPolicyWindow,
   type WorkspaceFilter,
 } from "../domain/graphInvestigation";
+import {
+  graphServiceUrlOn,
+  readHuntDepthFromPayload,
+  resolveHuntDepthHonesty,
+  type HuntDepthFields,
+} from "../domain/huntDepthHonesty";
 import {
   LINK_ANALYSIS_MAX_NODES,
   type LinkAnalysisGraphNode,
@@ -124,7 +132,10 @@ const chipClass = (on: boolean) =>
   }`;
 
 export default function GraphInvestigationPage() {
-  const { graphPlaneDisabled } = useFailoverPlanes();
+  const { graphPlaneDisabled: failoverGraphOff } = useFailoverPlanes();
+  const graphServiceUrl = import.meta.env.VITE_GRAPH_SERVICE_URL as string | undefined;
+  const huntPlaneOff = !graphServiceUrlOn(graphServiceUrl);
+  const graphPlaneDisabled = failoverGraphOff || huntPlaneOff;
   const { toast } = useToast();
   const { tenantId: workspaceTenantId, setTenantId: setWorkspaceTenantId } = useTenantEnvironment();
   const [params, setParams] = useSearchParams();
@@ -156,6 +167,7 @@ export default function GraphInvestigationPage() {
   const [error, setError] = useState<string | null>(null);
   const [pruneNote, setPruneNote] = useState("");
   const [instrumentCapNote, setInstrumentCapNote] = useState("");
+  const [huntDepthApi, setHuntDepthApi] = useState<HuntDepthFields | null>(null);
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
   const [minRiskText, setMinRiskText] = useState("");
@@ -332,6 +344,7 @@ export default function GraphInvestigationPage() {
         setHighlightIds(undefined);
         setHighlightLinkKeys(undefined);
         setDossierMessage(null);
+        setHuntDepthApi(null);
       }
       setLoading(false);
       return;
@@ -341,6 +354,7 @@ export default function GraphInvestigationPage() {
     setError(null);
     setPruneNote("");
     setInstrumentCapNote("");
+    setHuntDepthApi(null);
     setHighlightIds(undefined);
     setHighlightLinkKeys(undefined);
     setDossierMessage(null);
@@ -354,6 +368,7 @@ export default function GraphInvestigationPage() {
           graph.entityLinks(entityId, tenantId),
         ]);
         if (cancelled) return;
+        setHuntDepthApi(readHuntDepthFromPayload(sub));
         const fanout = seedInstrumentFanout(
           entityId,
           sub.nodes,
@@ -541,6 +556,15 @@ export default function GraphInvestigationPage() {
 
   const largeGraph = (graphData?.nodes.length ?? 0) > 800;
   const disabled = graphPlaneDisabled;
+  const huntDepth = resolveHuntDepthHonesty({
+    graphServiceUrl,
+    depthRequested: depth,
+    api: huntDepthApi,
+  });
+
+  if (huntPlaneOff) {
+    return <PlaneOff plane="graph" />;
+  }
 
   return (
     <div className="p-6 h-full flex flex-col gap-4 animate-fade-in min-h-0">
@@ -552,6 +576,7 @@ export default function GraphInvestigationPage() {
         nextTo="/leftovers"
         nextLabel="Leftovers"
       />
+      <HuntDepthHonestyStrip honesty={huntDepth} />
 
       {graphPlaneDisabled ? (
         <div className="text-sm text-rose-100/95 bg-rose-950/40 border border-rose-500/35 rounded-lg px-3 py-2.5 space-y-1">
