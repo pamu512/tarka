@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   decisions,
   toUserFacingError,
@@ -14,7 +14,7 @@ import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
 import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { getAuditForPackWhy } from "../utils/auditDetail";
-import { packIdFromRulePackFile, resolvePackWhy } from "../utils/packWhy";
+import { packNameForDisplay, resolvePackWhy } from "../utils/packWhy";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
 
 function formatAmount(amount: number | null, currency: string | null): string {
@@ -54,7 +54,38 @@ function compactIntegrity(row: AuditRecentItem): string {
 }
 
 function compactPack(row: AuditRecentItem): string {
-  return packIdFromRulePackFile(row.rule_pack_file) ?? "missing";
+  return packNameForDisplay({
+    rule_pack_file: row.rule_pack_file,
+    pack_name: row.pack_name,
+    rule_hits: row.rule_hits,
+  });
+}
+
+function leftoverEligible(row: AuditRecentItem): boolean {
+  return row.rule_result === "REVIEW" || row.rule_result === "DENY";
+}
+
+function DecisionNextActions({ row }: { row: AuditRecentItem }) {
+  return (
+    <div data-testid="next-legal-action" className="flex flex-col gap-0.5 text-xs">
+      <Link
+        to={`/decisions/${encodeURIComponent(row.trace_id)}`}
+        onClick={(e) => e.stopPropagation()}
+        className="text-brand-300 hover:underline"
+      >
+        Open receipt
+      </Link>
+      {leftoverEligible(row) ? (
+        <Link
+          to="/leftovers"
+          onClick={(e) => e.stopPropagation()}
+          className="text-brand-300 hover:underline"
+        >
+          Create Observe draft
+        </Link>
+      ) : null}
+    </div>
+  );
 }
 
 function compactRule(row: AuditRecentItem): string {
@@ -105,6 +136,7 @@ function FilterSelect({
 
 export default function Decisions() {
   const { tenantId } = useTenantEnvironment();
+  const navigate = useNavigate();
   const { traceId } = useParams<{ traceId?: string }>();
   const [items, setItems] = useState<AuditRecentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +237,7 @@ export default function Decisions() {
       <div className="space-y-1">
         <PageTitle module="dashboard">Decisions</PageTitle>
         <FirstHourHint
-          job="ALLOW means continue — no leftover. REVIEW or DENY means a human should look. The receipt is the pack, not a model."
+          job="Each row is a receipt: what the pack decided and which pack fired. Open the row for why. ALLOW means continue — no leftover. REVIEW or DENY: Open receipt, then Create Observe draft on Leftovers."
           nextTo="/leftovers"
           nextLabel="Leftovers"
         />
@@ -323,7 +355,7 @@ export default function Decisions() {
         ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500" data-testid="decisions-empty">
             {items.length === 0
-              ? "No recent decisions for this tenant. The stream stays empty until audit/recent returns live rows."
+              ? "No recent decisions for this tenant. Empty means none came back — not an outage. Tarka does not invent receipts."
               : "No decisions match the current filters."}
           </p>
         ) : (
@@ -336,6 +368,7 @@ export default function Decisions() {
                   <th className="text-left py-3 px-4 font-medium">Decision</th>
                   <th className="text-left py-3 px-4 font-medium">Rule result</th>
                   <th className="text-left py-3 px-4 font-medium">Pack</th>
+                  <th className="text-left py-3 px-4 font-medium">Next</th>
                   <th className="text-left py-3 px-4 font-medium">Rule</th>
                   <th className="text-left py-3 px-4 font-medium">Integrity</th>
                   <th className="text-left py-3 px-4 font-medium">Amount</th>
@@ -348,11 +381,21 @@ export default function Decisions() {
                   <tr
                     key={row.trace_id}
                     data-testid={`decisions-row-${row.trace_id}`}
-                    className="border-b border-surface-800 hover:bg-surface-800/50 transition-colors"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(`/decisions/${encodeURIComponent(row.trace_id)}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/decisions/${encodeURIComponent(row.trace_id)}`);
+                      }
+                    }}
+                    className="border-b border-surface-800 hover:bg-surface-800/50 transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4">
                       <Link
                         to={`/decisions/${encodeURIComponent(row.trace_id)}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="font-mono text-xs text-brand-300 hover:underline"
                       >
                         {row.short_id}
@@ -363,7 +406,15 @@ export default function Decisions() {
                     <td className="py-3 px-4">
                       <RuleResultPill result={row.rule_result} />
                     </td>
-                    <td className="py-3 px-4 font-mono text-xs text-gray-300">{compactPack(row)}</td>
+                    <td
+                      className="py-3 px-4 text-xs text-gray-300"
+                      data-testid={`decisions-pack-${row.trace_id}`}
+                    >
+                      {compactPack(row)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <DecisionNextActions row={row} />
+                    </td>
                     <td className="py-3 px-4 font-mono text-xs text-gray-300">{compactRule(row)}</td>
                     <td className="py-3 px-4 font-mono text-xs text-gray-400">{compactIntegrity(row)}</td>
                     <td className="py-3 px-4 font-mono text-xs text-gray-300">
