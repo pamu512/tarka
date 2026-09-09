@@ -5,6 +5,20 @@
   "type": "object",
   "required": ["schema_id"],
   "additionalProperties": false,
+  "$defs": {
+    "labelHorizonWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window_days": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 730,
+          "description": "EXAMPLE tenant policy window in days. Not Tarka morals. Not a chargeback-guarantee SKU."
+        }
+      }
+    }
+  },
   "properties": {
     "schema_id": {
       "const": "tarka.desk_provision/v1"
@@ -53,6 +67,19 @@
       "additionalProperties": false,
       "properties": {
         "start_when_llm_url": { "type": "boolean", "default": true }
+      }
+    },
+    "label_horizons": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "EXAMPLE tenant policy windows per label_kind. Not Tarka morals. Not a chargeback-guarantee SKU. Never auto-demote from these.",
+      "properties": {
+        "fp": { "$ref": "#/$defs/labelHorizonWindow" },
+        "fraud": { "$ref": "#/$defs/labelHorizonWindow" },
+        "other": { "$ref": "#/$defs/labelHorizonWindow" },
+        "promo_abuse": { "$ref": "#/$defs/labelHorizonWindow" },
+        "collusion": { "$ref": "#/$defs/labelHorizonWindow" },
+        "chargeback": { "$ref": "#/$defs/labelHorizonWindow" }
       }
     },
     "hooks": {
