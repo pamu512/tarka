@@ -54,6 +54,21 @@ class TestPostgapContractSpine(unittest.TestCase):
         ):
             self.assertTrue((ROOT / rel).is_file(), rel)
 
+    def test_bakeoff_pack_metrics_schema_named(self) -> None:
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(encoding="utf-8")
+        for needle in (
+            "pack_metrics",
+            "pack_id",
+            "rule_hit_rate",
+            "shadow_divergence",
+            "tarka.pack_metrics/v1",
+            "null = unknown",
+            "M2",
+        ):
+            self.assertIn(needle, text)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("pack_metrics", lock)
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
