@@ -1,4 +1,4 @@
-"""L2 online feature serve. Empty FEATURE_STORE_URL = off (L1/raw)."""
+"""L2 online feature serve + optional writers. Empty FEATURE_STORE_URL = off (no L2 writes)."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def evaluate_as_of_iso(
     ):
         if not src:
             continue
-        for key in ("event_time", "event_ts", "occurred_at", "as_of"):
+        for key in ("event_time", "event_ts", "occurred_at", "as_of", "created_at"):
             raw = src.get(key)
             if isinstance(raw, str) and raw.strip():
                 return raw.strip()
@@ -76,9 +76,19 @@ def upsert_feature(
         raise ValueError(f"entity_type must be one of {sorted(ENTITY_TYPES)}")
     ts = as_of or datetime.now(UTC).isoformat().replace("+00:00", "Z")
     key = (tenant_id, et, entity_id)
+    new_ts = parse_event_time_to_unix(ts)
     with _LOCK:
         rows = list(_STORE.get(key) or [])
-        rows.append({"as_of": ts, "features": dict(features)})
+        replaced = False
+        if new_ts is not None:
+            for i, row in enumerate(rows):
+                row_ts = parse_event_time_to_unix(row.get("as_of"))
+                if row_ts is not None and row_ts == new_ts:
+                    rows[i] = {"as_of": ts, "features": dict(features)}
+                    replaced = True
+                    break
+        if not replaced:
+            rows.append({"as_of": ts, "features": dict(features)})
         _STORE[key] = rows
 
 
@@ -186,6 +196,9 @@ def write_event_features(
     payload: dict[str, Any] | None,
     event_ts: str | None = None,
 ) -> None:
+    """Stream hook. Empty FEATURE_STORE_URL = no L2 write. Fail-soft."""
+    if not feature_store_url():
+        return
     if not payload:
         return
     features = {
@@ -195,13 +208,17 @@ def write_event_features(
     }
     if not features:
         return
-    upsert_feature(
-        tenant_id=tenant_id,
-        entity_type="user",
-        entity_id=entity_id,
-        features=features,
-        as_of=event_ts,
-    )
+    ts = (event_ts or "").strip() or evaluate_as_of_iso(None, payload)
+    try:
+        upsert_feature(
+            tenant_id=tenant_id,
+            entity_type="user",
+            entity_id=entity_id,
+            features=features,
+            as_of=ts,
+        )
+    except Exception:
+        log.debug("l2_write_fail_soft", exc_info=True)
 
 
 def backfill_from_jsonl(path: str | os.PathLike[str], *, tenant_id: str) -> int:
