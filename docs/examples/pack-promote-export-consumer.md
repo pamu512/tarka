@@ -14,4 +14,4 @@ Idempotency key: `pack_id` + `pack_hash` + `emitted_at` (same as [pack-promote-e
 
 Empty `PACK_PROMOTE_EXPORT_CONSUMER_URL` (and empty `--notify-url`) = outbound notify off. Consumer failure does not roll back Promote and does not demote.
 
-See [pack GitOps](../docs/guides/pack-gitops.md). Commercial help consuming the export is [SUPPORT](../../SUPPORT.md) — not a runbook here (D10.3).
+See [pack GitOps](../docs/guides/pack-gitops.md). Commercial help consuming the export: [SUPPORT — Pack GitOps export assist](../../SUPPORT.md#pack-gitops-export-assist).
