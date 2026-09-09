@@ -168,6 +168,12 @@ Shadow agent loads prior rows for `entity_id` before LLM inference, then **adds 
 
 ---
 
+## Field registry (feature defs)
+
+Product SoT is Postgres `field_registry` (tenant overlay) and `field_maps` (buyer_key → registry name). Seed is bundled `field_registry_v1.json`. Demo stays that **file/fixture**; `PUT /v1/fields/*` and `PUT /v1/fields/maps` return **403** (`maps persist on product Postgres`). Windows stay on `counter_manifest_v1.json` — do not stuff them into the registry. Not online PIT serve (G1.3).
+
+---
+
 ## Related paths in repo
 
 | Path | Purpose |
