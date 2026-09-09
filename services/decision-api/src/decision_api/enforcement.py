@@ -261,6 +261,60 @@ def read_enforcement_journal(limit: int = 50) -> list[dict[str, Any]]:
     return out
 
 
+def logical_enforcement_delivery(action_id: str) -> dict[str, Any] | None:
+    """Dedupe journal rows for one G4.2 action_id into a single logical delivery.
+
+    Query-only (D9.3 public GET is out of scope). Does not skip or silent-block POSTs —
+    retries still fire; buyer sinks apply once on this key.
+    """
+    key = (action_id or "").strip().lower()
+    if not key:
+        return None
+    # ponytail: O(n) jsonl scan. D9.3 indexed query API is the upgrade path.
+    path = enforcement_journal_path()
+    if not path.is_file():
+        return None
+    rows: list[dict[str, Any]] = []
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for ln in fh:
+                line = ln.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                aid = str(row.get("action_id") or "").strip().lower()
+                ikey = str(row.get("idempotency_key") or "").strip().lower()
+                if aid == key or ikey == key:
+                    rows.append(row)
+    except OSError:
+        return None
+    if not rows:
+        return None
+    attempts = 1
+    for row in rows:
+        raw = row.get("attempt_count")
+        try:
+            n = int(raw) if raw is not None else 1
+        except (TypeError, ValueError):
+            n = 1
+        if n > attempts:
+            attempts = n
+    last = rows[-1]
+    return {
+        "action_id": key,
+        "idempotency_key": key,
+        "attempt_count": attempts,
+        "status": last.get("status"),
+        "trace_id": last.get("trace_id"),
+        "tenant_id": last.get("tenant_id"),
+    }
+
+
 def _sign(body: bytes, secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
@@ -313,6 +367,7 @@ def _build_payload(
         "challenge_metadata": challenge_metadata or {},
         "suggested_actions": hints,
         "action_id": delivery_id,
+        "idempotency_key": delivery_id,
         "action_ids": ids,
         "enforcement_mode": enforcement_mode(),
         "authority": enforcement_mode() == "handoff",
@@ -359,6 +414,7 @@ async def apply_enforcement_adapters(
         "authority": mode == "handoff",
         "suggested_actions": hints,
         "action_id": delivery_id,
+        "idempotency_key": delivery_id,
         "action_ids": ids,
         "webhook": None,
         "webhook_event": "decision.enforced"
@@ -392,6 +448,8 @@ async def apply_enforcement_adapters(
         "recommended_action": intent.recommended_action,
         "enforcement_mode": mode,
         "webhook_event": summary["webhook_event"],
+        "action_id": delivery_id,
+        "idempotency_key": delivery_id,
     }
 
     if not url:
