@@ -356,12 +356,17 @@ Empty `q` returns `{ "entities": [] }` (no scan). Neo4j/AGE: case-insensitive CO
 
 ### `GET /v1/subgraph`
 
-**Parameters:** `entity_id` (required), `tenant_id` (required), `depth` (1–5, default 2)
+**Parameters:** `entity_id` (required), `tenant_id` (required), `depth` (request hint 1–5, default 2). Day-1 walk is `hunt_depth_max=1`. Requested > applied → `degrade_reason=hunt:depth_capped`.
 
 **Response `200`:**
 
 ```json
 {
+  "schema_id": "tarka.hunt_depth/v1",
+  "hunt_depth_max": 1,
+  "depth_requested": 2,
+  "depth_applied": 1,
+  "degrade_reason": "hunt:depth_capped",
   "nodes": [
     { "id": "user-42", "labels": ["Account"], "properties": { "tags": ["sdk:vpn"] } }
   ],

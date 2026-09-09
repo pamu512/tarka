@@ -247,7 +247,7 @@ curl -s "http://localhost:8001/v1/subgraph?\
 entity_id=user-suspicious&tenant_id=acme&depth=2" | python -m json.tool
 ```
 
-Map out what the entity is connected to — devices, sessions, other accounts.
+`depth=2` is a hint. Day-1 AGE applies 1 hop and returns `depth_applied=1` with `degrade_reason=hunt:depth_capped`. Map the 1-hop neighborhood — devices, sessions, other accounts.
 
 ### Step 3: Check for Shared Devices
 

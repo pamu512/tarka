@@ -23,7 +23,7 @@
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
-| Hunt depth | [`docs/contracts/hunt-depth-v1.md`](../contracts/hunt-depth-v1.md) — Day-1 AGE Hunt `hunt_depth_max=1`; empty `GRAPH_SERVICE_URL` = Hunt/hops off |
+| Hunt depth | [`docs/contracts/hunt-depth-v1.md`](../contracts/hunt-depth-v1.md) — Day-1 AGE Hunt `hunt_depth_max=1`; empty `GRAPH_SERVICE_URL` = Hunt/hops off; `/v1/subgraph` emits `depth_requested` / `depth_applied` / `degrade_reason` |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
 | `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
@@ -48,7 +48,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
-| Day-1 Hunt is AGE depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. Later hops use `depth_requested` / `depth_applied` / `degrade_reason`. | Unlimited Hunt path; Hunt as identity SKU; invented neighbors when URL empty; GA multi-hop without `depth_applied` |
+| Day-1 Hunt is AGE depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. `/v1/subgraph` emits `depth_requested` / `depth_applied` / `degrade_reason` (`tarka.hunt_depth/v1`). Requested > applied → `hunt:depth_capped`; walk stays 1. | Unlimited Hunt path; Hunt as identity SKU; invented neighbors when URL empty; GA multi-hop without `depth_applied` |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |

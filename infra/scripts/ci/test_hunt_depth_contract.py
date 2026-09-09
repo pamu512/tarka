@@ -57,6 +57,9 @@ class TestHuntDepthContract(unittest.TestCase):
         self.assertIn("GRAPH_SERVICE_URL", text)
         self.assertRegex(text, r"depth-1")
         self.assertRegex(text, r"(?i)empty `GRAPH_SERVICE_URL`.{0,80}\boff\b")
+        self.assertNotRegex(text, r"later slice \(D7\.3\)")
+        self.assertRegex(text, r"(?i)API emit")
+        self.assertIn("hunt:depth_capped", text)
 
     def test_planes_and_guide_point_at_contract(self) -> None:
         planes = (ROOT / "docs/contracts/graph-planes-v1.md").read_text(encoding="utf-8")
@@ -71,6 +74,13 @@ class TestHuntDepthContract(unittest.TestCase):
         self.assertIn("hunt-depth-v1", rows)
         self.assertRegex(rows, r"(?i)GRAPH_SERVICE_URL")
         self.assertRegex(rows, r"(?i)\boff\b")
+
+    def test_openapi_subgraph_emits_hunt_depth_fields(self) -> None:
+        spec = (ROOT / "contracts/openapi/graph-service.yaml").read_text(encoding="utf-8")
+        self.assertIn(SCHEMA_ID, spec)
+        for field in SCHEMA_FIELDS:
+            self.assertIn(field, spec)
+        self.assertIn("hunt:depth_capped", spec)
 
     def test_new_buyer_rows_forbid_incumbent_wording(self) -> None:
         hunt = (ROOT / "docs/contracts/hunt-depth-v1.md").read_text(encoding="utf-8")
