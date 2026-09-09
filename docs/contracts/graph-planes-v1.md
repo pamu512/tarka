@@ -13,3 +13,7 @@ Named hops on the evaluate receipt. Empty `GRAPH_SERVICE_URL` → `graph:missing
 Research / sidecar only. Input: export subgraph + labels. Output: `ring_score` / tags JSON → Observe draft (`authored_by=seed`). **Never** live ALLOW/DENY. Not “GNN live”. Not identity-as-SKU.
 
 Job schemas: `tarka.ring_job_request/v1`, `tarka.ring_job_response/v1`.
+
+## C — Hunt depth (AGE)
+
+Day-1 Hunt is depth-1. Empty `GRAPH_SERVICE_URL` turns Hunt off (same as hops). See [hunt-depth-v1](hunt-depth-v1.md).

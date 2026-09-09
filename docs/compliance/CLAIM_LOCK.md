@@ -19,10 +19,14 @@
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
-| Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
+| Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
+| Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. GLOBAL `evaluate_count` / `action_mix` / `shadow_divergence` fill from audit/receipts/shadow pairs when present (D8.2). **null = unknown**. share-with-M3; do-not-double-implement. |
+| Effectiveness tick | Suggests Propose Demote with pack metrics only. Human Confirm required. Auto-demote forbidden. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
+| Field registry | [`docs/docs/guides/field-registry-onboarding.md`](../docs/guides/field-registry-onboarding.md) — product Postgres `field_registry` / `field_maps`; demo file/fixture + PUT 403. Windows on `counter_manifest`. Not G1.3 PIT serve. |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
+| Hunt depth | [`docs/contracts/hunt-depth-v1.md`](../contracts/hunt-depth-v1.md) — Day-1 AGE Hunt `hunt_depth_max=1`; empty `GRAPH_SERVICE_URL` = Hunt/hops off |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
 | `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
@@ -46,9 +50,11 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Outbound enforcement webhook: in-process bounded retry (N=3, backoff 0.05s / 0.15s) then one journaled dead-letter. Failures stay retryable; evaluate never converts a webhook miss into block/deny. Empty URL = skip, no retry. `emit_only` unchanged. | Silent block/deny on webhook failure; DLQ as Demote; Redis/SQS/Celery retry bus; handoff as Day-1 default |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
+| Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is seed file/fixture; PUT 403. Windows stay on `counter_manifest`. | Durable registry on demo; windows in the registry; Redis as feature-def SoT |
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| Day-1 Hunt is AGE depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. Later hops use `depth_requested` / `depth_applied` / `degrade_reason`. | Unlimited Hunt path; Hunt as identity SKU; invented neighbors when URL empty; GA multi-hop without `depth_applied` |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |

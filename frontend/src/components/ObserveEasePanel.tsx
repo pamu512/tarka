@@ -15,6 +15,35 @@ type LivePack = {
   lifecycle?: { demote?: { state?: string; proposed_by?: string } };
 };
 
+type DemoteSuggestion = {
+  pack_id?: string;
+  rule_hit_rate?: number | null;
+  shadow_divergence?: number | null;
+  fp_count?: number;
+  reason_code?: string;
+};
+
+function pct(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  return `${Math.round(n * 100)}%`;
+}
+
+function suggestionEnglish(code: string | undefined): string {
+  const raw = (code || "").trim();
+  if (raw === "high_shadow_divergence") return "high shadow divergence";
+  if (raw === "high_divergence_and_fp") return "high shadow divergence and FP labels";
+  if (raw === "fp_labeled") return "FP labels on this pack";
+  return raw.replace(/_/g, " ") || "effectiveness tick";
+}
+
+function suggestionProposeReason(row: DemoteSuggestion): string {
+  const why = suggestionEnglish(row.reason_code);
+  const hit = pct(row.rule_hit_rate);
+  const div = pct(row.shadow_divergence);
+  const fp = row.fp_count == null ? "" : ` fp ${row.fp_count}`;
+  return `${why} (hit ${hit} diverge ${div}${fp})`;
+}
+
 export function ObserveEasePanel({
   tenantId,
   drafts,
@@ -43,12 +72,23 @@ export function ObserveEasePanel({
   const [selectedLive, setSelectedLive] = useState("");
   const [demoteReason, setDemoteReason] = useState("");
   const [promoteOpen, setPromoteOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<DemoteSuggestion[]>([]);
 
   async function refreshLlm() {
     try {
       setLlm(await decisions.byomStatus());
     } catch (e) {
       setMsg(toUserFacingError(e, { subject: "LLM", action: "read connect status" }));
+    }
+  }
+
+  async function refreshSuggestions() {
+    try {
+      const out = await decisions.demoteSuggestions(tenantId);
+      setSuggestions(Array.isArray(out.suggestions) ? out.suggestions : []);
+    } catch (e) {
+      setSuggestions([]);
+      setMsg(toUserFacingError(e, { subject: "Suggest Demote", action: "read effectiveness suggestions" }));
     }
   }
 
@@ -72,9 +112,10 @@ export function ObserveEasePanel({
   useEffect(() => {
     void refreshLlm();
     void refreshLivePacks();
+    void refreshSuggestions();
     // ponytail: status is env-backed; one read on mount is enough.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tenantId]);
 
   async function testLlm() {
     setBusy(true);
@@ -120,6 +161,25 @@ export function ObserveEasePanel({
   const selectedDraftPack = drafts.find((d) => (d.name || "") === _selectedDraft) || drafts[0];
   const promoteName = selectedDraftPack?.name || _selectedDraft || "Observe draft";
   const promoteFile = selectedDraftPack?.file;
+
+  async function proposeFromSuggestion(row: DemoteSuggestion, file: string) {
+    if (!file) return;
+    const reason = suggestionProposeReason(row);
+    if (reason.trim().length < 8) return;
+    setBusy(true);
+    setMsg("");
+    setSelectedLive(file);
+    setDemoteReason(reason);
+    try {
+      await rules.proposeDemote(file, reason, tenantId);
+      setMsg("Proposed demote from effectiveness tick. Live is still on. Confirm is a separate human action.");
+      await refreshLivePacks();
+    } catch (e) {
+      setMsg(toUserFacingError(e, { subject: "Propose Demote", action: "park a human demote from a suggestion" }));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function proposeDemoteSelected() {
     if (!selectedLive || !reasonReady) return;
@@ -206,9 +266,36 @@ export function ObserveEasePanel({
       </article>
       <article className="rounded-md border border-surface-700 px-3 py-2 text-sm" data-testid="suggest-demote" aria-labelledby="suggest-demote-heading">
         <h3 id="suggest-demote-heading" className="font-semibold text-gray-100">Suggest Demote</h3>
-        <p className="text-gray-400 mt-1" data-testid="suggest-demote-empty">
-          No effectiveness tick yet. Suggest Propose numbers land later. This is not a red alert and nothing auto-demotes.
-        </p>
+        {suggestions.length === 0 ? (
+          <p className="text-gray-400 mt-1" data-testid="suggest-demote-empty">
+            No effectiveness tick yet. Suggest Propose numbers land later. This is not a red alert and nothing auto-demotes.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {suggestions.map((row) => {
+              const pid = (row.pack_id || "").trim();
+              if (!pid) return null;
+              const match = livePacks.find((p) => (p.name || "") === pid || (p._file || "") === pid);
+              const file = match?._file || "";
+              return (
+                <li key={pid} data-testid={`suggest-demote-${pid}`} className="text-xs text-gray-300">
+                  <p>
+                    {pid} · hit {pct(row.rule_hit_rate)} · diverge {pct(row.shadow_divergence)}
+                    {row.fp_count != null ? ` · fp ${row.fp_count}` : ""} · {suggestionEnglish(row.reason_code)}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!file || busy}
+                    onClick={() => void proposeFromSuggestion(row, file)}
+                    className="mt-1 px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50"
+                  >
+                    Propose {pid}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </article>
       <article className="rounded-md border border-surface-700 px-3 py-2 text-sm" data-testid="live-packs" aria-labelledby="live-packs-heading">
         <h3 id="live-packs-heading" className="font-semibold text-gray-100">Live / Active packs</h3>
