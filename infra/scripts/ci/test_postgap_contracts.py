@@ -17,6 +17,9 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("emit_only", text)
         self.assertIn("handoff", text)
         self.assertIn("decision.emitted", text)
+        self.assertIn("x-tarka-signature", text.lower())
+        self.assertIn("hmac-sha256", text.lower())
+        self.assertIn("empty url", text.lower())
 
     def test_label_join_contract_exists(self) -> None:
         path = ROOT / "docs/contracts/label-join-v1.md"
@@ -31,6 +34,10 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("docs/contracts/label-join-v1.md", lock)
         self.assertIn("contract-gated", lock.lower())
         self.assertIn("emit-only", lock.lower())
+        self.assertIn("x-tarka-signature", lock.lower())
+        self.assertIn("hmac-sha256", lock.lower())
+        self.assertIn("unsigned", lock.lower())
+        self.assertIn("silent block in emit-only", lock.lower())
         self.assertIn("PackWhyStrip", lock)
         self.assertIn("pack-why", lock.lower())
 
@@ -69,6 +76,28 @@ class TestPostgapContractSpine(unittest.TestCase):
             self.assertIn(needle, text)
         lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
         self.assertIn("pack_metrics", lock)
+
+    def test_bakeoff_global_fields_schema_named(self) -> None:
+        """D8.1: tenant-level bakeoff names; share M3, do not fork compute."""
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(encoding="utf-8")
+        for needle in (
+            "evaluate_count",
+            "action_mix",
+            "shadow_divergence",
+            "GLOBAL",
+            "share-with-M3",
+            "do-not-double-implement",
+            "null = unknown",
+            "reason_code",
+            "tarka.loop_metrics/v1",
+            "LoopScoreboard",
+            "M3 owns",
+            "D8 owns",
+        ):
+            self.assertIn(needle, text)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("evaluate_count", lock)
+        self.assertIn("action_mix", lock)
 
 
 if __name__ == "__main__":
