@@ -150,7 +150,8 @@ export default function Help() {
         <p>
           Recent decision-api audit rows for this tenant. Fail-closed: an empty or unavailable audit is an empty queue,
           not a mock dashboard. Open a trace from <code className="text-gray-500">/decisions</code> or{" "}
-          <code className="text-gray-500">/decisions/:traceId</code>.
+          <code className="text-gray-500">/decisions/:traceId</code>. Delivery status is emit/ACK glass, not an
+          enforcement product suite.
         </p>
       </Section>
 
