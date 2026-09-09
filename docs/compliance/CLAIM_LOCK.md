@@ -57,7 +57,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is seed file/fixture; PUT 403. Windows stay on `counter_manifest`. | Durable registry on demo; windows in the registry; Redis as feature-def SoT |
 | Offline ring jobs: export subgraph+labels → ring_score/tags JSON (async sidecar). Writer publishes tags as Observe drafts (`mode=shadow`, `authored_by=seed`). Never auto Active. Never on evaluate. Empty GRAPH_SERVICE_URL hops still off. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote; GNN live from ring job; auto Active from ring tags |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
-| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`, named_edges []) | Closed omniscient AI author loop; invented neighbors |
 | D7.4 Path B: AGE Hunt enforced depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. `/v1/subgraph` emits `depth_requested` / `depth_applied` / `degrade_reason` (`tarka.hunt_depth/v1`). Requested > applied → `hunt:depth_capped`; walk stays 1. | Unlimited Hunt path; variable-length path product; Hunt as identity SKU; invented neighbors when URL empty; GA multi-hop without `depth_applied` |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |

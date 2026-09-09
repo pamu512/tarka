@@ -4,9 +4,9 @@ Two planes. Never merge in marketing.
 
 ## A — Decide-time hops
 
-Named hops on the evaluate receipt. Empty `GRAPH_SERVICE_URL` → `graph:missing`. No sibling identity invented. Hop packs `mode=shadow` until promote gates pass (human if ungated).
+Named hops on the evaluate receipt. When `GRAPH_SERVICE_URL` is set, receipt / pack-why lists **named edges** actually fetched (`type` + endpoints `from_id` / `to_id`). Empty `GRAPH_SERVICE_URL` → `graph:missing`, `named_edges: []`. No sibling identity or neighbor ids invented. Hop packs `mode=shadow` until promote gates pass (human if ungated).
 
-`parties[]` persist when the caller sends them. `entity_type` if present must be a registered vtype; unsigned types are refused. Empty graph still invents no edges.
+`parties[]` only when provided (caller or graph). Do not invent parties from hop endpoints. `entity_type` if present must be a registered vtype; unsigned types are refused. Empty graph still invents no edges.
 
 ## B — Offline ring / collusion jobs
 
