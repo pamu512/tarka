@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -96,6 +97,21 @@ def test_confirm_demote_requires_proposal_then_flips_shadow():
     assert blob["confirmed_reason"] == "human confirm retire to observe"
 
 
+def test_propose_and_confirm_demote_do_not_emit_promote_export(tmp_path, monkeypatch):
+    dest = tmp_path / "promote_export.jsonl"
+    monkeypatch.setenv("PACK_GITOPS_EXPORT_PATH", str(dest))
+    pack = _live_pack()
+    propose_demote(pack, actor="ops-lead", reason="fp burst on live rule r1")
+    assert not dest.exists()
+    confirm_demote(pack, actor="sec-lead", reason="human confirm retire to observe")
+    assert pack["mode"] == "shadow"
+    assert not dest.exists()
+    l2 = Path(__file__).resolve().parents[1] / "src/decision_api/l2_draft.py"
+    src = l2.read_text(encoding="utf-8")
+    assert "emit_promote_export" not in src
+    assert "promote_gitops" not in src
+
+
 def _pack_body(name: str = "live_pack") -> dict:
     return {
         "name": name,
@@ -114,8 +130,10 @@ def _pack_body(name: str = "live_pack") -> dict:
 async def client(tmp_path, monkeypatch):
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
+    export = tmp_path / "promote_export.jsonl"
     monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "true")
     monkeypatch.setenv("RULES_PATH", str(rules_dir))
+    monkeypatch.setenv("PACK_GITOPS_EXPORT_PATH", str(export))
 
     from auth_rbac import AuthUser
     from decision_api.config import settings
@@ -142,6 +160,7 @@ async def client(tmp_path, monkeypatch):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         c._rules_dir = rules_dir
+        c._export_path = export
         yield c
     app.dependency_overrides.clear()
 
@@ -220,6 +239,7 @@ async def test_human_propose_then_confirm_demote(client):
     )
     assert propose_row["actor"] == "ops-lead"
     assert propose_row["detail"]["reason"].startswith("fp burst")
+    assert not client._export_path.exists()
 
 
 @pytest.mark.asyncio

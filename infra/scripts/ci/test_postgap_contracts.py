@@ -75,6 +75,7 @@ class TestPostgapContractSpine(unittest.TestCase):
         text = (ROOT / "docs/contracts/pack-promote-export-v1.md").read_text(encoding="utf-8")
         lowered = text.lower()
         self.assertIn("tarka.pack_promote_export/v1", text)
+        self.assertIn("Event name: `tarka.pack_promote_export/v1`", text)
         self.assertIn("desk promote", lowered)
         self.assertIn("backup", lowered)
         self.assertNotIn("gitlab-grade", lowered)
@@ -82,6 +83,37 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertNotIn("git is required to promote", lowered)
         self.assertNotIn("open-source", lowered)
         self.assertNotIn("open source", lowered)
+        emitter = (
+            ROOT / "services/decision-api/src/decision_api/promote_gitops.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('SCHEMA_ID = "tarka.pack_promote_export/v1"', emitter)
+
+    def test_claim_lock_tip_table_pack_export_backup_never_go_live(self) -> None:
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        start = lock.index("## Tip claims")
+        table = lock[start:]
+        end = table.find("\n**Provision")
+        if end != -1:
+            table = table[:end]
+        row = next(
+            line
+            for line in table.splitlines()
+            if "tarka.pack_promote_export/v1" in line and line.startswith("|")
+        )
+        cols = [c.strip() for c in row.strip().strip("|").split("|")]
+        self.assertEqual(len(cols), 2)
+        true_side, must_not = cols
+        true_l = true_side.lower()
+        must_l = must_not.lower()
+        self.assertIn("desk", true_l)
+        self.assertIn("sot", true_l)
+        self.assertIn("backup", true_l)
+        self.assertIn("never", true_l)
+        self.assertIn("go-live gate", true_l)
+        self.assertTrue(true_side.strip() and must_not.strip())
+        self.assertIn("git merge", must_l)
+        self.assertIn("go-live gate", must_l)
+        self.assertIn("promote authority", must_l)
 
 
 if __name__ == "__main__":
