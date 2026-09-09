@@ -216,8 +216,7 @@ async def test_evaluate_l2_read_miss_falls_back(
 
 def test_pipeline_calls_evaluate_l2_read() -> None:
     text = (
-        Path(__file__).resolve().parents[1]
-        / "src/decision_api/evaluate/pipeline.py"
+        Path(__file__).resolve().parents[1] / "src/decision_api/evaluate/pipeline.py"
     ).read_text(encoding="utf-8")
     assert "evaluate_l2_read" in text
 
@@ -229,18 +228,20 @@ async def test_evaluate_empty_feature_store_url_never_calls_l2(
     monkeypatch.delenv("FEATURE_STORE_URL", raising=False)
     monkeypatch.setenv("FEATURE_STORE_URL", "")
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r = await eval_client.post("/v1/decisions/evaluate", json=_eval_body())
     assert r.status_code == 200, r.text
@@ -268,18 +269,20 @@ async def test_evaluate_reads_l2_with_as_of_when_url_set(
 
     eval_client.tarka_app.state.http.get = AsyncMock(side_effect=_get)
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r = await eval_client.post(
             "/v1/decisions/evaluate",
@@ -308,18 +311,20 @@ async def test_evaluate_l2_timeout_fail_soft_not_fake_l2(
 
     eval_client.tarka_app.state.http.get = AsyncMock(side_effect=_timeout)
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r = await eval_client.post("/v1/decisions/evaluate", json=_eval_body())
     assert r.status_code == 200, r.text
@@ -340,18 +345,20 @@ async def test_evaluate_l2_miss_fail_soft_not_fake_l2(
 
     eval_client.tarka_app.state.http.get = AsyncMock(side_effect=_miss)
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r = await eval_client.post("/v1/decisions/evaluate", json=_eval_body())
     assert r.status_code == 200, r.text
