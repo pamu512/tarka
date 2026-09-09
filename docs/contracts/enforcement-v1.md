@@ -42,6 +42,8 @@ Product copy must not claim “we blocked” in `emit_only`.
 
 ## Webhooks
 
+Empty URL = that plane off. When a secret is set (`TARKA_ENFORCEMENT_WEBHOOK_SECRET` or provision `secret_env`), POSTs include `x-tarka-signature` = hex HMAC-SHA256 of the raw body. No secret = no signature header (not the contract default for a live sink).
+
 | Event | When |
 |-------|------|
 | `decision.emitted` | Always (both modes). |
