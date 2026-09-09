@@ -4,7 +4,7 @@ Event name: `tarka.pack_promote_export/v1`.
 
 Desk Promote is the live source of truth and the go-live authority. This export is a backup of that event. Consumers must not treat this stream as Promote authority.
 
-See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md), [pack GitOps](../docs/guides/pack-gitops.md), and [SUPPORT](../../SUPPORT.md) (commercial help consuming the export — not replacing the desk).
+See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md), [pack GitOps](../docs/guides/pack-gitops.md), and [SUPPORT — Pack GitOps export assist](../../SUPPORT.md#pack-gitops-export-assist) (commercial help consuming the export — not replacing the desk).
 
 ## When emitted
 
@@ -43,7 +43,7 @@ Consumers should dedupe on `pack_id` + `pack_hash` + `emitted_at`. A copied or r
 - Do not gate go-live on a git merge or PR.
 - Do not treat a missing export, a delayed line, or a write failure as demote.
 - Do not treat a line as Promote authority.
-- Commercial assist is help consuming this export ([SUPPORT](../../SUPPORT.md)). It does not replace desk Promote.
+- Commercial assist is help consuming this export ([SUPPORT — Pack GitOps export assist](../../SUPPORT.md#pack-gitops-export-assist)). It does not replace desk Promote.
 
 ## Sample consumer
 

@@ -24,6 +24,8 @@ REQUIRED_FIELDS = (
     "emitted_at",
 )
 INCUMBENT_RE = re.compile(r"\b(Sift|Forter|Riskified|Feedzai|Featurespace|Unit21)\b")
+MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+ASSIST_HEADING = "### Pack GitOps export assist"
 
 
 def test_schema_id_is_v1() -> None:
@@ -97,6 +99,52 @@ def test_contract_doc_non_goals_and_hygiene() -> None:
     assert "open source" not in lowered
     assert " oss" not in lowered and not lowered.startswith("oss")
     assert INCUMBENT_RE.search(text) is None
+
+
+def _section_after(text: str, heading: str) -> str:
+    start = text.index(heading)
+    body = text[start:]
+    rest = body[len(heading) :]
+    nxt = re.search(r"\n#{1,3} ", rest)
+    return heading + (rest[: nxt.start()] if nxt else rest)
+
+
+def _assert_rel_links(doc: Path, excerpt: str) -> None:
+    for href in MD_LINK_RE.findall(excerpt):
+        target = href.split("#", 1)[0].strip()
+        if not target or target.startswith(("http://", "https://", "mailto:")):
+            continue
+        resolved = (doc.parent / target).resolve()
+        assert resolved.exists(), f"broken link {href} from {doc}"
+
+
+def test_support_export_assist_runbook_and_links() -> None:
+    support = REPO / "SUPPORT.md"
+    text = support.read_text(encoding="utf-8")
+    assert ASSIST_HEADING in text
+    section = _section_after(text, ASSIST_HEADING)
+    lowered = section.lower()
+    assert "desk promote" in lowered
+    assert "backup" in lowered
+    assert "pack-promote-export-v1.md" in section
+    assert "pack-promote-export-consumer.md" in section
+    assert "do not require a git merge" in lowered
+    assert "gitlab-grade" not in lowered
+    assert "git required to promote" not in lowered
+    assert "git is required to promote" not in lowered
+    assert "open-source" not in lowered
+    assert "open source" not in lowered
+    assert " oss" not in lowered and not lowered.startswith("oss")
+    assert INCUMBENT_RE.search(section) is None
+    _assert_rel_links(support, section)
+    gitops = REPO / "docs/docs/guides/pack-gitops.md"
+    gitops_text = gitops.read_text(encoding="utf-8")
+    assert "SUPPORT.md#pack-gitops-export-assist" in gitops_text
+    _assert_rel_links(gitops, gitops_text)
+    example = REPO / "docs/examples/pack-promote-export-consumer.md"
+    example_text = example.read_text(encoding="utf-8")
+    assert "SUPPORT.md#pack-gitops-export-assist" in example_text
+    _assert_rel_links(example, example_text)
 
 
 def test_cross_links_and_module_pointer() -> None:
