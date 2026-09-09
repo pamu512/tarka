@@ -46,7 +46,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
 | Offline ring jobs: export subgraph+labels → ring_score/tags JSON (async sidecar). Writer publishes tags as Observe drafts (`mode=shadow`, `authored_by=seed`). Never auto Active. Never on evaluate. Empty GRAPH_SERVICE_URL hops still off. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote; GNN live from ring job; auto Active from ring tags |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
-| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
+| Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`, named_edges []) | Closed omniscient AI author loop; invented neighbors |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |

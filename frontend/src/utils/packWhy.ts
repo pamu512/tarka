@@ -162,6 +162,16 @@ export function resolvePackWhy(input: PackWhySource): PackWhyView {
   return { packId, packName, why, hop: hopWhyFromPayload(ep), advise };
 }
 
+function formatNamedEdge(edge: unknown): string | null {
+  if (!edge || typeof edge !== "object") return null;
+  const e = edge as Record<string, unknown>;
+  const type = trimStr(e.type) ?? trimStr(e.etype);
+  const from = trimStr(e.from_id) ?? trimStr(e.src);
+  const to = trimStr(e.to_id) ?? trimStr(e.dst);
+  if (!type || !from || !to) return null;
+  return `${type}:${from}->${to}`;
+}
+
 function hopWhyFromPayload(ep: Record<string, unknown> | null): string | null {
   const raw = ep?.pack_why;
   if (!raw || typeof raw !== "object") return null;
@@ -170,13 +180,14 @@ function hopWhyFromPayload(ep: Record<string, unknown> | null): string | null {
   const g = graph as Record<string, unknown>;
   const named = trimStr(g.named);
   const status = trimStr(g.status);
+  const edges = g.named_edges;
+  if (Array.isArray(edges) && edges.length) {
+    const labeled = edges.map(formatNamedEdge).filter((x): x is string => x != null);
+    if (labeled.length) return labeled.join(", ");
+  }
   if (named && named !== "graph:ok") return named;
   if (status === "graph:missing" || status === "graph:unavailable" || status === "graph:empty") {
     return status;
-  }
-  const edges = g.named_edges;
-  if (Array.isArray(edges) && edges.length) {
-    return edges.map(String).join(", ");
   }
   return named;
 }

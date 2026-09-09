@@ -53,6 +53,30 @@ describe("resolvePackWhy", () => {
     expect(view.hop).toBe("graph:missing");
   });
 
+  it("shows fetched named edge type and endpoints from pack-why", () => {
+    const view = resolvePackWhy({
+      evaluate_payload: {
+        pack_why: {
+          graph: {
+            status: "graph:ok",
+            named_edges: [{ from_id: "alice", to_id: "dev-1", type: "USES_DEVICE" }],
+            invented_edges: false,
+          },
+        },
+      },
+    });
+    expect(view.hop).toBe("USES_DEVICE:alice->dev-1");
+  });
+
+  it("does not invent hop neighbors when named_edges are empty", () => {
+    const view = resolvePackWhy({
+      evaluate_payload: {
+        pack_why: { graph: { status: "graph:missing", named_edges: [], invented_edges: false } },
+      },
+    });
+    expect(view.hop).toBe("graph:missing");
+  });
+
   it("says missing when pack reason is absent — does not invent from ML or recommended action", () => {
     const view = resolvePackWhy({
       rule_pack_file: "fintech.json",
