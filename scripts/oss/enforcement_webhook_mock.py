@@ -21,6 +21,27 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+_SEEN_KEYS: dict[str, int] = {}
+
+
+def note_delivery(
+    body: dict, seen: dict[str, int] | None = None
+) -> dict:
+    """Prove retries share G4.2 action_id / idempotency_key. Same key = one apply."""
+    store = seen if seen is not None else _SEEN_KEYS
+    if not isinstance(body, dict):
+        body = {}
+    key = str(body.get("action_id") or body.get("idempotency_key") or "").strip()
+    n = store.get(key, 0) + 1 if key else 1
+    if key:
+        store[key] = n
+    return {
+        "action_id": key,
+        "idempotency_key": key,
+        "attempt_count": n,
+        "duplicate": bool(key) and n > 1,
+    }
+
 
 def _verify(raw: bytes, secret: str, header_sig: str | None) -> bool:
     if not secret:
@@ -62,6 +83,18 @@ class Handler(BaseHTTPRequestHandler):
             body = {"_raw": raw.decode("utf-8", errors="replace")}
 
         print(f"[ok] {kind} event={event} path={path}")
+        if kind == "enforcement" and isinstance(body, dict):
+            noted = note_delivery(body)
+            if noted["action_id"]:
+                print(
+                    "[key] action_id=%s idempotency_key=%s attempt_count=%s duplicate=%s"
+                    % (
+                        noted["action_id"],
+                        noted["idempotency_key"],
+                        noted["attempt_count"],
+                        noted["duplicate"],
+                    )
+                )
         print(json.dumps(body, indent=2, sort_keys=True))
         self.send_response(204)
         self.end_headers()
