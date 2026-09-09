@@ -89,6 +89,7 @@ nav:
       - Rules: guides/rules.md
       - Backtest before promote: guides/backtest-before-promote.md
       - Clone-and-run desk: guides/clone-demo.md
+      - Desk UI scorecard: guides/desk-ui-scorecard.md
       - Product Day-1 install: guides/product-day1-install.md
       - 15-minute first decision: guides/oss-15-minute-first-decision.md
       - Hop pack authoring: guides/hop-pack-authoring.md
