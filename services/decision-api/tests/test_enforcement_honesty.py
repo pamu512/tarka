@@ -62,6 +62,7 @@ def test_claim_lock_enforcement_both_honesty_sides() -> None:
     assert "x-tarka-signature" in lowered
     assert "hmac-sha256" in lowered
     assert "unsigned" in lowered
+    assert "action_id" in lowered
     assert "ELv2" in text
     assert "not oss" in lowered
     assert "open-source" in lowered
@@ -85,6 +86,10 @@ def test_enforcement_v1_signed_webhook_and_emit_only() -> None:
     assert "case crm" in lowered
     assert "decision.emitted" in text
     assert "decision.enforced" in text
+    assert "action_id" in lowered
+    assert "sha256" in lowered or "sha-256" in lowered
+    assert "pack" in lowered
+    assert "idempoten" in lowered or "retry" in lowered
     assert not _INCUMBENTS.search(text)
 
 
@@ -95,6 +100,7 @@ def test_readme_enforcement_honesty_both_sides() -> None:
     assert "Handoff as Day-1 default" in text
     assert "silent block in emit-only" in text
     assert "x-tarka-signature" in lowered
+    assert "action_id" in lowered
     assert "ELv2" in text
     assert "not oss" in lowered
     assert not _INCUMBENTS.search(text)
