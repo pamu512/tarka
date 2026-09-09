@@ -12,7 +12,12 @@ describe("Help", () => {
     expect(screen.getAllByText("/disputes/:id").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/help").length).toBeGreaterThan(0);
     expect(screen.getByText(/plane off/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").toMatch(/Hunt depth is AGE-bounded/i);
+    expect(document.body.textContent ?? "").toMatch(/leftovers and the queue are not a CRM/i);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
+    expect(document.body.textContent ?? "").not.toMatch(/neo4j[- ]class/i);
+    expect(document.body.textContent ?? "").not.toMatch(/unlimited path/i);
+    expect(document.body.textContent ?? "").not.toMatch(/identity SKU/i);
     const body = document.body.textContent ?? "";
     expect(body.toLowerCase()).not.toMatch(/prototype/);
     expect(body.toLowerCase()).not.toMatch(/synthetic data/);
@@ -32,6 +37,14 @@ describe("Help", () => {
     expect(copy).toMatch(/Create Observe draft/i);
     expect(copy).toMatch(/not a case CRM|not your case CRM/i);
     expect(copy).toMatch(/do not need to memorize pack UUIDs/i);
+  });
+
+  it("says delivery status is emit/ACK glass, not an enforcement product suite", () => {
+    render(<Help />);
+    expect(document.body.textContent ?? "").toMatch(
+      /delivery status is emit\/ACK glass, not an enforcement product suite/i,
+    );
+    expect((document.body.textContent ?? "").toLowerCase()).not.toMatch(/we blocked payout/);
   });
 
   it("points no-code at SentencePackPanel + ObserveEasePanel, not VisualRuleBuilder as a SKU", () => {

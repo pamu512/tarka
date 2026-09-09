@@ -25,12 +25,17 @@ from decision_api.decision_log import build_decision_log_record, emit_decision_l
 from decision_api.device_integrity import device_integrity_snapshot, integrity_presence
 from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.enforcement import (
+    action_ids_for,
     enforcement_mode,
     resolve_enforcement_action,
     suggested_actions,
 )
-from decision_api.feature_l2 import resolve_feature_source, write_event_features
-from decision_api.receipt_join import join_keys_from_event
+from decision_api.feature_l2 import (
+    evaluate_as_of_iso,
+    evaluate_l2_read,
+    write_event_features,
+)
+from decision_api.receipt_join import stamp_join_keys
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
 from decision_api.eval_steps import run_evaluation_step
@@ -83,6 +88,27 @@ def _require_main() -> Any:
     if _m is None:
         raise RuntimeError("evaluate pipeline not bound to decision_api.main")
     return _m
+
+
+def _stamp_eval_join_keys(
+    snap: dict[str, Any],
+    *,
+    trace_id: Any,
+    body: EvaluateRequest,
+) -> dict[str, Any]:
+    try:
+        return stamp_join_keys(
+            snap,
+            trace_id=str(trace_id),
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            payload=body.payload if isinstance(body.payload, dict) else None,
+            metadata=body.metadata if isinstance(body.metadata, dict) else None,
+        )
+    except ValueError:
+        raise HTTPException(
+            400, detail={"code": "receipt_join_incomplete", "detail": "entity_id"}
+        ) from None
 
 
 async def run_evaluate_decision(
@@ -343,29 +369,35 @@ async def run_evaluate_decision(
                 score=0.0,
                 tags=["list:whitelist"],
                 rule_hits=["whitelist_bypass"],
-                payload_snapshot={
-                    "whitelisted": True,
-                    "reason": list_check.reason,
-                    "inference_context": _wl_inf,
-                    "recommended_action": _wl_rec,
-                    "enforcement_action": resolve_enforcement_action("allow", _wl_rec),
-                    "challenge_metadata": _wl_meta,
-                    "step_trace": step_trace,
-                    "counter_version": _audit_counter_version_label(),
-                    "rule_pack_file": "",
-                    "ml_model": _wl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_wl}
-                        if (_eb_wl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
-                    "canary_cohort": build_canary_cohort_audit(
-                        body.tenant_id,
-                        body.entity_id,
-                        salt_version=settings.policy_cohort_salt,
-                        experiment_id=settings.policy_experiment_id or None,
-                    ),
-                },
+                payload_snapshot=_stamp_eval_join_keys(
+                    {
+                        "whitelisted": True,
+                        "reason": list_check.reason,
+                        "inference_context": _wl_inf,
+                        "recommended_action": _wl_rec,
+                        "enforcement_action": resolve_enforcement_action(
+                            "allow", _wl_rec
+                        ),
+                        "challenge_metadata": _wl_meta,
+                        "step_trace": step_trace,
+                        "counter_version": _audit_counter_version_label(),
+                        "rule_pack_file": "",
+                        "ml_model": _wl_inf.get("ml_model"),
+                        **(
+                            {"etl_batch_id": _eb_wl}
+                            if (_eb_wl := _metadata_etl_batch_id(body))
+                            else {}
+                        ),
+                        "canary_cohort": build_canary_cohort_audit(
+                            body.tenant_id,
+                            body.entity_id,
+                            salt_version=settings.policy_cohort_salt,
+                            experiment_id=settings.policy_experiment_id or None,
+                        ),
+                    },
+                    trace_id=trace_id,
+                    body=body,
+                ),
             )
             session.add(audit)
             await session.commit()
@@ -412,29 +444,35 @@ async def run_evaluate_decision(
                 score=100.0,
                 tags=["list:blacklist"],
                 rule_hits=["blacklist_block"],
-                payload_snapshot={
-                    "blacklisted": True,
-                    "reason": list_check.reason,
-                    "inference_context": _bl_inf,
-                    "recommended_action": _bl_rec,
-                    "enforcement_action": resolve_enforcement_action("deny", _bl_rec),
-                    "challenge_metadata": _bl_meta,
-                    "step_trace": step_trace,
-                    "counter_version": _audit_counter_version_label(),
-                    "rule_pack_file": "",
-                    "ml_model": _bl_inf.get("ml_model"),
-                    **(
-                        {"etl_batch_id": _eb_bl}
-                        if (_eb_bl := _metadata_etl_batch_id(body))
-                        else {}
-                    ),
-                    "canary_cohort": build_canary_cohort_audit(
-                        body.tenant_id,
-                        body.entity_id,
-                        salt_version=settings.policy_cohort_salt,
-                        experiment_id=settings.policy_experiment_id or None,
-                    ),
-                },
+                payload_snapshot=_stamp_eval_join_keys(
+                    {
+                        "blacklisted": True,
+                        "reason": list_check.reason,
+                        "inference_context": _bl_inf,
+                        "recommended_action": _bl_rec,
+                        "enforcement_action": resolve_enforcement_action(
+                            "deny", _bl_rec
+                        ),
+                        "challenge_metadata": _bl_meta,
+                        "step_trace": step_trace,
+                        "counter_version": _audit_counter_version_label(),
+                        "rule_pack_file": "",
+                        "ml_model": _bl_inf.get("ml_model"),
+                        **(
+                            {"etl_batch_id": _eb_bl}
+                            if (_eb_bl := _metadata_etl_batch_id(body))
+                            else {}
+                        ),
+                        "canary_cohort": build_canary_cohort_audit(
+                            body.tenant_id,
+                            body.entity_id,
+                            salt_version=settings.policy_cohort_salt,
+                            experiment_id=settings.policy_experiment_id or None,
+                        ),
+                    },
+                    trace_id=trace_id,
+                    body=body,
+                ),
             )
             session.add(audit)
             await session.commit()
@@ -591,6 +629,17 @@ async def run_evaluate_decision(
         step_trace.append(snap_trace)
         features: dict[str, Any] = dict(snapshot.get("features") or {})
         redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
+        event_as_of = evaluate_as_of_iso(body.metadata, body.payload)
+        l2_feats, feature_source = await evaluate_l2_read(
+            http,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            as_of=event_as_of,
+            redis_url=settings.redis_url,
+            timeout_s=settings.eval_step_feature_snapshot_timeout_seconds,
+        )
+        if l2_feats:
+            features.update(l2_feats)
 
         # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
         if body.device_context and entity_link_store._client:
@@ -1272,8 +1321,14 @@ async def run_evaluate_decision(
         )
         enforcement_action = resolve_enforcement_action(decision, recommended_action)
         suggested = suggested_actions(decision, recommended_action)
+        pack_hash = policy_set_id or ""
+        receipt_action_ids = action_ids_for(
+            suggested,
+            tenant_id=body.tenant_id,
+            trace_id=str(trace_id),
+            pack_hash=pack_hash,
+        )
         enf_mode = enforcement_mode()
-        feature_source = resolve_feature_source(redis_url=settings.redis_url)
 
         graph_decision_explanation = build_graph_decision_explanation_v1(
             trace_id=str(trace_id),
@@ -1353,6 +1408,7 @@ async def run_evaluate_decision(
             "recommended_action": recommended_action,
             "enforcement_action": enforcement_action,
             "suggested_actions": suggested,
+            "action_ids": receipt_action_ids,
             "enforcement_mode": enf_mode,
             "enforcement_authority": enf_mode == "handoff",
             "feature_source": feature_source,
@@ -1396,25 +1452,16 @@ async def run_evaluate_decision(
             snap_extra["parties"] = [
                 p.model_dump() if hasattr(p, "model_dump") else p for p in body.parties
             ]
+        snap_extra = _stamp_eval_join_keys(snap_extra, trace_id=trace_id, body=body)
         try:
-            snap_extra.update(
-                join_keys_from_event(
-                    trace_id=str(trace_id),
-                    tenant_id=body.tenant_id,
-                    entity_id=body.entity_id,
-                    payload=body.payload if isinstance(body.payload, dict) else None,
-                    metadata=body.metadata if isinstance(body.metadata, dict) else None,
-                )
+            write_event_features(
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                payload=body.payload if isinstance(body.payload, dict) else None,
+                event_ts=event_as_of,
             )
-        except ValueError:
-            raise HTTPException(
-                400, detail={"code": "receipt_join_incomplete", "detail": "entity_id"}
-            ) from None
-        write_event_features(
-            tenant_id=body.tenant_id,
-            entity_id=body.entity_id,
-            payload=body.payload if isinstance(body.payload, dict) else None,
-        )
+        except Exception:
+            pass
         try:
             from decision_api.vendor_score import fetch_vendor_score
 
@@ -1584,6 +1631,7 @@ async def run_evaluate_decision(
             recommended_action=recommended_action,
             enforcement_action=enforcement_action,
             suggested_actions=suggested,
+            action_ids=receipt_action_ids,
             enforcement_mode=enf_mode,
             enforcement_authority=enf_mode == "handoff",
             feature_source=feature_source,
@@ -1614,6 +1662,7 @@ async def run_evaluate_decision(
                 else None,
                 session_id=body.session_id,
                 recommended_action=recommended_action,
+                pack_hash=pack_hash,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
                 fallback_reason=fb_reason,
                 decision_log_record=decision_log_record,

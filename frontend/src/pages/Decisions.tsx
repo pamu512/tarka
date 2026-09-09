@@ -11,11 +11,17 @@ import { DegradedModeBanner } from "../components/DegradedModeBanner";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { PackWhyStrip } from "../components/CaseView/PackWhyStrip";
+import { DeliveryStatusStrip } from "../components/CaseView/DeliveryStatusStrip";
 import { DeviceIntegrityStrip } from "../components/CaseView/DeviceIntegrityStrip";
 import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { getAuditForPackWhy } from "../utils/auditDetail";
 import { packNameForDisplay, resolvePackWhy } from "../utils/packWhy";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
+import {
+  journalRowForTrace,
+  resolveDeliveryStatus,
+  type DeliveryStatusView,
+} from "../utils/deliveryStatus";
 
 function formatAmount(amount: number | null, currency: string | null): string {
   if (amount == null && !currency) return "—";
@@ -144,6 +150,7 @@ export default function Decisions() {
   const [detail, setDetail] = useState<AuditEntry | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<DeliveryStatusView | null>(null);
 
   const [filterEventType, setFilterEventType] = useState("");
   const [filterRuleResult, setFilterRuleResult] = useState("");
@@ -198,6 +205,42 @@ export default function Decisions() {
         }
       } finally {
         if (!cancelled) setDetailLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [traceId, tenantId]);
+
+  useEffect(() => {
+    if (!traceId) {
+      setDelivery(null);
+      return;
+    }
+    let cancelled = false;
+    setDelivery(null);
+    (async () => {
+      try {
+        const [acks, gov, journal] = await Promise.all([
+          decisions.getProductAcks(traceId, tenantId),
+          decisions.governance(),
+          decisions.enforcementJournal(),
+        ]);
+        if (cancelled) return;
+        const row = journalRowForTrace(journal.items, traceId, tenantId);
+        const latestAck = acks.items?.length ? acks.items[acks.items.length - 1] : null;
+        setDelivery(
+          resolveDeliveryStatus({
+            webhookConfigured: Boolean(gov.integrity_ingress?.enforcement_webhook_configured),
+            journalStatus: row ? String(row.status || "") : null,
+            journalReason: row ? String(row.reason || "") : null,
+            productAck: latestAck,
+            enforcementMode: row ? String(row.enforcement_mode || "") : null,
+          }),
+        );
+      } catch {
+        // Fail closed: no invented ACK / emitted chip when the glass cannot load.
+        if (!cancelled) setDelivery(null);
       }
     })();
     return () => {
@@ -280,6 +323,7 @@ export default function Decisions() {
               {detail ? (
                 <>
                 {packWhy ? <PackWhyStrip {...packWhy} /> : null}
+                {delivery ? <DeliveryStatusStrip view={delivery} /> : null}
                 {integrity ? <DeviceIntegrityStrip {...integrity} /> : null}
                 <dl className="grid gap-2 sm:grid-cols-2 text-sm">
                   <div>
