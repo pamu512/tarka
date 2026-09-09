@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -328,6 +329,7 @@ def bind_late_label(
     cost_map = None
     if parsed_cost:
         cost_map = {store_key: json.dumps(parsed_cost, sort_keys=True, default=str)}
+    labeled_at = datetime.now(timezone.utc).isoformat()
     merge_y_labels(
         tenant,
         by_trace={store_key: y},
@@ -337,6 +339,7 @@ def bind_late_label(
         label_source_by_trace=src_map,
         prior_override_id_by_trace=ovr_map,
         fp_cost_by_trace=cost_map,
+        labeled_at_by_trace={store_key: labeled_at},
     )
 
     observe: dict[str, Any] = {"opened": False}

@@ -28,6 +28,33 @@ Present only when the event carried them: `order_id`, `promo_id`, `courier_id`, 
 
 Chargeback is not the only label.
 
+## Horizon policy (`tarka.label_horizon/v1`)
+
+Per-`label_kind` window used later by consume / join-rate glass. **Tenant policy EXAMPLE — not Tarka morals.** Not a chargeback-guarantee SKU. Horizons never auto-demote a pack.
+
+| Field | Notes |
+|-------|-------|
+| `schema_id` | `tarka.label_horizon/v1` |
+| `example` | Always true: shipped numbers are examples, not product morals |
+| `policy_owner` | `tenant` |
+| `unit` | `days` |
+| `by_kind.<label_kind>.window_days` | Positive integer (1–730) |
+
+EXAMPLE defaults (buyers replace these):
+
+| `label_kind` | EXAMPLE `window_days` | Typical use |
+|--------------|----------------------:|-------------|
+| `fp` | 7 | Frontline / promo FP days |
+| `promo_abuse` | 14 | Promo FP / abuse window |
+| `collusion` | 30 | Collusion window |
+| `chargeback` | 90 | Card-scheme lag (~90d) |
+| `fraud` | 90 | Same lag band as chargeback |
+| `other` | 30 | Residual |
+
+Wire: `decision_api.label_horizon.horizon_policy()` / `horizon_days(kind)`. Override with `TARKA_LABEL_HORIZON_JSON` (env wins) or desk_provision `label_horizons`. Unknown `label_kind` stays 422. Unknown override keys are ignored.
+
+`labeled_at_by_trace` is persisted on late-label bind (time-to-first-label) so export / loop-metrics can join without a new plane.
+
 ## Bind rules (`POST /v1/webhooks/late-label`, alias `/v1/webhooks/disposition`)
 
 Runtime parameters (do not drift): `tenant_id`, `outcome`, `trace_id`, `evaluation_token`, `decision_token`, `label_kind`, `source`, `prior_override_id`, `entity_id`, `later_trace_id`, `fp_cost`.
@@ -52,3 +79,7 @@ Scheduled consume (buyer cron / lake upsert) is documented in [warehouse-sink-v1
 - Changing bind implementation (W2)
 - Hosting a warehouse
 - Treating chargeback as the only label
+- Chargeback-guarantee SKU
+- CRM dispute product
+- Auto-demote from horizons
+- Join-rate glass (G5.3)
