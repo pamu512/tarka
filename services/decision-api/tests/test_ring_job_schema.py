@@ -143,9 +143,7 @@ def test_response_schema_locked_live_false_no_flag_deny() -> None:
 
 def test_evaluate_path_does_not_call_ring_job_sync() -> None:
     paths = list(_EVALUATE_DIR.glob("*.py"))
-    paths.append(
-        Path(__file__).resolve().parents[1] / "src/decision_api/eval_steps.py"
-    )
+    paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/eval_steps.py")
     paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/eval_dag.py")
     paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/main.py")
     assert paths
