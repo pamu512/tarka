@@ -7,7 +7,7 @@ One desk path. No buyer-demo theater.
 3. **Backtest / skip** — AI drafts require replay pass. Human skip needs actor + reason.
 4. **Observe** — `/ops/shadow`. Bake-off strip is numbers only.
 5. **Promote** — ungated → human Promote confirm (pack name, becomes live, Cancel leaves Observe). Confirm shows pack `rule_hit_rate` / `shadow_divergence` or honest empty; thresholds are tenant policy. Gates defined+met → may auto-Promote (default off). Model never Promotes.
-6. **Propose Demote** — Active pack → Propose → Confirm. Promote undo is this shortcut. Model never demotes.
+6. **Propose Demote** — ObserveEase: Ready to Promote / Suggest Demote (empty until numbers) / Live packs. Active pack → Propose → Confirm. Promote undo is this shortcut. Model never demotes.
 
 Queue connectors (if `QUEUE_WEBHOOK_URL` is set) notify the buyer’s existing CX tool. Leftovers are not a case CRM.
 
