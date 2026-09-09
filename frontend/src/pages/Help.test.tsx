@@ -46,6 +46,4 @@ describe("Help", () => {
     expect(copy).toMatch(/not a case CRM|not your case CRM/i);
     expect(copy).toMatch(/do not need to memorize pack UUIDs/i);
   });
-
-  });
 });
