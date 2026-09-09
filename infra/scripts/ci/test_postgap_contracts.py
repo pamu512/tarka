@@ -58,6 +58,7 @@ class TestPostgapContractSpine(unittest.TestCase):
             "docs/contracts/warehouse-sink-v1.md",
             "docs/contracts/feature-store-posture-v1.md",
             "docs/contracts/graph-planes-v1.md",
+            "docs/contracts/hunt-depth-v1.md",
             "docs/contracts/vendor-score-slot-v1.md",
             "docs/contracts/pack-promote-export-v1.md",
         ):
