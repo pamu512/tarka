@@ -17,8 +17,10 @@ export function L2DraftButtons({
   overrideWhy?: string;
 }) {
   const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [typedWhy, setTypedWhy] = useState("");
+  const [savedWhy, setSavedWhy] = useState("");
   const ready = Boolean(traceId.trim() && (leftoverId.trim() || hilEventId.trim()));
   const why = typedWhy.trim() || overrideWhy.trim();
   const whyOk = why.length >= 8;
@@ -27,6 +29,7 @@ export function L2DraftButtons({
     if (!ready || busy || !whyOk) return;
     setBusy(true);
     setMsg("");
+    setErr("");
     try {
       const out = await rules.createL2Draft(
         {
@@ -42,6 +45,7 @@ export function L2DraftButtons({
         tenantId,
       );
       const file = (out as { file?: string }).file || "Observe";
+      setSavedWhy(why);
       setMsg(`${file} is in Observe. A human owns the next step.`);
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e ?? "");
@@ -50,7 +54,11 @@ export function L2DraftButtons({
         setMsg(name ? `Open draft ${name}` : "Open draft");
         return;
       }
-      setMsg(toUserFacingError(e, { subject: "Draft", action: "create Observe draft" }));
+      if (/why_required/.test(raw)) {
+        setErr("Type at least 8 characters explaining why this leftover becomes an Observe draft.");
+        return;
+      }
+      setErr(toUserFacingError(e, { subject: "Draft", action: "create Observe draft" }));
     } finally {
       setBusy(false);
     }
@@ -90,6 +98,16 @@ export function L2DraftButtons({
       >
         Author via BYO
       </button>
+      {savedWhy ? (
+        <span data-testid="leftover-saved-why" className="text-[11px] text-gray-300">
+          {savedWhy}
+        </span>
+      ) : null}
+      {err ? (
+        <span className="text-[11px] text-rose-300" role="alert">
+          {err}
+        </span>
+      ) : null}
       {msg ? (
         /Open draft/.test(msg) ? (
           <a href="/ops/shadow" className="text-[11px] text-brand-300 hover:underline" data-testid="open-existing-draft">

@@ -3,7 +3,7 @@
 One desk path. No buyer-demo theater.
 
 1. **Leftover / HIL / FP** — `/leftovers` is residual. Work happens on Hunt (`/graph`). FP late-label mints a soften Observe draft.
-2. **Draft** — leftover/HIL → L2 draft (`mode=shadow`). Duplicate mint returns `409 draft_exists` — open the existing draft.
+2. **Draft** — leftover/HIL → L2 draft (`mode=shadow`). Typed leftover why is ≥8 characters; the leftover brief is not the why. After save, why stays on leftover — no `/ops/shadow` detour. Duplicate mint returns `409 draft_exists` — open the existing draft.
 3. **Backtest / skip** — AI drafts require replay pass. Human skip needs actor + reason.
 4. **Observe** — `/ops/shadow`. Bake-off strip is numbers only.
 5. **Promote** — ungated → human Promote. Gates defined+met → may auto-Promote (default off). Model never Promotes.
