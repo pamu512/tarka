@@ -170,7 +170,7 @@ evaluate_decision()
 
 | Endpoint | Consumer | Payload |
 |----------|----------|---------|
-| `GET /v1/subgraph` | Link Analysis UI | `{ nodes[], edges[] }` |
+| `GET /v1/subgraph` | Link Analysis UI | `{ nodes[], edges[], schema_id, hunt_depth_max, depth_requested, depth_applied, degrade_reason }` (`tarka.hunt_depth/v1`). Day-1 walk cap 1. |
 | `GET /v1/entities/{id}/deep-context` | Case / investigation | Neighborhood summary + risk snapshot |
 | `POST /v1/entities`, `POST /v1/links` | Ingestion / orchestrator | Writes graph DB |
 

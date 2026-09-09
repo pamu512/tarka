@@ -13,10 +13,16 @@ describe("PlaneOff", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { name: /graph plane off/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/GRAPH_SERVICE_URL is empty/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/Hunt and sibling-identity hops are off/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/does not invent neighbors/i);
     expect(screen.getByRole("status")).toHaveTextContent(/not an outage/i);
-    expect(screen.getByRole("status")).toHaveTextContent(/sibling-identity hops are off/i);
+    expect(document.querySelector(".animate-spin")).toBeNull();
     expect(document.body.textContent ?? "").not.toMatch(/503/);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
+    expect(document.body.textContent ?? "").not.toMatch(/neo4j[- ]class/i);
+    expect(document.body.textContent ?? "").not.toMatch(/unlimited path/i);
+    expect(document.body.textContent ?? "").not.toMatch(/identity SKU/i);
     const back = screen.getByRole("link", { name: /back to desk/i });
     expect(back).toHaveAttribute("href", leanHomePath());
     expect(back).not.toHaveAttribute("href", "/cases");
