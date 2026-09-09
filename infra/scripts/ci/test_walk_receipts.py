@@ -232,6 +232,45 @@ class TestTipClaimsHonesty(unittest.TestCase):
             blob = path.read_text(encoding="utf-8")
             self.assertNotIn("GRAPH_GNN_BETA_URL", blob, str(path))
 
+    _SKU_BROCHURE_BANNED = (
+        "full-page builder",
+        "visual rule builder",
+        "book a demo",
+        "request a demo",
+        "start free",
+        "no-code platform",
+        "x-class",
+        "feast-from-redis",
+        "feast from redis",
+        "tarka is open source",
+        "tarka is open-source",
+        "tarka is oss",
+    )
+    _SCAN_SUFFIXES = {".ts", ".tsx", ".md"}
+
+    def test_desk_and_claim_lock_have_no_brochure_or_visual_sku_copy(self) -> None:
+        hits: list[str] = []
+        roots = (_REPO / "frontend" / "src", _REPO / "docs" / "compliance")
+        for root in roots:
+            for path in root.rglob("*"):
+                if not path.is_file() or path.suffix not in self._SCAN_SUFFIXES:
+                    continue
+                name = path.name
+                if ".test." in name or ".spec." in name:
+                    continue
+                text = path.read_text(encoding="utf-8").lower()
+                rel = str(path.relative_to(_REPO))
+                for phrase in self._SKU_BROCHURE_BANNED:
+                    if phrase in text:
+                        hits.append(f"{rel}: {phrase}")
+        self.assertEqual(hits, [], hits)
+
+    def test_claim_lock_says_visualrulebuilder_is_not_a_sku(self) -> None:
+        text = (_REPO / "docs" / "compliance" / "CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("VisualRuleBuilder", text)
+        self.assertRegex(text, r"not a product SKU")
+        self.assertIn("SentencePackPanel", text)
+
 
 class TestWalkRunner(unittest.TestCase):
     def test_run_walk_prints_returned_decisions_not_invented(self) -> None:
