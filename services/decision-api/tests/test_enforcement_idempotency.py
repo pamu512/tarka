@@ -48,7 +48,9 @@ def _load_mock():
     return mod
 
 
-async def _retrying_deny(monkeypatch, tmp_path, *, trace_id: str, tenant_id: str = "t1"):
+async def _retrying_deny(
+    monkeypatch, tmp_path, *, trace_id: str, tenant_id: str = "t1"
+):
     _emit_only(monkeypatch)
     _journal(tmp_path, monkeypatch)
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_URL", "http://hooks.test/enf")
@@ -130,14 +132,20 @@ async def test_distinct_decisions_get_distinct_keys(monkeypatch, tmp_path) -> No
     await _once(trace_id="tr-a", tenant_id="t1", decision="deny")
     await _once(trace_id="tr-b", tenant_id="t1", decision="deny")
     await _once(trace_id="tr-a", tenant_id="t1", decision="review")
-    assert [p["action_id"] for p in captured] == [p["idempotency_key"] for p in captured]
+    assert [p["action_id"] for p in captured] == [
+        p["idempotency_key"] for p in captured
+    ]
     deny_a, deny_b, review = captured
     assert deny_a["action_id"] != deny_b["action_id"]
     assert deny_a["action_id"] != review["action_id"]
     assert deny_a["action_ids"]["deny"] != review["action_ids"]["review"]
     rows = read_enforcement_journal(10)
     journal_keys = {r["action_id"] for r in rows}
-    assert journal_keys == {deny_a["action_id"], deny_b["action_id"], review["action_id"]}
+    assert journal_keys == {
+        deny_a["action_id"],
+        deny_b["action_id"],
+        review["action_id"],
+    }
 
 
 @pytest.mark.asyncio

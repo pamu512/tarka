@@ -195,7 +195,9 @@ def accept_product_ack(payload: dict[str, Any]) -> dict[str, Any]:
     if not _HEX64.fullmatch(action_id):
         raise ProductAckError("malformed_action_id", 400, action_id=action_id)
     missing = [
-        k for k in ACK_FIELDS if k != "action_id" and not str(payload.get(k) or "").strip()
+        k
+        for k in ACK_FIELDS
+        if k != "action_id" and not str(payload.get(k) or "").strip()
     ]
     if missing:
         raise ProductAckError("malformed_ack", 400, fields=missing)
@@ -234,15 +236,11 @@ async def post_product_ack(request: Request) -> dict[str, Any]:
     if secret:
         sig = request.headers.get("x-tarka-signature")
         if not verify_tarka_signature(raw, secret, sig):
-            raise HTTPException(
-                status_code=401, detail={"error": "bad_signature"}
-            )
+            raise HTTPException(status_code=401, detail={"error": "bad_signature"})
     try:
         payload = json.loads(raw.decode("utf-8") or "{}")
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(
-            status_code=400, detail={"error": "malformed_ack"}
-        ) from exc
+        raise HTTPException(status_code=400, detail={"error": "malformed_ack"}) from exc
     if not isinstance(payload, dict):
         raise HTTPException(status_code=400, detail={"error": "malformed_ack"})
     try:

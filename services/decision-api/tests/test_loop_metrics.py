@@ -55,6 +55,8 @@ def test_loop_metrics_from_drafts_and_fp_labels():
     assert out["leftover_mint_rate"] == 0.5
     assert out["demote_propose_count"] == 0
     assert out["evaluate_count"] is None
+    assert out["action_mix"] is None
+    assert out["shadow_divergence"] is None
     assert "label_latency_hours" in out
     assert "promote_ttl_hours" in out
 
@@ -96,7 +98,7 @@ def test_pack_metrics_from_shadow_observations():
         observations=observations,
     )
     assert out["rule_hit_rate"] is None
-    assert out["shadow_divergence"] is None
+    assert out["shadow_divergence"] == 0.5
     rows = out["pack_metrics"]
     assert len(rows) == 1
     row = rows[0]

@@ -200,10 +200,7 @@ async def test_ack_does_not_call_promote_confirm_demote_or_change_pack(
     assert pack_path.read_text(encoding="utf-8") == before
 
     src = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "decision_api"
-        / "product_ack.py"
+        Path(__file__).resolve().parents[1] / "src" / "decision_api" / "product_ack.py"
     ).read_text(encoding="utf-8")
     lowered = src.lower()
     assert "propose_demote" not in src
@@ -216,9 +213,7 @@ async def test_ack_does_not_call_promote_confirm_demote_or_change_pack(
 
 
 @pytest.mark.asyncio
-async def test_ack_rejects_bad_signature_when_secret_set(
-    monkeypatch, tmp_path
-) -> None:
+async def test_ack_rejects_bad_signature_when_secret_set(monkeypatch, tmp_path) -> None:
     _ack_env(monkeypatch, tmp_path)
     secret = "g43-ack-secret"
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", secret)
@@ -265,4 +260,8 @@ def test_contract_and_claim_lock_ack_both_sides() -> None:
     assert "/v1/enforcement/acks" in _CONTRACT.read_text(encoding="utf-8")
     assert "desk" in contract
     assert "g4.4" in contract
-    assert "not promote" in claim or "not a promote" in claim or "ack is not promote" in claim
+    assert (
+        "not promote" in claim
+        or "not a promote" in claim
+        or "ack is not promote" in claim
+    )
