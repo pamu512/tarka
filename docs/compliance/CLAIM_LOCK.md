@@ -14,6 +14,7 @@
 | Topic | Doc |
 |-------|-----|
 | Feature authority | [`docs/docs/guides/feature-data-flows.md`](../docs/guides/feature-data-flows.md) |
+| Receipt pack-why | Desk `PackWhyStrip`: leftover REVIEW → receipt → in-context why. Analyst audit 403 falls back to minimal (real pack-why). Never invent why. Leftover/decision vocab stays **REVIEW**, not a FLAG rename. |
 | AI / trend ops | [`docs/docs/guides/repo-productionization-runbook.md`](../docs/guides/repo-productionization-runbook.md) |
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |

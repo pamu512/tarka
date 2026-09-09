@@ -31,6 +31,8 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("docs/contracts/label-join-v1.md", lock)
         self.assertIn("contract-gated", lock.lower())
         self.assertIn("emit-only", lock.lower())
+        self.assertIn("PackWhyStrip", lock)
+        self.assertIn("pack-why", lock.lower())
 
     def test_late_label_docs_cite_join_contract(self) -> None:
         guide = (ROOT / "docs/docs/guides/gnn-label-loop.md").read_text(encoding="utf-8")
