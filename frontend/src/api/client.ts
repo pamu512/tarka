@@ -1871,6 +1871,13 @@ export const decisions = {
       action_mix?: Record<string, number> | null;
       rule_hit_rate?: number | null;
       shadow_divergence?: number | null;
+      pack_metrics?: Array<{
+        pack_id?: string;
+        rule_hit_rate?: number | null;
+        shadow_divergence?: number | null;
+        window?: string;
+        as_of?: string | null;
+      }>;
     }>(`/api/decisions/v1/observe/loop-metrics?${q}`);
   },
 
