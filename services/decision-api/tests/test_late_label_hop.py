@@ -435,3 +435,51 @@ async def test_disposition_alias_binds_fp(client, tmp_path, monkeypatch):
     assert r.status_code == 200, r.text
     assert r.json()["label_kind"] == "fp"
     assert r.json()["observe_work"]["draft"]["pack"]["evidence"]["intent"] == "soften"
+
+
+@pytest.mark.asyncio
+async def test_unknown_label_kind_webhook_still_422(client):
+    r = await _post(
+        client,
+        {
+            "tenant_id": "acme",
+            "trace_id": "t-bad-kind",
+            "label_kind": "not_a_kind",
+            "source": "care",
+        },
+    )
+    assert r.status_code == 422, r.text
+    assert load_label_records("acme")["by_trace"] == {}
+
+
+@pytest.mark.asyncio
+async def test_bind_persists_labeled_at_by_trace(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("CALIBRATION_DATA_DIR", str(tmp_path))
+    append_receipt("acme", _snap(suffix="lat"))
+    r = await _post(
+        client,
+        {
+            "tenant_id": "acme",
+            "trace_id": "t-lat",
+            "label_kind": "promo_abuse",
+            "source": "care",
+        },
+    )
+    assert r.status_code == 200, r.text
+    records = load_label_records("acme")
+    stamped = records["labeled_at_by_trace"]["t-lat"]
+    assert stamped
+    from decision_api.receipt_export import join_training_rows
+
+    rows = join_training_rows(
+        [
+            {
+                "evaluation_token": "t-lat",
+                "tenant_id": "acme",
+                "entity_id": "buyer-lat",
+                "decision": "allow",
+            }
+        ],
+        records,
+    )
+    assert rows[0]["labeled_at"] == stamped

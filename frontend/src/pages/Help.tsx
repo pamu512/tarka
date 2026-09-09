@@ -52,6 +52,7 @@ export default function Help() {
             ["#overview", "Overview"],
             ["#desk", "Desk paths"],
             ["#cases", "Cases"],
+            ["#leftovers", "Investigator path"],
             ["#decisions", "Decisions"],
             ["#graph-rules", "Graph and rules"],
             ["#ops", "Ops"],
@@ -69,7 +70,7 @@ export default function Help() {
       <Section id="overview" title="Overview">
         <p>
           Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
-          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. Promote confirm shows pack hit rate and Observe divergence, or says they are not yet available. Thresholds are tenant policy. The left nav lists the desk surface
+          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. Promote confirm shows pack hit rate and Observe divergence, or says they are not yet available. Bake-off numbers on Observe inform Promote; thresholds are tenant policy examples (including label horizons: promo FP days, collusion window, chargeback lag) — not Tarka morals and not a chargeback-guarantee SKU. Horizons never auto-demote. The left nav lists the desk surface
           {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}
@@ -134,6 +135,17 @@ export default function Help() {
         </Sub>
       </Section>
 
+      <Section id="leftovers" title="Investigator path">
+        <p>
+          Decisions is the receipt list. Each row shows what the pack decided and which pack fired. Open a row
+          (or Open receipt) to see why. You do not need to memorize pack UUIDs.
+        </p>
+        <p>
+          REVIEW or DENY leaves a leftover. Next legal actions: Open receipt, Create Observe draft, or
+          disposition on Hunt. ALLOW never leaves a leftover. Leftovers are not a case CRM.
+        </p>
+      </Section>
+
       <Section id="decisions" title="Decisions">
         <p>
           Recent decision-api audit rows for this tenant. Fail-closed: an empty or unavailable audit is an empty queue,
@@ -161,13 +173,18 @@ export default function Help() {
             </p>
           </Sub>
         )}
+        <p>
+          Hunt depth is AGE-bounded. Leftovers and the queue are not a CRM.
+        </p>
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
             <code className="text-gray-500">/analytics/rule-performance</code>. Observe is a canary
             (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
-            ). Sentence pack on Observe emits the same pack JSON evaluate already runs; drafts stay Observe until a human Promotes.
-            The legacy canvas is not a product SKU. Hop packs stay shadow. A human Promotes — a model never goes live.
+            ). Thin no-code is SentencePackPanel on ObserveEasePanel — same pack JSON evaluate already runs; drafts stay
+            Observe until a human Promotes. VisualRuleBuilder (legacy canvas) is not a product SKU. Hop packs stay
+            shadow. A human Promotes — a model never goes live.
+            Suggest Demote lists effectiveness-tick numbers and opens Propose only; Confirm stays a separate human step. Nothing auto-demotes.
           </p>
         </Sub>
       </Section>
