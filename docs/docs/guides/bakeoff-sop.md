@@ -56,3 +56,5 @@ Join / coverage windows are **your** policy. Shipped defaults (promo FP days, co
 - [label-join-v1](../../../contracts/label-join-v1.md)
 - [CLAIM_LOCK](../../compliance/CLAIM_LOCK.md)
 - [analyst control loop](analyst-control-loop.md)
+- [graph-analysis — Day-1 Hunt depth](graph-analysis.md#day-1-hunt-depth)
+- [hunt-depth-v1](../../contracts/hunt-depth-v1.md)
