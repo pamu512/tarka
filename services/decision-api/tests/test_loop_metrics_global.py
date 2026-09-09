@@ -20,9 +20,7 @@ def _eval(tenant: str, action: str, *, trace_id: str = "") -> dict:
 
 def test_evaluate_count_matches_synthetic_n():
     evaluations = [_eval("acme", "allow", trace_id=f"t{i}") for i in range(7)]
-    out = compute_loop_metrics(
-        [], {}, tenant_id="acme", evaluations=evaluations
-    )
+    out = compute_loop_metrics([], {}, tenant_id="acme", evaluations=evaluations)
     assert out["evaluate_count"] == 7
     assert out["schema_id"] == "tarka.loop_metrics/v1"
 
@@ -34,9 +32,7 @@ def test_action_mix_matches_allow_deny_flag():
         _eval("acme", "FLAG", trace_id="f1"),
         _eval("acme", "allow", trace_id="a2"),
     ]
-    out = compute_loop_metrics(
-        [], {}, tenant_id="acme", evaluations=evaluations
-    )
+    out = compute_loop_metrics([], {}, tenant_id="acme", evaluations=evaluations)
     assert out["action_mix"] == {"allow": 2, "deny": 1, "flag": 1}
     assert "review" not in out["action_mix"]
 
