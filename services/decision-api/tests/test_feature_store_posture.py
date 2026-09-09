@@ -119,3 +119,8 @@ def test_feature_data_flows_states_l1_not_production_fs():
     assert "L2 off" in text or "L2 is off" in text
     assert "production online FS" in text or "production online feature store" in text
     assert "feast_class_claim_allowed" in text
+    assert "no L2 writes" in text or "writer no-op" in text
+    assert "backfill" in text.lower()
+    assert "writer" in text.lower()
+    lock = _CLAIM_LOCK.read_text(encoding="utf-8")
+    assert "no L2 writes" in lock or "writers" in lock.lower()
