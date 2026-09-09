@@ -23,6 +23,7 @@ ENFORCEMENT_JOURNAL_SCHEMA = "tarka.enforcement_delivery/v1"
 EnforcementAction = Literal["allow", "step_up", "block"]
 
 ENFORCEMENT_SCHEMA = "tarka.enforcement/v1"
+ACTION_ID_SCHEME = "tarka.action_id/v1"
 
 _STEP_UP_ACTIONS = frozenset(
     {
@@ -57,6 +58,66 @@ def enforcement_mode() -> str:
         return desk_mode()
     except Exception:
         return "emit_only"
+
+
+def idempotent_action_id(
+    *,
+    tenant_id: str,
+    trace_id: str,
+    action: str,
+    pack_hash: str = "",
+) -> str:
+    """Stable hex SHA-256 of tenant + trace_id + action token + pack hash.
+
+    Same tuple → same id across retries. Not a random UUID per POST.
+    """
+    material = "\n".join(
+        (
+            ACTION_ID_SCHEME,
+            (tenant_id or "").strip(),
+            (trace_id or "").strip(),
+            (action or "").strip().lower(),
+            (pack_hash or "").strip(),
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def action_ids_for(
+    tokens: list[str],
+    *,
+    tenant_id: str,
+    trace_id: str,
+    pack_hash: str = "",
+) -> dict[str, str]:
+    """Map each suggested_actions token to its idempotent action_id."""
+    return {
+        token: idempotent_action_id(
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            action=token,
+            pack_hash=pack_hash,
+        )
+        for token in tokens
+    }
+
+
+def _delivery_action_id(
+    tokens: list[str],
+    ids: dict[str, str],
+    *,
+    tenant_id: str,
+    trace_id: str,
+    pack_hash: str,
+) -> str:
+    if tokens:
+        return ids[tokens[0]]
+    return idempotent_action_id(
+        tenant_id=tenant_id,
+        trace_id=trace_id,
+        action="",
+        pack_hash=pack_hash,
+    )
 
 
 def suggested_actions(
@@ -208,7 +269,15 @@ def _build_payload(
     score: float,
     tags: list[str],
     challenge_metadata: dict[str, Any] | None,
+    pack_hash: str = "",
 ) -> dict[str, Any]:
+    hints = suggested_actions(intent.decision, intent.recommended_action)
+    ids = action_ids_for(
+        hints, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
+    delivery_id = _delivery_action_id(
+        hints, ids, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
     return {
         "schema_id": ENFORCEMENT_SCHEMA,
         "enforcement_action": intent.action,
@@ -221,9 +290,9 @@ def _build_payload(
         "score": score,
         "tags": list(tags),
         "challenge_metadata": challenge_metadata or {},
-        "suggested_actions": suggested_actions(
-            intent.decision, intent.recommended_action
-        ),
+        "suggested_actions": hints,
+        "action_id": delivery_id,
+        "action_ids": ids,
         "enforcement_mode": enforcement_mode(),
         "authority": enforcement_mode() == "handoff",
         "webhook_event": (
@@ -246,6 +315,7 @@ async def apply_enforcement_adapters(
     tags: list[str],
     recommended_action: str | None = None,
     challenge_metadata: dict[str, Any] | None = None,
+    pack_hash: str = "",
     metrics_inc: MetricsInc | None = None,
 ) -> dict[str, Any]:
     """Emit enforcement metrics and optional tenant webhook for allow/step_up/block.
@@ -255,11 +325,19 @@ async def apply_enforcement_adapters(
     intent = resolve_enforcement_intent(decision, recommended_action)
     mode = enforcement_mode()
     hints = suggested_actions(decision, recommended_action)
+    ids = action_ids_for(
+        hints, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
+    delivery_id = _delivery_action_id(
+        hints, ids, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
     summary: dict[str, Any] = {
         "enforcement_action": intent.action,
         "enforcement_mode": mode,
         "authority": mode == "handoff",
         "suggested_actions": hints,
+        "action_id": delivery_id,
+        "action_ids": ids,
         "webhook": None,
         "webhook_event": "decision.enforced"
         if mode == "handoff"
@@ -312,6 +390,7 @@ async def apply_enforcement_adapters(
         challenge_metadata=challenge_metadata
         if isinstance(challenge_metadata, dict)
         else None,
+        pack_hash=pack_hash,
     )
     raw = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     headers = {

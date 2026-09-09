@@ -1855,6 +1855,20 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
   },
 
+  demoteSuggestions(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      suggestions: Array<{
+        pack_id?: string;
+        rule_hit_rate?: number | null;
+        shadow_divergence?: number | null;
+        fp_count?: number;
+        reason_code?: string;
+        action?: string;
+      }>;
+    }>(`/api/decisions/v1/observe/demote-suggestions?${q}`);
+  },
+
   loopMetrics(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId.trim() });
     return request<{
