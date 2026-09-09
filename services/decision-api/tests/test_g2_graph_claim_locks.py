@@ -10,7 +10,11 @@ from pathlib import Path
 import pytest
 
 from decision_api.pack_evaluator import _iter_eligible_packs, evaluate_packs_python
-from decision_api.ring_job import JOB_REQUEST_SCHEMA, run_ring_job, write_ring_observe_drafts
+from decision_api.ring_job import (
+    JOB_REQUEST_SCHEMA,
+    run_ring_job,
+    write_ring_observe_drafts,
+)
 from decision_api.ring_score import compute_ring_score
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -241,8 +245,12 @@ def test_product_copy_has_no_gnn_live_or_identity_sku_overclaims() -> None:
                 if any(n in ll for n in ("never", "not ", "must not", "no ")):
                     continue
                 raise AssertionError(f"{rel}:{i} overclaim {phrase!r}: {line}")
-        for m in re.finditer(r"identity-as-sku|identity as a sku|identity product sku", low):
-            line = text[max(0, text.lower().rfind("\n", 0, m.start()) + 1) :].split("\n", 1)[0]
+        for m in re.finditer(
+            r"identity-as-sku|identity as a sku|identity product sku", low
+        ):
+            line = text[max(0, text.lower().rfind("\n", 0, m.start()) + 1) :].split(
+                "\n", 1
+            )[0]
             ll = line.lower()
             cells = [p.strip() for p in line.split("|") if p.strip()]
             allowed = (
@@ -250,7 +258,13 @@ def test_product_copy_has_no_gnn_live_or_identity_sku_overclaims() -> None:
                 or "not " in ll
                 or "never" in ll
                 or "no identity" in ll
-                or (len(cells) >= 2 and any(p in cells[-1].lower() for p in ("identity-as-sku", "identity product sku")))
+                or (
+                    len(cells) >= 2
+                    and any(
+                        p in cells[-1].lower()
+                        for p in ("identity-as-sku", "identity product sku")
+                    )
+                )
             )
             assert allowed, f"{rel} identity SKU overclaim: {line}"
 
@@ -268,16 +282,16 @@ def test_claim_lock_g24_both_sides() -> None:
             assert "no identity-as-sku" in tl or "not identity-as-sku" in tl
         assert false_side.strip()  # keep BOTH sides
 
-    assert any(
-        "GRAPH_GNN_BETA_URL" in t and "unset" in t.lower() for t, _ in rows
-    )
+    assert any("GRAPH_GNN_BETA_URL" in t and "unset" in t.lower() for t, _ in rows)
     assert any("gnn live" in f.lower() for _, f in rows)
     assert any("identity-as-sku" in f.lower() for _, f in rows)
     assert any("mode=shadow" in t for t, _ in rows)
-    assert any("never auto active" in t.lower() or "observe" in t.lower() for t, _ in rows)
     assert any(
-        "G2.4 CI" in t and "GRAPH_GNN_BETA_URL" in t for t, _ in rows
-    ), "G2.4 CI hard-lock row missing on CLAIM_LOCK true side"
+        "never auto active" in t.lower() or "observe" in t.lower() for t, _ in rows
+    )
+    assert any("G2.4 CI" in t and "GRAPH_GNN_BETA_URL" in t for t, _ in rows), (
+        "G2.4 CI hard-lock row missing on CLAIM_LOCK true side"
+    )
     g24 = next(r for r in rows if "G2.4 CI" in r[0])
     fl = g24[1].lower()
     assert "gnn live" in fl
