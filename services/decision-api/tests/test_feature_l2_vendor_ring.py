@@ -78,6 +78,62 @@ def test_pit_as_of() -> None:
     assert len(train) == 1 and len(hold) == 1
 
 
+def test_pit_as_of_iso_later_snapshot_does_not_leak() -> None:
+    """Fractional ISO sorts before `Z`; later wall time must still be excluded."""
+    upsert_feature(
+        tenant_id="t-pit",
+        entity_type="user",
+        entity_id="e-pit",
+        features={"amount": 1},
+        as_of="2026-01-01T10:00:00Z",
+    )
+    upsert_feature(
+        tenant_id="t-pit",
+        entity_type="user",
+        entity_id="e-pit",
+        features={"amount": 9},
+        as_of="2026-01-01T10:00:00.500Z",
+    )
+    early = get_features(
+        tenant_id="t-pit",
+        entity_type="user",
+        entity_id="e-pit",
+        as_of="2026-01-01T10:00:00Z",
+    )
+    assert early.get("amount") == 1
+
+
+def test_tenant_isolation_no_cross_read() -> None:
+    upsert_feature(
+        tenant_id="tenant-a",
+        entity_type="user",
+        entity_id="shared-e",
+        features={"amount": 1},
+        as_of="2026-01-01T00:00:00Z",
+    )
+    upsert_feature(
+        tenant_id="tenant-b",
+        entity_type="user",
+        entity_id="shared-e",
+        features={"amount": 9},
+        as_of="2026-01-01T00:00:00Z",
+    )
+    a = get_features(
+        tenant_id="tenant-a",
+        entity_type="user",
+        entity_id="shared-e",
+        as_of="2026-01-02T00:00:00Z",
+    )
+    b = get_features(
+        tenant_id="tenant-b",
+        entity_type="user",
+        entity_id="shared-e",
+        as_of="2026-01-02T00:00:00Z",
+    )
+    assert a.get("amount") == 1
+    assert b.get("amount") == 9
+
+
 def test_ring_job_offline() -> None:
     req = {
         "schema_id": JOB_REQUEST_SCHEMA,

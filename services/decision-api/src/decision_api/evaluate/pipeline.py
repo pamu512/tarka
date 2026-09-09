@@ -30,7 +30,11 @@ from decision_api.enforcement import (
     resolve_enforcement_action,
     suggested_actions,
 )
-from decision_api.feature_l2 import resolve_feature_source, write_event_features
+from decision_api.feature_l2 import (
+    evaluate_as_of_iso,
+    evaluate_l2_read,
+    write_event_features,
+)
 from decision_api.receipt_join import stamp_join_keys
 from decision_api.eval_dag import EvalDAGRuntime
 from decision_api.eval_load_guard import acquire_eval_capacity
@@ -625,6 +629,16 @@ async def run_evaluate_decision(
         step_trace.append(snap_trace)
         features: dict[str, Any] = dict(snapshot.get("features") or {})
         redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
+        l2_feats, feature_source = await evaluate_l2_read(
+            http,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            as_of=evaluate_as_of_iso(body.metadata, body.payload),
+            redis_url=settings.redis_url,
+            timeout_s=settings.eval_step_feature_snapshot_timeout_seconds,
+        )
+        if l2_feats:
+            features.update(l2_feats)
 
         # Entity linking hints for rules (device ↔ entities, optional vendor bridge)
         if body.device_context and entity_link_store._client:
@@ -1314,7 +1328,6 @@ async def run_evaluate_decision(
             pack_hash=pack_hash,
         )
         enf_mode = enforcement_mode()
-        feature_source = resolve_feature_source(redis_url=settings.redis_url)
 
         graph_decision_explanation = build_graph_decision_explanation_v1(
             trace_id=str(trace_id),
