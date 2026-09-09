@@ -316,6 +316,8 @@ export interface AuditRecentItem {
   created_at: string | null;
   rule_hits?: string[];
   rule_pack_file?: string | null;
+  /** Human pack name from the evaluate snapshot when present. */
+  pack_name?: string | null;
   integrity?: Record<string, string> | null;
 }
 
