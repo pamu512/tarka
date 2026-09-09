@@ -50,6 +50,7 @@ class TestPostgapContractSpine(unittest.TestCase):
             "docs/contracts/warehouse-sink-v1.md",
             "docs/contracts/feature-store-posture-v1.md",
             "docs/contracts/graph-planes-v1.md",
+            "docs/contracts/hunt-depth-v1.md",
             "docs/contracts/vendor-score-slot-v1.md",
         ):
             self.assertTrue((ROOT / rel).is_file(), rel)
