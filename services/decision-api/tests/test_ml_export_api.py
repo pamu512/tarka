@@ -17,8 +17,8 @@ _as = str(_ANALYTICS_SRC)
 if _as not in sys.path:
     sys.path.insert(0, _as)
 
-from analytics.engine import DuckDBEngine
-from event_time import parse_event_time_to_unix
+from analytics.engine import DuckDBEngine  # noqa: E402
+from event_time import parse_event_time_to_unix  # noqa: E402
 
 
 @pytest.mark.asyncio
