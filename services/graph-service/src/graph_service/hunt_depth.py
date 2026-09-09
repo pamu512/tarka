@@ -1,4 +1,4 @@
-"""Day-1 Hunt depth honesty (`tarka.hunt_depth/v1`). Raise max only in D7.4+."""
+"""Path B Hunt depth honesty (`tarka.hunt_depth/v1`). hunt_depth_max=1 until a tested AGE-safe fixed k exists."""
 
 from __future__ import annotations
 
