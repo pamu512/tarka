@@ -51,6 +51,17 @@ When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unk
 - Share naming and types with M3. Do not fork a second pack_metrics schema. Do not duplicate compute modules — D8.2 reuses M3 helpers for `shadow_divergence` math when it lands.
 - Top-level `rule_hit_rate` stays null. D8 does not invent a tenant-level hit-rate.
 
+## Coexistence (D8 globals + M3 pack_metrics[])
+
+Same `tarka.loop_metrics/v1` object. Two scopes, two desks — they do not overwrite each other.
+
+| Surface | Reads | Honesty |
+|---------|-------|---------|
+| LoopScoreboard / `/ops/bakeoff` | top-level GLOBAL `evaluate_count` / `action_mix` / `shadow_divergence` | **null = unknown**, never fake 0% |
+| Promote confirm (M3) / Suggest Propose Demote (M2) | `pack_metrics[]` row for that pack, or honest empty | null rates = unknown |
+
+Filling GLOBAL keys must not drop, zero, or rewrite `pack_metrics[]`. Filling a pack row must not drop or fake-zero GLOBAL keys. Do not mint `tarka.loop_metrics/v2`. Do not fork `tarka.pack_metrics/v1`. Thresholds are tenant policy, not Tarka morals.
+
 ## null vs 0 honesty
 
 Prefer **null + reason_code** over fake 0%. `null` = unknown. `0` / `0.0` = measured none (only after D8.2 scans a real store). Empty tenant without a store → nulls, not demo zeros. No CRM analytics product.
