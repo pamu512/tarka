@@ -15,6 +15,18 @@ Numbers for Observe/shadow of a pack. Thresholds are **tenant policy**, not Tark
 | promote TTL | `promote_ttl_ms` + `promote_ttl_hours` | null |
 | demote propose/confirm | `demote_propose_count`, `demote_confirm_count` | 0 |
 | evaluate_count / action_mix | `null` (forward — evaluate store not on this payload) | null |
-| rule_hit_rate / shadow_divergence | `null` (forward — pack-scoped Observe divergence not on this payload) | null |
+| rule_hit_rate / shadow_divergence | Top-level still `null` until compute lands. Pack-scoped values live on `pack_metrics[]` (below). | null |
+
+## pack_metrics[] (`tarka.pack_metrics/v1`)
+
+Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote confirm (M3) and Suggest Propose Demote (M2). **null = unknown** — never fake zeros theater. Empty tenant → `pack_metrics: []`. Compute is a later PR; this file names the fields.
+
+| Field | Type | Empty / honesty |
+|-------|------|-----------------|
+| `pack_id` | string | required when a row exists |
+| `rule_hit_rate` | number \| null | null = unknown (not 0.0 theater) |
+| `shadow_divergence` | number \| null | null = unknown |
+| `window` | string | e.g. `7d`; tenant policy, not Tarka morals |
+| `as_of` | string \| null | ISO timestamp; null if not computed |
 
 See also [enforcement-v1](enforcement-v1.md) and [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
