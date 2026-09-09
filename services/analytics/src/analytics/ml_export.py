@@ -9,6 +9,8 @@
   event), not label resolution time.
 - Case-management labels are joined **by ``trace_id``** for supervision; they are stored in
   separate columns so trainers can apply horizon / censoring policies explicitly.
+- Optional ``holdout_cutoff`` / ``apply_holdout_split`` is sidecar/offline only: training
+  rows cannot include ``as_of >= cutoff``. The export never ALLOW/DENYs.
 
 Rows are written with ``pyarrow.parquet.ParquetWriter`` in bounded batches (one OLAP page at
 a time) — no whole-export ``pandas`` materialisation.
@@ -212,6 +214,15 @@ class PitMlExportStats:
     chunks_processed: int
 
 
+def apply_holdout_split(
+    rows: list[dict[str, Any]], *, cutoff: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Sidecar/offline. Training excludes ``as_of >= cutoff``. Model never decides."""
+    from event_time import holdout_split
+
+    return holdout_split(rows, cutoff=cutoff)
+
+
 def run_point_in_time_ml_export(
     engine: BaseAnalyticsEngine,
     *,
@@ -227,6 +238,7 @@ def run_point_in_time_ml_export(
     payload_json_keys: list[str] | None = None,
     dispute_outcome_allowlist: frozenset[str] | None = None,
     on_progress: Callable[[PitMlExportStats], None] | None = None,
+    holdout_cutoff: str | None = None,
 ) -> PitMlExportStats:
     """Stream OLAP pages, join labels per page, append Parquet batches.
 
@@ -257,6 +269,8 @@ def run_point_in_time_ml_export(
             clickhouse_max_execution_seconds=clickhouse_max_execution_seconds,
         ):
             chunks += 1
+            if holdout_cutoff:
+                page, _ = apply_holdout_split(list(page), cutoff=holdout_cutoff)
             tids = sorted(
                 {str(r.get("trace_id") or "") for r in page if str(r.get("trace_id") or "").strip()}
             )
