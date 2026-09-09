@@ -46,7 +46,9 @@ Empty URL = that plane off. When a secret is set (`TARKA_ENFORCEMENT_WEBHOOK_SEC
 
 `suggested_actions[]` stays a `list[str]` token list (`deny`, `review`, `flag`, `hold_payout`, `deny_promo`, `suspend_courier`, `step_up`). Parallel `action_ids` maps each token to an idempotent `action_id`. The delivery also carries `action_id` (first suggested token’s id, or the empty-token hash when the list is empty).
 
-**`action_id` scheme** (`tarka.action_id/v1`): hex SHA-256 of UTF-8 lines `tarka.action_id/v1`, `tenant_id`, `trace_id`, action token, pack hash. Pack hash is evaluate `policy_set_id` (stable pack identity) or empty when unknown. Same tuple → same id on webhook retries. Different trace or action token → different id. Not a random UUID per POST. Buyer product sinks dedupe on `action_id`. Same-key retry lock is D9.2.
+**`action_id` scheme** (`tarka.action_id/v1`): hex SHA-256 of UTF-8 lines `tarka.action_id/v1`, `tenant_id`, `trace_id`, action token, pack hash. Pack hash is evaluate `policy_set_id` (stable pack identity) or empty when unknown. Same tuple → same id on webhook retries. Different trace or action token → different id. Not a random UUID per POST. Buyer product sinks dedupe on `action_id`.
+
+Webhook and journal also carry `idempotency_key` as an **alias of that same `action_id`** (G4.2). There is no second competing id. If a field is named `delivery_id`, it must alias `action_id`.
 
 | Event | When |
 |-------|------|
@@ -86,14 +88,28 @@ Exhausted retries write **one** `dead_lettered` journal row (`tarka.enforcement_
 
 `emit_only` stays the default. Webhook failure must never grow silent-block metadata. `handoff` only when `TARKA_ENFORCEMENT_MODE` or the desk contract says so.
 
+## Delivery idempotency (D9.2)
+
+Retries must not double-apply at buyer sinks. Every POST attempt for one evaluate decision reuses the G4.2 `action_id` as `idempotency_key`.
+
+| Field | Source |
+|-------|--------|
+| `action_id` | hex SHA-256 of `tarka.action_id/v1` + `tenant_id` + `trace_id` + action token + pack hash |
+| `idempotency_key` | same value as `action_id` (alias, not a second id) |
+| `action_ids` | map of each `suggested_actions[]` token → its G4.2 `action_id` |
+
+Journal rows (`tarka.enforcement_delivery/v1`) carry the same pair. In-process dedupe by `action_id` returns **one logical delivery** with `attempt_count` (max attempt across those rows) and the latest status. This helper is not a public GET (D9.3).
+
+Retries still POST. Duplicate key is **not** a silent block / deny. Buyer sinks apply once; Tarka does not execute holds or payouts and does not open CRM tickets as the action sink.
+
 ## Out of scope
 
 - Implementing every vocabulary action as Tarka-owned side effects
 - Case CRM
-- Silent block / hold / deny in `emit_only`
+- Silent block / hold / deny in `emit_only` or on a duplicate `action_id`
 - Day-1 default of `handoff`
 - Treating ACK or DLQ as Promote/Demote
-- D9.2 idempotency / retry-same-key lock
+- A second competing `action_id` / `delivery_id`
 - D9.3 journal query API
 - D9.4 desk retry/DLQ glass
 - Executing holds from desk glass
