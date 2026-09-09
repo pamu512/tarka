@@ -17,3 +17,7 @@ Research / sidecar only. **Never** on the evaluate path. Empty `GRAPH_SERVICE_UR
 **Response** (`tarka.ring_job_response/v1`): `schema_id`, `tenant_id`, `ring_score[]`, `tags[]`, `live: false`. Degree-count heuristic v1. **Never** live ALLOW/DENY/FLAG. Not “GNN live”.
 
 Output JSON may feed an Observe draft (`authored_by=seed`) later. This plane does not auto-Promote or write live FLAG.
+
+## C — Hunt depth (AGE)
+
+Day-1 Hunt is depth-1. Empty `GRAPH_SERVICE_URL` turns Hunt off (same as hops). On-plane `GET /v1/subgraph` emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Walk cap is `hunt_depth_max=1`. See [hunt-depth-v1](hunt-depth-v1.md).
