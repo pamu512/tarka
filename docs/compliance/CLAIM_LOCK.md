@@ -41,7 +41,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
 | Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
-| Desk Promote is live SoT / go-live. Git / `tarka.pack_promote_export/v1` is backup after Promote. Write fail does not undo Promote. Commercial assist consumes the export ([SUPPORT.md](../../SUPPORT.md#pack-gitops-export-assist)); it does not move go-live to git. | Git merge as go-live gate; export as Promote authority; missing export as demote |
+| Desk Promote is live SoT / go-live. Git / `tarka.pack_promote_export/v1` is backup after Promote — never a go-live gate. Write fail does not undo Promote. Commercial assist consumes the export ([SUPPORT.md](../../SUPPORT.md#pack-gitops-export-assist)); it does not move go-live to git. | Git merge as go-live gate; export as Promote authority; missing export as demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
