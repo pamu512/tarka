@@ -45,7 +45,7 @@ Late labels may arrive 30–120 days later. Never reconstruct features — bind 
 - One row per label bind.
 - Join key = `evaluation_token` (primary).
 
-Tarka does not host the buyer warehouse.
+Scheduled consume (buyer cron / lake upsert) is documented in [warehouse-sink-v1](warehouse-sink-v1.md). Tarka does not host the buyer warehouse.
 
 ## Out of scope
 

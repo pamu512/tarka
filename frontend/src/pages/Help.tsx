@@ -171,6 +171,7 @@ export default function Help() {
             ). Thin no-code is SentencePackPanel on ObserveEasePanel — same pack JSON evaluate already runs; drafts stay
             Observe until a human Promotes. VisualRuleBuilder (legacy canvas) is not a product SKU. Hop packs stay
             shadow. A human Promotes — a model never goes live.
+            Suggest Demote lists effectiveness-tick numbers and opens Propose only; Confirm stays a separate human step. Nothing auto-demotes.
           </p>
         </Sub>
       </Section>

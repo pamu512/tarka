@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -15,6 +16,12 @@ from decision_api.l2_draft import (
     is_forbidden_demote_actor,
     propose_demote,
 )
+
+_REPO = Path(__file__).resolve().parents[3]
+_API_SRC = Path(__file__).resolve().parents[1] / "src" / "decision_api"
+_FE_SRC = _REPO / "frontend" / "src"
+_CLAIM = _REPO / "docs" / "compliance" / "CLAIM_LOCK.md"
+_PROD_SUFFIXES = {".py", ".ts", ".tsx"}
 
 
 class _EmptyResult:
@@ -231,6 +238,8 @@ async def test_human_propose_then_confirm_demote(client):
         "byom-llm",
         "llm",
         "vllm-local",
+        "vertex-scout",
+        "ai",
     ],
 )
 async def test_model_paths_403_on_propose_and_confirm(client, actor):
@@ -293,3 +302,88 @@ async def test_confirm_without_propose_409_and_put_shadow_not_silent(client):
     assert scout_put.status_code == 403, scout_put.text
     assert scout_put.json()["detail"] == "demote_human_only"
     assert _on_disk(client, fname)["mode"] == "active"
+
+
+def _prod_files() -> list[Path]:
+    out: list[Path] = []
+    for root in (_API_SRC, _FE_SRC):
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*"):
+            if path.suffix not in _PROD_SUFFIXES or not path.is_file():
+                continue
+            if path.name.endswith(".test.ts") or path.name.endswith(".test.tsx"):
+                continue
+            out.append(path)
+    return out
+
+
+def test_model_cannot_confirm_demote_in_process():
+    pack = _live_pack()
+    propose_demote(pack, actor="ops-lead", reason="fp burst on live rule r1")
+    with pytest.raises(L2DraftError) as ei:
+        confirm_demote(pack, actor="llm", reason="model trying to confirm demote")
+    assert ei.value.http_status == 403
+    assert ei.value.code == "demote_human_only"
+    assert pack["mode"] == "active"
+    assert pack["lifecycle"]["demote"]["state"] == "proposed"
+
+
+def test_confirm_demote_does_not_consult_promote_gates(monkeypatch):
+    def _boom(*_a, **_k):
+        raise AssertionError("demote must not consult promote gates")
+
+    monkeypatch.setattr(
+        "decision_api.leftover_promote_gate.compute_desk_and_leftover_gates",
+        _boom,
+    )
+    monkeypatch.setattr(
+        "decision_api.shadow_auto_promote.maybe_auto_promote_shadow",
+        _boom,
+    )
+    pack = _live_pack()
+    propose_demote(pack, actor="ops-lead", reason="fp burst on live rule r1")
+    out = confirm_demote(
+        pack, actor="sec-lead", reason="human confirm retire to observe"
+    )
+    assert out["mode"] == "shadow"
+
+
+def test_no_invented_auto_demote_identifiers():
+    for path in _prod_files():
+        text = path.read_text(encoding="utf-8")
+        assert "auto_demote" not in text, path
+        assert "demote_on_gate" not in text, path
+
+
+def test_confirm_demote_only_called_from_human_http():
+    callers: list[str] = []
+    for path in _prod_files():
+        text = path.read_text(encoding="utf-8")
+        if path.name == "l2_draft.py":
+            assert text.count("def confirm_demote(") == 1
+            assert "confirm_demote(" not in text.replace("def confirm_demote(", "")
+            continue
+        if path.name == "rule_api.py":
+            assert text.count("confirm_demote(") == 1
+            assert "async def confirm_demote_pack" in text
+            continue
+        if "confirm_demote(" in text or "confirmDemote(" in text:
+            callers.append(path.name)
+    assert set(callers) <= {"ObserveEasePanel.tsx", "client.ts"}
+
+
+def test_auto_promote_module_never_demotes():
+    src = (_API_SRC / "shadow_auto_promote.py").read_text(encoding="utf-8")
+    assert "confirm_demote" not in src
+    assert "propose_demote" not in src
+    assert "auto_demote" not in src
+    assert "demote_on_gate" not in src
+
+
+def test_claim_lock_demote_human_only_no_auto():
+    lock = _CLAIM.read_text(encoding="utf-8")
+    assert "Propose→Confirm Demote human-only" in lock
+    assert "auto-demote forbidden" in lock.lower()
+    assert "model never demotes" in lock.lower()
+    assert "tick cannot confirm" in lock.lower()
