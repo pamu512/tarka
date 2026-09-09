@@ -6,7 +6,7 @@ Empty `GRAPH_SERVICE_URL` = Hunt and hops **off** (same plane-off as [graph-plan
 
 ## Schema (`tarka.hunt_depth/v1`)
 
-Honesty fields for Hunt / subgraph responses. Names are pinned here; API emit is a later slice (D7.3).
+Honesty fields for Hunt / subgraph responses. API emit is this slice (D7.3): every on-plane `GET /v1/subgraph` body includes these fields. Empty `GRAPH_SERVICE_URL` stays plane-off (decision-api hop / desk), not a graph-service response.
 
 | Field | Type | Honesty |
 |-------|------|---------|
