@@ -197,7 +197,7 @@ def _label_extra_headers(payload: dict[str, Any]) -> dict[str, str] | None:
     secret = (os.environ.get("REQUEST_SIGNATURE_SECRET") or "").strip()
     if not secret:
         return None
-    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    raw = json.dumps(payload).encode("utf-8")
     return _signature_headers(raw, secret)
 
 
