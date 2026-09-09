@@ -156,7 +156,9 @@ def test_tenant_a_labels_never_count_toward_tenant_b():
     assert demo["receipt_count"] == 1
 
 
-def test_horizon_window_comes_from_tenant_example_policy(monkeypatch: pytest.MonkeyPatch):
+def test_horizon_window_comes_from_tenant_example_policy(
+    monkeypatch: pytest.MonkeyPatch,
+):
     kind = "fp"
     window = horizon_days(kind)
     receipts = [_receipt("t1", tenant_id="acme")]
