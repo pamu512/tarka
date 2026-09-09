@@ -27,6 +27,13 @@ describe("Help", () => {
     expect(body).not.toMatch(/Simulation/);
   });
 
+  it("says delivery status is emit/ACK glass, not an enforcement product suite", () => {
+    render(<Help />);
+    expect(document.body.textContent ?? "").toMatch(
+      /delivery status is emit\/ACK glass, not an enforcement product suite/i,
+    );
+    expect((document.body.textContent ?? "").toLowerCase()).not.toMatch(/we blocked payout/);
+  });
 
   it("points no-code at SentencePackPanel + ObserveEasePanel, not VisualRuleBuilder as a SKU", () => {
     render(<Help />);
