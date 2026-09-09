@@ -362,9 +362,11 @@ def _action_ids_for_query(
                     continue
                 if str(row.get("tenant_id") or "") != ten:
                     continue
-                aid = str(
-                    row.get("action_id") or row.get("idempotency_key") or ""
-                ).strip().lower()
+                aid = (
+                    str(row.get("action_id") or row.get("idempotency_key") or "")
+                    .strip()
+                    .lower()
+                )
                 if not aid or (wanted and aid != wanted) or aid in found:
                     continue
                 found.add(aid)
