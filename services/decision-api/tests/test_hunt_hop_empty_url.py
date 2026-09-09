@@ -58,7 +58,9 @@ async def test_empty_url_evaluate_receipt_is_off_and_does_not_block():
         role="member",
         trace_id="tr-1",
         payload={"amount": 1},
-        metadata={"party_graph": {"nodes": [{"id": "invented"}], "edges": [{"type": "USED"}]}},
+        metadata={
+            "party_graph": {"nodes": [{"id": "invented"}], "edges": [{"type": "USED"}]}
+        },
     )
     assert snap["status"] == "graph:missing"
     assert snap["edges"] == []
