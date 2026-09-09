@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { rules, shadow, type RulePack } from "../api/client";
 import { PageTitle } from "../components/PageTitle";
+import { PromoteConfirmDialog } from "../components/PromoteConfirmDialog";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
@@ -117,49 +118,17 @@ export default function ShadowMode() {
       )}
 
       {promoteConfirm ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          role="presentation"
-          onClick={() => setPromoteConfirm(null)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="promote-to-active-title"
-            data-testid="promote-to-active-confirm"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-xl border border-surface-700 bg-surface-900 p-5 shadow-2xl space-y-3"
-          >
-            <h2 id="promote-to-active-title" className="text-sm font-semibold text-gray-100">
-              Promote to Active
-            </h2>
-            <p className="text-sm text-gray-300">
-              <span className="font-medium text-gray-100">{promoteConfirm.name}</span> becomes live / Active.
-              A human must confirm. Cancel leaves the pack in Observe.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPromoteConfirm(null)}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-surface-600 text-gray-300 hover:border-surface-500"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                data-testid="promote-to-active-confirm-yes"
-                onClick={() => {
-                  const file = promoteConfirm.file;
-                  setPromoteConfirm(null);
-                  void handleModeChange(file, "active");
-                }}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white"
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
+        <PromoteConfirmDialog
+          packName={promoteConfirm.name}
+          packFile={promoteConfirm.file}
+          metrics={null}
+          onCancel={() => setPromoteConfirm(null)}
+          onConfirm={() => {
+            const file = promoteConfirm.file;
+            setPromoteConfirm(null);
+            void handleModeChange(file, "active");
+          }}
+        />
       ) : null}
 
       {/* KPI Cards */}

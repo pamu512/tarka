@@ -153,6 +153,63 @@ describe("ObserveEasePanel", () => {
     expect(client.shadow.setPackMode).not.toHaveBeenCalled();
   });
 
+  it("Promote draft requires confirm; Cancel leaves Observe and does not Promote", async () => {
+    const onPromote = vi.fn();
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="demo"
+          drafts={[{ name: "draft_a", file: "draft_a.json" }]}
+          promoteAllowed
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft="draft_a"
+          onSelectDraft={() => {}}
+          onPromote={onPromote}
+          canPromote
+        />,
+      ),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /promote draft/i }));
+    expect(onPromote).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: /promote to active/i });
+    expect(dialog).toHaveTextContent("draft_a");
+    expect(dialog).toHaveTextContent(/becomes live/i);
+    expect(dialog).toHaveTextContent(/Cancel leaves the pack in Observe/i);
+    expect(screen.getByTestId("promote-pack-metrics")).toHaveTextContent(/not loaded/i);
+    expect(screen.getByTestId("promote-rule-hit-rate")).toHaveTextContent(/not loaded/i);
+    expect(screen.getByTestId("promote-shadow-divergence")).toHaveTextContent(/not loaded/i);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /promote draft/i })).toBeInTheDocument();
+  });
+
+  it("Confirm on Promote draft calls the existing promote handler", async () => {
+    const onPromote = vi.fn();
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="demo"
+          drafts={[{ name: "draft_a", file: "draft_a.json" }]}
+          promoteAllowed
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft="draft_a"
+          onSelectDraft={() => {}}
+          onPromote={onPromote}
+          canPromote
+        />,
+      ),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /promote draft/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm" }));
+    expect(onPromote).toHaveBeenCalledTimes(1);
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
+  });
+
   it("successor copy says human owns Promote", async () => {
     render(
       wrap(

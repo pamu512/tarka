@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { decisions, rules } from "../api/client";
+import { PromoteConfirmDialog } from "./PromoteConfirmDialog";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Draft = { name?: string; file?: string; is_ai_authored?: boolean };
@@ -40,6 +41,7 @@ export function ObserveEasePanel({
   const [livePacks, setLivePacks] = useState<LivePack[]>([]);
   const [selectedLive, setSelectedLive] = useState("");
   const [demoteReason, setDemoteReason] = useState("");
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   async function refreshLlm() {
     try {
@@ -114,6 +116,9 @@ export function ObserveEasePanel({
   const selectedLivePack = livePacks.find((p) => (p._file || "") === selectedLive);
   const demoteProposed = (selectedLivePack?.lifecycle?.demote?.state || "") === "proposed";
   const reasonReady = demoteReason.trim().length >= 8;
+  const selectedDraftPack = drafts.find((d) => (d.name || "") === _selectedDraft) || drafts[0];
+  const promoteName = selectedDraftPack?.name || _selectedDraft || "Observe draft";
+  const promoteFile = selectedDraftPack?.file;
 
   async function proposeDemoteSelected() {
     if (!selectedLive || !reasonReady) return;
@@ -172,7 +177,7 @@ export function ObserveEasePanel({
             : "No draft is ready. Live packs still decide."}
         </p>
         {ready ? (
-          <button type="button" disabled={!canPromote || busy} onClick={onPromote} className="mt-2 px-2 py-1 rounded bg-brand-700 text-white disabled:opacity-50">
+          <button type="button" disabled={!canPromote || busy} onClick={() => setPromoteOpen(true)} className="mt-2 px-2 py-1 rounded bg-brand-700 text-white disabled:opacity-50">
             Promote
           </button>
         ) : null}
@@ -237,7 +242,7 @@ export function ObserveEasePanel({
           </p>
         ))}
         <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" disabled={!canPromote || busy} onClick={onPromote} className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50">
+          <button type="button" disabled={!canPromote || busy} onClick={() => setPromoteOpen(true)} className="px-2 py-1 rounded bg-surface-700 text-gray-200 disabled:opacity-50">
             Promote draft
           </button>
           <button
@@ -270,6 +275,18 @@ export function ObserveEasePanel({
           </Link>
         </div>
       </article>
+      {promoteOpen ? (
+        <PromoteConfirmDialog
+          packName={promoteName}
+          packFile={promoteFile}
+          metrics={null}
+          onCancel={() => setPromoteOpen(false)}
+          onConfirm={() => {
+            setPromoteOpen(false);
+            onPromote();
+          }}
+        />
+      ) : null}
     </section>
   );
 }
