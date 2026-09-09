@@ -285,11 +285,11 @@ describe("Decisions stream", () => {
     expect(client.decisions.getAudit).toHaveBeenCalledWith("tr-login-1", "demo", { detail_level: "minimal" });
   });
 
-  it("surfaces pack, rule, and missing integrity on an evaluate-born FLAG row", async () => {
+  it("surfaces pack, rule, and missing integrity on an evaluate-born REVIEW row (not FLAG-renamed)", async () => {
     const flagRow = {
       ...LOGIN_REVIEW,
-      trace_id: "tr-flag-1",
-      short_id: "FLAG0001",
+      trace_id: "tr-review-1",
+      short_id: "REV00001",
       decision: "review",
       rule_result: "REVIEW" as const,
       rule_hits: ["sdk_rooted"],
@@ -307,11 +307,13 @@ describe("Decisions stream", () => {
 
     render(wrap(<Decisions />));
 
-    const row = await screen.findByTestId("decisions-row-tr-flag-1");
+    const row = await screen.findByTestId("decisions-row-tr-review-1");
     expect(row.textContent).toContain("device_signals");
     expect(row.textContent).toContain("sdk_rooted");
     expect(row.textContent).toContain("true");
     expect(row.textContent).toContain("missing");
     expect(row.textContent).not.toContain("Advise");
+    expect(row.textContent).toContain("REVIEW");
+    expect(row.textContent).not.toMatch(/(^|[^A-Z])FLAG([^A-Z]|$)/);
   });
 });
