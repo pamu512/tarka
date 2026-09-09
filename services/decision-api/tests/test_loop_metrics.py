@@ -109,7 +109,12 @@ def test_pack_metrics_from_shadow_observations():
 
 def test_pack_metrics_empty_tenant_is_empty_list():
     packs = [{"name": "pack_a", "tenant_id": "acme"}]
-    assert compute_pack_metrics(packs, [{"pack_id": "pack_a", "diverged": True}], tenant_id="") == []
+    assert (
+        compute_pack_metrics(
+            packs, [{"pack_id": "pack_a", "diverged": True}], tenant_id=""
+        )
+        == []
+    )
 
 
 def test_pack_metrics_unknown_when_no_observations():
@@ -129,8 +134,18 @@ def test_pack_metrics_tenant_isolation():
         {"name": "demo_pack", "tenant_id": "demo"},
     ]
     observations = [
-        {"pack_id": "acme_pack", "tenant_id": "acme", "diverged": True, "shadow_rule_hits": ["r1"]},
-        {"pack_id": "demo_pack", "tenant_id": "demo", "diverged": True, "shadow_rule_hits": ["r1"]},
+        {
+            "pack_id": "acme_pack",
+            "tenant_id": "acme",
+            "diverged": True,
+            "shadow_rule_hits": ["r1"],
+        },
+        {
+            "pack_id": "demo_pack",
+            "tenant_id": "demo",
+            "diverged": True,
+            "shadow_rule_hits": ["r1"],
+        },
     ]
     acme = compute_pack_metrics(packs, observations, tenant_id="acme")
     assert [r["pack_id"] for r in acme] == ["acme_pack"]

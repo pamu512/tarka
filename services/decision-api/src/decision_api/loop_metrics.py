@@ -283,7 +283,5 @@ def compute_loop_metrics(
         "action_mix": None,
         "rule_hit_rate": None,
         "shadow_divergence": None,
-        "pack_metrics": compute_pack_metrics(
-            packs, observations, tenant_id=tenant_id
-        ),
+        "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
     }
