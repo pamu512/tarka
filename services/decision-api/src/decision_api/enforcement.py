@@ -6,6 +6,7 @@ case-api remains a separate outcome path.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -20,9 +21,15 @@ log = logging.getLogger("decision-api.enforcement")
 
 ENFORCEMENT_JOURNAL_SCHEMA = "tarka.enforcement_delivery/v1"
 
+# ponytail: in-process N=3 only. Crash loses in-flight retries (journal already has
+# retrying / dead_lettered). Durable bus (Redis/SQS/Celery) is out of scope.
+ENFORCEMENT_RETRY_ATTEMPTS = 3
+ENFORCEMENT_RETRY_BACKOFF_S = (0.05, 0.15)
+
 EnforcementAction = Literal["allow", "step_up", "block"]
 
 ENFORCEMENT_SCHEMA = "tarka.enforcement/v1"
+ACTION_ID_SCHEME = "tarka.action_id/v1"
 
 _STEP_UP_ACTIONS = frozenset(
     {
@@ -57,6 +64,66 @@ def enforcement_mode() -> str:
         return desk_mode()
     except Exception:
         return "emit_only"
+
+
+def idempotent_action_id(
+    *,
+    tenant_id: str,
+    trace_id: str,
+    action: str,
+    pack_hash: str = "",
+) -> str:
+    """Stable hex SHA-256 of tenant + trace_id + action token + pack hash.
+
+    Same tuple → same id across retries. Not a random UUID per POST.
+    """
+    material = "\n".join(
+        (
+            ACTION_ID_SCHEME,
+            (tenant_id or "").strip(),
+            (trace_id or "").strip(),
+            (action or "").strip().lower(),
+            (pack_hash or "").strip(),
+        )
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def action_ids_for(
+    tokens: list[str],
+    *,
+    tenant_id: str,
+    trace_id: str,
+    pack_hash: str = "",
+) -> dict[str, str]:
+    """Map each suggested_actions token to its idempotent action_id."""
+    return {
+        token: idempotent_action_id(
+            tenant_id=tenant_id,
+            trace_id=trace_id,
+            action=token,
+            pack_hash=pack_hash,
+        )
+        for token in tokens
+    }
+
+
+def _delivery_action_id(
+    tokens: list[str],
+    ids: dict[str, str],
+    *,
+    tenant_id: str,
+    trace_id: str,
+    pack_hash: str,
+) -> str:
+    if tokens:
+        return ids[tokens[0]]
+    return idempotent_action_id(
+        tenant_id=tenant_id,
+        trace_id=trace_id,
+        action="",
+        pack_hash=pack_hash,
+    )
 
 
 def suggested_actions(
@@ -150,7 +217,7 @@ def enforcement_journal_path() -> Path:
 
 
 def append_enforcement_journal(record: dict[str, Any]) -> None:
-    """Append-only delivery journal (ack / fail / skipped). Fail soft."""
+    """Append-only delivery journal (acked / retrying / dead_lettered / skipped). Fail soft."""
     path = enforcement_journal_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +265,21 @@ def _sign(body: bytes, secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
 
+async def _retry_wait(attempt: int) -> None:
+    """Backoff after a failed attempt. Tests monkeypatch this to 0."""
+    if 1 <= attempt <= len(ENFORCEMENT_RETRY_BACKOFF_S):
+        await asyncio.sleep(ENFORCEMENT_RETRY_BACKOFF_S[attempt - 1])
+
+
+def _retryable(*, status: int | None, error: str | None) -> bool:
+    if error:
+        return True
+    if status is None:
+        return True
+    code = int(status)
+    return code >= 500 or code == 429
+
+
 def _build_payload(
     *,
     intent: EnforcementIntent,
@@ -208,7 +290,15 @@ def _build_payload(
     score: float,
     tags: list[str],
     challenge_metadata: dict[str, Any] | None,
+    pack_hash: str = "",
 ) -> dict[str, Any]:
+    hints = suggested_actions(intent.decision, intent.recommended_action)
+    ids = action_ids_for(
+        hints, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
+    delivery_id = _delivery_action_id(
+        hints, ids, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
     return {
         "schema_id": ENFORCEMENT_SCHEMA,
         "enforcement_action": intent.action,
@@ -221,9 +311,9 @@ def _build_payload(
         "score": score,
         "tags": list(tags),
         "challenge_metadata": challenge_metadata or {},
-        "suggested_actions": suggested_actions(
-            intent.decision, intent.recommended_action
-        ),
+        "suggested_actions": hints,
+        "action_id": delivery_id,
+        "action_ids": ids,
         "enforcement_mode": enforcement_mode(),
         "authority": enforcement_mode() == "handoff",
         "webhook_event": (
@@ -246,20 +336,30 @@ async def apply_enforcement_adapters(
     tags: list[str],
     recommended_action: str | None = None,
     challenge_metadata: dict[str, Any] | None = None,
+    pack_hash: str = "",
     metrics_inc: MetricsInc | None = None,
 ) -> dict[str, Any]:
     """Emit enforcement metrics and optional tenant webhook for allow/step_up/block.
 
-    Fail soft: webhook/metric errors are logged; never raises into evaluate.
+    Fail soft: webhook/metric errors are logged and retried in-process (N=3);
+    never raises into evaluate and never converts a delivery miss into block/deny.
     """
     intent = resolve_enforcement_intent(decision, recommended_action)
     mode = enforcement_mode()
     hints = suggested_actions(decision, recommended_action)
+    ids = action_ids_for(
+        hints, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
+    delivery_id = _delivery_action_id(
+        hints, ids, tenant_id=tenant_id, trace_id=trace_id, pack_hash=pack_hash
+    )
     summary: dict[str, Any] = {
         "enforcement_action": intent.action,
         "enforcement_mode": mode,
         "authority": mode == "handoff",
         "suggested_actions": hints,
+        "action_id": delivery_id,
+        "action_ids": ids,
         "webhook": None,
         "webhook_event": "decision.enforced"
         if mode == "handoff"
@@ -312,6 +412,7 @@ async def apply_enforcement_adapters(
         challenge_metadata=challenge_metadata
         if isinstance(challenge_metadata, dict)
         else None,
+        pack_hash=pack_hash,
     )
     raw = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     headers = {
@@ -322,49 +423,98 @@ async def apply_enforcement_adapters(
     if secret:
         headers["x-tarka-signature"] = _sign(raw, secret)
 
-    try:
-        r = await http.post(url, content=raw, headers=headers, timeout=5.0)
-        status = getattr(r, "status_code", None)
-        ok = status is not None and 200 <= int(status) < 300
-        summary["webhook"] = {
-            "dispatched": True,
-            "status_code": status,
-            "ok": ok,
+    last_status: int | None = None
+    last_error: str | None = None
+    for attempt in range(1, ENFORCEMENT_RETRY_ATTEMPTS + 1):
+        ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        attempt_journal: dict[str, Any] = {
+            **base_journal,
+            "ts": ts,
+            "attempt_count": attempt,
         }
-        jstatus = "acked" if ok else "non_2xx"
-        append_enforcement_journal(
-            {
-                **base_journal,
-                "status": jstatus,
-                "http_status": status,
-            }
-        )
-        summary["journal"] = {"status": jstatus}
-        if not ok:
+        ok = False
+        last_status = None
+        last_error = None
+        try:
+            r = await http.post(url, content=raw, headers=headers, timeout=5.0)
+            last_status = getattr(r, "status_code", None)
+            ok = last_status is not None and 200 <= int(last_status) < 300
+        except Exception as e:
+            last_error = str(e)[:200]
             log.warning(
-                "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s",
-                status,
+                "enforcement_webhook_failed action=%s trace_id=%s attempt=%s: %s",
                 intent.action,
                 trace_id,
+                attempt,
+                e,
             )
-    except Exception as e:
-        log.warning(
-            "enforcement_webhook_failed action=%s trace_id=%s: %s",
-            intent.action,
-            trace_id,
-            e,
+
+        if ok:
+            summary["webhook"] = {
+                "dispatched": True,
+                "status_code": last_status,
+                "ok": True,
+            }
+            append_enforcement_journal(
+                {**attempt_journal, "status": "acked", "http_status": last_status}
+            )
+            summary["journal"] = {"status": "acked"}
+            return summary
+
+        will_retry = attempt < ENFORCEMENT_RETRY_ATTEMPTS and _retryable(
+            status=last_status, error=last_error
         )
+        if will_retry:
+            row: dict[str, Any] = {**attempt_journal, "status": "retrying"}
+            if last_error:
+                row["error"] = last_error
+            else:
+                row["http_status"] = last_status
+                log.warning(
+                    "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s attempt=%s",
+                    last_status,
+                    intent.action,
+                    trace_id,
+                    attempt,
+                )
+            append_enforcement_journal(row)
+            await _retry_wait(attempt)
+            continue
+
         summary["webhook"] = {
             "dispatched": True,
             "ok": False,
-            "error": str(e)[:200],
         }
-        append_enforcement_journal(
-            {
-                **base_journal,
-                "status": "error",
-                "error": str(e)[:200],
-            }
-        )
-        summary["journal"] = {"status": "error"}
+        if last_status is not None:
+            summary["webhook"]["status_code"] = last_status
+        if last_error:
+            summary["webhook"]["error"] = last_error
+        if _retryable(status=last_status, error=last_error):
+            last_err = last_error or f"http_{last_status}"
+            append_enforcement_journal(
+                {
+                    **attempt_journal,
+                    "status": "dead_lettered",
+                    "last_error": last_err,
+                    "http_status": last_status,
+                }
+            )
+            summary["journal"] = {"status": "dead_lettered"}
+        elif last_error:
+            append_enforcement_journal(
+                {**attempt_journal, "status": "error", "error": last_error}
+            )
+            summary["journal"] = {"status": "error"}
+        else:
+            append_enforcement_journal(
+                {**attempt_journal, "status": "non_2xx", "http_status": last_status}
+            )
+            summary["journal"] = {"status": "non_2xx"}
+            log.warning(
+                "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s",
+                last_status,
+                intent.action,
+                trace_id,
+            )
+        return summary
     return summary

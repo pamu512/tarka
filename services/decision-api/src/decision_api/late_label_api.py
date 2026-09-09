@@ -79,7 +79,8 @@ async def late_label_webhook(request: Request) -> dict[str, Any]:
             fp_cost=payload.get("fp_cost"),
         )
     except LateLabelError as exc:
+        status = 422 if exc.code == "invalid_label_kind" else 400
         raise HTTPException(
-            status_code=400,
+            status_code=status,
             detail={"reason_code": exc.code, "message": str(exc)},
         ) from exc
