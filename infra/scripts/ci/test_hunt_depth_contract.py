@@ -140,6 +140,73 @@ class TestHuntDepthContract(unittest.TestCase):
             hit = pat.search(blob)
             self.assertIsNone(hit, f"forbidden {pat.pattern!r} in new Hunt depth buyer copy")
 
+    def test_d75_docs_pack(self) -> None:
+        pack_path = ROOT / "docs/testing/hunt-depth-regression.md"
+        self.assertTrue(pack_path.is_file(), pack_path)
+        pack = pack_path.read_text(encoding="utf-8")
+        self.assertIn("test_hunt_depth_api.py", pack)
+        self.assertIn("test_hunt_hop_empty_url.py", pack)
+        self.assertIn("huntDepthHonesty.test.ts", pack)
+        self.assertIn("test_hunt_depth_contract.py", pack)
+        self.assertIn("depth=5", pack)
+        self.assertIn("CLAIM_LOCK", pack)
+        self.assertIn("PlaneOff", pack)
+
+        guide = (ROOT / "docs/docs/guides/graph-analysis.md").read_text(encoding="utf-8")
+        self.assertIn("## Day-1 Hunt depth", guide)
+        day1 = guide.split("## Day-1 Hunt depth", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("hunt:depth_capped", day1)
+        self.assertIn("PlaneOff", day1)
+        self.assertIn("hunt-depth-regression.md", day1)
+        for pat in (
+            re.compile(r"unlimited", re.I),
+            re.compile(r"variable-length", re.I),
+            re.compile(r"identity SKU", re.I),
+            re.compile(r"neo4j[- ]class", re.I),
+        ):
+            self.assertIsNone(pat.search(day1), f"forbidden {pat.pattern!r} in Day-1 guide section")
+
+        loop = (ROOT / "docs/docs/guides/analyst-control-loop.md").read_text(encoding="utf-8")
+        self.assertIn("graph-analysis.md#day-1-hunt-depth", loop)
+        sop = (ROOT / "docs/docs/guides/bakeoff-sop.md").read_text(encoding="utf-8")
+        self.assertIn("graph-analysis.md#day-1-hunt-depth", sop)
+
+        crm = "\n".join(
+            line
+            for line in (ROOT / "SUPPORT.md").read_text(encoding="utf-8").splitlines()
+            if "No case CRM" in line
+        )
+        self.assertRegex(crm, r"Path B")
+        self.assertRegex(crm, r"hunt_depth_max=1")
+        self.assertRegex(crm, r"GRAPH_SERVICE_URL")
+
+        d75_blob = "\n".join(
+            (
+                pack,
+                day1,
+                crm,
+                loop,
+                sop,
+            )
+        )
+        for pat in FORBIDDEN:
+            hit = pat.search(d75_blob)
+            self.assertIsNone(hit, f"forbidden {pat.pattern!r} in D7.5 new copy")
+
+        md_link = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+        for rel, text, base in (
+            ("docs/testing/hunt-depth-regression.md", pack, pack_path),
+            ("graph-analysis Day-1", day1, ROOT / "docs/docs/guides/graph-analysis.md"),
+        ):
+            for href in md_link.findall(text):
+                if href.startswith(("http://", "https://", "mailto:")):
+                    continue
+                target = href.split("#", 1)[0]
+                if not target:
+                    continue
+                dest = (base.parent / target).resolve()
+                self.assertTrue(dest.is_file(), f"broken link {href} in {rel} → {dest}")
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
