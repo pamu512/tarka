@@ -63,10 +63,45 @@ def join_training_rows(
     return rows
 
 
+_HOP_MISSING = frozenset({"graph:missing", "graph:unavailable", "graph:empty"})
+
+
+def _edge_triple(raw: Any) -> dict[str, str] | None:
+    if not isinstance(raw, dict):
+        return None
+    et = str(raw.get("type") or raw.get("etype") or raw.get("rel") or "").strip()
+    src = str(raw.get("from_id") or raw.get("src") or raw.get("from") or "").strip()
+    dst = str(raw.get("to_id") or raw.get("dst") or raw.get("to") or "").strip()
+    if not et or not src or not dst:
+        return None
+    return {"from_id": src, "to_id": dst, "type": et}
+
+
+def named_edges_on_receipt(snap: dict[str, Any]) -> list[dict[str, str]]:
+    """Fetched hop triples only. Empty / missing hop → []. Never invents neighbors."""
+    hop = snap.get("graph_hop_v1") if isinstance(snap.get("graph_hop_v1"), dict) else {}
+    why = snap.get("pack_why") if isinstance(snap.get("pack_why"), dict) else {}
+    graph = why.get("graph") if isinstance(why.get("graph"), dict) else {}
+    status = str(hop.get("status") or graph.get("status") or "")
+    if status in _HOP_MISSING:
+        return []
+    raw = hop.get("named_edges")
+    if raw is None:
+        raw = graph.get("named_edges")
+    out: list[dict[str, str]] = []
+    if isinstance(raw, list):
+        for item in raw:
+            triple = _edge_triple(item)
+            if triple is not None:
+                out.append(triple)
+    return out
+
+
 def receipt_row_from_audit(rec: AuditRecord) -> dict[str, Any]:
     snap = rec.payload_snapshot if isinstance(rec.payload_snapshot, dict) else {}
     token = str(snap.get("evaluation_token") or rec.trace_id or "").strip()
-    return {
+    hop = snap.get("graph_hop_v1") if isinstance(snap.get("graph_hop_v1"), dict) else None
+    row: dict[str, Any] = {
         "evaluation_token": token,
         "trace_id": str(rec.trace_id),
         "tenant_id": rec.tenant_id,
@@ -77,11 +112,15 @@ def receipt_row_from_audit(rec: AuditRecord) -> dict[str, Any]:
         "pack_hash": snap.get("pack_hash") or snap.get("rule_pack_file"),
         "features_ref": snap.get("features_ref"),
         "action": snap.get("enforcement_action") or rec.decision,
-        "hop_summary": (snap.get("graph_hop_v1") or {}).get("status")
-        if isinstance(snap.get("graph_hop_v1"), dict)
-        else None,
+        "hop_summary": hop.get("status") if hop else None,
+        "named_edges": named_edges_on_receipt(snap),
+        "invented_edges": False,
         "created_at": rec.created_at.isoformat() if rec.created_at else None,
     }
+    parties = snap.get("parties")
+    if isinstance(parties, list) and parties:
+        row["parties"] = parties
+    return row
 
 
 @router.get("/receipts")
