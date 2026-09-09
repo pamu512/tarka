@@ -1,6 +1,9 @@
 export type LoopUnknownReasons = {
   join_rate?: string;
   labeled_receipt_rate?: string;
+  evaluate_count?: string;
+  action_mix?: string;
+  shadow_divergence?: string;
 };
 
 export type LoopMetrics = {
@@ -17,22 +20,33 @@ export type LoopMetrics = {
   demote_propose_count?: number;
   demote_confirm_count?: number;
   evaluate_count?: number | null;
+  action_mix?: Record<string, number> | null;
   shadow_divergence?: number | null;
   join_rate?: number | null;
   labeled_receipt_rate?: number | null;
+  reason_code?: string | null;
   unknown_reasons?: LoopUnknownReasons | null;
 };
 
-const JOIN_REASON_EN: Record<string, string> = {
+const UNKNOWN_REASON_EN: Record<string, string> = {
+  evaluate_store_absent: "no audit in window",
+  no_shadow_live_pairs: "no Observe/live pairs in window",
   empty_tenant: "empty tenant",
+  not_computed: "metrics not yet available",
   no_receipts: "no receipts",
   no_labels: "no labels",
   receipt_store_absent: "receipt store absent",
 };
 
-function joinDash(metrics: LoopMetrics, field: keyof LoopUnknownReasons): string {
-  const code = metrics.unknown_reasons?.[field] || "";
-  return `— ${JOIN_REASON_EN[code] || "not yet available"}`;
+type UnknownField = keyof LoopUnknownReasons;
+
+function reasonEnglish(metrics: LoopMetrics, field: UnknownField): string {
+  const code = metrics.unknown_reasons?.[field] || metrics.reason_code || "not_computed";
+  return UNKNOWN_REASON_EN[code] || "metrics not yet available";
+}
+
+function dashReason(metrics: LoopMetrics, field: UnknownField): string {
+  return `— ${reasonEnglish(metrics, field)}`;
 }
 
 function pct(v: number | null | undefined): string | null {
@@ -45,8 +59,34 @@ function num(v: number | null | undefined): string {
   return String(Math.round(v));
 }
 
-export function LoopScoreboard({ metrics }: { metrics: LoopMetrics | null }) {
-  if (!metrics) {
+function actionMixLine(mix: Record<string, number> | null | undefined): string | null {
+  if (mix == null) return null;
+  const parts = Object.entries(mix).filter(([, n]) => typeof n === "number" && !Number.isNaN(n));
+  if (parts.length === 0) return null;
+  return parts.map(([action, n]) => `${action} ${n}`).join(" · ");
+}
+
+/**
+ * Parent-fed. OpsShadow refetches `loopMetrics` on tenantId, clears first, and
+ * passes `loading` so this board never keeps another tenant's numbers.
+ */
+export function LoopScoreboard({
+  metrics,
+  loading = false,
+  error = false,
+}: {
+  metrics: LoopMetrics | null;
+  loading?: boolean;
+  error?: boolean;
+}) {
+  if (loading) {
+    return (
+      <p data-testid="loop-scoreboard" className="text-xs text-gray-500">
+        Loading loop metrics.
+      </p>
+    );
+  }
+  if (error || !metrics) {
     return (
       <p data-testid="loop-scoreboard" className="text-xs text-gray-500">
         Loop metrics unavailable.
@@ -55,6 +95,7 @@ export function LoopScoreboard({ metrics }: { metrics: LoopMetrics | null }) {
   }
   const drafts = metrics.drafts_to_observe || {};
   const noLabels = (metrics.fp_count ?? 0) === 0 && metrics.label_latency_hours?.p50 == null;
+  const mixLine = actionMixLine(metrics.action_mix);
   return (
     <div>
       <dl
@@ -100,24 +141,42 @@ export function LoopScoreboard({ metrics }: { metrics: LoopMetrics | null }) {
           </dd>
         </div>
         <div>
+          <dt className="text-gray-500">evaluate count</dt>
+          <dd data-testid="loop-evaluate-count">
+            {metrics.evaluate_count == null
+              ? dashReason(metrics, "evaluate_count")
+              : String(metrics.evaluate_count)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">action mix</dt>
+          <dd data-testid="loop-action-mix">
+            {mixLine ?? dashReason(metrics, "action_mix")}
+          </dd>
+        </div>
+        <div>
           <dt className="text-gray-500">shadow divergence</dt>
-          <dd>{metrics.shadow_divergence == null ? "—" : String(metrics.shadow_divergence)}</dd>
+          <dd data-testid="loop-shadow-divergence">
+            {metrics.shadow_divergence == null
+              ? dashReason(metrics, "shadow_divergence")
+              : String(metrics.shadow_divergence)}
+          </dd>
         </div>
         <div>
           <dt className="text-gray-500">join rate</dt>
           <dd data-testid="loop-join-rate">
-            {pct(metrics.join_rate) ?? joinDash(metrics, "join_rate")}
+            {pct(metrics.join_rate) ?? dashReason(metrics, "join_rate")}
           </dd>
         </div>
         <div>
           <dt className="text-gray-500">labeled receipt rate</dt>
           <dd data-testid="loop-labeled-receipt-rate">
-            {pct(metrics.labeled_receipt_rate) ?? joinDash(metrics, "labeled_receipt_rate")}
+            {pct(metrics.labeled_receipt_rate) ?? dashReason(metrics, "labeled_receipt_rate")}
           </dd>
         </div>
       </dl>
       <p className="mt-1 text-[11px] text-gray-500" data-testid="bakeoff-help">
-        Join-rate fuel for effectiveness, not a CRM. Horizons are tenant policy, not Tarka morals.
+        Loop metrics inform Promote. Join-rate fuel for effectiveness, not a CRM. Horizons are tenant policy, not Tarka morals.
       </p>
     </div>
   );
