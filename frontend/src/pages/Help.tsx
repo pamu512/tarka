@@ -167,6 +167,7 @@ export default function Help() {
             (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
             ). Sentence pack on Observe emits the same pack JSON evaluate already runs; drafts stay Observe until a human Promotes.
             The legacy canvas is not a product SKU. Hop packs stay shadow. A human Promotes — a model never goes live.
+            Suggest Demote lists effectiveness-tick numbers and opens Propose only; Confirm stays a separate human step. Nothing auto-demotes.
           </p>
         </Sub>
       </Section>
