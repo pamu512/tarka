@@ -150,6 +150,7 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
         {saveMsg ? <span className="text-xs text-gray-400">{saveMsg}</span> : null}
       </div>
       <textarea
+        data-testid="sentence-pack-json-preview"
         value={shown}
         onChange={(e) => setEdited(e.target.value)}
         className="mt-2 w-full max-h-40 min-h-[8rem] bg-surface-950 text-[11px] text-gray-400 font-mono"
