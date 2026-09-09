@@ -205,6 +205,13 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       request_id: null,
     };
   }
+  if (path.includes("/api/decisions/v1/enforcement/acks")) {
+    // Empty URL / mock plane is off — never invent an ACK.
+    return { schema_id: "tarka.product_ack_list/v1", items: [] };
+  }
+  if (path.includes("/api/decisions/v1/ops/enforcement-journal")) {
+    return { schema_id: "tarka.enforcement_delivery_list/v1", items: [] };
+  }
   if (path.includes("/api/decisions/v1/ops/governance")) {
     return {
       inference_schema_version: "3",

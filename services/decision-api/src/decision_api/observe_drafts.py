@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from decision_api.effectiveness_tick import load_suggestions, run_effectiveness_tick
+from decision_api.gnn_loop.receipts import load_receipts
 from decision_api.loop_metrics import (
     compute_loop_metrics,
     load_ai_gate_counts,
@@ -61,6 +62,7 @@ async def get_loop_metrics(tenant_id: str = Query(..., min_length=1, max_length=
         ai_passed=passed,
         tenant_id=tenant_id,
         observations=get_observations(10000),
+        receipts=load_receipts(tenant_id),
         evaluations=load_evaluations_for_tenant(tenant_id),
     )
 

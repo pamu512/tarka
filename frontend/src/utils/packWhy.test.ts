@@ -4,6 +4,7 @@ import {
   ADVISE_TIMEOUT_COPY,
   PACK_WHY_MISSING,
   packIdFromRulePackFile,
+  packNameForDisplay,
   resolvePackWhy,
 } from "./packWhy";
 
@@ -19,6 +20,17 @@ describe("packIdFromRulePackFile", () => {
   it("returns null when the snapshot field is empty", () => {
     expect(packIdFromRulePackFile("")).toBeNull();
     expect(packIdFromRulePackFile(null)).toBeNull();
+  });
+});
+
+describe("packNameForDisplay", () => {
+  it("prefers pack name over a UUID file stem", () => {
+    expect(
+      packNameForDisplay({
+        pack_name: "Device signals",
+        rule_pack_file: "550e8400-e29b-41d4-a716-446655440000.json",
+      }),
+    ).toBe("Device signals");
   });
 });
 
@@ -49,6 +61,30 @@ describe("resolvePackWhy", () => {
   it("shows graph:missing when the receipt says hops were off", () => {
     const view = resolvePackWhy({
       evaluate_payload: { pack_why: { graph: { status: "graph:missing", named: "graph:missing" } } },
+    });
+    expect(view.hop).toBe("graph:missing");
+  });
+
+  it("shows fetched named edge type and endpoints from pack-why", () => {
+    const view = resolvePackWhy({
+      evaluate_payload: {
+        pack_why: {
+          graph: {
+            status: "graph:ok",
+            named_edges: [{ from_id: "alice", to_id: "dev-1", type: "USES_DEVICE" }],
+            invented_edges: false,
+          },
+        },
+      },
+    });
+    expect(view.hop).toBe("USES_DEVICE:alice->dev-1");
+  });
+
+  it("does not invent hop neighbors when named_edges are empty", () => {
+    const view = resolvePackWhy({
+      evaluate_payload: {
+        pack_why: { graph: { status: "graph:missing", named_edges: [], invented_edges: false } },
+      },
     });
     expect(view.hop).toBe("graph:missing");
   });

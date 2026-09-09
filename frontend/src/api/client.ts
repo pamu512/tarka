@@ -278,6 +278,26 @@ export interface AuditEntry {
   integrity?: Record<string, string> | null;
 }
 
+/** Inbound product ACK (`tarka.product_ack/v1`) — delivery/application, not Promote/Demote. */
+export type ProductAck = {
+  schema_id?: string;
+  trace_id: string;
+  action_id: string;
+  status: string;
+  ts: string;
+  actor: string;
+};
+
+export type ProductAckList = {
+  schema_id: string;
+  items: ProductAck[];
+};
+
+export type EnforcementJournalList = {
+  schema_id?: string;
+  items: Array<Record<string, unknown>>;
+};
+
 /** Compact row from ``GET /v1/audit/recent`` (decision-api / core mount). */
 export type AuditRuleResult = "ALLOW" | "DENY" | "REVIEW" | "SHADOW_REVIEW";
 
@@ -296,6 +316,8 @@ export interface AuditRecentItem {
   created_at: string | null;
   rule_hits?: string[];
   rule_pack_file?: string | null;
+  /** Human pack name from the evaluate snapshot when present. */
+  pack_name?: string | null;
   integrity?: Record<string, string> | null;
 }
 
@@ -1522,6 +1544,18 @@ export const decisions = {
     return request<AuditRecentResponse>(`/api/decisions/v1/audit/recent?${q}`);
   },
 
+  /** G4.3 query — desk glass is emit/ACK status, not a case inbox. */
+  getProductAcks(traceId: string, tenantId: string, actionId?: string) {
+    const q = new URLSearchParams({ trace_id: traceId, tenant_id: tenantId });
+    if (actionId?.trim()) q.set("action_id", actionId.trim());
+    return request<ProductAckList>(`/api/decisions/v1/enforcement/acks?${q}`);
+  },
+
+  enforcementJournal(limit: number = 50) {
+    const q = new URLSearchParams({ limit: String(Math.min(500, Math.max(1, limit))) });
+    return request<EnforcementJournalList>(`/api/decisions/v1/ops/enforcement-journal?${q}`);
+  },
+
   /**
    * High-volume audit explorer — cursor-based paging + optional substring filter on trace / short id.
    * Backend should avoid OFFSET scans at scale (use keyset on `(created_at, trace_id)`).
@@ -1575,6 +1609,7 @@ export const decisions = {
       };
       experiment_registry_lines: number;
       drift_smoke: { script: string; note: string };
+      integrity_ingress?: { enforcement_webhook_configured?: boolean };
     }>("/api/decisions/v1/ops/governance");
   },
 
@@ -1889,8 +1924,14 @@ export const decisions = {
       action_mix?: Record<string, number> | null;
       rule_hit_rate?: number | null;
       shadow_divergence?: number | null;
+      join_rate?: number | null;
+      labeled_receipt_rate?: number | null;
+      labeled_receipt_count?: number | null;
+      receipt_count?: number | null;
       reason_code?: string | null;
       unknown_reasons?: {
+        join_rate?: string;
+        labeled_receipt_rate?: string;
         evaluate_count?: string;
         action_mix?: string;
         shadow_divergence?: string;

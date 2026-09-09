@@ -52,6 +52,7 @@ export default function Help() {
             ["#overview", "Overview"],
             ["#desk", "Desk paths"],
             ["#cases", "Cases"],
+            ["#leftovers", "Investigator path"],
             ["#decisions", "Decisions"],
             ["#graph-rules", "Graph and rules"],
             ["#ops", "Ops"],
@@ -134,11 +135,23 @@ export default function Help() {
         </Sub>
       </Section>
 
+      <Section id="leftovers" title="Investigator path">
+        <p>
+          Decisions is the receipt list. Each row shows what the pack decided and which pack fired. Open a row
+          (or Open receipt) to see why. You do not need to memorize pack UUIDs.
+        </p>
+        <p>
+          REVIEW or DENY leaves a leftover. Next legal actions: Open receipt, Create Observe draft, or
+          disposition on Hunt. ALLOW never leaves a leftover. Leftovers are not a case CRM.
+        </p>
+      </Section>
+
       <Section id="decisions" title="Decisions">
         <p>
           Recent decision-api audit rows for this tenant. Fail-closed: an empty or unavailable audit is an empty queue,
           not a mock dashboard. Open a trace from <code className="text-gray-500">/decisions</code> or{" "}
-          <code className="text-gray-500">/decisions/:traceId</code>.
+          <code className="text-gray-500">/decisions/:traceId</code>. Delivery status is emit/ACK glass, not an
+          enforcement product suite.
         </p>
       </Section>
 

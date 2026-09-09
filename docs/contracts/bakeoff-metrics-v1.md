@@ -16,6 +16,8 @@ Numbers for Observe/shadow of a pack. Thresholds are **tenant policy**, not Tark
 | demote propose/confirm | `demote_propose_count`, `demote_confirm_count` | 0 |
 | evaluate_count / action_mix | Top-level GLOBAL (below). Filled from audit/receipts when the store is present. | null |
 | rule_hit_rate / shadow_divergence | Top-level `rule_hit_rate` stays `null` (M3 per-pack only). Top-level `shadow_divergence` is GLOBAL (below); pack-scoped values live on `pack_metrics[]`. | null |
+| join_rate / labeled_receipt_rate | Same in-horizon labeled/receipts ratio. Fuel names M2 effectiveness tick may read later (tick still suggests from `pack_metrics[]`; never auto-demote). | null + `unknown_reasons` |
+| labeled_receipt_count / receipt_count | Counts behind the ratio | null |
 
 ## Tip inventory (D8.1)
 
@@ -51,6 +53,17 @@ When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unk
 - Share naming and types with M3. Do not fork a second pack_metrics schema. Do not duplicate compute modules — D8.2 reuses M3 helpers for `shadow_divergence` math when it lands.
 - Top-level `rule_hit_rate` stays null. D8 does not invent a tenant-level hit-rate.
 
+## Coexistence (D8 globals + M3 pack_metrics[])
+
+Same `tarka.loop_metrics/v1` object. Two scopes, two desks — they do not overwrite each other.
+
+| Surface | Reads | Honesty |
+|---------|-------|---------|
+| LoopScoreboard / `/ops/bakeoff` | top-level GLOBAL `evaluate_count` / `action_mix` / `shadow_divergence` | **null = unknown**, never fake 0% |
+| Promote confirm (M3) / Suggest Propose Demote (M2) | `pack_metrics[]` row for that pack, or honest empty | null rates = unknown |
+
+Filling GLOBAL keys must not drop, zero, or rewrite `pack_metrics[]`. Filling a pack row must not drop or fake-zero GLOBAL keys. Do not mint `tarka.loop_metrics/v2`. Do not fork `tarka.pack_metrics/v1`. Thresholds are tenant policy, not Tarka morals.
+
 ## null vs 0 honesty
 
 Prefer **null + reason_code** over fake 0%. `null` = unknown. `0` / `0.0` = measured none (only after D8.2 scans a real store). Empty tenant without a store → nulls, not demo zeros. No CRM analytics product.
@@ -80,3 +93,9 @@ Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote co
 | `shadow_divergence` | number \| null | null = unknown |
 | `window` | string | e.g. `7d`; tenant policy, not Tarka morals |
 | `as_of` | string \| null | ISO timestamp; null if not computed |
+
+## Join-rate glass
+
+Additive on the same `tarka.loop_metrics/v1` payload. Compute from evaluate receipts + the existing y_label store (G5.1 join keys / `labeled_at_by_trace`) and G5.2 tenant EXAMPLE horizons (`tarka.label_horizon/v1`). **null = unknown** — never fake a 0% bar. Empty tenant / no receipts / no labels / missing store → `null` + `unknown_reasons.join_rate` (`empty_tenant`, `no_receipts`, `no_labels`, `receipt_store_absent`). Buyer owns the lake. Not a CRM. Horizons are tenant policy examples, not Tarka morals. Not a chargeback-guarantee SKU. Low join rate never auto-demotes.
+
+See also [enforcement-v1](enforcement-v1.md), [label-join-v1](label-join-v1.md), and [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).

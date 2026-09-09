@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HuntDepthHonestyStrip } from "./HuntDepthHonestyStrip";
-import { resolveHuntDepthHonesty } from "../domain/huntDepthHonesty";
+import { HUNT_DEPTH_CAPPED, resolveHuntDepthHonesty } from "../domain/huntDepthHonesty";
 
 const FORBIDDEN = [
   /neo4j[- ]class/i,
@@ -40,6 +40,32 @@ describe("HuntDepthHonestyStrip", () => {
     expect(el).toHaveTextContent(/requested 3/i);
     expect(el).toHaveTextContent(/depth not yet reported/i);
     expect(el).toHaveTextContent(/hunt:depth_capped/);
+    expect(el.textContent ?? "").not.toMatch(/unlimited/i);
+    for (const pat of FORBIDDEN) {
+      expect(el.textContent ?? "").not.toMatch(pat);
+    }
+  });
+
+  it("live API depth_applied=1 + hunt:depth_capped shows those numbers, not the stub", () => {
+    render(
+      <HuntDepthHonestyStrip
+        honesty={resolveHuntDepthHonesty({
+          graphServiceUrl: "http://graph-service:8001",
+          depthRequested: 5,
+          api: {
+            hunt_depth_max: 1,
+            depth_requested: 5,
+            depth_applied: 1,
+            degrade_reason: HUNT_DEPTH_CAPPED,
+          },
+        })}
+      />,
+    );
+    const el = screen.getByTestId("hunt-depth-honesty");
+    expect(el).toHaveTextContent(/requested 5/i);
+    expect(el).toHaveTextContent(/applied 1/);
+    expect(el).toHaveTextContent(/hunt:depth_capped/);
+    expect(el).not.toHaveTextContent(/depth not yet reported/i);
     expect(el.textContent ?? "").not.toMatch(/unlimited/i);
     for (const pat of FORBIDDEN) {
       expect(el.textContent ?? "").not.toMatch(pat);
