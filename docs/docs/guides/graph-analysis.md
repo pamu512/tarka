@@ -8,9 +8,23 @@ Hunt and analytics on the identity hop (`GRAPH_SERVICE_URL` / AGE). This is **no
 | Hop packs | `graph_v1_*` stay `mode=shadow`. Live FLAG only via human Promote |
 | GNN | Offline [Graph-risk / Ring-score challenger](gnn-label-loop.md). Never “GNN live.” Do not set `GRAPH_GNN_BETA_URL` in compose defaults |
 | Cases | Leftovers + Hunt. Not a case CRM |
-| Hunt depth | Day-1 AGE is depth-1. Empty URL stays off. [hunt-depth-v1](../../contracts/hunt-depth-v1.md) |
+| Hunt depth | Path B depth-1. Degrade is `hunt:depth_capped`, not multi-hop success. Empty URL stays off. [Day-1 Hunt depth](#day-1-hunt-depth) · [hunt-depth-v1](../../contracts/hunt-depth-v1.md) |
 
 When the URL is set, evaluate *may* upsert identity hops (fail-soft). When it is empty, neighbors are not invented and hop packs must not FLAG.
+
+---
+
+## Day-1 Hunt depth
+
+Path B (D7.4). `hunt_depth_max=1`. AGE Hunt is `MATCH (root)-[e]-(nb)` — one hop from the seed. Desk `depth` 1–5 is a request hint. `GET /v1/subgraph` emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Contract: [hunt-depth-v1](../../contracts/hunt-depth-v1.md).
+
+**Degrade.** `depth_requested` > `depth_applied` means the walk was capped. Path B token: `degrade_reason=hunt:depth_capped` and `depth_applied=1`. Desk glass must show both numbers. A capped response is not a full multi-hop neighborhood.
+
+**Plane off.** Empty `GRAPH_SERVICE_URL` turns Hunt and hops off (same plane as decide-time hops). Desk `/graph` renders UX0 `PlaneOff` — `GRAPH_SERVICE_URL` is empty; Hunt and sibling-identity hops are off; evaluate still runs; neighbors are not invented; this is not an outage. See [graph-planes-v1](../../contracts/graph-planes-v1.md).
+
+**Not a CRM.** Leftovers and the queue seam are residual. Work arrives on `/leftovers` and happens on Hunt. See [analyst-control-loop](analyst-control-loop.md) and [queue-seam-sop](queue-seam-sop.md).
+
+Non-claims live on [hunt-depth-v1 Out of scope](../../contracts/hunt-depth-v1.md#out-of-scope). Next-agent commands: [hunt-depth-regression](../../testing/hunt-depth-regression.md).
 
 ---
 
