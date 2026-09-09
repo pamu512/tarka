@@ -90,6 +90,28 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertNotIn("open-source", lowered)
         self.assertNotIn("open source", lowered)
 
+    def test_bakeoff_global_fields_schema_named(self) -> None:
+        """D8.1: tenant-level bakeoff names; share M3, do not fork compute."""
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(encoding="utf-8")
+        for needle in (
+            "evaluate_count",
+            "action_mix",
+            "shadow_divergence",
+            "GLOBAL",
+            "share-with-M3",
+            "do-not-double-implement",
+            "null = unknown",
+            "reason_code",
+            "tarka.loop_metrics/v1",
+            "LoopScoreboard",
+            "M3 owns",
+            "D8 owns",
+        ):
+            self.assertIn(needle, text)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("evaluate_count", lock)
+        self.assertIn("action_mix", lock)
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
