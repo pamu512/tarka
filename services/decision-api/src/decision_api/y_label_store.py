@@ -88,6 +88,7 @@ def _empty_records() -> dict[str, dict[str, str]]:
         "label_source_by_trace": {},
         "prior_override_id_by_trace": {},
         "fp_cost_by_trace": {},
+        "labeled_at_by_trace": {},
     }
 
 
@@ -127,6 +128,7 @@ def load_label_records(tenant_id: str) -> dict[str, dict[str, str]]:
         },
         "prior_override_id_by_trace": _str_map(raw.get("prior_override_id_by_trace")),
         "fp_cost_by_trace": _str_map(raw.get("fp_cost_by_trace")),
+        "labeled_at_by_trace": _str_map(raw.get("labeled_at_by_trace")),
     }
 
 
@@ -148,6 +150,7 @@ def merge_y_labels(
     label_source_by_trace: dict[str, str] | None = None,
     prior_override_id_by_trace: dict[str, str] | None = None,
     fp_cost_by_trace: dict[str, str] | None = None,
+    labeled_at_by_trace: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Merge 0/1 maps plus optional why / late chargeback / frontline fields."""
     with _lock:
@@ -162,6 +165,7 @@ def merge_y_labels(
         src_t = dict(cur["label_source_by_trace"])
         ovr_t = dict(cur["prior_override_id_by_trace"])
         cost_t = dict(cur.get("fp_cost_by_trace") or {})
+        at_t = dict(cur.get("labeled_at_by_trace") or {})
         added = 0
         for k, v in (by_trace or {}).items():
             key = str(k).strip()
@@ -214,6 +218,12 @@ def merge_y_labels(
             text = str(v).strip()
             if key and text:
                 cost_t[key] = text[:512]
+        for k, v in (labeled_at_by_trace or {}).items():
+            key = str(k).strip()
+            text = str(v).strip()
+            # first write wins — latency is time-to-first-label
+            if key and text and key not in at_t:
+                at_t[key] = text[:64]
         payload = {
             "by_trace": t_map,
             "by_entity": e_map,
@@ -225,6 +235,7 @@ def merge_y_labels(
             "label_source_by_trace": src_t,
             "prior_override_id_by_trace": ovr_t,
             "fp_cost_by_trace": cost_t,
+            "labeled_at_by_trace": at_t,
         }
         path = _path(tenant_id)
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -243,4 +254,5 @@ def merge_y_labels(
             "label_source_by_trace": src_t,
             "prior_override_id_by_trace": ovr_t,
             "fp_cost_by_trace": cost_t,
+            "labeled_at_by_trace": at_t,
         }
