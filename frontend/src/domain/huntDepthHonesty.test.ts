@@ -58,6 +58,7 @@ describe("resolveHuntDepthHonesty", () => {
     expect(fromApi.appliedLabel).toBe("1");
     expect(fromApi.degrade_reason).toBe(HUNT_DEPTH_CAPPED);
     expect(fromApi.banner).toMatch(/applied 1/);
+    expect(fromApi.banner).not.toMatch(/depth not yet reported/i);
   });
 
   it("does not invent hop counts when the payload has no depth fields", () => {

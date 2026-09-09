@@ -464,7 +464,7 @@ def _node_tenant_id(node: dict[str, Any]) -> str:
 
 
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
-    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. Hunt walk is HUNT_DEPTH_MAX=1 (D7.4 to raise).
+    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. D7.4 Path B: Hunt walk stays HUNT_DEPTH_MAX=1.
     _ = min(HUNT_DEPTH_MAX, max(1, int(depth)))
     tid = _cypher_lit(tenant_id)
     eid = _cypher_lit(entity_id)

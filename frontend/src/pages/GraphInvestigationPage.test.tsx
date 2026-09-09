@@ -1,8 +1,9 @@
 import type { ReactElement } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { graph } from "@/api/client";
 import { TenantEnvironmentProvider } from "@/context/TenantEnvironmentContext";
 import { ToastProvider } from "@/context/ToastContext";
 import GraphInvestigationPage from "@/pages/GraphInvestigationPage";
@@ -57,6 +58,7 @@ function wrap(ui: ReactElement, path: string) {
 describe("GraphInvestigationPage Hunt honesty", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
+    vi.mocked(graph.subgraph).mockResolvedValue({ nodes: [], edges: [] });
   });
 
   it("empty GRAPH_SERVICE_URL shows plane-off English, not a spinner or fake nodes", () => {
@@ -76,5 +78,25 @@ describe("GraphInvestigationPage Hunt honesty", () => {
     expect(el).toHaveTextContent(/requested 3/i);
     expect(el).toHaveTextContent(/depth not yet reported/i);
     expect(el).toHaveTextContent(/hunt:depth_capped/);
+  });
+
+  it("live subgraph payload depth_applied=1 + hunt:depth_capped shows those numbers, not the stub", async () => {
+    vi.stubEnv("VITE_GRAPH_SERVICE_URL", "http://graph-service:8001");
+    vi.mocked(graph.subgraph).mockResolvedValue({
+      nodes: [],
+      edges: [],
+      schema_id: "tarka.hunt_depth/v1",
+      hunt_depth_max: 1,
+      depth_requested: 5,
+      depth_applied: 1,
+      degrade_reason: "hunt:depth_capped",
+    });
+    render(wrap(<GraphInvestigationPage />, "/graph?entity_id=buyer-1&depth=5"));
+    await waitFor(() => {
+      const el = screen.getByTestId("hunt-depth-honesty");
+      expect(el).toHaveTextContent(/applied 1/);
+      expect(el).toHaveTextContent(/hunt:depth_capped/);
+      expect(el).not.toHaveTextContent(/depth not yet reported/i);
+    });
   });
 });

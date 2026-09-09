@@ -1,16 +1,17 @@
-"""D7.3 Hunt /v1/subgraph depth honesty. Day-1 walk cap is 1."""
+"""D7.4 Path B: enforced Hunt depth-1. Walk cap stays 1."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
+from graph_service.hunt_depth import HUNT_DEPTH_MAX
 from graph_service.main import app
 
 SCHEMA_ID = "tarka.hunt_depth/v1"
-HUNT_DEPTH_MAX = 1
 DEPTH_CAPPED = "hunt:depth_capped"
 _TENANT_A = "tenant_alpha"
 _TENANT_B = "tenant_beta"
@@ -41,6 +42,21 @@ def _assert_honesty(body: dict, *, requested: int, applied: int, degrade: str | 
     assert body["degrade_reason"] == degrade
 
 
+def test_path_b_hunt_depth_max_stays_one():
+    from graph_service import age_client, hunt_depth
+
+    assert hunt_depth.HUNT_DEPTH_MAX == 1
+    assert hunt_depth.hunt_walk_depth(1) == 1
+    assert hunt_depth.hunt_walk_depth(HUNT_DEPTH_MAX) == 1
+    body = hunt_depth.attach_hunt_depth({"nodes": [], "edges": []}, 1, depth_applied=1)
+    assert body["depth_applied"] == 1
+    assert body["degrade_reason"] is None
+    age_src = Path(age_client.__file__).read_text(encoding="utf-8")
+    hunt_src = Path(hunt_depth.__file__).read_text(encoding="utf-8")
+    assert "D7.4 to raise" not in age_src
+    assert "Raise max only in D7.4+" not in hunt_src
+
+
 def test_depth_one_reports_applied_one(client, monkeypatch):
     mock = AsyncMock(return_value=_one_hop())
     monkeypatch.setattr("graph_service.main.query_subgraph", mock)
@@ -53,6 +69,18 @@ def test_depth_one_reports_applied_one(client, monkeypatch):
     _assert_honesty(body, requested=1, applied=1, degrade=None)
     assert body["nodes"]
     mock.assert_awaited_once()
+    assert mock.await_args.args == (_TENANT_A, "user-a", 1)
+
+
+def test_depth_equals_max_reports_applied_one_no_degrade(client, monkeypatch):
+    mock = AsyncMock(return_value=_one_hop())
+    monkeypatch.setattr("graph_service.main.query_subgraph", mock)
+    r = client.get(
+        "/v1/subgraph",
+        params={"tenant_id": _TENANT_A, "entity_id": "user-a", "depth": HUNT_DEPTH_MAX},
+    )
+    assert r.status_code == 200, r.text
+    _assert_honesty(r.json(), requested=HUNT_DEPTH_MAX, applied=1, degrade=None)
     assert mock.await_args.args == (_TENANT_A, "user-a", 1)
 
 
@@ -175,6 +203,41 @@ async def test_age_query_subgraph_cypher_is_tenant_scoped(monkeypatch):
     assert _TENANT_A in joined
     assert _TENANT_B not in joined
     assert "nb.tenant_id" in joined
+
+
+@pytest.mark.asyncio
+async def test_age_query_subgraph_walk_is_one_hop_for_any_requested_depth(monkeypatch):
+    from graph_service import age_client
+
+    stmts: list[str] = []
+
+    class _Conn:
+        async def fetch(self, stmt, *_a):
+            stmts.append(stmt)
+            return []
+
+    class _Pool:
+        def acquire(self):
+            return self
+
+        async def __aenter__(self):
+            return _Conn()
+
+        async def __aexit__(self, *_a):
+            return False
+
+    monkeypatch.setattr(age_client, "get_pool", AsyncMock(return_value=_Pool()))
+    await age_client.query_subgraph(_TENANT_A, "user-a", 1)
+    hop_1 = [s for s in stmts if "RETURN e, nb" in s]
+    stmts.clear()
+    await age_client.query_subgraph(_TENANT_A, "user-a", 5)
+    hop_5 = [s for s in stmts if "RETURN e, nb" in s]
+    assert hop_1 and hop_5
+    assert hop_1 == hop_5
+    joined = hop_5[0]
+    assert "MATCH (root)-[e]-(nb)" in joined
+    assert "[*" not in joined
+    assert "age_unnest" not in joined
 
 
 @pytest.mark.asyncio

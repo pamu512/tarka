@@ -41,6 +41,7 @@ def _claim_lock_hunt_rows(lock: str) -> str:
                 "Hunt depth",
                 "AGE Hunt",
                 "AGE depth-1",
+                "Path B",
             )
         )
     )
@@ -81,6 +82,49 @@ class TestHuntDepthContract(unittest.TestCase):
         for field in SCHEMA_FIELDS:
             self.assertIn(field, spec)
         self.assertIn("hunt:depth_capped", spec)
+
+    def test_path_b_shipped_not_path_a(self) -> None:
+        hunt = (ROOT / "docs/contracts/hunt-depth-v1.md").read_text(encoding="utf-8")
+        lock_rows = _claim_lock_hunt_rows(
+            (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        )
+        self.assertRegex(hunt, r"Path B")
+        self.assertRegex(hunt, r"D7\.4")
+        self.assertRegex(hunt, r"enforced depth-1")
+        self.assertIn("age_unnest", hunt)
+        self.assertIn("MATCH (root)-[e]-(nb)", hunt)
+        self.assertRegex(hunt, r"hunt_depth_max\s*=\s*1")
+        self.assertNotRegex(hunt, r"(?i)Path A shipped")
+        self.assertRegex(lock_rows, r"Path B")
+        self.assertRegex(lock_rows, r"D7\.4")
+        self.assertRegex(lock_rows, r"hunt_depth_max=1")
+        shipped = hunt.split("## Out of scope")[0]
+        for pat in (
+            re.compile(r"unlimited", re.I),
+            re.compile(r"variable-length", re.I),
+            re.compile(r"neo4j[- ]class", re.I),
+        ):
+            hit = pat.search(shipped)
+            self.assertIsNone(hit, f"forbidden {pat.pattern!r} in Path B shipped copy")
+        true_cells = []
+        for line in lock_rows.splitlines():
+            if line.count("|") < 2:
+                continue
+            cells = [c.strip() for c in line.split("|")]
+            if cells and cells[0] == "":
+                cells = cells[1:]
+            if not cells:
+                continue
+            true_cells.append(cells[0])
+        true_blob = "\n".join(true_cells)
+        self.assertRegex(true_blob, r"Path B")
+        for pat in (
+            re.compile(r"unlimited", re.I),
+            re.compile(r"variable-length", re.I),
+            re.compile(r"neo4j[- ]class", re.I),
+        ):
+            hit = pat.search(true_blob)
+            self.assertIsNone(hit, f"forbidden {pat.pattern!r} in CLAIM_LOCK true-on-tip Hunt row")
 
     def test_new_buyer_rows_forbid_incumbent_wording(self) -> None:
         hunt = (ROOT / "docs/contracts/hunt-depth-v1.md").read_text(encoding="utf-8")
