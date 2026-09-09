@@ -428,7 +428,6 @@ describe("Decisions stream", () => {
     expect(copy).not.toMatch(/audit\/recent|fixture|placeholder|demo fill/);
     expect(empty.textContent ?? "").toMatch(/does not invent|not an outage/i);
   });
-}
 
   it("shows delivery chips next to pack-why from GET acks + journal", async () => {
     vi.mocked(client.decisions.recentAudit).mockResolvedValue({
