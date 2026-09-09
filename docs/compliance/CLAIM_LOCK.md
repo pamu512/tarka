@@ -28,7 +28,7 @@
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Field registry | [`docs/docs/guides/field-registry-onboarding.md`](../docs/guides/field-registry-onboarding.md) — product Postgres `field_registry` / `field_maps`; demo file/fixture + PUT 403. Windows on `counter_manifest`. Not G1.3 PIT serve. |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
-| Hunt depth | [`docs/contracts/hunt-depth-v1.md`](../contracts/hunt-depth-v1.md) — D7.4 Path B enforced depth-1; `hunt_depth_max=1`; empty `GRAPH_SERVICE_URL` = Hunt/hops off; `/v1/subgraph` emits `depth_requested` / `depth_applied` / `degrade_reason` |
+| Hunt depth | [`docs/contracts/hunt-depth-v1.md`](../contracts/hunt-depth-v1.md) — D7.4 Path B enforced depth-1; `hunt_depth_max=1`; empty `GRAPH_SERVICE_URL` = Hunt/hops off; `/v1/subgraph` emits `depth_requested` / `depth_applied` / `degrade_reason`. Operator day-1: [graph-analysis](../docs/guides/graph-analysis.md#day-1-hunt-depth). Regression: [hunt-depth-regression](../testing/hunt-depth-regression.md) |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
 | `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
 | Production upgrade / rollback | [`docs/docs/guides/production-upgrade.md`](../docs/guides/production-upgrade.md) — helm digest pin, expand/contract schema, pack fail-closed. Not multi-region. |
