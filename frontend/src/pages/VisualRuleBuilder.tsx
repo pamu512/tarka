@@ -37,8 +37,8 @@ function emptyLeftoverGraph() {
 }
 
 /**
- * Visual rule builder — drag-and-drop React Flow canvas whose save path emits a
- * `JsonAstNode` tree aligned with `decision_api.ast_models` (AND/OR + typed condition leaves).
+ * Legacy VisualRuleBuilder husk — not a product SKU. Prefer SentencePackPanel.
+ * Save path still emits a `JsonAstNode` tree aligned with `decision_api.ast_models`.
  */
 export default function VisualRuleBuilder() {
   const [searchParams] = useSearchParams();
@@ -69,13 +69,8 @@ export default function VisualRuleBuilder() {
       <PageTitle module="rules">
         Legacy canvas
         <span className="block text-xs font-normal text-gray-500 mt-1">
-          Not a product SKU. Prefer Sentence pack on Observe — it emits the same pack JSON evaluate already runs.
-          Drag from handles to wire <strong>Feature</strong> → <strong>Operator</strong> → <strong>AND / OR</strong> →{" "}
-          <strong>Rule root</strong>. Cycles and empty logic nodes block <strong>Save AST pack</strong> (
-          <code className="text-gray-400">POST /v1/rules</code> with <code className="text-gray-400">when_ast</code>). The
-          live JSON panel mirrors the Python Pydantic schema. Use <strong>Validate on server</strong> for the legacy flat{" "}
-          <code className="text-gray-400">when</code> compile path (<code className="text-gray-400">/v1/rules/visual/compile</code>) and{" "}
-          <strong>Test rule…</strong> for dry-run.
+          Not a product SKU. Prefer SentencePackPanel on ObserveEasePanel — thin no-code that emits the same pack JSON
+          evaluate already runs. This canvas is leftover; authoring belongs on Observe.
         </span>
       </PageTitle>
       {leftover ? (
