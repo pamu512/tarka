@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import tempfile
 from pathlib import Path
 
@@ -11,7 +12,13 @@ import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+_ANALYTICS_SRC = Path(__file__).resolve().parents[2] / "analytics" / "src"
+_as = str(_ANALYTICS_SRC)
+if _as not in sys.path:
+    sys.path.insert(0, _as)
+
 from analytics.engine import DuckDBEngine
+from event_time import parse_event_time_to_unix
 
 
 @pytest.mark.asyncio
@@ -226,3 +233,74 @@ async def test_pit_parquet_export_job_polls_to_success(
         p.unlink(missing_ok=True)
         with ml_export_api._jobs_lock:
             ml_export_api._jobs.clear()
+
+
+def test_holdout_split_for_ml_export_excludes_as_of_at_or_after_cutoff() -> None:
+    from analytics.ml_export import apply_holdout_split
+    from decision_api.ml_export_api import apply_holdout_split_for_ml_export
+
+    t1 = "2026-01-01T10:00:00Z"
+    t2 = "2026-01-01T10:00:00.500Z"
+    rows = [
+        {"as_of": "2026-01-01T09:00:00Z", "id": "early"},
+        {"as_of": t1, "id": "at-cut"},
+        {"as_of": t2, "id": "later"},
+    ]
+    train, hold = apply_holdout_split_for_ml_export(rows, cutoff=t1)
+    via_helper = apply_holdout_split(rows, cutoff=t1)
+    assert train == via_helper[0]
+    assert hold == via_helper[1]
+    assert [r["id"] for r in train] == ["early"]
+    assert [r["id"] for r in hold] == ["at-cut", "later"]
+    cut = parse_event_time_to_unix(t1)
+    assert cut is not None
+    for row in train:
+        ts = parse_event_time_to_unix(row.get("as_of"))
+        assert ts is not None and ts < cut
+
+
+def test_run_point_in_time_ml_export_holdout_cutoff_drops_later_rows(
+    tmp_path: Path,
+) -> None:
+    p = tmp_path / "holdout.duckdb"
+    eng = DuckDBEngine(p)
+    eng._conn.execute(
+        """
+        INSERT INTO fraud_decisions (
+          tenant_id, entity_id, created_at, trace_id, decision, score, payload_json, rule_hits_json
+        ) VALUES
+        ('t1', 'e1', TIMESTAMP '2026-02-01 12:00:00', 'tr-early', 'review', 10.0, '{"amt": 1}', '[]'),
+        ('t1', 'e2', TIMESTAMP '2026-02-03 12:00:00', 'tr-late', 'review', 20.0, '{"amt": 2}', '[]')
+        """
+    )
+    out = tmp_path / "holdout.parquet"
+
+    def _labels(trace_ids: list[str]) -> dict[str, dict[str, str]]:
+        return {
+            t: {
+                "case_management_label": "fraud",
+                "case_label_source": "dispute",
+                "dispute_outcome": "fraud_confirmed",
+            }
+            for t in trace_ids
+        }
+
+    from analytics.ml_export import run_point_in_time_ml_export
+
+    try:
+        stats = run_point_in_time_ml_export(
+            eng,
+            table="fraud_decisions",
+            tenant_id="t1",
+            window_start_s="2026-01-01 00:00:00",
+            window_end_s="2026-03-01 00:00:00",
+            out_path=out,
+            label_fetcher=_labels,
+            chunk_size=10,
+            clickhouse_max_execution_seconds=30,
+            max_rows=10_000,
+            holdout_cutoff="2026-02-02T00:00:00Z",
+        )
+        assert stats.rows_written == 1
+    finally:
+        eng.close()
