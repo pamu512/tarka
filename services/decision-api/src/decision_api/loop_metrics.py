@@ -263,6 +263,129 @@ def compute_pack_metrics(
     return out
 
 
+def _receipt_tokens(row: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    for key in ("evaluation_token", "trace_id"):
+        token = str(row.get(key) or "").strip()
+        if token and token not in out:
+            out.append(token)
+    return out
+
+
+def _horizon_windows() -> dict[str, int]:
+    from decision_api.label_horizon import horizon_policy
+
+    raw = horizon_policy().get("by_kind")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, int] = {}
+    for kind, row in raw.items():
+        days = row.get("window_days") if isinstance(row, dict) else row
+        try:
+            n = int(days)
+        except (TypeError, ValueError):
+            continue
+        if n >= 1:
+            out[str(kind).strip().lower()] = n
+    return out
+
+
+def _in_horizon(
+    kind: str,
+    decided: datetime | None,
+    labeled: datetime | None,
+    windows: dict[str, int],
+) -> bool:
+    if decided is None or labeled is None:
+        return False
+    days = windows.get(str(kind or "").strip().lower())
+    if days is None:
+        return False
+    lag = (labeled - decided).total_seconds()
+    return 0 <= lag <= days * 86400.0
+
+
+def _join_rate_unknown(reason: str) -> dict[str, Any]:
+    return {
+        "join_rate": None,
+        "labeled_receipt_rate": None,
+        "labeled_receipt_count": None,
+        "receipt_count": None,
+        "unknown_reasons": {
+            "join_rate": reason,
+            "labeled_receipt_rate": reason,
+        },
+    }
+
+
+def _join_rate_fields(
+    labels: dict[str, Any],
+    receipts: list[dict[str, Any]] | None,
+    *,
+    tenant_id: str,
+) -> dict[str, Any]:
+    """In-horizon labeled/receipts. null = unknown. Never 0.0 theater."""
+    want = (tenant_id or "").strip()
+    if not want:
+        return _join_rate_unknown("empty_tenant")
+    if receipts is None:
+        return _join_rate_unknown("receipt_store_absent")
+    kinds = labels.get("label_kind_by_trace") if isinstance(labels, dict) else {}
+    kinds = kinds if isinstance(kinds, dict) else {}
+    labeled_at = labels.get("labeled_at_by_trace") if isinstance(labels, dict) else {}
+    labeled_at = labeled_at if isinstance(labeled_at, dict) else {}
+    decided_at = labels.get("decided_at_by_trace") if isinstance(labels, dict) else {}
+    decided_at = decided_at if isinstance(decided_at, dict) else {}
+    windows = _horizon_windows()
+    seen: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    for row in receipts:
+        if not isinstance(row, dict):
+            continue
+        row_tenant = str(row.get("tenant_id") or "").strip()
+        if row_tenant and row_tenant != want:
+            continue
+        tokens = _receipt_tokens(row)
+        if not tokens or tokens[0] in seen:
+            continue
+        seen.add(tokens[0])
+        rows.append(row)
+    if not rows:
+        return _join_rate_unknown("no_receipts")
+    if not kinds:
+        return _join_rate_unknown("no_labels")
+    labeled_n = 0
+    for row in rows:
+        matched = ""
+        kind = ""
+        for token in _receipt_tokens(row):
+            raw = kinds.get(token)
+            if raw is None:
+                continue
+            matched = token
+            kind = str(raw).strip().lower()
+            break
+        if not matched or not kind:
+            continue
+        decided = (
+            _parse_ts(decided_at.get(matched))
+            or _parse_ts(row.get("decided_at"))
+            or _parse_ts(row.get("created_at"))
+        )
+        labeled = _parse_ts(labeled_at.get(matched))
+        if _in_horizon(kind, decided, labeled, windows):
+            labeled_n += 1
+    n = len(rows)
+    rate = labeled_n / n
+    return {
+        "join_rate": rate,
+        "labeled_receipt_rate": rate,
+        "labeled_receipt_count": labeled_n,
+        "receipt_count": n,
+        "unknown_reasons": {},
+    }
+
+
 def compute_loop_metrics(
     packs: list[dict[str, Any]],
     labels: dict[str, Any],
@@ -271,6 +394,7 @@ def compute_loop_metrics(
     ai_passed: int = 0,
     tenant_id: str = "",
     observations: list[dict[str, Any]] | None = None,
+    receipts: list[dict[str, Any]] | None = None,
     evaluations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     human_n = 0
@@ -423,7 +547,17 @@ def compute_loop_metrics(
         "shadow_divergence": shadow_div,
         "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
     }
-    if reason_code:
-        payload["reason_code"] = reason_code
+    join_fields = _join_rate_fields(labels, receipts, tenant_id=tenant_id)
+    join_unknown = join_fields.pop("unknown_reasons", None) or {}
+    if isinstance(join_unknown, dict):
+        unknown_reasons.update(join_unknown)
+    payload.update(join_fields)
+    if unknown_reasons:
+        payload["reason_code"] = (
+            reason_code
+            or unknown_reasons.get("evaluate_count")
+            or unknown_reasons.get("shadow_divergence")
+            or next(iter(unknown_reasons.values()))
+        )
         payload["unknown_reasons"] = unknown_reasons
     return payload
