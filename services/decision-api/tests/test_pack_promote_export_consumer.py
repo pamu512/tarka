@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import inspect
 import json
 import re
 import sys
 from pathlib import Path
 
 import pytest
+from decision_api import promote_gitops
 from decision_api.promote_gitops import emit_promote_export
 
 REPO = Path(__file__).resolve().parents[3]
@@ -130,7 +130,7 @@ def test_emit_succeeds_when_consumer_disabled_or_fails(tmp_path, monkeypatch) ->
     assert follow.get("ok") is not True or follow.get("notified") is False
     assert export.is_file()
     assert json.loads(export.read_text(encoding="utf-8").strip()) == event
-    src = inspect.getsource(emit_promote_export)
+    src = Path(promote_gitops.__file__).read_text(encoding="utf-8")
     assert "consume_event" not in src
     assert "consume_after_emit" not in src
     assert "pack_promote_export_consumer" not in src
