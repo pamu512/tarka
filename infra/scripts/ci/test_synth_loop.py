@@ -121,6 +121,24 @@ class TestPayloadBuilders(unittest.TestCase):
         self.assertEqual(payload["label_kind"], "fraud")
         self.assertNotIn("evaluation_token", payload)
 
+    def test_label_signature_matches_request_json_bytes(self) -> None:
+        import hashlib
+        import hmac
+        import json
+        import os
+        from unittest.mock import patch
+
+        payload = {"tenant_id": "demo", "label_kind": "fp", "trace_id": "tr-1"}
+        raw = json.dumps(payload).encode("utf-8")
+        with patch.dict(os.environ, {"REQUEST_SIGNATURE_SECRET": "unit-secret"}):
+            headers = synth_loop._label_extra_headers(payload)
+        self.assertIsNotNone(headers)
+        assert headers is not None
+        ts = headers["X-Tarka-Timestamp"]
+        msg = ts.encode("utf-8") + b"\n" + raw
+        expected = hmac.new(b"unit-secret", msg, hashlib.sha256).hexdigest()
+        self.assertEqual(headers["X-Tarka-Signature"], expected)
+
 
 class TestRunLoopMockHttp(unittest.TestCase):
     def test_dry_run_prints_payloads_without_http(self) -> None:
