@@ -1,5 +1,5 @@
 /**
- * Visual Rule Builder compiler — Graph Risk node ↔ Rust ``GraphMatch`` / JSON AST ``graph_condition``.
+ * Legacy canvas compiler — Graph Risk node ↔ Rust ``GraphMatch`` / JSON AST ``graph_condition``.
  *
  * Deployed ``when`` leaves use ``{ op: "gt", field: "graph_score", value }`` (see ``tarka-core`` evaluator).
  * Structured AST export uses ``{ type: "graph_condition", operator: "gt", threshold }``.
