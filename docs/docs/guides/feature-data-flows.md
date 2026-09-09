@@ -60,6 +60,8 @@ flowchart TD
 
 Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE_URL` = L2 off (`feature_source` is `l1` or `raw`). `feast_class_claim_allowed` stays false until a real L2 product exists. See [feature-store-posture-v1](../../contracts/feature-store-posture-v1.md).
 
+Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is bundled seed file/fixture; PUTs 403. Windows stay on `counter_manifest_v1.json`. See [field-registry-onboarding](field-registry-onboarding.md).
+
 **Downstream of action:**
 
 - `allow` — continue; fail-soft AGE Decision hop (rolling cap of 20 allow Decisions per Person). No leftover.
