@@ -378,18 +378,20 @@ async def test_evaluate_seen_event_readable_at_as_of_no_later_leak(
     t1 = "2026-01-01T00:00:00Z"
     t2 = "2026-06-01T00:00:00Z"
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r1 = await eval_client.post(
             "/v1/decisions/evaluate",
@@ -443,18 +445,20 @@ async def test_evaluate_empty_url_writer_noop_serve_stays_off(
     tenant, entity = "t-w-eval-off", "u-w-eval-off"
     _STORE.pop((tenant, "user", entity), None)
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
     ):
         r = await eval_client.post(
             "/v1/decisions/evaluate",
@@ -487,21 +491,24 @@ async def test_evaluate_writer_exception_fail_soft(
 ) -> None:
     monkeypatch.setenv("FEATURE_STORE_URL", "http://fs.test")
     main = eval_client.tarka_main  # type: ignore[attr-defined]
-    with patch.object(
-        main, "evaluate_json_rules", return_value=([], [], 0.0, [])
-    ), patch.object(
-        main,
-        "evaluate_opa_or_raise",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch.object(
-        main,
-        "_fetch_ml_score_wrapped",
-        new_callable=AsyncMock,
-        return_value=(None, {}),
-    ), patch(
-        "decision_api.evaluate.pipeline.write_event_features",
-        side_effect=RuntimeError("writer lag"),
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
+        patch(
+            "decision_api.evaluate.pipeline.write_event_features",
+            side_effect=RuntimeError("writer lag"),
+        ),
     ):
         r = await eval_client.post("/v1/decisions/evaluate", json=_eval_body())
     assert r.status_code == 200, r.text
