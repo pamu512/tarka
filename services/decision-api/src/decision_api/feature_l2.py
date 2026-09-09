@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from event_time import holdout_split as holdout_split
 from event_time import parse_event_time_to_unix
 
 log = logging.getLogger("decision-api.feature-l2")
@@ -242,19 +243,6 @@ def backfill_from_jsonl(path: str | os.PathLike[str], *, tenant_id: str) -> int:
         )
         n += 1
     return n
-
-
-def holdout_split(
-    rows: list[dict[str, Any]], *, cutoff: str
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    train, hold = [], []
-    for row in rows:
-        ts = str(row.get("as_of") or row.get("created_at") or "")
-        if ts and ts < cutoff:
-            train.append(row)
-        else:
-            hold.append(row)
-    return train, hold
 
 
 @router.get("/{entity_type}/{entity_id}")
