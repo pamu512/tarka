@@ -10,6 +10,10 @@ Named hops on the evaluate receipt. Empty `GRAPH_SERVICE_URL` → `graph:missing
 
 ## B — Offline ring / collusion jobs
 
-Research / sidecar only. Input: export subgraph + labels. Output: `ring_score` / tags JSON → Observe draft (`authored_by=seed`). **Never** live ALLOW/DENY. Not “GNN live”. Not identity-as-SKU.
+Research / sidecar only. **Never** on the evaluate path. Empty `GRAPH_SERVICE_URL` still hops off (`graph:missing`); the job does not invent neighbors from an empty hop plane.
 
-Job schemas: `tarka.ring_job_request/v1`, `tarka.ring_job_response/v1`.
+**Request** (`tarka.ring_job_request/v1`): `schema_id`, `tenant_id`, plus export `subgraph` + `labels`, or labeled `export[]` rows (`subgraph_snapshot` + `y_label` — edges derived), or raw `edges`. Invalid schema / tenant / shape → `ValueError`.
+
+**Response** (`tarka.ring_job_response/v1`): `schema_id`, `tenant_id`, `ring_score[]`, `tags[]`, `live: false`. Degree-count heuristic v1. **Never** live ALLOW/DENY/FLAG. Not “GNN live”.
+
+Output JSON may feed an Observe draft (`authored_by=seed`) later. This plane does not auto-Promote or write live FLAG.

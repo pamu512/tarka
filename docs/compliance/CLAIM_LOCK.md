@@ -44,7 +44,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
-| Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
+| Offline ring jobs: export subgraph+labels → ring_score/tags JSON (async sidecar). Never on evaluate. Empty GRAPH_SERVICE_URL hops still off. Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote; GNN live from ring job |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
