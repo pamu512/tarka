@@ -13,6 +13,7 @@ vi.mock("@/api/client", async (importOriginal) => {
     decisions: {
       ...actual.decisions,
       byomStatus: vi.fn(),
+      demoteSuggestions: vi.fn(),
     },
     rules: {
       ...actual.rules,
@@ -34,6 +35,7 @@ function wrap(ui: ReactElement) {
 describe("ObserveEasePanel", () => {
   beforeEach(() => {
     vi.mocked(client.decisions.byomStatus).mockReset();
+    vi.mocked(client.decisions.demoteSuggestions).mockReset();
     vi.mocked(client.shadow.setPackMode).mockReset();
     vi.mocked(client.rules.list).mockReset();
     vi.mocked(client.rules.proposeDemote).mockReset();
@@ -43,6 +45,7 @@ describe("ObserveEasePanel", () => {
       backend: "",
       model: "",
     });
+    vi.mocked(client.decisions.demoteSuggestions).mockResolvedValue({ suggestions: [] });
     vi.mocked(client.shadow.setPackMode).mockResolvedValue({
       file: "draft_a.json",
       mode: "shadow",
@@ -283,5 +286,87 @@ describe("ObserveEasePanel", () => {
     await waitFor(() => {
       expect(screen.getByText(/model suggested successor — you own Promote/i)).toBeTruthy();
     });
+  });
+
+  it("suggestion row shows pack id, numbers, and English reason", async () => {
+    vi.mocked(client.decisions.demoteSuggestions).mockResolvedValue({
+      suggestions: [
+        {
+          pack_id: "rot_pack",
+          rule_hit_rate: 0.75,
+          shadow_divergence: 0.8,
+          fp_count: 1,
+          reason_code: "high_shadow_divergence",
+          action: "suggest_propose_demote",
+        },
+      ],
+    });
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="acme"
+          drafts={[]}
+          promoteAllowed={false}
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft=""
+          onSelectDraft={() => {}}
+          onPromote={() => {}}
+          canPromote={false}
+        />,
+      ),
+    );
+    const row = await screen.findByTestId("suggest-demote-rot_pack");
+    expect(row).toHaveTextContent("rot_pack");
+    expect(row).toHaveTextContent("75%");
+    expect(row).toHaveTextContent("80%");
+    expect(row).toHaveTextContent(/shadow divergence/i);
+    expect(screen.queryByTestId("suggest-demote-empty")).not.toBeInTheDocument();
+  });
+
+  it("suggestion click opens Propose Demote prefilled and does not confirm", async () => {
+    vi.mocked(client.decisions.demoteSuggestions).mockResolvedValue({
+      suggestions: [
+        {
+          pack_id: "live_a",
+          rule_hit_rate: 0.2,
+          shadow_divergence: 0.9,
+          fp_count: 0,
+          reason_code: "high_shadow_divergence",
+          action: "suggest_propose_demote",
+        },
+      ],
+    });
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="acme"
+          drafts={[]}
+          promoteAllowed={false}
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft=""
+          onSelectDraft={() => {}}
+          onPromote={() => {}}
+          canPromote={false}
+        />,
+      ),
+    );
+    const propose = await screen.findByRole("button", { name: /propose live_a/i });
+    await waitFor(() => {
+      expect((propose as HTMLButtonElement).disabled).toBe(false);
+    });
+    fireEvent.click(propose);
+    await waitFor(() => {
+      expect(client.rules.proposeDemote).toHaveBeenCalledWith(
+        "live_a.json",
+        expect.stringMatching(/high_shadow_divergence|shadow divergence/i),
+        "acme",
+      );
+    });
+    const reason = client.rules.proposeDemote.mock.calls[0][1] as string;
+    expect(reason.length).toBeGreaterThanOrEqual(8);
+    expect(client.rules.confirmDemote).not.toHaveBeenCalled();
+    expect(client.shadow.setPackMode).not.toHaveBeenCalled();
   });
 });

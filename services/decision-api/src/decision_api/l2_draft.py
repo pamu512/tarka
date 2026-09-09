@@ -263,6 +263,10 @@ def _require_demote_audit(actor: str, reason: str) -> tuple[str, str]:
         raise L2DraftError(
             "demote_audit_required", http_status=400, detail="actor and reason"
         )
+    if is_forbidden_demote_actor(who):
+        raise L2DraftError(
+            "demote_human_only", http_status=403, detail="demote_human_only"
+        )
     return who, why
 
 
