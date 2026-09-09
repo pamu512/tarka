@@ -2,7 +2,8 @@ FROM node:20-alpine AS build
 RUN apk upgrade --no-cache
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install
+# ponytail: @types/react-dom@19.3 peers @types/react@^19.3 while we are on ^19.2. Drop when both are pinned in a lockfile copied into this stage.
+RUN npm install --legacy-peer-deps
 COPY frontend/ .
 # Baked into the UI for regional AI governance banners (us | eu_uk | global).
 ARG VITE_AI_GOVERNANCE_PROFILE=global
