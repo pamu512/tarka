@@ -22,6 +22,7 @@
 | Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
 | Label horizons | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) — tenant policy **examples** (promo FP days / collusion window / chargeback ~90d). Not Tarka morals. Not a chargeback-guarantee SKU. Never auto-demote from horizons. |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
+| Join-rate glass | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `join_rate` / `labeled_receipt_rate` on `tarka.loop_metrics/v1`. **null = unknown** (never 0% theater). Fuel names M2 may read later; tick still suggests from `pack_metrics[]`. Buyer owns the lake. Not CRM. Horizons are tenant policy examples. Never auto-demote from join rate. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
