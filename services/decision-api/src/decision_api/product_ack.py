@@ -1,6 +1,6 @@
-"""Inbound product ACK: delivery/application status bound to trace_id + action_id.
+"""Inbound product ACK + tenant-scoped delivery journal query.
 
-Not Promote/Demote. Desk glass is G4.4.
+Not Promote/Demote. Desk glass is G4.4. D9.3 GET /deliveries is not a case timeline.
 """
 
 from __future__ import annotations
@@ -261,3 +261,43 @@ async def get_product_acks(
             trace_id=trace_id, tenant_id=tenant_id, action_id=action_id
         ),
     }
+
+
+def _overlay_product_ack(row: dict[str, Any]) -> dict[str, Any]:
+    """Product ACK is last_status=acked. Journal HTTP 2xx alone stays emitted."""
+    acks = query_product_acks(
+        trace_id=str(row.get("trace_id") or ""),
+        tenant_id=str(row.get("tenant_id") or ""),
+        action_id=str(row.get("action_id") or ""),
+    )
+    if not acks:
+        return row
+    row["last_status"] = "acked"
+    ts = str(acks[-1].get("ts") or "").strip()
+    if ts:
+        row["acked_at"] = ts
+    return row
+
+
+@router.get("/deliveries")
+async def get_enforcement_deliveries(
+    trace_id: str = Query(..., min_length=1),
+    tenant_id: str = Query(..., min_length=1),
+    action_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+) -> dict[str, Any]:
+    from decision_api.enforcement import (
+        DELIVERY_QUERY_SCHEMA,
+        query_enforcement_deliveries,
+    )
+
+    rows = [
+        _overlay_product_ack(row)
+        for row in query_enforcement_deliveries(
+            trace_id=trace_id, tenant_id=tenant_id, action_id=action_id
+        )
+    ]
+    want = (status or "").strip().lower()
+    if want:
+        rows = [row for row in rows if row.get("last_status") == want]
+    return {"schema_id": DELIVERY_QUERY_SCHEMA, "deliveries": rows}

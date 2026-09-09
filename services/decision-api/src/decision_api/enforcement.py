@@ -20,6 +20,7 @@ from typing import Any, Callable, Literal
 log = logging.getLogger("decision-api.enforcement")
 
 ENFORCEMENT_JOURNAL_SCHEMA = "tarka.enforcement_delivery/v1"
+DELIVERY_QUERY_SCHEMA = "tarka.enforcement_delivery_query/v1"
 
 # ponytail: in-process N=3 only. Crash loses in-flight retries (journal already has
 # retrying / dead_lettered). Durable bus (Redis/SQS/Celery) is out of scope.
@@ -264,13 +265,13 @@ def read_enforcement_journal(limit: int = 50) -> list[dict[str, Any]]:
 def logical_enforcement_delivery(action_id: str) -> dict[str, Any] | None:
     """Dedupe journal rows for one G4.2 action_id into a single logical delivery.
 
-    Query-only (D9.3 public GET is out of scope). Does not skip or silent-block POSTs —
-    retries still fire; buyer sinks apply once on this key.
+    D9.3 GET /v1/enforcement/deliveries reuses this aggregator. Does not skip or
+    silent-block POSTs — retries still fire; buyer sinks apply once on this key.
     """
     key = (action_id or "").strip().lower()
     if not key:
         return None
-    # ponytail: O(n) jsonl scan. D9.3 indexed query API is the upgrade path.
+    # ponytail: O(n) jsonl scan. Indexed store is the upgrade path.
     path = enforcement_journal_path()
     if not path.is_file():
         return None
@@ -305,6 +306,7 @@ def logical_enforcement_delivery(action_id: str) -> dict[str, Any] | None:
         if n > attempts:
             attempts = n
     last = rows[-1]
+    err = last.get("last_error") or last.get("error")
     return {
         "action_id": key,
         "idempotency_key": key,
@@ -312,7 +314,114 @@ def logical_enforcement_delivery(action_id: str) -> dict[str, Any] | None:
         "status": last.get("status"),
         "trace_id": last.get("trace_id"),
         "tenant_id": last.get("tenant_id"),
+        "last_error": err,
+        "ts": last.get("ts"),
+        "reason": last.get("reason"),
     }
+
+
+def map_journal_query_status(status: str | None, reason: str | None = None) -> str:
+    """Map journal status → query last_status. Journal HTTP 2xx is not product ACK."""
+    raw = str(status or "").strip().lower()
+    why = str(reason or "").strip().lower()
+    if raw == "skipped" or why == "webhook_unset":
+        return "not_configured"
+    if raw in {"retrying", "dead_lettered"}:
+        return raw
+    if raw == "acked":
+        return "emitted"
+    return raw or "emitted"
+
+
+def _action_ids_for_query(
+    trace_id: str, tenant_id: str, action_id: str | None
+) -> list[str]:
+    tid = (trace_id or "").strip()
+    ten = (tenant_id or "").strip()
+    wanted = (action_id or "").strip().lower()
+    if not tid or not ten:
+        return []
+    path = enforcement_journal_path()
+    if not path.is_file():
+        return []
+    seen: list[str] = []
+    found: set[str] = set()
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for ln in fh:
+                line = ln.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("trace_id") or "") != tid:
+                    continue
+                if str(row.get("tenant_id") or "") != ten:
+                    continue
+                aid = (
+                    str(row.get("action_id") or row.get("idempotency_key") or "")
+                    .strip()
+                    .lower()
+                )
+                if not aid or (wanted and aid != wanted) or aid in found:
+                    continue
+                found.add(aid)
+                seen.append(aid)
+    except OSError:
+        return []
+    return seen
+
+
+def _logical_to_query_row(logical: dict[str, Any]) -> dict[str, Any]:
+    raw = str(logical.get("status") or "").strip().lower()
+    reason = str(logical.get("reason") or "").strip().lower()
+    err = logical.get("last_error")
+    acked_at = None
+    if raw == "acked":
+        ts = str(logical.get("ts") or "").strip()
+        acked_at = ts or None
+    return {
+        "trace_id": logical.get("trace_id"),
+        "tenant_id": logical.get("tenant_id"),
+        "action_id": logical.get("action_id"),
+        "attempt_count": int(logical.get("attempt_count") or 1),
+        "last_status": map_journal_query_status(raw, reason),
+        "last_error": str(err).strip() if err else None,
+        "acked_at": acked_at,
+    }
+
+
+def query_enforcement_deliveries(
+    *,
+    trace_id: str,
+    tenant_id: str,
+    action_id: str | None = None,
+    status: str | None = None,
+) -> list[dict[str, Any]]:
+    """Tenant-scoped logical deliveries. Unknown trace → []. Reuses logical_enforcement_delivery."""
+    tid = (trace_id or "").strip()
+    ten = (tenant_id or "").strip()
+    want_status = (status or "").strip().lower()
+    if not tid or not ten:
+        return []
+    out: list[dict[str, Any]] = []
+    for aid in _action_ids_for_query(tid, ten, action_id):
+        logical = logical_enforcement_delivery(aid)
+        if logical is None:
+            continue
+        if str(logical.get("tenant_id") or "") != ten:
+            continue
+        if str(logical.get("trace_id") or "") != tid:
+            continue
+        row = _logical_to_query_row(logical)
+        if want_status and row["last_status"] != want_status:
+            continue
+        out.append(row)
+    return out
 
 
 def _sign(body: bytes, secret: str) -> str:
