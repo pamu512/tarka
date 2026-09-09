@@ -160,6 +160,9 @@ export default function Help() {
             </p>
           </Sub>
         )}
+        <p>
+          Hunt depth is AGE-bounded. Leftovers and the queue are not a CRM.
+        </p>
         <Sub title="Rules">
           <p>
             Rule packs and thresholds. Rule performance lives at{" "}
