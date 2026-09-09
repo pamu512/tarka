@@ -32,6 +32,7 @@ class TestPostgapContractSpine(unittest.TestCase):
         lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
         self.assertIn("docs/contracts/enforcement-v1.md", lock)
         self.assertIn("docs/contracts/label-join-v1.md", lock)
+        self.assertIn("docs/contracts/pack-promote-export-v1.md", lock)
         self.assertIn("contract-gated", lock.lower())
         self.assertIn("emit-only", lock.lower())
         self.assertIn("x-tarka-signature", lock.lower())
@@ -59,6 +60,7 @@ class TestPostgapContractSpine(unittest.TestCase):
             "docs/contracts/graph-planes-v1.md",
             "docs/contracts/hunt-depth-v1.md",
             "docs/contracts/vendor-score-slot-v1.md",
+            "docs/contracts/pack-promote-export-v1.md",
         ):
             self.assertTrue((ROOT / rel).is_file(), rel)
 
@@ -76,6 +78,18 @@ class TestPostgapContractSpine(unittest.TestCase):
             self.assertIn(needle, text)
         lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
         self.assertIn("pack_metrics", lock)
+
+    def test_pack_promote_export_contract_honesty(self) -> None:
+        text = (ROOT / "docs/contracts/pack-promote-export-v1.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("tarka.pack_promote_export/v1", text)
+        self.assertIn("desk promote", lowered)
+        self.assertIn("backup", lowered)
+        self.assertNotIn("gitlab-grade", lowered)
+        self.assertNotIn("git required to promote", lowered)
+        self.assertNotIn("git is required to promote", lowered)
+        self.assertNotIn("open-source", lowered)
+        self.assertNotIn("open source", lowered)
 
     def test_bakeoff_global_fields_schema_named(self) -> None:
         """D8.1: tenant-level bakeoff names; share M3, do not fork compute."""
