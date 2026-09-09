@@ -55,7 +55,7 @@ We help **you** install. We do not operate your cluster.
 | **VPC install assist** | Walk an operator through CE-shaped `prod-on-k8s` (or product compose) on **their** VPC: external Postgres + Redis, secrets, digest pin. | Run the cluster. Provide Tarka as a hosted or managed service. Invent in-cluster PG/Redis as production. |
 | **Helm values review** | Review buyer values against the production-install gates (no sqlite / `emptyDir` for decisions, audit, labels, or packs; no leftover default passwords). | Apply the chart for you as a managed service. Treat a green `helm template` as the grade. |
 | **SSO wiring** | Wire OIDC for **desk humans** via first-class Helm `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}`. `OIDC_CLIENT_ID` stays extraEnv; `OIDC_CLIENT_SECRET` on `global.appSecretsName`. Empty issuer stays local / API-key mode. | Become the IdP. Replace machine `API_KEYS` with OIDC. Require OIDC to boot evaluate. Require SAML. |
-| **Pack GitOps export help** | Help consume `tarka.pack_promote_export/v1` after desk Promote ([pack GitOps](docs/docs/guides/pack-gitops.md)). Git is backup/export. | Require a git PR to go live. Desk Promote remains the live source of truth. |
+| **Pack GitOps export help** | Help consume `tarka.pack_promote_export/v1` after desk Promote ([pack GitOps](docs/docs/guides/pack-gitops.md), [export contract](docs/contracts/pack-promote-export-v1.md), [sample consumer](docs/examples/pack-promote-export-consumer.md)). Git is backup/export. | Require a git PR to go live. Desk Promote remains the live source of truth. |
 | **Severity response intent** | Classed first-response **intent** on a **named** pilot (table below). | An uptime SLA. **99.99%** (or any nines) as a Tarka promise. Operator SLO targets in [service-slos-v1](docs/docs/guides/service-slos-v1.md) are **buyer-owned**. |
 
 OIDC is optional. API keys stay the machine / evaluate path. `coreApi.oidc.*` is SoT (not extraEnv-only). Production + a non-empty issuer requires resolved Redis (no in-process OIDC state fallback). See [deployment.md](docs/docs/guides/deployment.md).
@@ -83,7 +83,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **Beta, no GA** | Product and Helm tags are beta. `1.3.0-beta` is a mutable tag. Digest pin is required before a grade claim. Not ready-for-beta testers; not unattended merchant beta. |
 | **No SOC 2 from us** | [`docs/compliance/soc2-pci/`](docs/compliance/soc2-pci/) is a control-mapping suite for *your* readiness work. It is **not** a SOC 2 Type II report, not a PCI ROC, and not a cert from Tarka. Buyer owns attestation. |
 | **No consortium** | No consortium SKU. Any adapter talks to **your** decision-api. |
-| **No case CRM** | Leftovers + Hunt are residual. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
+| **No case CRM** | Leftovers + Hunt are residual. Day-1 Hunt is Path B depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
 | **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |
@@ -115,6 +115,8 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 | [soak checklist](docs/docs/guides/production-install-soak-checklist.md) | G9 named-pilot sign-off (not the grade) |
 | [product Day-1](docs/docs/guides/product-day1-install.md) | `make product` vs Helm skins |
 | [pack GitOps](docs/docs/guides/pack-gitops.md) | Promote is live; git is export |
+| [pack promote export v1](docs/contracts/pack-promote-export-v1.md) | Consumer contract; git is backup, not go-live |
+| [pack promote export sample](docs/examples/pack-promote-export-consumer.md) | Backup sink example; not a commercial runbook |
 | [deployment](docs/docs/guides/deployment.md) | Helm `prod-on-k8s`, first-class OIDC |
 | [LICENSE](LICENSE) | Elastic License 2.0 |
 | [SECURITY](SECURITY.md) | Vulnerability reports (not a cert) |

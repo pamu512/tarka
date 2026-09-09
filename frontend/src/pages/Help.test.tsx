@@ -12,7 +12,12 @@ describe("Help", () => {
     expect(screen.getAllByText("/disputes/:id").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/help").length).toBeGreaterThan(0);
     expect(screen.getByText(/plane off/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").toMatch(/Hunt depth is AGE-bounded/i);
+    expect(document.body.textContent ?? "").toMatch(/leftovers and the queue are not a CRM/i);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
+    expect(document.body.textContent ?? "").not.toMatch(/neo4j[- ]class/i);
+    expect(document.body.textContent ?? "").not.toMatch(/unlimited path/i);
+    expect(document.body.textContent ?? "").not.toMatch(/identity SKU/i);
     const body = document.body.textContent ?? "";
     expect(body.toLowerCase()).not.toMatch(/prototype/);
     expect(body.toLowerCase()).not.toMatch(/synthetic data/);

@@ -1079,6 +1079,7 @@ from decision_api.recommend_api import router as recommend_router  # noqa: E402
 from decision_api.replay import router as replay_router  # noqa: E402
 from decision_api.reporting_nl import router as reporting_nl_router  # noqa: E402
 from decision_api.observe_notify import router as observe_notify_router  # noqa: E402
+from decision_api.product_ack import router as product_ack_router  # noqa: E402
 from decision_api.event_type_api import router as event_type_router  # noqa: E402
 from decision_api.field_api import router as field_router  # noqa: E402
 from decision_api.rule_api import router as rule_router  # noqa: E402
@@ -1115,6 +1116,7 @@ app.include_router(feature_l2_router)
 app.include_router(field_router)
 app.include_router(event_type_router)
 app.include_router(observe_notify_router)
+app.include_router(product_ack_router)
 app.include_router(ast_rules_router)
 app.include_router(replay_router)
 app.include_router(simulation_router)
