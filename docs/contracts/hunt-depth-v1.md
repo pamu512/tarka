@@ -8,6 +8,8 @@
 
 Empty `GRAPH_SERVICE_URL` = Hunt and hops **off** (same plane-off as [graph-planes-v1](graph-planes-v1.md)). No invented neighbors.
 
+Operator day-1: [graph-analysis — Day-1 Hunt depth](../docs/guides/graph-analysis.md#day-1-hunt-depth). Next-agent regression: [hunt-depth-regression](../testing/hunt-depth-regression.md).
+
 ## Schema (`tarka.hunt_depth/v1`)
 
 Honesty fields for Hunt / subgraph responses. API emit is this slice (D7.3): every on-plane `GET /v1/subgraph` body includes these fields. Empty `GRAPH_SERVICE_URL` stays plane-off (decision-api hop / desk), not a graph-service response.
@@ -32,4 +34,12 @@ Desk glass and Hunt API must show `depth_requested` vs `depth_applied` plus `deg
 
 ## Out of scope
 
-Variable-length path Hunt product. Identity SKU / entity-resolution product. GNN live. Invented neighbors when the URL is empty. Path A without a tested AGE 1.6 bound. Python BFS that claims AGE multi-hop.
+Non-claims — do not read Path B as any of these:
+
+- Unlimited Hunt
+- Variable-length path product
+- Identity SKU / entity-resolution product
+- GNN live
+- Invented neighbors when `GRAPH_SERVICE_URL` is empty
+- Path A without a tested AGE 1.6 bound
+- Python BFS that claims AGE multi-hop
