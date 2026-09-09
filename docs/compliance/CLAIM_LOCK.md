@@ -19,7 +19,7 @@
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
-| Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
+| Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Optional consume of joined labels since T may propose Observe drafts (`authored_by=seed`). Promote only via existing gates / human. Never auto-Promote / never auto Active. Not a hosted lake. Not CRM. Not a case inbox. |
 | Label horizons | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) — tenant policy **examples** (promo FP days / collusion window / chargeback ~90d). Not Tarka morals. Not a chargeback-guarantee SKU. Never auto-demote from horizons. |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
 | Join-rate glass | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `join_rate` / `labeled_receipt_rate` on `tarka.loop_metrics/v1`. **null = unknown** (never 0% theater). Fuel names M2 may read later; tick still suggests from `pack_metrics[]`. Buyer owns the lake. Not CRM. Horizons are tenant policy examples. Never auto-demote from join rate. |
@@ -52,6 +52,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
+| Optional consume of joined warehouse labels since T → Observe drafts (`authored_by=seed`). Promote only via existing gates / human. Never auto Active. | Case CRM / dispute inbox; auto Active from labels |
 | Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
 | Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../../SUPPORT.md)) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade from SUPPORT.md |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |

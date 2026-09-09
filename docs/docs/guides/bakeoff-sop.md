@@ -29,7 +29,7 @@ EXAMPLE daily pull (same idempotency as [warehouse-sink-v1](../../../contracts/w
   | lake_upsert --idempotency-key tenant,from,to,evaluation_token
 ```
 
-Optional: re-ingest label facts via signed `POST /v1/webhooks/late-label`. Never Auto-Promote from labels.
+Optional: re-ingest label facts via signed `POST /v1/webhooks/late-label`. Joined labels since T may propose Observe drafts (`consume_joined_labels`). Never Auto-Promote from labels. Not a case inbox.
 
 ## Label horizons (EXAMPLE tenant policy — not product morals)
 
