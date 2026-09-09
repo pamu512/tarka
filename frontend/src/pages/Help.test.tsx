@@ -22,6 +22,19 @@ describe("Help", () => {
     expect(body).not.toMatch(/Simulation/);
   });
 
+
+  it("points no-code at SentencePackPanel + ObserveEasePanel, not VisualRuleBuilder as a SKU", () => {
+    render(<Help />);
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/SentencePackPanel/);
+    expect(body).toMatch(/ObserveEasePanel/);
+    expect(body).toMatch(/not a product SKU/i);
+    expect(body).not.toMatch(/Visual Rule Builder/i);
+    expect(body).not.toMatch(/full-page builder/i);
+    expect(body).not.toMatch(/book a demo/i);
+    expect(body).not.toMatch(/start free/i);
+  });
+
   it("explains the investigator path in plain English", () => {
     render(<Help />);
     const section = document.getElementById("leftovers");
@@ -32,5 +45,7 @@ describe("Help", () => {
     expect(copy).toMatch(/Create Observe draft/i);
     expect(copy).toMatch(/not a case CRM|not your case CRM/i);
     expect(copy).toMatch(/do not need to memorize pack UUIDs/i);
+  });
+
   });
 });
