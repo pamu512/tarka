@@ -16,4 +16,4 @@ Job schemas: `tarka.ring_job_request/v1`, `tarka.ring_job_response/v1`.
 
 ## C — Hunt depth (AGE)
 
-Day-1 Hunt is depth-1. Empty `GRAPH_SERVICE_URL` turns Hunt off (same as hops). See [hunt-depth-v1](hunt-depth-v1.md).
+Day-1 Hunt is depth-1. Empty `GRAPH_SERVICE_URL` turns Hunt off (same as hops). On-plane `GET /v1/subgraph` emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Walk cap is `hunt_depth_max=1`. See [hunt-depth-v1](hunt-depth-v1.md).
