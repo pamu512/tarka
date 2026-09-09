@@ -190,6 +190,7 @@ export default function OpsShadow() {
     detail?: { reason?: string };
   } | null>(null);
   const [loopMetrics, setLoopMetrics] = useState<LoopMetrics | null>(null);
+  const [loopMetricsStatus, setLoopMetricsStatus] = useState<"loading" | "ready" | "error">("loading");
 
   async function refreshL3() {
     try {
@@ -229,10 +230,6 @@ export default function OpsShadow() {
       .then(applyProvision)
       .catch(() => setProvision(null));
     void decisions
-      .loopMetrics(tenantId)
-      .then(setLoopMetrics)
-      .catch(() => setLoopMetrics(null));
-    void decisions
       .typologyOps(tenantId)
       .then((ops) =>
         setTypology({
@@ -253,6 +250,27 @@ export default function OpsShadow() {
     void refreshL3();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh L3 once + when promote tenant changes
   }, [tenantId, searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoopMetrics(null);
+    setLoopMetricsStatus("loading");
+    void decisions
+      .loopMetrics(tenantId)
+      .then((m) => {
+        if (cancelled) return;
+        setLoopMetrics(m);
+        setLoopMetricsStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoopMetrics(null);
+        setLoopMetricsStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
 
   useEffect(() => {
     if (!draftId.trim()) return;
@@ -479,7 +497,11 @@ export default function OpsShadow() {
         nextTo="/analytics/rule-performance"
         nextLabel="Rule performance"
       />
-      <LoopScoreboard metrics={loopMetrics} />
+      <LoopScoreboard
+        metrics={loopMetrics}
+        loading={loopMetricsStatus === "loading"}
+        error={loopMetricsStatus === "error"}
+      />
       <ObserveEasePanel
         tenantId={tenantId}
         drafts={data?.shadow_drafts || []}

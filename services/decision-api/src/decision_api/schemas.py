@@ -251,6 +251,14 @@ class EvaluateResponse(BaseModel):
         default_factory=list,
         description="Always-on advisory actions for buyer systems (emit_only or handoff).",
     )
+    action_ids: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "G4.2 idempotency keys keyed by suggested_actions token: hex SHA-256 of "
+            "tarka.action_id/v1 + tenant_id + trace_id + token + pack hash. Same value as "
+            "webhook action_id / idempotency_key. Not a second delivery_id."
+        ),
+    )
     enforcement_mode: str | None = Field(
         default=None,
         description="emit_only (advisory) or handoff (authoritative).",
@@ -261,7 +269,7 @@ class EvaluateResponse(BaseModel):
     )
     feature_source: str | None = Field(
         default=None,
-        description="l2 | l1 | raw. Empty FEATURE_STORE_URL is not l2.",
+        description="l2 | l1 | raw matching the path used. Empty FEATURE_STORE_URL is not l2.",
     )
     challenge_policy_id: str | None = Field(
         default=None,
