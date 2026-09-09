@@ -1,4 +1,6 @@
 export type LoopUnknownReasons = {
+  join_rate?: string;
+  labeled_receipt_rate?: string;
   evaluate_count?: string;
   action_mix?: string;
   shadow_divergence?: string;
@@ -20,6 +22,8 @@ export type LoopMetrics = {
   evaluate_count?: number | null;
   action_mix?: Record<string, number> | null;
   shadow_divergence?: number | null;
+  join_rate?: number | null;
+  labeled_receipt_rate?: number | null;
   reason_code?: string | null;
   unknown_reasons?: LoopUnknownReasons | null;
 };
@@ -29,6 +33,9 @@ const UNKNOWN_REASON_EN: Record<string, string> = {
   no_shadow_live_pairs: "no Observe/live pairs in window",
   empty_tenant: "empty tenant",
   not_computed: "metrics not yet available",
+  no_receipts: "no receipts",
+  no_labels: "no labels",
+  receipt_store_absent: "receipt store absent",
 };
 
 type UnknownField = keyof LoopUnknownReasons;
@@ -40,6 +47,11 @@ function reasonEnglish(metrics: LoopMetrics, field: UnknownField): string {
 
 function dashReason(metrics: LoopMetrics, field: UnknownField): string {
   return `— ${reasonEnglish(metrics, field)}`;
+}
+
+function pct(v: number | null | undefined): string | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return `${Math.round(v * 100)}%`;
 }
 
 function num(v: number | null | undefined): string {
@@ -150,9 +162,21 @@ export function LoopScoreboard({
               : String(metrics.shadow_divergence)}
           </dd>
         </div>
+        <div>
+          <dt className="text-gray-500">join rate</dt>
+          <dd data-testid="loop-join-rate">
+            {pct(metrics.join_rate) ?? dashReason(metrics, "join_rate")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">labeled receipt rate</dt>
+          <dd data-testid="loop-labeled-receipt-rate">
+            {pct(metrics.labeled_receipt_rate) ?? dashReason(metrics, "labeled_receipt_rate")}
+          </dd>
+        </div>
       </dl>
       <p className="mt-1 text-[11px] text-gray-500" data-testid="bakeoff-help">
-        Loop metrics inform Promote. Thresholds are tenant policy, not Tarka morals.
+        Loop metrics inform Promote. Join-rate fuel for effectiveness, not a CRM. Horizons are tenant policy, not Tarka morals.
       </p>
     </div>
   );
