@@ -143,7 +143,7 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
     label: "Policy & testing",
     items: [
       { to: "/rules", label: "Rules", module: "rules" },
-      { to: "/rules/visual", label: "Visual rule builder", module: "rules" },
+      { to: "/rules/visual", label: "Legacy canvas (not a product SKU)", module: "rules" },
       { to: "/entity-lists", label: "Entity Lists", module: "entity-lists" },
       { to: "/observe", label: "Observe", module: "shadow" },
       { to: "/simulation", label: "Simulation", module: "simulation" },

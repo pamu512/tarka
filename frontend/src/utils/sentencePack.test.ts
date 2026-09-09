@@ -43,6 +43,14 @@ describe("sentencePack", () => {
     expect(rule.description.toLowerCase()).toContain("sibling");
   });
 
+  it("blank threshold still emits Observe JSON evaluate already runs", () => {
+    const pack = emitVelocityPack({ field: "event_count_1h", op: "gte", value: 0 });
+    expect(pack.mode).toBe("shadow");
+    const rule = (pack.rules as Array<{ when: Array<{ field: string; value: number }> }>)[0];
+    expect(rule.when[0].field).toBe("event_count_1h");
+    expect(rule.when[0].value).toBe(0);
+  });
+
   it("emits HAS_LIST from the shipped etype list", () => {
     const pack = emitHopPack({ etype: "HAS_LIST" });
     const rule = (pack.rules as Array<{ when_ast: { etype: string } }>)[0];
