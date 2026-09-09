@@ -33,6 +33,7 @@ def test_empty_llm_is_deterministic_never_ai_suggested():
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="vertex",
         is_ai_authored=True,
         llm_url="",
@@ -54,6 +55,7 @@ def test_human_may_skip_backtest_into_observe():
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="human",
         is_ai_authored=False,
         llm_url="",
@@ -86,10 +88,41 @@ def test_human_skip_requires_actor_and_reason():
     assert ei.value.http_status == 400
 
 
+def test_leftover_empty_why_is_rejected():
+    with pytest.raises(L2DraftError) as ei:
+        build_l2_draft(
+            receipt=_receipt(),
+            leftover_id="lo-1",
+            override_why="short",
+            authored_by="human",
+            skip_backtest=True,
+            actor="ana-1",
+            skip_reason="seasonal known good",
+        )
+    assert ei.value.code == "why_required"
+    assert ei.value.http_status == 400
+    assert "8" in ei.value.detail
+
+
+def test_leftover_why_persists_on_observe_pack():
+    pack = build_l2_draft(
+        receipt=_receipt(),
+        leftover_id="lo-1",
+        override_why="seasonal leftover",
+        authored_by="human",
+        skip_backtest=True,
+        actor="ana-1",
+        skip_reason="seasonal leftover",
+    )
+    assert pack["evidence"]["override_why"] == "seasonal leftover"
+    assert pack["mode"] == "shadow"
+
+
 def test_lifecycle_hash_and_schema_on_observe_pack():
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="human",
         skip_backtest=True,
         actor="ana-1",
@@ -108,6 +141,7 @@ def test_abandon_and_promote_close_open_draft():
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="human",
         skip_backtest=True,
         actor="ana-1",
@@ -120,6 +154,7 @@ def test_abandon_and_promote_close_open_draft():
     again = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="human",
         skip_backtest=True,
         actor="ana-1",
@@ -135,6 +170,7 @@ def test_ai_observe_records_backtest_pass_artifact():
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="scout",
         is_ai_authored=True,
         llm_url="http://llm.example",
@@ -221,6 +257,7 @@ def test_invalid_schema_is_dropped():
         build_l2_draft(
             receipt=_receipt(),
             leftover_id="lo-1",
+            override_why="leftover seed why",
             authored_by="human",
             is_ai_authored=False,
             llm_url="",
@@ -242,6 +279,7 @@ def test_live_evaluate_never_sees_draft(tmp_path, monkeypatch):
     pack = build_l2_draft(
         receipt=_receipt(),
         leftover_id="lo-1",
+        override_why="leftover seed why",
         authored_by="human",
         is_ai_authored=False,
         llm_url="",
@@ -377,6 +415,19 @@ def _human_body(trace_id: str) -> dict:
         "skip_backtest": True,
         "skip_reason": "seasonal known good",
     }
+
+
+@pytest.mark.asyncio
+async def test_http_leftover_empty_why_is_400(l2_client):
+    body = _human_body(l2_client._trace_id)
+    body["override_why"] = "short"
+    r = await l2_client.post(
+        "/v1/rules/l2-draft",
+        json=body,
+        headers={"X-Actor": "ana-1"},
+    )
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"]["code"] == "why_required"
 
 
 @pytest.mark.asyncio

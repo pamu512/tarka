@@ -10,6 +10,7 @@ from typing import Any
 from decision_api.rule_pack_validation import validate_rule_pack
 
 SCHEMA_VERSION = 1
+OVERRIDE_WHY_MIN = 8
 _HUMAN = frozenset({"human", "seed", ""})
 _AI_MARKERS = frozenset(
     {"scout", "vllm", "vertex", "ai", "llm", "byom", "assist", "openai", "anthropic"}
@@ -142,6 +143,13 @@ def build_l2_draft(
     if skip_backtest and not ai and (not who or not why_skip):
         raise L2DraftError(
             "skip_audit_required", http_status=400, detail="actor and skip_reason"
+        )
+    why = (override_why or "").strip()
+    if leftover and len(why) < OVERRIDE_WHY_MIN:
+        raise L2DraftError(
+            "why_required",
+            http_status=400,
+            detail=f"override_why must be at least {OVERRIDE_WHY_MIN} characters",
         )
     soften = (intent or "").strip().lower() == "soften"
     built = (

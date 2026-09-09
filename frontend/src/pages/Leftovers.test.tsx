@@ -152,6 +152,23 @@ describe("Leftovers", () => {
     vi.mocked(client.cases.listLeftovers).mockResolvedValue({ leftovers: [], truncated: false });
     render(wrap(<Leftovers />));
     expect(await screen.findByTestId("queue-honesty")).toHaveTextContent(/not your case CRM/i);
+    expect(await screen.findByTestId("leftovers-empty")).toHaveTextContent(/not your case CRM/i);
+    expect(screen.getByTestId("leftovers-empty")).toHaveTextContent(/REVIEW or DENY/i);
+    expect(screen.queryByText(/inbox is clear/i)).not.toBeInTheDocument();
+  });
+
+  it("shows leftover Create-draft why on the leftover after save", async () => {
+    vi.mocked(client.rules.createL2Draft).mockReset();
+    vi.mocked(client.rules.createL2Draft).mockResolvedValue({
+      file: "l2.json",
+      pack: { mode: "shadow" },
+    });
+    render(wrap(<Leftovers />));
+    const why = (await screen.findAllByTestId("leftover-override-why"))[0];
+    fireEvent.change(why, { target: { value: "human leftover why" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /create draft/i })[0]);
+    expect(await screen.findByTestId("leftover-saved-why")).toHaveTextContent("human leftover why");
+    expect(screen.queryByTestId("open-existing-draft")).not.toBeInTheDocument();
   });
 
   it("shows leftover brief or em dash", async () => {
