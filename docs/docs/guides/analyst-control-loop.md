@@ -2,6 +2,14 @@
 
 One desk path. No buyer-demo theater.
 
+## Investigator path
+
+Decisions is the receipt list: what the pack decided and which pack fired, in plain English. Open a row for why. You do not need pack UUIDs.
+
+REVIEW or DENY leaves a leftover. Next legal actions: Open receipt, Create Observe draft, or disposition on Hunt. ALLOW never leaves a leftover.
+
+Leftovers are residual, not a case CRM. Evaluate still decides in Rust.
+
 1. **Leftover / HIL / FP** — `/leftovers` is residual. Work happens on Hunt (`/graph`). FP late-label mints a soften Observe draft.
 2. **Draft** — leftover/HIL → L2 draft (`mode=shadow`). Typed leftover why is ≥8 characters; the leftover brief is not the why. After save, why stays on leftover — no `/ops/shadow` detour. Duplicate mint returns `409 draft_exists` — open the existing draft. Sentence pack on Observe emits the same JSON; legacy canvas is not a product SKU.
 3. **Backtest / skip** — AI drafts require replay pass. Human skip needs actor + reason.
