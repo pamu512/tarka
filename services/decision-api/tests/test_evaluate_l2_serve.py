@@ -27,7 +27,13 @@ for _p in (
     if _s not in sys.path:
         sys.path.insert(0, _s)
 
-from decision_api.feature_l2 import evaluate_l2_read, fetch_l2_features  # noqa: E402
+from decision_api.feature_l2 import (  # noqa: E402
+    _STORE,
+    evaluate_l2_read,
+    fetch_l2_features,
+    get_features,
+    serve_features,
+)
 
 
 def _override_session_factory(mock_session):
@@ -360,3 +366,150 @@ async def test_evaluate_l2_miss_fail_soft_not_fake_l2(
     assert data["decision"]
     assert data["feature_source"] in {"l1", "raw"}
     assert data["feature_source"] != "l2"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_seen_event_readable_at_as_of_no_later_leak(
+    eval_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEATURE_STORE_URL", "http://fs.test")
+    tenant, entity = "t-w-eval-pit", "u-w-eval-pit"
+    _STORE.pop((tenant, "user", entity), None)
+    t1 = "2026-01-01T00:00:00Z"
+    t2 = "2026-06-01T00:00:00Z"
+    main = eval_client.tarka_main  # type: ignore[attr-defined]
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
+    ):
+        r1 = await eval_client.post(
+            "/v1/decisions/evaluate",
+            json=_eval_body(
+                tenant_id=tenant,
+                entity_id=entity,
+                payload={"amount": 10},
+                metadata={"event_time": t1},
+            ),
+        )
+        r2 = await eval_client.post(
+            "/v1/decisions/evaluate",
+            json=_eval_body(
+                tenant_id=tenant,
+                entity_id=entity,
+                payload={"amount": 99},
+                metadata={"event_time": t2},
+            ),
+        )
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    assert (
+        get_features(
+            tenant_id=tenant, entity_type="user", entity_id=entity, as_of=t1
+        ).get("amount")
+        == 10
+    )
+    assert (
+        get_features(
+            tenant_id=tenant,
+            entity_type="user",
+            entity_id=entity,
+            as_of="2025-12-01T00:00:00Z",
+        )
+        == {}
+    )
+    assert (
+        get_features(
+            tenant_id=tenant, entity_type="user", entity_id=entity, as_of=t2
+        ).get("amount")
+        == 99
+    )
+
+
+@pytest.mark.asyncio
+async def test_evaluate_empty_url_writer_noop_serve_stays_off(
+    eval_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("FEATURE_STORE_URL", raising=False)
+    monkeypatch.setenv("FEATURE_STORE_URL", "")
+    tenant, entity = "t-w-eval-off", "u-w-eval-off"
+    _STORE.pop((tenant, "user", entity), None)
+    main = eval_client.tarka_main  # type: ignore[attr-defined]
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
+    ):
+        r = await eval_client.post(
+            "/v1/decisions/evaluate",
+            json=_eval_body(
+                tenant_id=tenant,
+                entity_id=entity,
+                payload={"amount": 10, "created_at": "2026-01-01T00:00:00Z"},
+            ),
+        )
+    assert r.status_code == 200, r.text
+    assert r.json()["decision"]
+    assert (tenant, "user", entity) not in _STORE
+    assert (
+        get_features(
+            tenant_id=tenant,
+            entity_type="user",
+            entity_id=entity,
+            as_of="2026-01-01T00:00:00Z",
+        )
+        == {}
+    )
+    served = await serve_features("user", entity, tenant_id=tenant)
+    assert served["l2"] == "off"
+    assert served["feature_source"] != "l2"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_writer_exception_fail_soft(
+    eval_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEATURE_STORE_URL", "http://fs.test")
+    main = eval_client.tarka_main  # type: ignore[attr-defined]
+    with (
+        patch.object(main, "evaluate_json_rules", return_value=([], [], 0.0, [])),
+        patch.object(
+            main,
+            "evaluate_opa_or_raise",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch.object(
+            main,
+            "_fetch_ml_score_wrapped",
+            new_callable=AsyncMock,
+            return_value=(None, {}),
+        ),
+        patch(
+            "decision_api.evaluate.pipeline.write_event_features",
+            side_effect=RuntimeError("writer lag"),
+        ),
+    ):
+        r = await eval_client.post("/v1/decisions/evaluate", json=_eval_body())
+    assert r.status_code == 200, r.text
+    assert r.json()["decision"]
