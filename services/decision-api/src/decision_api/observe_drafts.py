@@ -6,7 +6,11 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from decision_api.loop_metrics import compute_loop_metrics, load_ai_gate_counts
+from decision_api.loop_metrics import (
+    compute_loop_metrics,
+    load_ai_gate_counts,
+    load_evaluations_for_tenant,
+)
 from decision_api.shadow import get_observations
 from decision_api.y_label_store import load_label_records
 
@@ -49,6 +53,7 @@ async def get_loop_metrics(tenant_id: str = Query(..., min_length=1, max_length=
         ai_passed=passed,
         tenant_id=tenant_id,
         observations=get_observations(10000),
+        evaluations=load_evaluations_for_tenant(tenant_id),
     )
 
 
