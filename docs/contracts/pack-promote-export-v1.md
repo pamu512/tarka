@@ -45,12 +45,15 @@ Consumers should dedupe on `pack_id` + `pack_hash` + `emitted_at`. A copied or r
 - Do not treat a line as Promote authority.
 - Commercial assist is help consuming this export ([SUPPORT](../../SUPPORT.md)). It does not replace desk Promote.
 
+## Sample consumer
+
+Optional backup sink: [pack-promote-export-consumer](../examples/pack-promote-export-consumer.md) (`scripts/pack_promote_export_consumer.py`). Writes a commit-message stub. Does not gate desk Promote. Empty `PACK_PROMOTE_EXPORT_CONSUMER_URL` = outbound notify off.
+
 ## Out of scope (hard)
 
 - Git merge is not the go-live gate.
 - Export absence is not demote.
 - This contract is not Promote authority.
-- Sample consumer.
 - Auto-Promote default on (stays off).
 - Making CI or git merge required for Promote.
 - Case CRM.
