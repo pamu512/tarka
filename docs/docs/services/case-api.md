@@ -199,7 +199,7 @@ Fetch the entity graph centered on the case's entity (proxied to Graph Service).
 GET /v1/cases/{case_id}/graph?depth=2
 ```
 
-**Response:** Same format as Graph Service `/v1/subgraph` — `{ nodes, edges }`.
+**Response:** Same format as Graph Service `/v1/subgraph` — `{ nodes, edges }` plus `tarka.hunt_depth/v1` honesty fields when the graph plane is on.
 
 ---
 

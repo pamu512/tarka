@@ -10,14 +10,15 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor sdk-walk help
+.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor sdk-walk synth-loop help
 
 help:
-	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk"
+	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk synth-loop"
 	@echo "  doctor   preflight: Docker, day-1 ports, ~4 GB RAM"
 	@echo "  demo     clone-and-run: lite+desk up, honest evaluate walk, one printed click"
 	@echo "  product  product skin + desk_provision; Shadow only when LLM URL is set"
 	@echo "  sdk-walk optional: same three evaluate cases via Python DecisionClient (desk already up)"
+	@echo "  synth-loop  local operator: loop evaluate (+ occasional late-label); desk already up"
 
 # Day-1 preflight (no compose). See docs/docs/guides/clone-demo.md
 doctor:
@@ -35,6 +36,11 @@ product:
 # Desk must already be up. Not a second Day-1 promise.
 sdk-walk:
 	PYTHONPATH="$(ROOT)/packages/fraud-sdk-python/src:$(ROOT)/scripts/oss" python3 "$(ROOT)/scripts/oss/sdk_walk.py"
+
+# Local operator loop: evaluate POSTs (+ occasional late-label). Desk must already be up.
+# Flags: make synth-loop ARGS='--max 30 --dry-run'
+synth-loop:
+	PYTHONPATH="$(ROOT)/scripts/oss" python3 "$(ROOT)/scripts/oss/synth_loop.py" $(ARGS)
 
 # Policy-as-code: JSON rule packs + v2 AST packs (+ optional OPA bundle lint).
 policy-check:
