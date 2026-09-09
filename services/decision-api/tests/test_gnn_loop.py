@@ -324,3 +324,45 @@ def test_evaluate_role_is_required_on_receipt():
     assert snap["status"] == "graph:missing"
     assert snap["role"] == "member"
     assert snap["vertices"] == []
+
+
+@pytest.mark.asyncio
+async def test_unset_gnn_beta_url_no_live_score_heuristic_stays(monkeypatch):
+    """G2.4: empty GRAPH_GNN_BETA_URL → no live GNN; ring_score stays heuristic_v1."""
+    import os
+
+    from decision_api.gnn_loop.readiness import compute_graph_risk_readiness
+    from decision_api.gnn_loop.serve import score_graph_risk
+    from decision_api.ring_score import compute_ring_score
+
+    monkeypatch.delenv("GRAPH_GNN_BETA_URL", raising=False)
+    assert os.environ.get("GRAPH_GNN_BETA_URL", "").strip() == ""
+    assert await score_graph_risk("t", "e1") is None
+    ready = compute_graph_risk_readiness(
+        tenant_id="acme",
+        receipts=[],
+        labeled_rows=[],
+        graph_service_url="",
+        graph_gnn_beta_url=os.environ.get("GRAPH_GNN_BETA_URL", ""),
+        gate=None,
+    )
+    assert ready["gnn_claim_allowed"] is False
+    assert ready["overlay_url"] == "empty"
+    ring = compute_ring_score(
+        metadata={
+            "party_graph": {
+                "nodes": [
+                    {"id": "b1", "role": "buyer"},
+                    {"id": "s1", "role": "seller"},
+                    {"id": "d1", "role": "device"},
+                ],
+                "edges": [
+                    {"src": "b1", "dst": "d1", "type": "USES_DEVICE"},
+                    {"src": "s1", "dst": "d1", "type": "USES_DEVICE"},
+                ],
+            }
+        }
+    )
+    assert ring is not None
+    assert ring.evidence()["method"] == "heuristic_v1"
+    assert ring.evidence()["gnn_claim_allowed"] is False
