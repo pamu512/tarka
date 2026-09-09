@@ -16,6 +16,7 @@
 - [ ] Updates AuditLog schema?
 - [ ] Partner fusion: fixture SHA still pinned **or** live tenant proof SHA attached **or** waiver noted (`docs/compliance/partner-fusion-proof-runbook.md`)
 - [ ] If touching `/ops/qa` or QA sampling APIs: confirm Ops QA desk e2e workflow is green on schedule/dispatch (`.github/workflows/ops-qa-desk-e2e.yml`)
+- [ ] Do not mint `tarka.loop_metrics/v2` or fork `tarka.pack_metrics/v1` (D8 globals + M3 `pack_metrics[]` coexist; filling one must not clobber the other)
 
 If AuditLog schema is not applicable, write **`AuditLog schema: N/A`** in the Summary above (no migration or ORM change to audit tables).
 

@@ -91,6 +91,36 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("evaluate_count", lock)
         self.assertIn("action_mix", lock)
 
+    def test_bakeoff_d8_m3_coexistence_named(self) -> None:
+        """D8.4: same v1 payload; do not mint v2 or fork pack-metrics."""
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(
+            encoding="utf-8"
+        )
+        for needle in (
+            "Coexistence",
+            "LoopScoreboard",
+            "/ops/bakeoff",
+            "pack_metrics[]",
+            "tarka.loop_metrics/v2",
+        ):
+            self.assertIn(needle, text)
+        sop = (ROOT / "docs/docs/guides/bakeoff-sop.md").read_text(encoding="utf-8")
+        self.assertIn("LoopScoreboard", sop)
+        self.assertIn("/ops/bakeoff", sop)
+        self.assertIn("Promote", sop)
+        guide = (ROOT / "docs/docs/guides/analyst-control-loop.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("LoopScoreboard", guide)
+        self.assertIn("/ops/bakeoff", guide)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("LoopScoreboard", lock)
+        self.assertIn("tarka.loop_metrics/v2", lock)
+        template = (ROOT / ".github/pull_request_template.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tarka.loop_metrics/v2", template)
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
