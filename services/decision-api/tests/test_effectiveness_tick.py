@@ -12,7 +12,10 @@ from decision_api.effectiveness_tick import (
 )
 
 _TICK_SRC = (
-    Path(__file__).resolve().parents[1] / "src" / "decision_api" / "effectiveness_tick.py"
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "decision_api"
+    / "effectiveness_tick.py"
 )
 
 
@@ -20,7 +23,9 @@ def _active(name: str, tenant_id: str = "acme") -> dict:
     return {"name": name, "mode": "active", "tenant_id": tenant_id}
 
 
-def _obs(pack_id: str, tenant_id: str, *, diverged: bool, hits: list, trace_id: str = "") -> dict:
+def _obs(
+    pack_id: str, tenant_id: str, *, diverged: bool, hits: list, trace_id: str = ""
+) -> dict:
     return {
         "pack_id": pack_id,
         "tenant_id": tenant_id,

@@ -41,7 +41,9 @@ async def list_observe_drafts(state: str | None = Query(default=None)):
 
 
 @router.get("/demote-suggestions")
-async def get_demote_suggestions(tenant_id: str = Query(..., min_length=1, max_length=128)):
+async def get_demote_suggestions(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+):
     return {"suggestions": load_suggestions(tenant_id)}
 
 
