@@ -110,13 +110,13 @@ No map rows → evaluate is identical to pre-registry behavior.
 
 | | Demo (`TARKA_DESK_PROFILE=demo`) | Product (Postgres `DATABASE_URL`) |
 |---|----------------------------------|-----------------------------------|
-| Registry seed | Bundled `field_registry_v1.json` | Same seed file |
-| Overlay rows | Not durable in demo image | `field_registry` table |
-| Maps | `field_maps` when DB exists; otherwise seed `maps` array | `field_maps` table |
-| `GET /v1/fields`, discover | Allowed | Allowed |
-| `PUT /v1/fields/*`, `PUT /v1/fields/maps` | **403** — `maps persist on product Postgres` | Persists |
+| Registry seed | Bundled `field_registry_v1.json` (**file/fixture**) | Same seed file |
+| Overlay rows | Not durable — seed file/fixture only | `field_registry` table (survives restart) |
+| Maps | Not durable — seed file/fixture only | `field_maps` table (survives restart) |
+| `GET /v1/fields`, discover | Allowed (seed fixture) | Allowed |
+| `PUT /v1/fields/*`, `PUT /v1/fields/maps` | **403** — `maps persist on product Postgres` | Persists in Postgres |
 
-Demo recreate without a volume **drops** tenant maps. That is a documented limitation, not a second API. Fraud-desk compose is unchanged in this slice — do not expect durable registry writes from `make demo`.
+Demo recreate without a volume **drops** any leftover tenant rows. That is a documented limitation, not a second API. Fraud-desk compose is unchanged — do not expect durable registry writes from `make demo`. PUT 403 is the demo write path.
 
 ---
 

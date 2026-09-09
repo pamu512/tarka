@@ -64,6 +64,7 @@ from .graph_runtime import (
     upsert_entity,
 )
 from .mapped_ingest import MappedIngestRequest, ingest_mapped_object
+from .hunt_depth import attach_hunt_depth, hunt_walk_depth
 from .hunt_net import apply_hunt_net, clamp_lookback_days
 
 log = logging.getLogger(__name__)
@@ -596,12 +597,13 @@ async def subgraph(
     lookback_days: int | None = None,
     types: str | None = None,
 ):
-    data = _subgraph_for_read(await query_subgraph(tenant_id, entity_id, depth), request)
+    walk = hunt_walk_depth(depth)
+    data = _subgraph_for_read(await query_subgraph(tenant_id, entity_id, walk), request)
     lb = clamp_lookback_days(lookback_days)
     type_list = [part.strip() for part in (types or "").split(",") if part.strip()] or None
-    if lb is None and type_list is None:
-        return data
-    return apply_hunt_net(data, seed_id=entity_id, lookback_days=lb, types=type_list)
+    if lb is not None or type_list is not None:
+        data = apply_hunt_net(data, seed_id=entity_id, lookback_days=lb, types=type_list)
+    return attach_hunt_depth(data, depth, depth_applied=walk)
 
 
 # ---------- schema endpoints ----------
