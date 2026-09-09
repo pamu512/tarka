@@ -16,6 +16,10 @@ Ungated tenant → human Promote required. If `auto_promote` is explicitly on **
 
 Use desk Promote with a typed reason. Hop packs stay shadow until the same gated-or-human rule.
 
+## Effectiveness tick (Suggest Propose Demote)
+
+`POST /v1/ops/effectiveness-tick?tenant_id=` scores Active packs from `pack_metrics[]` and optional FP labels. It writes numbered suggestions only (`GET /v1/observe/demote-suggestions`). Human Propose → Confirm still required. Auto-demote forbidden. Cron: `curl -X POST .../v1/ops/effectiveness-tick?tenant_id=...`.
+
 ## Links
 
 - [bakeoff-metrics-v1](../../../contracts/bakeoff-metrics-v1.md)
