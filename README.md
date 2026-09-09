@@ -49,7 +49,7 @@ OIDC optional.
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
 | Observe = canary. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. | Live unattended hops; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs (`USES_DEVICE` …) `mode=shadow`. Live only after promote gates pass. | Always-on graph; “every evaluate is on the graph”; GNN live |
-| Enforcement contract-gated; default emit-only | Handoff as Day-1 default; silent block in emit-only |
+| Enforcement contract-gated; default emit-only. Outbound webhooks HMAC-SHA256 (`x-tarka-signature`) when secret is set. Empty URL = plane off. | Handoff as Day-1 default; silent block in emit-only; unsigned enforcement webhooks as the contract |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Closed omniscient AI author loop; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft; AI backtest required first. FP late-label → Observe soften (not CRM) | Beachhead seeds as live; banks as the beachhead |
 | Graph-risk / ring-score challenger. Beachhead Observe seeds (promo / COD / payout) stay Observe | Users / LOI / ARR as traction |
