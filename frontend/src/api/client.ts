@@ -1126,6 +1126,12 @@ export type CommandCenterResponse = {
 export interface SubgraphResponse {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** Present after D7.3 Hunt depth emit. Absent → desk stubs "depth not yet reported". */
+  schema_id?: string;
+  hunt_depth_max?: number;
+  depth_requested?: number;
+  depth_applied?: number;
+  degrade_reason?: string | null;
 }
 
 export interface CommunityResult {
@@ -1847,6 +1853,20 @@ export const decisions = {
       smoke?: string;
       honesty?: string;
     }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
+  },
+
+  demoteSuggestions(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      suggestions: Array<{
+        pack_id?: string;
+        rule_hit_rate?: number | null;
+        shadow_divergence?: number | null;
+        fp_count?: number;
+        reason_code?: string;
+        action?: string;
+      }>;
+    }>(`/api/decisions/v1/observe/demote-suggestions?${q}`);
   },
 
   loopMetrics(tenantId: string) {
