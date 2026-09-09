@@ -595,11 +595,12 @@ async def run_evaluate_decision(
         step_trace.append(snap_trace)
         features: dict[str, Any] = dict(snapshot.get("features") or {})
         redis_tag_list = list(snapshot.get("redis_tags") or existing_tags)
+        event_as_of = evaluate_as_of_iso(body.metadata, body.payload)
         l2_feats, feature_source = await evaluate_l2_read(
             http,
             tenant_id=body.tenant_id,
             entity_id=body.entity_id,
-            as_of=evaluate_as_of_iso(body.metadata, body.payload),
+            as_of=event_as_of,
             redis_url=settings.redis_url,
             timeout_s=settings.eval_step_feature_snapshot_timeout_seconds,
         )
@@ -1423,11 +1424,15 @@ async def run_evaluate_decision(
             raise HTTPException(
                 400, detail={"code": "receipt_join_incomplete", "detail": "entity_id"}
             ) from None
-        write_event_features(
-            tenant_id=body.tenant_id,
-            entity_id=body.entity_id,
-            payload=body.payload if isinstance(body.payload, dict) else None,
-        )
+        try:
+            write_event_features(
+                tenant_id=body.tenant_id,
+                entity_id=body.entity_id,
+                payload=body.payload if isinstance(body.payload, dict) else None,
+                event_ts=event_as_of,
+            )
+        except Exception:
+            pass
         try:
             from decision_api.vendor_score import fetch_vendor_score
 
