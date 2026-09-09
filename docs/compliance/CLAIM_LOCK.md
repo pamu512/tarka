@@ -21,7 +21,7 @@
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
-| Pack promote export | [`docs/contracts/pack-promote-export-v1.md`](../contracts/pack-promote-export-v1.md) — `tarka.pack_promote_export/v1` after desk Promote. Desk Promote is live SoT / go-live. Git / export is backup. |
+| Pack promote export | [`docs/contracts/pack-promote-export-v1.md`](../contracts/pack-promote-export-v1.md) — `tarka.pack_promote_export/v1` after desk Promote. Desk Promote is live SoT / go-live. Git / export is backup. Sample consume: [`docs/examples/pack-promote-export-consumer.md`](../examples/pack-promote-export-consumer.md). Empty consumer URL = outbound off. |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
