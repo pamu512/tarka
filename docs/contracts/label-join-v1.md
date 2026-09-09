@@ -74,6 +74,10 @@ Late labels may arrive 30–120 days later. Never reconstruct features — bind 
 
 Scheduled consume (buyer cron / lake upsert) is documented in [warehouse-sink-v1](warehouse-sink-v1.md). Tarka does not host the buyer warehouse.
 
+## Optional consume → Observe draft
+
+Buyer-owned. Joined warehouse labels since T (`labeled_at_by_trace`) may propose Observe drafts (`authored_by=seed`) via `consume_joined_labels`. `find_open_draft` keeps a second run from opening a duplicate. Promote only through existing gates / human. Never auto Active. Empty input = no drafts. Not a case inbox.
+
 ## Out of scope
 
 - Changing bind implementation (W2)
@@ -82,6 +86,7 @@ Scheduled consume (buyer cron / lake upsert) is documented in [warehouse-sink-v1
 - Chargeback-guarantee SKU
 - CRM dispute product
 - Auto-demote from horizons
-- Consuming join-rate into Observe drafts (G5.4)
+- Consuming join-rate into Observe drafts (join-rate stays glass)
+- Auto-Promote / auto Active from labels
 
 Join-rate glass lives on `tarka.loop_metrics/v1` (`join_rate` / `labeled_receipt_rate`). See [bakeoff-metrics-v1](bakeoff-metrics-v1.md).
