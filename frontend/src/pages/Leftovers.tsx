@@ -95,7 +95,7 @@ export default function Leftovers() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-gray-500">
+                <td colSpan={10} className="px-3 py-6 text-gray-500" data-testid="leftovers-empty">
                   No leftovers. Connect your queue — leftovers are residual. Tarka is not your case CRM. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
