@@ -62,6 +62,8 @@ Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE
 
 Optional L2 writers (same plane): when the URL is set, evaluate-seen events upsert L2 (`amount` / `event_count_1h` / `sum_amount_1h`) at the event `as_of` (`event_time` / `created_at` / …). Warehouse/export jsonl can `backfill_from_jsonl` — same tenant/entity/`as_of` replaces, does not double-append into a later PIT read. Empty `FEATURE_STORE_URL` = no L2 writes (writers no-op; serve stays `l2:off`). Writer errors or lag fail-soft: evaluate still returns a decision and does not wait on a remote writer. Writers do not decide ALLOW/DENY. This is not a required stream-processor SKU.
 
+Golden PIT (offline): write at T1, then a later T2; replay `get_features(as_of=T1)` matches the T1 frozen features — T2 must not leak. Compare event-time, not string sort. `holdout_split` (and `apply_holdout_split` on ML export) is sidecar/offline only: the training split cannot include rows with `as_of >= cutoff`. Model never ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false. `GRAPH_GNN_BETA_URL` unset stays off.
+
 Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is bundled seed file/fixture; PUTs 403. Windows stay on `counter_manifest_v1.json`. See [field-registry-onboarding](field-registry-onboarding.md).
 
 **Downstream of action:**
