@@ -6,6 +6,7 @@ case-api remains a separate outcome path.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -19,6 +20,11 @@ from typing import Any, Callable, Literal
 log = logging.getLogger("decision-api.enforcement")
 
 ENFORCEMENT_JOURNAL_SCHEMA = "tarka.enforcement_delivery/v1"
+
+# ponytail: in-process N=3 only. Crash loses in-flight retries (journal already has
+# retrying / dead_lettered). Durable bus (Redis/SQS/Celery) is out of scope.
+ENFORCEMENT_RETRY_ATTEMPTS = 3
+ENFORCEMENT_RETRY_BACKOFF_S = (0.05, 0.15)
 
 EnforcementAction = Literal["allow", "step_up", "block"]
 
@@ -211,7 +217,7 @@ def enforcement_journal_path() -> Path:
 
 
 def append_enforcement_journal(record: dict[str, Any]) -> None:
-    """Append-only delivery journal (ack / fail / skipped). Fail soft."""
+    """Append-only delivery journal (acked / retrying / dead_lettered / skipped). Fail soft."""
     path = enforcement_journal_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -257,6 +263,21 @@ def read_enforcement_journal(limit: int = 50) -> list[dict[str, Any]]:
 
 def _sign(body: bytes, secret: str) -> str:
     return hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+
+
+async def _retry_wait(attempt: int) -> None:
+    """Backoff after a failed attempt. Tests monkeypatch this to 0."""
+    if 1 <= attempt <= len(ENFORCEMENT_RETRY_BACKOFF_S):
+        await asyncio.sleep(ENFORCEMENT_RETRY_BACKOFF_S[attempt - 1])
+
+
+def _retryable(*, status: int | None, error: str | None) -> bool:
+    if error:
+        return True
+    if status is None:
+        return True
+    code = int(status)
+    return code >= 500 or code == 429
 
 
 def _build_payload(
@@ -320,7 +341,8 @@ async def apply_enforcement_adapters(
 ) -> dict[str, Any]:
     """Emit enforcement metrics and optional tenant webhook for allow/step_up/block.
 
-    Fail soft: webhook/metric errors are logged; never raises into evaluate.
+    Fail soft: webhook/metric errors are logged and retried in-process (N=3);
+    never raises into evaluate and never converts a delivery miss into block/deny.
     """
     intent = resolve_enforcement_intent(decision, recommended_action)
     mode = enforcement_mode()
@@ -401,49 +423,98 @@ async def apply_enforcement_adapters(
     if secret:
         headers["x-tarka-signature"] = _sign(raw, secret)
 
-    try:
-        r = await http.post(url, content=raw, headers=headers, timeout=5.0)
-        status = getattr(r, "status_code", None)
-        ok = status is not None and 200 <= int(status) < 300
-        summary["webhook"] = {
-            "dispatched": True,
-            "status_code": status,
-            "ok": ok,
+    last_status: int | None = None
+    last_error: str | None = None
+    for attempt in range(1, ENFORCEMENT_RETRY_ATTEMPTS + 1):
+        ts = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        attempt_journal: dict[str, Any] = {
+            **base_journal,
+            "ts": ts,
+            "attempt_count": attempt,
         }
-        jstatus = "acked" if ok else "non_2xx"
-        append_enforcement_journal(
-            {
-                **base_journal,
-                "status": jstatus,
-                "http_status": status,
-            }
-        )
-        summary["journal"] = {"status": jstatus}
-        if not ok:
+        ok = False
+        last_status = None
+        last_error = None
+        try:
+            r = await http.post(url, content=raw, headers=headers, timeout=5.0)
+            last_status = getattr(r, "status_code", None)
+            ok = last_status is not None and 200 <= int(last_status) < 300
+        except Exception as e:
+            last_error = str(e)[:200]
             log.warning(
-                "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s",
-                status,
+                "enforcement_webhook_failed action=%s trace_id=%s attempt=%s: %s",
                 intent.action,
                 trace_id,
+                attempt,
+                e,
             )
-    except Exception as e:
-        log.warning(
-            "enforcement_webhook_failed action=%s trace_id=%s: %s",
-            intent.action,
-            trace_id,
-            e,
+
+        if ok:
+            summary["webhook"] = {
+                "dispatched": True,
+                "status_code": last_status,
+                "ok": True,
+            }
+            append_enforcement_journal(
+                {**attempt_journal, "status": "acked", "http_status": last_status}
+            )
+            summary["journal"] = {"status": "acked"}
+            return summary
+
+        will_retry = attempt < ENFORCEMENT_RETRY_ATTEMPTS and _retryable(
+            status=last_status, error=last_error
         )
+        if will_retry:
+            row: dict[str, Any] = {**attempt_journal, "status": "retrying"}
+            if last_error:
+                row["error"] = last_error
+            else:
+                row["http_status"] = last_status
+                log.warning(
+                    "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s attempt=%s",
+                    last_status,
+                    intent.action,
+                    trace_id,
+                    attempt,
+                )
+            append_enforcement_journal(row)
+            await _retry_wait(attempt)
+            continue
+
         summary["webhook"] = {
             "dispatched": True,
             "ok": False,
-            "error": str(e)[:200],
         }
-        append_enforcement_journal(
-            {
-                **base_journal,
-                "status": "error",
-                "error": str(e)[:200],
-            }
-        )
-        summary["journal"] = {"status": "error"}
+        if last_status is not None:
+            summary["webhook"]["status_code"] = last_status
+        if last_error:
+            summary["webhook"]["error"] = last_error
+        if _retryable(status=last_status, error=last_error):
+            last_err = last_error or f"http_{last_status}"
+            append_enforcement_journal(
+                {
+                    **attempt_journal,
+                    "status": "dead_lettered",
+                    "last_error": last_err,
+                    "http_status": last_status,
+                }
+            )
+            summary["journal"] = {"status": "dead_lettered"}
+        elif last_error:
+            append_enforcement_journal(
+                {**attempt_journal, "status": "error", "error": last_error}
+            )
+            summary["journal"] = {"status": "error"}
+        else:
+            append_enforcement_journal(
+                {**attempt_journal, "status": "non_2xx", "http_status": last_status}
+            )
+            summary["journal"] = {"status": "non_2xx"}
+            log.warning(
+                "enforcement_webhook_non_2xx status=%s action=%s trace_id=%s",
+                last_status,
+                intent.action,
+                trace_id,
+            )
+        return summary
     return summary

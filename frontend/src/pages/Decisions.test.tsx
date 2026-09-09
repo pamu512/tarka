@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -336,6 +336,97 @@ describe("Decisions stream", () => {
     expect(row.textContent).not.toContain("Advise");
     expect(row.textContent).toContain("REVIEW");
     expect(row.textContent).not.toMatch(/(^|[^A-Z])FLAG([^A-Z]|$)/);
+  });
+
+  it("shows decision and pack name without a memorized UUID", async () => {
+    const packUuid = "550e8400-e29b-41d4-a716-446655440000";
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [
+        {
+          ...LOGIN_REVIEW,
+          trace_id: packUuid,
+          short_id: "LOGIN001",
+          decision: "review",
+          rule_pack_file: `${packUuid}.json`,
+          pack_name: "Device signals",
+        },
+      ],
+    });
+
+    render(wrap(<Decisions />));
+
+    const row = await screen.findByTestId(`decisions-row-${packUuid}`);
+    expect(row.textContent).toContain("review");
+    const pack = screen.getByTestId(`decisions-pack-${packUuid}`);
+    expect(pack).toHaveTextContent("Device signals");
+    expect(pack).not.toHaveTextContent(packUuid);
+  });
+
+  it("opening a row reaches the receipt-why path", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [
+        {
+          ...LOGIN_REVIEW,
+          rule_pack_file: "device_signals.json",
+          rule_hits: ["sdk_rooted"],
+        },
+      ],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "ent-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 62,
+      tags: [],
+      rule_hits: ["sdk_rooted"],
+      rule_pack_file: "device_signals.json",
+      created_at: "2026-08-24T08:00:00Z",
+    });
+
+    render(wrap(<Decisions />));
+    fireEvent.click(await screen.findByTestId("decisions-row-tr-login-1"));
+
+    expect(await screen.findByTestId("pack-why-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-pack")).toHaveTextContent("device_signals");
+    expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("sdk_rooted");
+  });
+
+  it("hints only real next legal actions on a decisions row", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [LOGIN_REVIEW, PAYMENT_ALLOW],
+    });
+
+    render(wrap(<Decisions />));
+    await waitFor(() => expect(screen.queryAllByTestId(/decisions-row-/)).toHaveLength(2));
+
+    const review = within(screen.getByTestId("decisions-row-tr-login-1")).getByTestId("next-legal-action");
+    expect(review).toHaveTextContent("Open receipt");
+    expect(review).toHaveTextContent("Create Observe draft");
+    expect(review.textContent?.toLowerCase() ?? "").not.toMatch(/case crm|\bsar\b|open case/);
+
+    const allow = within(screen.getByTestId("decisions-row-tr-pay-1")).getByTestId("next-legal-action");
+    expect(allow).toHaveTextContent("Open receipt");
+    expect(allow).not.toHaveTextContent("Create Observe draft");
+    expect(allow.textContent?.toLowerCase() ?? "").not.toMatch(/case crm|\bsar\b|open case/);
+  });
+
+  it("empty decisions uses honest English, not API jargon", async () => {
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [],
+    });
+
+    render(wrap(<Decisions />));
+    const empty = await screen.findByTestId("decisions-empty");
+    const copy = empty.textContent?.toLowerCase() ?? "";
+    expect(copy).toMatch(/no recent decisions|no decisions yet/);
+    expect(copy).not.toMatch(/audit\/recent|fixture|placeholder|demo fill/);
+    expect(empty.textContent ?? "").toMatch(/does not invent|not an outage/i);
   });
 
   it("shows delivery chips next to pack-why from GET acks + journal", async () => {

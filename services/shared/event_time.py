@@ -10,12 +10,37 @@ replaces wall-clock ingest time for ZSET scores. See ``docs/docs/guides/late-arr
 """
 
 
+def holdout_split(
+    rows: list[dict[str, Any]], *, cutoff: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Training split cannot include ``as_of >= cutoff``. Event-time, not string sort.
+
+    Sidecar / offline only. Missing or unparseable timestamps go to hold (not train).
+    """
+    cut = parse_event_time_to_unix(cutoff)
+    train: list[dict[str, Any]] = []
+    hold: list[dict[str, Any]] = []
+    for row in rows:
+        raw = row.get("as_of") or row.get("created_at") or row.get("evaluation_time")
+        row_t = parse_event_time_to_unix(raw)
+        if cut is not None and row_t is not None and row_t < cut:
+            train.append(row)
+        else:
+            hold.append(row)
+    return train, hold
+
+
 def parse_event_time_to_unix(raw: Any) -> float | None:
     """Best-effort parse to Unix seconds. Returns None if missing or unparseable."""
     if raw is None:
         return None
     if isinstance(raw, bool):
         return None
+    if isinstance(raw, dt.datetime):
+        ts = raw
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=dt.UTC)
+        return ts.timestamp()
     if isinstance(raw, (int, float)):
         f = float(raw)
         if f <= 0:
