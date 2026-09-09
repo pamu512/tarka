@@ -23,6 +23,7 @@
 | Effectiveness tick | Suggests Propose Demote with pack metrics only. Human Confirm required. Auto-demote forbidden. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
+| Field registry | [`docs/docs/guides/field-registry-onboarding.md`](../docs/guides/field-registry-onboarding.md) — product Postgres `field_registry` / `field_maps`; demo file/fixture + PUT 403. Windows on `counter_manifest`. Not G1.3 PIT serve. |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
 | `prod-on-k8s` preset | Overlay exists ≠ GA / GitLab-grade. Digest pin + no sqlite/`emptyDir` for decisions/audit/labels/packs. See production-install-v1. |
@@ -45,6 +46,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). Outbound decision/action webhooks HMAC-SHA256 signed (`x-tarka-signature`) when secret is set. Empty URL = plane off. Suggested-action `action_id` is hex SHA-256 of tenant + trace_id + action token + pack hash — stable across retries, not a random UUID per POST. Inbound product ACK binds delivery status to `trace_id` + `action_id` (queryable). ACK is not Promote/Demote and not a case inbox. | Handoff as Day-1 default; silent block in emit-only; unsigned enforcement webhooks as the contract; random `action_id` per POST; ACK as Promote/Demote; case CRM from ACK; desk delivery glass as this slice (G4.4) |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
 | Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
+| Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is seed file/fixture; PUT 403. Windows stay on `counter_manifest`. | Durable registry on demo; windows in the registry; Redis as feature-def SoT |
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
 | Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`) | Closed omniscient AI author loop |

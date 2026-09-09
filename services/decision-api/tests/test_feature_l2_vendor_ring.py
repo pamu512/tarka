@@ -8,6 +8,7 @@ from decision_api.feature_l2 import (
     get_features,
     holdout_split,
     resolve_feature_source,
+    serve_features,
     upsert_feature,
 )
 from decision_api.ring_job import (
@@ -23,8 +24,32 @@ def test_empty_feature_store_url_not_l2(monkeypatch) -> None:
     monkeypatch.delenv("REDIS_URL", raising=False)
     monkeypatch.delenv("TARKA_REDIS_URL", raising=False)
     assert resolve_feature_source(redis_url="") == "raw"
+    monkeypatch.setenv("FEATURE_STORE_URL", "")
+    assert resolve_feature_source(redis_url="") == "raw"
+    monkeypatch.setenv("FEATURE_STORE_URL", "   ")
+    assert resolve_feature_source(redis_url="") == "raw"
     monkeypatch.setenv("FEATURE_STORE_URL", "http://fs")
     assert resolve_feature_source() == "l2"
+
+
+def test_empty_feature_store_url_with_redis_is_l1(monkeypatch) -> None:
+    monkeypatch.setenv("FEATURE_STORE_URL", "")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("TARKA_REDIS_URL", raising=False)
+    assert resolve_feature_source(redis_url="redis://localhost:6379/0") == "l1"
+    monkeypatch.setenv("FEATURE_STORE_URL", "   ")
+    assert resolve_feature_source(redis_url="redis://127.0.0.1:6379/1") == "l1"
+
+
+@pytest.mark.asyncio
+async def test_serve_features_empty_url_is_l2_off(monkeypatch) -> None:
+    monkeypatch.setenv("FEATURE_STORE_URL", "")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("TARKA_REDIS_URL", raising=False)
+    out = await serve_features("user", "e1", tenant_id="t1")
+    assert out["l2"] == "off"
+    assert out["feature_source"] in {"l1", "raw"}
+    assert out["feature_source"] != "l2"
 
 
 def test_pit_as_of() -> None:
