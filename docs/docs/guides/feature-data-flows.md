@@ -58,7 +58,7 @@ flowchart TD
 | Depth / ring / lifecycle / partner | vertical evidence | fused deltas | Adjust score / escalate. GNN overlay off unless holdout wins |
 | Emit | — | `recommended_action`, audit, `trace_id` | Leftovers / Hunt / webhooks react |
 
-Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE_URL` = L2 off (`feature_source` is `l1` or `raw`). `feast_class_claim_allowed` stays false until a real L2 product exists. See [feature-store-posture-v1](../../contracts/feature-store-posture-v1.md).
+Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE_URL` = L2 off (`feature_source` is `l1` or `raw`); evaluate never calls L2. When the URL is set, evaluate GETs L2 with `as_of` and stamps `feature_source=l2` only on a hit. Miss/timeout fail-soft to `l1`/`raw` (not a hard evaluate fail, not a fake `l2`). L2 does not decide ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false — this serve is not Feast. See [feature-store-posture-v1](../../contracts/feature-store-posture-v1.md).
 
 Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is bundled seed file/fixture; PUTs 403. Windows stay on `counter_manifest_v1.json`. See [field-registry-onboarding](field-registry-onboarding.md).
 
