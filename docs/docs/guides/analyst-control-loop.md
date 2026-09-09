@@ -21,4 +21,4 @@ Queue connectors (if `QUEUE_WEBHOOK_URL` is set) notify the buyer’s existing C
 
 Promote undo = Propose Demote (then Confirm). See [pack-gitops](pack-gitops.md): desk Promote is live SoT; git is export.
 
-See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md).
+See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md), [desk UI scorecard](desk-ui-scorecard.md) (T1–T6 clicks/steps).
