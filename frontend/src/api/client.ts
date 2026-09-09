@@ -1889,8 +1889,14 @@ export const decisions = {
       action_mix?: Record<string, number> | null;
       rule_hit_rate?: number | null;
       shadow_divergence?: number | null;
+      join_rate?: number | null;
+      labeled_receipt_rate?: number | null;
+      labeled_receipt_count?: number | null;
+      receipt_count?: number | null;
       reason_code?: string | null;
       unknown_reasons?: {
+        join_rate?: string;
+        labeled_receipt_rate?: string;
         evaluate_count?: string;
         action_mix?: string;
         shadow_divergence?: string;

@@ -30,7 +30,7 @@ Chargeback is not the only label.
 
 ## Horizon policy (`tarka.label_horizon/v1`)
 
-Per-`label_kind` window used later by consume / join-rate glass. **Tenant policy EXAMPLE — not Tarka morals.** Not a chargeback-guarantee SKU. Horizons never auto-demote a pack.
+Per-`label_kind` window used by join-rate glass (and later consume). **Tenant policy EXAMPLE — not Tarka morals.** Not a chargeback-guarantee SKU. Horizons never auto-demote a pack.
 
 | Field | Notes |
 |-------|-------|
@@ -82,4 +82,6 @@ Scheduled consume (buyer cron / lake upsert) is documented in [warehouse-sink-v1
 - Chargeback-guarantee SKU
 - CRM dispute product
 - Auto-demote from horizons
-- Join-rate glass (G5.3)
+- Consuming join-rate into Observe drafts (G5.4)
+
+Join-rate glass lives on `tarka.loop_metrics/v1` (`join_rate` / `labeled_receipt_rate`). See [bakeoff-metrics-v1](bakeoff-metrics-v1.md).
