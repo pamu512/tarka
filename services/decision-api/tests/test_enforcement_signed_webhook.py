@@ -25,7 +25,9 @@ def _mock_verify():
 
 
 @pytest.mark.asyncio
-async def test_outbound_webhook_signature_verified_by_mock(monkeypatch, tmp_path) -> None:
+async def test_outbound_webhook_signature_verified_by_mock(
+    monkeypatch, tmp_path
+) -> None:
     secret = "g41-webhook-secret"
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_URL", "http://hooks.test/enforcement")
     monkeypatch.setenv("TARKA_ENFORCEMENT_WEBHOOK_SECRET", secret)
