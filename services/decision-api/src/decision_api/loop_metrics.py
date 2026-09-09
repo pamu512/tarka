@@ -546,9 +546,18 @@ def compute_loop_metrics(
         "rule_hit_rate": None,
         "shadow_divergence": shadow_div,
         "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
-        **_join_rate_fields(labels, receipts, tenant_id=tenant_id),
     }
-    if reason_code:
-        payload["reason_code"] = reason_code
+    join_fields = _join_rate_fields(labels, receipts, tenant_id=tenant_id)
+    join_unknown = join_fields.pop("unknown_reasons", None) or {}
+    if isinstance(join_unknown, dict):
+        unknown_reasons.update(join_unknown)
+    payload.update(join_fields)
+    if unknown_reasons:
+        payload["reason_code"] = (
+            reason_code
+            or unknown_reasons.get("evaluate_count")
+            or unknown_reasons.get("shadow_divergence")
+            or next(iter(unknown_reasons.values()))
+        )
         payload["unknown_reasons"] = unknown_reasons
     return payload
