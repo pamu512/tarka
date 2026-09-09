@@ -14,7 +14,7 @@ Numbers for Observe/shadow of a pack. Thresholds are **tenant policy**, not Tark
 | label latency | `label_latency_ms` + `label_latency_hours` | null |
 | promote TTL | `promote_ttl_ms` + `promote_ttl_hours` | null |
 | demote propose/confirm | `demote_propose_count`, `demote_confirm_count` | 0 |
-| evaluate_count / action_mix | Top-level GLOBAL (below). Tip compute still `null`. | null |
+| evaluate_count / action_mix | Top-level GLOBAL (below). Filled from audit/receipts when the store is present. | null |
 | rule_hit_rate / shadow_divergence | Top-level `rule_hit_rate` stays `null` (M3 per-pack only). Top-level `shadow_divergence` is GLOBAL (below); pack-scoped values live on `pack_metrics[]`. | null |
 
 ## Tip inventory (D8.1)
@@ -25,7 +25,7 @@ Same `tarka.loop_metrics/v1` object. Do not invent extra metrics.
 |-------|--------|------------|
 | W1 loop | `leftover_*`, `drafts_to_observe`, `ai_backtest_block_rate`, `fp_*`, `label_latency_*`, `promote_ttl_*`, `demote_*_count` | filled |
 | M3 pack | `pack_metrics[]` (`rule_hit_rate`, `shadow_divergence`, `window`, `as_of`) | filled from Observe logs when `pack_id` is on the row |
-| D8 GLOBAL | top-level `evaluate_count`, `action_mix`, `shadow_divergence` | still `null` — D8.2 compute, not this slice |
+| D8 GLOBAL | top-level `evaluate_count`, `action_mix`, `shadow_divergence` | filled from audit/receipts/shadow pairs when present; **null = unknown** |
 | unused top-level | `rule_hit_rate` | stays `null`; M3 owns the per-pack name only |
 
 ## GLOBAL fields (D8 — tenant-level)
@@ -61,7 +61,7 @@ Prefer **null + reason_code** over fake 0%. `null` = unknown. `0` / `0.0` = meas
 
 ## Out of scope (this slice)
 
-D8.2 compute. D8.3 LoopScoreboard bind. Re-implementing M3 Promote confirm pack bind. Auto-demote / auto-Promote. CRM analytics.
+D8.3 LoopScoreboard bind. Re-implementing M3 Promote confirm pack bind. Auto-demote / auto-Promote. CRM analytics. Invented metrics.
 
 See also [enforcement-v1](enforcement-v1.md) and [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
 
