@@ -298,6 +298,22 @@ export type EnforcementJournalList = {
   items: Array<Record<string, unknown>>;
 };
 
+/** D9.3 GET /v1/enforcement/deliveries — logical delivery, not a case CRM. */
+export type EnforcementDeliveryQueryRow = {
+  trace_id: string;
+  tenant_id: string;
+  action_id: string;
+  attempt_count: number;
+  last_status: string;
+  last_error: string | null;
+  acked_at: string | null;
+};
+
+export type EnforcementDeliveryQuery = {
+  schema_id: string;
+  deliveries: EnforcementDeliveryQueryRow[];
+};
+
 /** Compact row from ``GET /v1/audit/recent`` (decision-api / core mount). */
 export type AuditRuleResult = "ALLOW" | "DENY" | "REVIEW" | "SHADOW_REVIEW";
 
@@ -1541,6 +1557,14 @@ export const decisions = {
     const q = new URLSearchParams({ trace_id: traceId, tenant_id: tenantId });
     if (actionId?.trim()) q.set("action_id", actionId.trim());
     return request<ProductAckList>(`/api/decisions/v1/enforcement/acks?${q}`);
+  },
+
+  /** D9.3 query — same G4.4 strip; last_status is not Promote/Demote. */
+  getEnforcementDeliveries(traceId: string, tenantId: string, opts?: { actionId?: string; status?: string }) {
+    const q = new URLSearchParams({ trace_id: traceId, tenant_id: tenantId });
+    if (opts?.actionId?.trim()) q.set("action_id", opts.actionId.trim());
+    if (opts?.status?.trim()) q.set("status", opts.status.trim());
+    return request<EnforcementDeliveryQuery>(`/api/decisions/v1/enforcement/deliveries?${q}`);
   },
 
   enforcementJournal(limit: number = 50) {
