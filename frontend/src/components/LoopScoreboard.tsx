@@ -1,3 +1,8 @@
+export type LoopUnknownReasons = {
+  join_rate?: string;
+  labeled_receipt_rate?: string;
+};
+
 export type LoopMetrics = {
   leftover_to_draft_ms?: { p50?: number | null; p95?: number | null };
   drafts_to_observe?: { human?: number; ai?: number };
@@ -13,7 +18,27 @@ export type LoopMetrics = {
   demote_confirm_count?: number;
   evaluate_count?: number | null;
   shadow_divergence?: number | null;
+  join_rate?: number | null;
+  labeled_receipt_rate?: number | null;
+  unknown_reasons?: LoopUnknownReasons | null;
 };
+
+const JOIN_REASON_EN: Record<string, string> = {
+  empty_tenant: "empty tenant",
+  no_receipts: "no receipts",
+  no_labels: "no labels",
+  receipt_store_absent: "receipt store absent",
+};
+
+function joinDash(metrics: LoopMetrics, field: keyof LoopUnknownReasons): string {
+  const code = metrics.unknown_reasons?.[field] || "";
+  return `— ${JOIN_REASON_EN[code] || "not yet available"}`;
+}
+
+function pct(v: number | null | undefined): string | null {
+  if (v == null || Number.isNaN(v)) return null;
+  return `${Math.round(v * 100)}%`;
+}
 
 function num(v: number | null | undefined): string {
   if (v == null || Number.isNaN(v)) return "—";
@@ -78,9 +103,21 @@ export function LoopScoreboard({ metrics }: { metrics: LoopMetrics | null }) {
           <dt className="text-gray-500">shadow divergence</dt>
           <dd>{metrics.shadow_divergence == null ? "—" : String(metrics.shadow_divergence)}</dd>
         </div>
+        <div>
+          <dt className="text-gray-500">join rate</dt>
+          <dd data-testid="loop-join-rate">
+            {pct(metrics.join_rate) ?? joinDash(metrics, "join_rate")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">labeled receipt rate</dt>
+          <dd data-testid="loop-labeled-receipt-rate">
+            {pct(metrics.labeled_receipt_rate) ?? joinDash(metrics, "labeled_receipt_rate")}
+          </dd>
+        </div>
       </dl>
       <p className="mt-1 text-[11px] text-gray-500" data-testid="bakeoff-help">
-        Metrics inform Promote. Thresholds are tenant policy, not Tarka morals.
+        Join-rate fuel for effectiveness, not a CRM. Horizons are tenant policy, not Tarka morals.
       </p>
     </div>
   );

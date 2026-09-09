@@ -1869,6 +1869,14 @@ export const decisions = {
       action_mix?: Record<string, number> | null;
       rule_hit_rate?: number | null;
       shadow_divergence?: number | null;
+      join_rate?: number | null;
+      labeled_receipt_rate?: number | null;
+      labeled_receipt_count?: number | null;
+      receipt_count?: number | null;
+      unknown_reasons?: {
+        join_rate?: string;
+        labeled_receipt_rate?: string;
+      } | null;
       pack_metrics?: Array<{
         pack_id?: string;
         rule_hit_rate?: number | null;
