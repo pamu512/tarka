@@ -25,7 +25,7 @@
 | Join-rate glass | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `join_rate` / `labeled_receipt_rate` on `tarka.loop_metrics/v1`. **null = unknown** (never 0% theater). Fuel names M2 may read later; tick still suggests from `pack_metrics[]`. Buyer owns the lake. Not CRM. Horizons are tenant policy examples. Never auto-demote from join rate. |
 | Effectiveness tick | Suggests Propose Demote with pack metrics only. Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Tick cannot confirm. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
-| Pack promote export | [`docs/contracts/pack-promote-export-v1.md`](../contracts/pack-promote-export-v1.md) — `tarka.pack_promote_export/v1` after desk Promote. Desk Promote is live SoT / go-live. Git / export is backup. |
+| Pack promote export | [`docs/contracts/pack-promote-export-v1.md`](../contracts/pack-promote-export-v1.md) — `tarka.pack_promote_export/v1` after desk Promote. Desk Promote is live SoT / go-live. Git / export is backup. Sample consume: [`docs/examples/pack-promote-export-consumer.md`](../examples/pack-promote-export-consumer.md). Empty consumer URL = outbound off. |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Field registry | [`docs/docs/guides/field-registry-onboarding.md`](../docs/guides/field-registry-onboarding.md) — product Postgres `field_registry` / `field_maps`; demo file/fixture + PUT 403. Windows on `counter_manifest`. Not G1.3 PIT serve. |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
