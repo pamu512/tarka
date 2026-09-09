@@ -19,6 +19,7 @@
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
+| Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. GLOBAL `evaluate_count` / `action_mix` / `shadow_divergence` fill from audit/receipts/shadow pairs when present (D8.2). **null = unknown**. LoopScoreboard binds real numbers or — + English reason (D8.3). share-with-M3; do-not-double-implement. |
 | Effectiveness tick | Suggests Propose Demote with pack metrics only. Human Confirm required. Auto-demote forbidden. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
