@@ -105,9 +105,7 @@ def test_g21_tags_mint_observe_shadow_live_packs_unchanged() -> None:
 
 def test_evaluate_live_path_unchanged() -> None:
     paths = list(_EVALUATE_DIR.glob("*.py"))
-    paths.append(
-        Path(__file__).resolve().parents[1] / "src/decision_api/eval_steps.py"
-    )
+    paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/eval_steps.py")
     paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/eval_dag.py")
     paths.append(Path(__file__).resolve().parents[1] / "src/decision_api/main.py")
     assert paths

@@ -21,6 +21,15 @@ def _receipt_path(tenant_id: str) -> Path:
     return target
 
 
+def receipt_store_present(tenant_id: str) -> bool:
+    """True only when the tenant receipt file exists. Missing file ≠ empty scan."""
+    try:
+        path = _receipt_path(tenant_id)
+    except ValueError:
+        return False
+    return path.is_file()
+
+
 def append_receipt(tenant_id: str, receipt: dict[str, Any]) -> None:
     if not isinstance(receipt, dict):
         return

@@ -4,6 +4,7 @@ import {
   ADVISE_TIMEOUT_COPY,
   PACK_WHY_MISSING,
   packIdFromRulePackFile,
+  packNameForDisplay,
   resolvePackWhy,
 } from "./packWhy";
 
@@ -19,6 +20,17 @@ describe("packIdFromRulePackFile", () => {
   it("returns null when the snapshot field is empty", () => {
     expect(packIdFromRulePackFile("")).toBeNull();
     expect(packIdFromRulePackFile(null)).toBeNull();
+  });
+});
+
+describe("packNameForDisplay", () => {
+  it("prefers pack name over a UUID file stem", () => {
+    expect(
+      packNameForDisplay({
+        pack_name: "Device signals",
+        rule_pack_file: "550e8400-e29b-41d4-a716-446655440000.json",
+      }),
+    ).toBe("Device signals");
   });
 });
 
