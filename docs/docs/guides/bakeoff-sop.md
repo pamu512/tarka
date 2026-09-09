@@ -31,6 +31,10 @@ EXAMPLE daily pull (same idempotency as [warehouse-sink-v1](../../../contracts/w
 
 Optional: re-ingest label facts via signed `POST /v1/webhooks/late-label`. Never Auto-Promote from labels.
 
+## Effectiveness tick (Suggest Propose Demote)
+
+`POST /v1/ops/effectiveness-tick?tenant_id=` scores Active packs from `pack_metrics[]` and optional FP labels. It writes numbered suggestions only (`GET /v1/observe/demote-suggestions`). Human Propose → Confirm still required. Auto-demote forbidden. Cron: `curl -X POST .../v1/ops/effectiveness-tick?tenant_id=...`.
+
 ## Links
 
 - [bakeoff-metrics-v1](../../../contracts/bakeoff-metrics-v1.md)
