@@ -12,7 +12,6 @@ from graph_service.hunt_depth import HUNT_DEPTH_MAX
 from graph_service.main import app
 
 SCHEMA_ID = "tarka.hunt_depth/v1"
-HUNT_DEPTH_MAX = 1
 DEPTH_CAPPED = "hunt:depth_capped"
 _TENANT_A = "tenant_alpha"
 _TENANT_B = "tenant_beta"

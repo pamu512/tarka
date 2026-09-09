@@ -106,8 +106,8 @@ export function TuneRuleModal({
               Tune rule
             </h2>
             <p className="text-xs text-gray-500 mt-1">
-              Rule builder pre-loaded from the fired rule. Save updates the pack on the decision API (governance secret may be
-              required).
+              Legacy canvas pre-loaded from the fired rule — not a product SKU. Prefer SentencePackPanel on
+              ObserveEasePanel. Save still updates the pack on the decision API (governance secret may be required).
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -128,7 +128,7 @@ export function TuneRuleModal({
               </label>
             ) : null}
             <Link to="/rules/visual" className="text-xs font-medium text-brand-400 hover:text-brand-300 px-2 py-1.5 rounded-lg">
-              Full-page builder
+              Legacy canvas
             </Link>
             <button
               type="button"
