@@ -136,3 +136,20 @@ def observe_drafts_from_ring(
         pack["mode"] = "shadow"
         out.append(pack)
     return out
+
+
+def write_ring_observe_drafts(
+    *,
+    packs: list[dict[str, Any]],
+    request: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Run G2.1 job, then mint Observe drafts. Empty tags = no drafts. Never Active."""
+    job = run_ring_job(request)
+    tags = job.get("tags") or []
+    if not tags:
+        return []
+    return observe_drafts_from_ring(
+        packs=packs,
+        job=job,
+        tenant_id=str(job.get("tenant_id") or ""),
+    )
