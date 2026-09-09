@@ -1258,7 +1258,7 @@ function CaseDetailWorkbench() {
               disabled={!decisionExplain?.rule_hits?.length}
               title={
                 decisionExplain?.rule_hits?.length
-                  ? "Open the visual rule builder with the rule that fired on this audit"
+                  ? "Tune the rule that fired on this audit (legacy canvas — not a product SKU)"
                   : "No rule hits on this trace — tune is unavailable"
               }
               onClick={() => setTuneRuleOpen(true)}

@@ -67,8 +67,9 @@ export default function VisualRuleBuilder() {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       <PageTitle module="rules">
-        Visual rule builder
+        Legacy canvas
         <span className="block text-xs font-normal text-gray-500 mt-1">
+          Not a product SKU. Prefer Sentence pack on Observe — it emits the same pack JSON evaluate already runs.
           Drag from handles to wire <strong>Feature</strong> → <strong>Operator</strong> → <strong>AND / OR</strong> →{" "}
           <strong>Rule root</strong>. Cycles and empty logic nodes block <strong>Save AST pack</strong> (
           <code className="text-gray-400">POST /v1/rules</code> with <code className="text-gray-400">when_ast</code>). The

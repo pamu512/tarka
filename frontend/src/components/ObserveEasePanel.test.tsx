@@ -210,6 +210,28 @@ describe("ObserveEasePanel", () => {
     expect(client.shadow.setPackMode).not.toHaveBeenCalled();
   });
 
+  it("SentencePackPanel is reachable from Observe without a tribal URL", async () => {
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="demo"
+          drafts={[{ name: "draft_a", file: "draft_a.json" }]}
+          promoteAllowed={false}
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft="draft_a"
+          onSelectDraft={() => {}}
+          onPromote={() => {}}
+          canPromote={false}
+        />,
+      ),
+    );
+    expect(await screen.findByTestId("sentence-pack-panel")).toBeInTheDocument();
+    const preview = screen.getByTestId("sentence-pack-json-preview") as HTMLTextAreaElement;
+    expect(preview).toBeInTheDocument();
+    expect(preview.value).toContain('"mode": "shadow"');
+  });
+
   it("successor copy says human owns Promote", async () => {
     render(
       wrap(
