@@ -170,6 +170,8 @@ jobs:
         run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
       - name: Optional SDK receipt walk unit tests (stdlib)
         run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_sdk_walk.py
+      - name: Local synth-loop operator unit tests (stdlib)
+        run: PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_synth_loop.py
       - name: Full-stack smoke probe unit tests (stdlib)
         run: python3 infra/scripts/ci/test_full_stack_smoke.py
       - name: Day-1 doctor unit tests (stdlib)

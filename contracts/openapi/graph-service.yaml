@@ -63,6 +63,10 @@ paths:
           schema: { type: string }
         - name: depth
           in: query
+          description: >-
+            Request hint (desk may send 1–5). Day-1 AGE Hunt applies
+            hunt_depth_max=1. Requested > applied emits degrade_reason=hunt:depth_capped.
+            This is not a multi-hop success.
           schema: { type: integer, default: 2, maximum: 5 }
         - name: tenant_id
           in: query
@@ -70,7 +74,9 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Nodes and edges
+          description: >-
+            Neighborhood plus tarka.hunt_depth/v1 honesty
+            (schema_id, hunt_depth_max, depth_requested, depth_applied, degrade_reason).
           content:
             application/json:
               schema:
@@ -490,6 +496,8 @@ components:
           additionalProperties: true
     SubgraphResponse:
       type: object
+      required:
+        [nodes, edges, schema_id, hunt_depth_max, depth_requested, depth_applied]
       properties:
         nodes:
           type: array
@@ -508,6 +516,23 @@ components:
               to_id: { type: string }
               type: { type: string }
               properties: { type: object, additionalProperties: true }
+        schema_id:
+          type: string
+          const: tarka.hunt_depth/v1
+        hunt_depth_max:
+          type: integer
+          const: 1
+          description: Day-1 AGE Hunt bound. Raise only after an AGE-safe fixed k is documented.
+        depth_requested:
+          type: integer
+          description: Caller depth query (hint). Default 2 is still a hint, not a walk.
+        depth_applied:
+          type: integer
+          description: Hops actually walked. Day-1 AGE, plane on, is 1.
+        degrade_reason:
+          type: string
+          nullable: true
+          description: hunt:depth_capped when depth_requested > depth_applied; otherwise null.
     EntitySearchHit:
       type: object
       required: [entity_id, tenant_id, labels, scored, matched_on]

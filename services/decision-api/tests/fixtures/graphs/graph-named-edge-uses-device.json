@@ -1,0 +1,8 @@
+{
+  "id": "graph-named-edge-uses-device",
+  "named_edges": [
+    {"from_id": "alice", "to_id": "dev-1", "type": "USES_DEVICE"}
+  ],
+  "multi_id_user_ids": [],
+  "roles": ["member"]
+}
