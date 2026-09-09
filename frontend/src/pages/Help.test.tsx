@@ -21,4 +21,16 @@ describe("Help", () => {
     expect(body).not.toMatch(/Admin Panel/);
     expect(body).not.toMatch(/Simulation/);
   });
+
+  it("explains the investigator path in plain English", () => {
+    render(<Help />);
+    const section = document.getElementById("leftovers");
+    expect(section).toBeTruthy();
+    const copy = section?.textContent ?? "";
+    expect(copy).toMatch(/open receipt/i);
+    expect(copy).toMatch(/pack fired|which pack/i);
+    expect(copy).toMatch(/Create Observe draft/i);
+    expect(copy).toMatch(/not a case CRM|not your case CRM/i);
+    expect(copy).toMatch(/do not need to memorize pack UUIDs/i);
+  });
 });
