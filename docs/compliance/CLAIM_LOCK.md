@@ -20,7 +20,7 @@
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Shared with Suggest Propose Demote. |
-| Effectiveness tick | Suggests Propose Demote with pack metrics only. Human Confirm required. Auto-demote forbidden. |
+| Effectiveness tick | Suggests Propose Demote with pack metrics only. Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Tick cannot confirm. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
@@ -40,7 +40,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 |-------------|--------------------------|
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
-| Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
+| Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Empty URL / model never Promotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |

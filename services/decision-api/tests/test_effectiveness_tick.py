@@ -83,6 +83,7 @@ def test_tick_never_calls_demote_or_promote(monkeypatch):
         "maybe_auto_promote",
         "force_live",
         "auto_demote",
+        "demote_on_gate",
     ):
         assert banned not in src, banned
 
@@ -96,6 +97,21 @@ def test_tick_never_calls_demote_or_promote(monkeypatch):
     assert packs[0]["mode"] == "active"
     assert "demote" not in (packs[0].get("lifecycle") or {})
     assert out["suggestions"][0]["pack_id"] == "rot_pack"
+
+
+def test_tick_suggestion_is_not_a_demoted_pack():
+    packs = [_active("rot_pack")]
+    observations = [
+        _obs("rot_pack", "acme", diverged=True, hits=["r1"]),
+        _obs("rot_pack", "acme", diverged=True, hits=["r1"]),
+    ]
+    out = run_effectiveness_tick(packs, observations, {}, tenant_id="acme")
+    row = out["suggestions"][0]
+    assert row["action"] == "suggest_propose_demote"
+    assert row["pack_id"] == "rot_pack"
+    assert packs[0]["mode"] == "active"
+    assert packs[0]["mode"] != "shadow"
+    assert (packs[0].get("lifecycle") or {}).get("demote") is None
 
 
 def test_empty_tenant_is_empty_list():
