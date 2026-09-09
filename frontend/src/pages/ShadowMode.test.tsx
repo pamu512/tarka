@@ -14,6 +14,10 @@ vi.mock("@/api/client", async (importOriginal) => {
       ...actual.rules,
       list: vi.fn(),
     },
+    decisions: {
+      ...actual.decisions,
+      loopMetrics: vi.fn(),
+    },
     shadow: {
       ...actual.shadow,
       stats: vi.fn(),
@@ -45,6 +49,11 @@ const SHADOW_PACK = {
 describe("Observe pack modes", () => {
   beforeEach(() => {
     vi.mocked(client.rules.list).mockReset();
+    vi.mocked(client.decisions.loopMetrics).mockReset();
+    vi.mocked(client.decisions.loopMetrics).mockResolvedValue({
+      schema_id: "tarka.loop_metrics/v1",
+      pack_metrics: [],
+    });
     vi.mocked(client.shadow.stats).mockReset();
     vi.mocked(client.shadow.observations).mockReset();
     vi.mocked(client.shadow.setPackMode).mockReset();
