@@ -17,6 +17,9 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("emit_only", text)
         self.assertIn("handoff", text)
         self.assertIn("decision.emitted", text)
+        self.assertIn("x-tarka-signature", text.lower())
+        self.assertIn("hmac-sha256", text.lower())
+        self.assertIn("empty url", text.lower())
 
     def test_label_join_contract_exists(self) -> None:
         path = ROOT / "docs/contracts/label-join-v1.md"
@@ -29,8 +32,13 @@ class TestPostgapContractSpine(unittest.TestCase):
         lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
         self.assertIn("docs/contracts/enforcement-v1.md", lock)
         self.assertIn("docs/contracts/label-join-v1.md", lock)
+        self.assertIn("docs/contracts/pack-promote-export-v1.md", lock)
         self.assertIn("contract-gated", lock.lower())
         self.assertIn("emit-only", lock.lower())
+        self.assertIn("x-tarka-signature", lock.lower())
+        self.assertIn("hmac-sha256", lock.lower())
+        self.assertIn("unsigned", lock.lower())
+        self.assertIn("silent block in emit-only", lock.lower())
         self.assertIn("PackWhyStrip", lock)
         self.assertIn("pack-why", lock.lower())
 
@@ -50,7 +58,9 @@ class TestPostgapContractSpine(unittest.TestCase):
             "docs/contracts/warehouse-sink-v1.md",
             "docs/contracts/feature-store-posture-v1.md",
             "docs/contracts/graph-planes-v1.md",
+            "docs/contracts/hunt-depth-v1.md",
             "docs/contracts/vendor-score-slot-v1.md",
+            "docs/contracts/pack-promote-export-v1.md",
         ):
             self.assertTrue((ROOT / rel).is_file(), rel)
 
@@ -68,6 +78,70 @@ class TestPostgapContractSpine(unittest.TestCase):
             self.assertIn(needle, text)
         lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
         self.assertIn("pack_metrics", lock)
+
+    def test_pack_promote_export_contract_honesty(self) -> None:
+        text = (ROOT / "docs/contracts/pack-promote-export-v1.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("tarka.pack_promote_export/v1", text)
+        self.assertIn("desk promote", lowered)
+        self.assertIn("backup", lowered)
+        self.assertNotIn("gitlab-grade", lowered)
+        self.assertNotIn("git required to promote", lowered)
+        self.assertNotIn("git is required to promote", lowered)
+        self.assertNotIn("open-source", lowered)
+        self.assertNotIn("open source", lowered)
+
+    def test_bakeoff_global_fields_schema_named(self) -> None:
+        """D8.1: tenant-level bakeoff names; share M3, do not fork compute."""
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(encoding="utf-8")
+        for needle in (
+            "evaluate_count",
+            "action_mix",
+            "shadow_divergence",
+            "GLOBAL",
+            "share-with-M3",
+            "do-not-double-implement",
+            "null = unknown",
+            "reason_code",
+            "tarka.loop_metrics/v1",
+            "LoopScoreboard",
+            "M3 owns",
+            "D8 owns",
+        ):
+            self.assertIn(needle, text)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("evaluate_count", lock)
+        self.assertIn("action_mix", lock)
+
+    def test_bakeoff_d8_m3_coexistence_named(self) -> None:
+        """D8.4: same v1 payload; do not mint v2 or fork pack-metrics."""
+        text = (ROOT / "docs/contracts/bakeoff-metrics-v1.md").read_text(
+            encoding="utf-8"
+        )
+        for needle in (
+            "Coexistence",
+            "LoopScoreboard",
+            "/ops/bakeoff",
+            "pack_metrics[]",
+            "tarka.loop_metrics/v2",
+        ):
+            self.assertIn(needle, text)
+        sop = (ROOT / "docs/docs/guides/bakeoff-sop.md").read_text(encoding="utf-8")
+        self.assertIn("LoopScoreboard", sop)
+        self.assertIn("/ops/bakeoff", sop)
+        self.assertIn("Promote", sop)
+        guide = (ROOT / "docs/docs/guides/analyst-control-loop.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("LoopScoreboard", guide)
+        self.assertIn("/ops/bakeoff", guide)
+        lock = (ROOT / "docs/compliance/CLAIM_LOCK.md").read_text(encoding="utf-8")
+        self.assertIn("LoopScoreboard", lock)
+        self.assertIn("tarka.loop_metrics/v2", lock)
+        template = (ROOT / ".github/pull_request_template.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tarka.loop_metrics/v2", template)
 
 
 if __name__ == "__main__":

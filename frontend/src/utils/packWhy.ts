@@ -5,6 +5,20 @@
 
 export const PACK_WHY_MISSING = "missing";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function looksLikeUuid(s: string): boolean {
+  return UUID_RE.test(s.trim());
+}
+
+/** Pack name for investigators — never a memorized UUID. */
+export function packNameForDisplay(input: PackWhySource): string {
+  const view = resolvePackWhy(input);
+  if (view.packName !== PACK_WHY_MISSING && !looksLikeUuid(view.packName)) return view.packName;
+  if (view.packId !== PACK_WHY_MISSING && !looksLikeUuid(view.packId)) return view.packId;
+  return PACK_WHY_MISSING;
+}
+
 /** Shown only when the case/audit already records an advise timeout. */
 export const ADVISE_TIMEOUT_COPY =
   "Advise unavailable (timed out). The pack reason above still stands.";

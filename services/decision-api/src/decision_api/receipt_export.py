@@ -12,10 +12,13 @@ from sqlalchemy import select
 from auth_rbac import require_role
 from decision_api.db import get_session
 from decision_api.models import AuditRecord
+from decision_api.receipt_join import OPTIONAL_PARTY_KEYS, require_join_keys
 from decision_api.y_label_store import load_label_records
 
 router = APIRouter(prefix="/v1/exports", tags=["exports"])
 TRAINING_ROW_SCHEMA = "tarka.training_row/v1"
+CONSUME_OWNER = "buyer"
+CONSUME_IS_CRM = False
 
 
 def _parse_bound(raw: str) -> datetime:
@@ -97,15 +100,36 @@ def named_edges_on_receipt(snap: dict[str, Any]) -> list[dict[str, str]]:
     return out
 
 
+def consume_idempotency_key(
+    *,
+    tenant_id: str,
+    window_from: str,
+    window_to: str,
+    evaluation_token: str,
+) -> str:
+    """Buyer lake upsert key. Same window + token = one row. Not a CRM case id."""
+    tenant = str(tenant_id or "").strip()
+    token = str(evaluation_token or "").strip()
+    start = str(window_from or "").strip()
+    end = str(window_to or "").strip()
+    if not tenant or not token or not start or not end:
+        raise ValueError(
+            "consume idempotency requires tenant, window, and evaluation_token"
+        )
+    return f"{tenant}|{start}|{end}|{token}"
+
+
 def receipt_row_from_audit(rec: AuditRecord) -> dict[str, Any]:
     snap = rec.payload_snapshot if isinstance(rec.payload_snapshot, dict) else {}
     token = str(snap.get("evaluation_token") or rec.trace_id or "").strip()
-    hop = snap.get("graph_hop_v1") if isinstance(snap.get("graph_hop_v1"), dict) else None
+    hop = (
+        snap.get("graph_hop_v1") if isinstance(snap.get("graph_hop_v1"), dict) else None
+    )
     row: dict[str, Any] = {
         "evaluation_token": token,
-        "trace_id": str(rec.trace_id),
-        "tenant_id": rec.tenant_id,
-        "entity_id": rec.entity_id,
+        "trace_id": str(rec.trace_id or snap.get("trace_id") or "").strip(),
+        "tenant_id": str(rec.tenant_id or snap.get("tenant_id") or "").strip(),
+        "entity_id": str(rec.entity_id or snap.get("entity_id") or "").strip(),
         "event_type": rec.event_type,
         "decision": rec.decision,
         "score": rec.score,
@@ -120,7 +144,14 @@ def receipt_row_from_audit(rec: AuditRecord) -> dict[str, Any]:
     parties = snap.get("parties")
     if isinstance(parties, list) and parties:
         row["parties"] = parties
-    return row
+    for key in OPTIONAL_PARTY_KEYS:
+        raw = snap.get(key)
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            row[key] = text
+    return require_join_keys(row)
 
 
 @router.get("/receipts")
