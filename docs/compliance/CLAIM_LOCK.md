@@ -58,6 +58,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | CI `helm_prod_digest_honesty` **fails** empty digest on the prod-on-k8s honesty / publish path. Lite/demo are not this path. | Empty digest as a grade / immutable claim |
 | Prod/enterprise examples use `secretKeyRef` (no reusable default passwords). Empty `API_KEYS` + empty OIDC + insecure off → 503. Matrix: [production-install-v1](../contracts/production-install-v1.md) | Vault/ESO required; open evaluate when secrets missing; GitLab-grade already achieved |
 | Soak checklist exists (G9). “GitLab-grade install” only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Beta, no GA, no SOC 2 from us. | GitLab-grade already achieved; primary decisioner; SOC 2 / PCI cert; GA from this file or from `prod-on-k8s` existing |
+| VisualRuleBuilder is a leftover canvas, not a product SKU. SentencePackPanel is thin no-code (same pack JSON evaluate already runs). | VisualRuleBuilder as a SKU / no-code product |
 | Desk T1–T6 scorecard (clicks/steps vs MEP) is the UX0 stream exit gate. Component tests required. SUS/SEQ optional feel only. Leftover = REVIEW. | Consumer SUS as a ship gate; case CRM tasks; leftover FLAG; named vendor comparisons; silent Promote; auto-demote |
 
 **Provision warning:** `shadow_auto_promote` exists as a tenant file + host gate (`auto_promote` defaults **False**). Never advertise always-on auto-Promote as Day-1. Enabling requires explicit tenant promote gates (thresholds already in the provision file).
