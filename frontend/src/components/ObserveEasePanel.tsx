@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { decisions, rules } from "../api/client";
 import { PromoteConfirmDialog } from "./PromoteConfirmDialog";
+import { SentencePackPanel } from "./SentencePackPanel";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 type Draft = { name?: string; file?: string; is_ai_authored?: boolean };
@@ -168,6 +169,9 @@ export function ObserveEasePanel({
           Draft Observe pack
         </button>
         {msg ? <span className="text-xs text-gray-400">{msg}</span> : null}
+      </div>
+      <div className="md:col-span-3" data-testid="observe-sentence-pack">
+        <SentencePackPanel onJson={() => undefined} />
       </div>
       <article className="rounded-md border border-surface-700 px-3 py-2 text-sm">
         <h3 className="font-semibold text-gray-100">Ready to Promote</h3>
