@@ -21,6 +21,7 @@
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
+| Pack promote export | [`docs/contracts/pack-promote-export-v1.md`](../contracts/pack-promote-export-v1.md) — `tarka.pack_promote_export/v1` after desk Promote. Desk Promote is live SoT / go-live. Git / export is backup. |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Graph planes | [`docs/contracts/graph-planes-v1.md`](../contracts/graph-planes-v1.md) |
 | Production / GitLab-grade install | [`docs/contracts/production-install-v1.md`](../contracts/production-install-v1.md). Empty digest ≠ immutable pin. |
@@ -40,6 +41,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
 | Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
+| Desk Promote is live SoT / go-live. Git / `tarka.pack_promote_export/v1` is backup after Promote. Write fail does not undo Promote. | Git merge as go-live gate; export as Promote authority; missing export as demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
