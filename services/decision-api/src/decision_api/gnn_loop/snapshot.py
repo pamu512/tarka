@@ -269,6 +269,7 @@ def snapshot_from_written(
         "status": status,
         "tenant_id": str(tenant_id or ""),
         "trace_id": str(trace_id or ""),
+        "evaluation_token": str(trace_id or ""),
         "entity_id": str(entity_id or ""),
         "user_id": str(user_id or entity_id or ""),
         "role": str(role or ""),
