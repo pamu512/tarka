@@ -88,6 +88,8 @@ describe("leanNav", () => {
     expect(LEAN_NAV_PATHS.has("/integrations/payout-delay")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/simulation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/shadow")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/rules/visual")).toBe(false);
+    expect(LEAN_NAV_PATHS.has("/command-center")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/observe")).toBe(true);
     expect(LEAN_NAV_PATHS.has("/investigation/shadow-llm")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
