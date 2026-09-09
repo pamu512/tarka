@@ -25,4 +25,4 @@ Promote undo = Propose Demote (then Confirm). See [pack-gitops](pack-gitops.md) 
 
 Global mix vs per-pack Promote: [bakeoff-sop](bakeoff-sop.md#where-to-read-numbers-d8-vs-m3).
 
-See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md).
+See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md), [desk UI scorecard](desk-ui-scorecard.md) (T1–T6 clicks/steps).
