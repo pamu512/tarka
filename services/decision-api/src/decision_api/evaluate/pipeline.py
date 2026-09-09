@@ -25,6 +25,7 @@ from decision_api.decision_log import build_decision_log_record, emit_decision_l
 from decision_api.device_integrity import device_integrity_snapshot, integrity_presence
 from decision_api.device_scoring import extract_device_entropy_tags
 from decision_api.enforcement import (
+    action_ids_for,
     enforcement_mode,
     resolve_enforcement_action,
     suggested_actions,
@@ -1305,6 +1306,13 @@ async def run_evaluate_decision(
         )
         enforcement_action = resolve_enforcement_action(decision, recommended_action)
         suggested = suggested_actions(decision, recommended_action)
+        pack_hash = policy_set_id or ""
+        receipt_action_ids = action_ids_for(
+            suggested,
+            tenant_id=body.tenant_id,
+            trace_id=str(trace_id),
+            pack_hash=pack_hash,
+        )
         enf_mode = enforcement_mode()
         feature_source = resolve_feature_source(redis_url=settings.redis_url)
 
@@ -1386,6 +1394,7 @@ async def run_evaluate_decision(
             "recommended_action": recommended_action,
             "enforcement_action": enforcement_action,
             "suggested_actions": suggested,
+            "action_ids": receipt_action_ids,
             "enforcement_mode": enf_mode,
             "enforcement_authority": enf_mode == "handoff",
             "feature_source": feature_source,
@@ -1604,6 +1613,7 @@ async def run_evaluate_decision(
             recommended_action=recommended_action,
             enforcement_action=enforcement_action,
             suggested_actions=suggested,
+            action_ids=receipt_action_ids,
             enforcement_mode=enf_mode,
             enforcement_authority=enf_mode == "handoff",
             feature_source=feature_source,
@@ -1634,6 +1644,7 @@ async def run_evaluate_decision(
                 else None,
                 session_id=body.session_id,
                 recommended_action=recommended_action,
+                pack_hash=pack_hash,
                 challenge_metadata=ch_meta if isinstance(ch_meta, dict) else None,
                 fallback_reason=fb_reason,
                 decision_log_record=decision_log_record,
