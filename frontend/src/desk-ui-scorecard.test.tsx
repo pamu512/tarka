@@ -1,0 +1,159 @@
+/**
+ * D9.4 desk delivery glass on the existing G4.4 strip.
+ * Delivery reliability ≠ enforcement SKU suite. Not a case CRM.
+ */
+import type { ReactElement } from "react";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import * as client from "@/api/client";
+import { TenantEnvironmentProvider } from "@/context/TenantEnvironmentContext";
+import Decisions from "@/pages/Decisions";
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    decisions: {
+      ...actual.decisions,
+      recentAudit: vi.fn(),
+      getAudit: vi.fn(),
+      getProductAcks: vi.fn(),
+      governance: vi.fn(),
+      enforcementJournal: vi.fn(),
+      getEnforcementDeliveries: vi.fn(),
+    },
+  };
+});
+
+function wrap(ui: ReactElement, path = "/decisions/tr-login-1") {
+  return (
+    <MemoryRouter initialEntries={[path]}>
+      <TenantEnvironmentProvider>
+        <Routes>
+          <Route path="/decisions" element={ui} />
+          <Route path="/decisions/:traceId" element={ui} />
+        </Routes>
+      </TenantEnvironmentProvider>
+    </MemoryRouter>
+  );
+}
+
+describe("desk UI scorecard — D9.4 delivery reliability glass", () => {
+  beforeEach(() => {
+    vi.mocked(client.decisions.recentAudit).mockReset();
+    vi.mocked(client.decisions.getAudit).mockReset();
+    vi.mocked(client.decisions.getProductAcks).mockReset();
+    vi.mocked(client.decisions.governance).mockReset();
+    vi.mocked(client.decisions.enforcementJournal).mockReset();
+    vi.mocked(client.decisions.getEnforcementDeliveries).mockReset();
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({
+      tenant_id: "demo",
+      items: [
+        {
+          trace_id: "tr-login-1",
+          short_id: "LOGIN001",
+          event_type: "login",
+          decision: "review",
+          amount: null,
+          currency: null,
+          rule_result: "REVIEW",
+          tags: [],
+          ai_confidence: 0.6,
+          created_at: "2026-08-18T08:00:00Z",
+        },
+      ],
+    });
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-login-1",
+      entity_id: "ent-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 62,
+      tags: [],
+      rule_hits: ["sdk_rooted"],
+      rule_pack_file: "device_signals.json",
+      created_at: "2026-08-24T08:00:00Z",
+    });
+    vi.mocked(client.decisions.getProductAcks).mockResolvedValue({
+      schema_id: "tarka.product_ack_list/v1",
+      items: [],
+    });
+    vi.mocked(client.decisions.enforcementJournal).mockResolvedValue({
+      schema_id: "tarka.enforcement_delivery_list/v1",
+      items: [],
+    });
+    vi.mocked(client.decisions.governance).mockResolvedValue({
+      inference_schema_version: "3",
+      rule_packs: { active_pack_count: 0, shadow_pack_count: 0, packs: [] },
+      experiment_registry_lines: 0,
+      drift_smoke: { script: "", note: "" },
+      integrity_ingress: { enforcement_webhook_configured: true },
+    });
+  });
+
+  it("one strip shows emitted / retrying / dead_lettered / acked / not_configured", async () => {
+    const chips = [
+      { last_status: "emitted", chip: "emitted" },
+      { last_status: "retrying", chip: "retrying" },
+      { last_status: "dead_lettered", chip: "dead_lettered" },
+      { last_status: "acked", chip: "acked" },
+      { last_status: "not_configured", chip: "not_configured", webhook: false },
+    ] as const;
+    for (const row of chips) {
+      vi.mocked(client.decisions.governance).mockResolvedValue({
+        inference_schema_version: "3",
+        rule_packs: { active_pack_count: 0, shadow_pack_count: 0, packs: [] },
+        experiment_registry_lines: 0,
+        drift_smoke: { script: "", note: "" },
+        integrity_ingress: { enforcement_webhook_configured: row.webhook !== false },
+      });
+      vi.mocked(client.decisions.getEnforcementDeliveries).mockResolvedValue({
+        schema_id: "tarka.enforcement_delivery_query/v1",
+        deliveries: [
+          {
+            trace_id: "tr-login-1",
+            tenant_id: "demo",
+            action_id: "f".repeat(64),
+            attempt_count: 1,
+            last_status: row.last_status,
+            last_error: null,
+            acked_at: null,
+          },
+        ],
+      });
+      const { unmount } = render(wrap(<Decisions />));
+      expect(await screen.findByTestId("delivery-status-strip")).toBeInTheDocument();
+      expect(screen.queryByTestId("delivery-status-strip-2")).not.toBeInTheDocument();
+      expect(screen.getAllByTestId("delivery-status-strip")).toHaveLength(1);
+      expect(screen.getByTestId("delivery-status-chip")).toHaveAttribute("data-status", row.chip);
+      const body = document.body.textContent?.toLowerCase() ?? "";
+      expect(body).not.toMatch(/blocked by tarka|we blocked payout|case queue|case crm/);
+      unmount();
+    }
+  });
+
+  it("help one-liner: delivery reliability ≠ enforcement SKU suite", async () => {
+    vi.mocked(client.decisions.getEnforcementDeliveries).mockResolvedValue({
+      schema_id: "tarka.enforcement_delivery_query/v1",
+      deliveries: [
+        {
+          trace_id: "tr-login-1",
+          tenant_id: "demo",
+          action_id: "g".repeat(64),
+          attempt_count: 1,
+          last_status: "emitted",
+          last_error: null,
+          acked_at: null,
+        },
+      ],
+    });
+    render(wrap(<Decisions />));
+    const help = await screen.findByTestId("delivery-status-help");
+    expect(help.textContent?.toLowerCase()).toMatch(/delivery reliability/);
+    expect(help.textContent?.toLowerCase()).toMatch(/not an enforcement sku suite/);
+    expect(help.textContent?.toLowerCase()).not.toMatch(/blocked by tarka|enforcement suite sku/i);
+  });
+});
