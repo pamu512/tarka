@@ -131,7 +131,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **Beta, no GA** | Product and Helm tags are beta. `1.3.0-beta` is a mutable tag. Digest pin is required before a grade claim. Not ready-for-beta testers; not unattended merchant beta. |
 | **No SOC 2 from us** | [`docs/compliance/soc2-pci/`](docs/compliance/soc2-pci/) is a control-mapping suite for *your* readiness work. It is **not** a SOC 2 Type II report, not a PCI ROC, and not a cert from Tarka. Buyer owns attestation. |
 | **No consortium** | No consortium SKU. Any adapter talks to **your** decision-api. |
-| **No case CRM** | Leftovers + Hunt are residual. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
+| **No case CRM** | Leftovers + Hunt are residual. Day-1 Hunt is Path B depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
 | **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |

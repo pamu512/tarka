@@ -8,6 +8,7 @@ import asyncpg
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .graph_runtime import merge_stored_trace_ids
+from .hunt_depth import HUNT_DEPTH_MAX
 from .entity_risk_score import (
     decorate_subgraph_node,
     link_props_for_create,
@@ -457,9 +458,14 @@ def _node_to_dict(n: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _node_tenant_id(node: dict[str, Any]) -> str:
+    props = node.get("properties") if isinstance(node.get("properties"), dict) else {}
+    return str(props.get("tenant_id") or "")
+
+
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
-    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. Hunt uses depth 1.
-    _ = max(1, min(int(depth), 5))
+    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. D7.4 Path B: Hunt walk stays HUNT_DEPTH_MAX=1.
+    _ = min(HUNT_DEPTH_MAX, max(1, int(depth)))
     tid = _cypher_lit(tenant_id)
     eid = _cypher_lit(entity_id)
     q_root = _cypher_sql(
@@ -495,6 +501,9 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
                 continue
             node = _node_to_dict(raw)
             nid = str(node.get("id") or "")
+            node_tenant = _node_tenant_id(node)
+            if node_tenant and node_tenant != tenant_id:
+                continue
             gid = str(raw.get("id") or "")
             if gid and nid:
                 graph_to_ext[gid] = nid
@@ -512,6 +521,8 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
         end = str(raw_e.get("end_id") or raw_e.get("endNode") or "")
         from_ext = graph_to_ext.get(start, start)
         to_ext = graph_to_ext.get(end, end)
+        if from_ext not in seen_nodes or to_ext not in seen_nodes:
+            continue
         edges_out.append(
             {
                 "id": eid,
