@@ -1,4 +1,8 @@
-"""Thin closed-loop scoreboard numbers. No CRM."""
+"""Thin closed-loop scoreboard numbers. No CRM.
+
+GLOBAL evaluate_count / action_mix / shadow_divergence stay null until D8.2.
+See docs/contracts/bakeoff-metrics-v1.md (share-with-M3; do-not-double-implement).
+"""
 
 from __future__ import annotations
 
