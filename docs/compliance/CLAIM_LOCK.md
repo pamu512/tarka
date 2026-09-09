@@ -20,6 +20,7 @@
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
 | Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
+| Label horizons | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) — tenant policy **examples** (promo FP days / collusion window / chargeback ~90d). Not Tarka morals. Not a chargeback-guarantee SKU. Never auto-demote from horizons. |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |

@@ -31,6 +31,10 @@ EXAMPLE daily pull (same idempotency as [warehouse-sink-v1](../../../contracts/w
 
 Optional: re-ingest label facts via signed `POST /v1/webhooks/late-label`. Never Auto-Promote from labels.
 
+## Label horizons (EXAMPLE tenant policy — not product morals)
+
+Join / coverage windows are **your** policy. Shipped defaults (promo FP days, collusion window, chargeback ~90d) are examples in [label-join-v1](../../../contracts/label-join-v1.md). They are not Tarka morals, not a chargeback-guarantee SKU, and they never auto-demote a pack. Override via `TARKA_LABEL_HORIZON_JSON` or desk_provision `label_horizons`.
+
 ## Links
 
 - [bakeoff-metrics-v1](../../../contracts/bakeoff-metrics-v1.md)
