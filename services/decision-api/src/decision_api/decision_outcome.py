@@ -96,6 +96,7 @@ class DecisionOutcomeContext:
     ml_score: float | None = None
     payload: dict[str, Any] = field(default_factory=dict)
     recommended_action: str | None = None
+    pack_hash: str = ""
     challenge_metadata: dict[str, Any] | None = None
     fallback_reason: str | None = None
     decision_log_record: dict[str, Any] | None = None
@@ -186,6 +187,7 @@ def schedule_decision_outcomes(
             challenge_metadata=ctx.challenge_metadata
             if isinstance(ctx.challenge_metadata, dict)
             else None,
+            pack_hash=ctx.pack_hash,
             metrics_inc=metrics_inc,
         )
 

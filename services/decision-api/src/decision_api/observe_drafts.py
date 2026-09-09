@@ -6,7 +6,13 @@ from typing import Any
 
 from fastapi import APIRouter, Query
 
-from decision_api.loop_metrics import compute_loop_metrics, load_ai_gate_counts
+from decision_api.effectiveness_tick import load_suggestions, run_effectiveness_tick
+from decision_api.gnn_loop.receipts import load_receipts
+from decision_api.loop_metrics import (
+    compute_loop_metrics,
+    load_ai_gate_counts,
+    load_evaluations_for_tenant,
+)
 from decision_api.shadow import get_observations
 from decision_api.y_label_store import load_label_records
 
@@ -39,6 +45,13 @@ async def list_observe_drafts(state: str | None = Query(default=None)):
     return {"items": items}
 
 
+@router.get("/demote-suggestions")
+async def get_demote_suggestions(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+):
+    return {"suggestions": load_suggestions(tenant_id)}
+
+
 @router.get("/loop-metrics")
 async def get_loop_metrics(tenant_id: str = Query(..., min_length=1, max_length=128)):
     blocked, passed = load_ai_gate_counts()
@@ -49,10 +62,28 @@ async def get_loop_metrics(tenant_id: str = Query(..., min_length=1, max_length=
         ai_passed=passed,
         tenant_id=tenant_id,
         observations=get_observations(10000),
+        receipts=load_receipts(tenant_id),
+        evaluations=load_evaluations_for_tenant(tenant_id),
     )
 
 
 ops_router = APIRouter(prefix="/v1/ops", tags=["observe-drafts"])
+
+
+@ops_router.post("/effectiveness-tick")
+async def post_effectiveness_tick(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    dry_run: bool = Query(default=False),
+):
+    from decision_api.rule_api import _read_all_packs
+
+    return run_effectiveness_tick(
+        _read_all_packs(),
+        get_observations(10000),
+        load_label_records(tenant_id),
+        tenant_id=tenant_id,
+        persist=not dry_run,
+    )
 
 
 @ops_router.get("/bakeoff")
