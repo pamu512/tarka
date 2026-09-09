@@ -63,7 +63,9 @@ Inbound `POST /v1/enforcement/acks` records buyer delivery/application status bo
 
 When `TARKA_ENFORCEMENT_WEBHOOK_SECRET` is set, POST must carry `x-tarka-signature` = hex HMAC-SHA256 of the raw body (same brand as outbound enforcement webhooks).
 
-ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM. Desk delivery-status glass is G4.4.
+ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM.
+
+Desk `/decisions/:id` delivery-status glass (G4.4) sits next to pack-why. Chips: `emitted` / `acked` / `failed` / `not configured`. Empty enforcement webhook URL = **not configured** (plane off) — never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout”. D9.4 may extend this same strip with retry/DLQ; do not fork a second log product.
 
 ## Out of scope
 
@@ -71,6 +73,6 @@ ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a
 - Case CRM
 - Silent block / hold / deny in `emit_only`
 - Day-1 default of `handoff`
-- Desk delivery status glass (G4.4)
 - Treating ACK as Promote/Demote
 - D9 retry + DLQ
+- Executing holds from desk glass
