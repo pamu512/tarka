@@ -29,4 +29,16 @@ describe("Help", () => {
     );
     expect((document.body.textContent ?? "").toLowerCase()).not.toMatch(/we blocked payout/);
   });
+
+  it("points no-code at SentencePackPanel + ObserveEasePanel, not VisualRuleBuilder as a SKU", () => {
+    render(<Help />);
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/SentencePackPanel/);
+    expect(body).toMatch(/ObserveEasePanel/);
+    expect(body).toMatch(/not a product SKU/i);
+    expect(body).not.toMatch(/Visual Rule Builder/i);
+    expect(body).not.toMatch(/full-page builder/i);
+    expect(body).not.toMatch(/book a demo/i);
+    expect(body).not.toMatch(/start free/i);
+  });
 });
