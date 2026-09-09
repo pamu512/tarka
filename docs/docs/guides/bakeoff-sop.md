@@ -16,6 +16,15 @@ Ungated tenant → human Promote required. If `auto_promote` is explicitly on **
 
 Use desk Promote with a typed reason. Hop packs stay shadow until the same gated-or-human rule.
 
+## Where to read numbers (D8 vs M3)
+
+Same `tarka.loop_metrics/v1` payload. Two desks, two scopes:
+
+- **Tenant mix:** LoopScoreboard on `/ops/shadow` (same numbers as `GET /v1/ops/bakeoff`) — GLOBAL `evaluate_count`, `action_mix`, `shadow_divergence`. Null → dash, not 0%.
+- **Per-pack Promote:** Confirm dialog binds that pack's `pack_metrics[]` row (`rule_hit_rate` / `shadow_divergence`) or honest empty.
+
+Thresholds are tenant policy, not Tarka morals. Filling one side must not drop or fake-zero the other.
+
 ## Warehouse consume (buyer SOP)
 
 Buyer-owned. Tarka exports joinable receipts + labels; it does not host the lake or a case CRM.
