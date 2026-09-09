@@ -32,6 +32,7 @@ def _request(
     payload: dict[str, Any] | None = None,
     api_key: str | None = None,
     timeout: float = 30.0,
+    extra_headers: dict[str, str] | None = None,
 ) -> tuple[int, Any]:
     headers = {"accept": "application/json"}
     data = None
@@ -40,6 +41,8 @@ def _request(
         data = json.dumps(payload).encode("utf-8")
     if api_key:
         headers["x-api-key"] = api_key
+    if extra_headers:
+        headers.update(extra_headers)
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:

@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from decision_api.gnn_loop.late_label import LABEL_KINDS, LateLabelError, normalize_label_kind
+from decision_api.gnn_loop.late_label import (
+    LABEL_KINDS,
+    LateLabelError,
+    normalize_label_kind,
+)
 
 
 def test_unknown_label_kind_still_422() -> None:
@@ -41,7 +45,9 @@ def test_example_horizons_readable_per_kind() -> None:
     assert "guarantee" not in json.dumps(policy).lower()
 
 
-def test_env_horizon_override_keeps_unknown_kinds_out(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_env_horizon_override_keeps_unknown_kinds_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from decision_api import label_horizon
 
     monkeypatch.setenv(
@@ -56,9 +62,10 @@ def test_env_horizon_override_keeps_unknown_kinds_out(monkeypatch: pytest.Monkey
     policy = label_horizon.horizon_policy()
     assert policy["by_kind"]["chargeback"]["window_days"] == 120
     assert "not_a_kind" not in policy["by_kind"]
-    assert label_horizon.horizon_days("promo_abuse") == label_horizon.EXAMPLE_HORIZONS_DAYS[
-        "promo_abuse"
-    ]
+    assert (
+        label_horizon.horizon_days("promo_abuse")
+        == label_horizon.EXAMPLE_HORIZONS_DAYS["promo_abuse"]
+    )
 
 
 def test_desk_provision_horizon_overlay(
@@ -101,6 +108,8 @@ def test_horizon_docs_are_tenant_policy_examples() -> None:
     assert "chargeback" in join
     assert "tenant policy" in blob
     assert "example" in blob
-    assert "guarantee" not in join.lower() or "not a chargeback-guarantee" in join.lower()
+    assert (
+        "guarantee" not in join.lower() or "not a chargeback-guarantee" in join.lower()
+    )
     assert "auto-demote" in blob or "auto demote" in blob
     assert "tarka.label_horizon/v1" in join

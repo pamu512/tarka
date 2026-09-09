@@ -1,4 +1,8 @@
-"""Thin closed-loop scoreboard numbers. No CRM."""
+"""Thin closed-loop scoreboard numbers. No CRM.
+
+GLOBAL evaluate_count / action_mix / shadow_divergence fill from audit/receipts
+and shadow pairs when present. null = unknown. share-with-M3; do-not-double-implement.
+"""
 
 from __future__ import annotations
 
@@ -112,6 +116,92 @@ def _hits(row: dict[str, Any]) -> bool:
     return bool(hits)
 
 
+def _action_token(row: dict[str, Any]) -> str:
+    raw = row.get("action") or row.get("enforcement_action") or row.get("decision")
+    return str(raw or "").strip().lower()
+
+
+def _is_shadow_pair(row: dict[str, Any]) -> bool:
+    if "diverged" in row:
+        return True
+    prod = str(row.get("production_decision") or "").strip()
+    shadow = str(row.get("shadow_decision") or "").strip()
+    return bool(prod and shadow)
+
+
+def _with_diverged(row: dict[str, Any]) -> dict[str, Any]:
+    if "diverged" in row:
+        return row
+    prod = str(row.get("production_decision") or "").strip()
+    shadow = str(row.get("shadow_decision") or "").strip()
+    if prod and shadow:
+        return {**row, "diverged": prod != shadow}
+    return row
+
+
+def shadow_divergence_rate(rows: list[dict[str, Any]] | None) -> float | None:
+    """M3 pack math: diverged / n. None when no paired rows (not 0.0 theater)."""
+    sample = [r for r in (rows or []) if isinstance(r, dict)]
+    if not sample:
+        return None
+    return sum(1 for r in sample if r.get("diverged")) / len(sample)
+
+
+def _tenant_rows(
+    rows: list[dict[str, Any]] | None, tenant_id: str
+) -> list[dict[str, Any]]:
+    want = (tenant_id or "").strip()
+    out: list[dict[str, Any]] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        row_tenant = str(row.get("tenant_id") or "").strip()
+        if row_tenant and row_tenant != want:
+            continue
+        out.append(row)
+    return out
+
+
+def _global_observation_rows(
+    observations: list[dict[str, Any]] | None,
+    tenant_id: str,
+    evaluations: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Tenant-tagged rows, or unscoped rows paired to this tenant's evaluate traces."""
+    want = (tenant_id or "").strip()
+    traces = {
+        str(row.get("trace_id") or row.get("evaluation_token") or "").strip()
+        for row in (evaluations or [])
+        if isinstance(row, dict)
+    }
+    traces.discard("")
+    out: list[dict[str, Any]] = []
+    for row in observations or []:
+        if not isinstance(row, dict):
+            continue
+        row_tenant = str(row.get("tenant_id") or "").strip()
+        if row_tenant:
+            if row_tenant == want:
+                out.append(row)
+            continue
+        tid = str(row.get("trace_id") or "").strip()
+        if tid and tid in traces:
+            out.append(row)
+    return out
+
+
+def load_evaluations_for_tenant(tenant_id: str) -> list[dict[str, Any]] | None:
+    """File evaluate receipts for the tenant. None = store absent (unknown)."""
+    from decision_api.gnn_loop.receipts import load_receipts, receipt_store_present
+
+    want = (tenant_id or "").strip()
+    if not want:
+        return None
+    if not receipt_store_present(want):
+        return None
+    return load_receipts(want)
+
+
 def compute_pack_metrics(
     packs: list[dict[str, Any]],
     observations: list[dict[str, Any]] | None = None,
@@ -165,7 +255,7 @@ def compute_pack_metrics(
                 "schema_id": PACK_METRICS_SCHEMA_ID,
                 "pack_id": pid,
                 "rule_hit_rate": sum(1 for r in sample if _hits(r)) / n,
-                "shadow_divergence": sum(1 for r in sample if r.get("diverged")) / n,
+                "shadow_divergence": shadow_divergence_rate(sample),
                 "window": PACK_METRICS_WINDOW,
                 "as_of": as_of,
             }
@@ -305,6 +395,7 @@ def compute_loop_metrics(
     tenant_id: str = "",
     observations: list[dict[str, Any]] | None = None,
     receipts: list[dict[str, Any]] | None = None,
+    evaluations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     human_n = 0
     ai_n = 0
@@ -370,7 +461,54 @@ def compute_loop_metrics(
     observe_n = human_n + ai_n
     label_p50 = _percentile(label_ms, 50)
     promote_p50 = _percentile(promote_ms, 50)
-    return {
+
+    want = (tenant_id or "").strip()
+    unknown_reasons: dict[str, str] = {}
+    evaluate_count: int | None
+    action_mix: dict[str, int] | None
+    if not want:
+        evaluate_count = None
+        action_mix = None
+        shadow_div: float | None = None
+        unknown_reasons = {
+            "evaluate_count": "empty_tenant",
+            "action_mix": "empty_tenant",
+            "shadow_divergence": "empty_tenant",
+        }
+    else:
+        if evaluations is None:
+            evaluate_count = None
+            action_mix = None
+            unknown_reasons["evaluate_count"] = "evaluate_store_absent"
+            unknown_reasons["action_mix"] = "evaluate_store_absent"
+            scoped_evals: list[dict[str, Any]] = []
+        else:
+            scoped_evals = _tenant_rows(evaluations, want)
+            evaluate_count = len(scoped_evals)
+            mix: dict[str, int] = {}
+            for row in scoped_evals:
+                token = _action_token(row)
+                if token:
+                    mix[token] = mix.get(token, 0) + 1
+            action_mix = mix or None
+        pairs = [
+            _with_diverged(row)
+            for row in _global_observation_rows(observations, want, scoped_evals)
+            if _is_shadow_pair(row)
+        ]
+        shadow_div = shadow_divergence_rate(pairs)
+        if shadow_div is None:
+            unknown_reasons["shadow_divergence"] = "no_shadow_live_pairs"
+
+    reason_code = None
+    if unknown_reasons:
+        reason_code = (
+            unknown_reasons.get("evaluate_count")
+            or unknown_reasons.get("shadow_divergence")
+            or next(iter(unknown_reasons.values()))
+        )
+
+    payload: dict[str, Any] = {
         "schema_id": SCHEMA_ID,
         "leftover_to_draft_ms": {
             "p50": _percentile(leftover_ms, 50),
@@ -403,10 +541,14 @@ def compute_loop_metrics(
         },
         "demote_propose_count": demote_propose,
         "demote_confirm_count": demote_confirm,
-        "evaluate_count": None,
-        "action_mix": None,
+        "evaluate_count": evaluate_count,
+        "action_mix": action_mix,
         "rule_hit_rate": None,
-        "shadow_divergence": None,
+        "shadow_divergence": shadow_div,
         "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
         **_join_rate_fields(labels, receipts, tenant_id=tenant_id),
     }
+    if reason_code:
+        payload["reason_code"] = reason_code
+        payload["unknown_reasons"] = unknown_reasons
+    return payload

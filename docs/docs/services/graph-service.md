@@ -188,7 +188,7 @@ POST /v1/links
 
 ### Query Subgraph
 
-Retrieve the neighborhood around an entity up to a configurable depth (1–5 hops).
+Retrieve the 1-hop neighborhood around an entity. `depth` is a request hint (desk may send 1–5); Day-1 AGE Hunt applies `hunt_depth_max=1` and emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Requested > applied is `hunt:depth_capped`, not a multi-hop success.
 
 ```
 GET /v1/subgraph?entity_id=user-42&tenant_id=acme&depth=2
@@ -198,6 +198,11 @@ GET /v1/subgraph?entity_id=user-42&tenant_id=acme&depth=2
 
 ```json
 {
+  "schema_id": "tarka.hunt_depth/v1",
+  "hunt_depth_max": 1,
+  "depth_requested": 2,
+  "depth_applied": 1,
+  "degrade_reason": "hunt:depth_capped",
   "nodes": [
     {
       "id": "user-42",
