@@ -1855,6 +1855,20 @@ export const decisions = {
     }>(`/api/decisions/v1/calibration/shadow-promote-gate${qs ? `?${qs}` : ""}`);
   },
 
+  demoteSuggestions(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      suggestions: Array<{
+        pack_id?: string;
+        rule_hit_rate?: number | null;
+        shadow_divergence?: number | null;
+        fp_count?: number;
+        reason_code?: string;
+        action?: string;
+      }>;
+    }>(`/api/decisions/v1/observe/demote-suggestions?${q}`);
+  },
+
   loopMetrics(tenantId: string) {
     const q = new URLSearchParams({ tenant_id: tenantId.trim() });
     return request<{
@@ -1875,6 +1889,12 @@ export const decisions = {
       action_mix?: Record<string, number> | null;
       rule_hit_rate?: number | null;
       shadow_divergence?: number | null;
+      reason_code?: string | null;
+      unknown_reasons?: {
+        evaluate_count?: string;
+        action_mix?: string;
+        shadow_divergence?: string;
+      } | null;
       pack_metrics?: Array<{
         pack_id?: string;
         rule_hit_rate?: number | null;
