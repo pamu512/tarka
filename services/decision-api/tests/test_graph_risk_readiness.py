@@ -125,3 +125,25 @@ async def test_http_graph_risk_challenger(tmp_path, monkeypatch):
     assert body["overlay_url"] == "empty"
     assert body["gnn_claim_allowed"] is False
     assert "GNN live" not in str(body)
+
+
+def test_unset_url_serve_allowed_still_not_gnn_live():
+    """G2.4: empty GRAPH_GNN_BETA_URL never becomes a live GNN claim."""
+    out = compute_graph_risk_readiness(
+        tenant_id="acme",
+        receipts=[],
+        labeled_rows=[],
+        graph_service_url="http://graph:8080",
+        graph_gnn_beta_url="",
+        gate={
+            "serve_allowed": True,
+            "model_auc": 0.9,
+            "heuristic_auc": 0.6,
+            "reason": "ok",
+        },
+    )
+    assert out["gnn_claim_allowed"] is False
+    assert out["overlay_url"] == "empty"
+    assert out["state"] != "live"
+    assert out["live_effect"] == "pack_promote_only"
+    assert "GNN live" not in str(out)

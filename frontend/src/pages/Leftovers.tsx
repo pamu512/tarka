@@ -85,8 +85,9 @@ export default function Leftovers() {
               <th className="px-3 py-2 font-medium">Outcome</th>
               <th className="px-3 py-2 font-medium">Pack / hits</th>
               <th className="px-3 py-2 font-medium">Brief</th>
-              <th className="px-3 py-2 font-medium">Receipt</th>
-              <th className="px-3 py-2 font-medium">Last act</th>
+                  <th className="px-3 py-2 font-medium">Receipt</th>
+                  <th className="px-3 py-2 font-medium">Next</th>
+                  <th className="px-3 py-2 font-medium">Last act</th>
               <th className="px-3 py-2 font-medium">Claimed</th>
               <th className="px-3 py-2 font-medium">SLA</th>
               <th className="px-3 py-2 font-medium">Draft</th>
@@ -95,7 +96,7 @@ export default function Leftovers() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-gray-500" data-testid="leftovers-empty">
+                <td colSpan={11} className="px-3 py-6 text-gray-500" data-testid="leftovers-empty">
                   No leftovers. Connect your queue — leftovers are residual. Tarka is not your case CRM. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
@@ -135,11 +136,25 @@ export default function Leftovers() {
                         to={`/decisions/${encodeURIComponent(row.trace_id)}`}
                         className="text-brand-300 hover:underline"
                       >
-                        receipt
+                        Open receipt
                       </Link>
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div data-testid="next-legal-action" className="flex flex-col gap-0.5 text-xs text-gray-400">
+                      {row.trace_id ? (
+                        <Link
+                          to={`/decisions/${encodeURIComponent(row.trace_id)}`}
+                          className="text-brand-300 hover:underline"
+                        >
+                          Open receipt
+                        </Link>
+                      ) : null}
+                      <span>Create Observe draft</span>
+                      {row.last_act === "held" ? <span>Disposition on Hunt</span> : null}
+                    </div>
                   </td>
                   <td className="px-3 py-2 text-gray-400">{row.last_act ?? "—"}</td>
                   <td className="px-3 py-2 text-gray-400">{row.claimed_by ?? "free"}</td>

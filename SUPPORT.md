@@ -55,10 +55,58 @@ We help **you** install. We do not operate your cluster.
 | **VPC install assist** | Walk an operator through CE-shaped `prod-on-k8s` (or product compose) on **their** VPC: external Postgres + Redis, secrets, digest pin. | Run the cluster. Provide Tarka as a hosted or managed service. Invent in-cluster PG/Redis as production. |
 | **Helm values review** | Review buyer values against the production-install gates (no sqlite / `emptyDir` for decisions, audit, labels, or packs; no leftover default passwords). | Apply the chart for you as a managed service. Treat a green `helm template` as the grade. |
 | **SSO wiring** | Wire OIDC for **desk humans** via first-class Helm `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}`. `OIDC_CLIENT_ID` stays extraEnv; `OIDC_CLIENT_SECRET` on `global.appSecretsName`. Empty issuer stays local / API-key mode. | Become the IdP. Replace machine `API_KEYS` with OIDC. Require OIDC to boot evaluate. Require SAML. |
-| **Pack GitOps export help** | Help consume `tarka.pack_promote_export/v1` after desk Promote ([pack GitOps](docs/docs/guides/pack-gitops.md)). Git is backup/export. | Require a git PR to go live. Desk Promote remains the live source of truth. |
+| **Pack GitOps export help** | Help consume `tarka.pack_promote_export/v1` after desk Promote ([pack GitOps](docs/docs/guides/pack-gitops.md), [export contract](docs/contracts/pack-promote-export-v1.md), [sample consumer](docs/examples/pack-promote-export-consumer.md)). Git is backup/export. How-to: [Pack GitOps export assist](#pack-gitops-export-assist). | Require a git PR to go live. Desk Promote remains the live source of truth. |
 | **Severity response intent** | Classed first-response **intent** on a **named** pilot (table below). | An uptime SLA. **99.99%** (or any nines) as a Tarka promise. Operator SLO targets in [service-slos-v1](docs/docs/guides/service-slos-v1.md) are **buyer-owned**. |
 
 OIDC is optional. API keys stay the machine / evaluate path. `coreApi.oidc.*` is SoT (not extraEnv-only). Production + a non-empty issuer requires resolved Redis (no in-process OIDC state fallback). See [deployment.md](docs/docs/guides/deployment.md).
+
+### Pack GitOps export assist
+
+Sev-3 how-to for the purchased pack — not a new SKU. Help the buyer consume `tarka.pack_promote_export/v1` as backup and audit after desk Promote. Desk Promote stays the live source of truth. Git is backup, not go-live.
+
+Contract: [pack promote export v1](docs/contracts/pack-promote-export-v1.md). Sample sink: [pack promote export consumer](docs/examples/pack-promote-export-consumer.md). Posture: [pack GitOps](docs/docs/guides/pack-gitops.md).
+
+#### When to use the export
+
+- The desk already Promoted. The buyer wants a JSONL or git copy of that event for backup or audit.
+- They are wiring the [sample consumer](docs/examples/pack-promote-export-consumer.md) or their own sink to `PACK_GITOPS_EXPORT_PATH` / `rules/_loop/promote_export.jsonl`.
+- Empty `PACK_PROMOTE_EXPORT_CONSUMER_URL` (and empty `--notify-url`) means outbound notify is off. Do not invent a webhook.
+
+Do not use the export as Promote authority. Do not tell the buyer to wait for a merge before the pack is live.
+
+#### Verify desk Promote is the source of truth
+
+1. On the desk, the pack is Active after Promote confirm. That is go-live.
+2. Durable pack identity is the buyer’s desk / Postgres pack rows — not whether a branch merged.
+3. A line in the export file is a copy of the Promote event. A missing or late line is not a demote.
+4. CI `policy-check` still gates pack schema. It does not replace desk Promote.
+
+#### Test the sample consumer
+
+After a successful desk Promote (or on a copied JSONL):
+
+```
+python scripts/pack_promote_export_consumer.py \
+  --input rules/_loop/promote_export.jsonl \
+  --out-dir backup/promote-stubs
+```
+
+Replay is safe: same `pack_id` + `pack_hash` + `emitted_at` writes the same stub and does not rewrite it. A stub is not go-live authority.
+
+#### Failure modes
+
+| What failed | What to tell the buyer |
+|-------------|------------------------|
+| Export write failed after Promote | Promote already succeeded. The write is debug-logged. Do not undo Promote. |
+| Consumer failed or a line is malformed | Structured error from the sample. Do not demote. Do not treat the miss as rollback. |
+| Notify URL empty | Outbound notify is off. That is expected. |
+
+#### Forbidden assist
+
+- Do not require a git merge or PR before desk Promote.
+- Do not name competing products or run a compare in this assist.
+- Keep license wording: Elastic License 2.0, source-available. Do not invent another license class.
+- Do not turn auto-Promote on as part of this assist.
 
 ### Severity response intent
 
@@ -68,7 +116,7 @@ Intent, not a contract. No response-time hours and no availability nines live in
 |-------|---------|--------|
 | **Sev-1** | Evaluate path down on the named pilot (`core-api` / decision-api cannot serve evaluate) | First human response when a pack engineer is available in the purchased window |
 | **Sev-2** | Degraded evaluate, or install-blocking (OIDC, secrets, Helm render) on that pilot | Same window, after Sev-1 |
-| **Sev-3** | Pack GitOps export, values questions, how-to | Queued in the purchased window |
+| **Sev-3** | Pack GitOps export ([assist](#pack-gitops-export-assist)), values questions, how-to | Queued in the purchased window |
 
 Buyer-operated burn alerts and [incident-response](docs/docs/guides/incident-response.md) stay on the buyer’s stack. This pack is not that runbook.
 
@@ -83,7 +131,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **Beta, no GA** | Product and Helm tags are beta. `1.3.0-beta` is a mutable tag. Digest pin is required before a grade claim. Not ready-for-beta testers; not unattended merchant beta. |
 | **No SOC 2 from us** | [`docs/compliance/soc2-pci/`](docs/compliance/soc2-pci/) is a control-mapping suite for *your* readiness work. It is **not** a SOC 2 Type II report, not a PCI ROC, and not a cert from Tarka. Buyer owns attestation. |
 | **No consortium** | No consortium SKU. Any adapter talks to **your** decision-api. |
-| **No case CRM** | Leftovers + Hunt are residual. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
+| **No case CRM** | Leftovers + Hunt are residual. Day-1 Hunt is Path B depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
 | **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |
@@ -115,6 +163,9 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 | [soak checklist](docs/docs/guides/production-install-soak-checklist.md) | G9 named-pilot sign-off (not the grade) |
 | [product Day-1](docs/docs/guides/product-day1-install.md) | `make product` vs Helm skins |
 | [pack GitOps](docs/docs/guides/pack-gitops.md) | Promote is live; git is export |
+| [pack promote export v1](docs/contracts/pack-promote-export-v1.md) | Consumer contract; git is backup, not go-live |
+| [pack promote export sample](docs/examples/pack-promote-export-consumer.md) | Backup sink example |
+| [Pack GitOps export assist](#pack-gitops-export-assist) | Sev-3 how-to; git stays backup |
 | [deployment](docs/docs/guides/deployment.md) | Helm `prod-on-k8s`, first-class OIDC |
 | [LICENSE](LICENSE) | Elastic License 2.0 |
 | [SECURITY](SECURITY.md) | Vulnerability reports (not a cert) |

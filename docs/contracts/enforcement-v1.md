@@ -46,7 +46,9 @@ Empty URL = that plane off. When a secret is set (`TARKA_ENFORCEMENT_WEBHOOK_SEC
 
 `suggested_actions[]` stays a `list[str]` token list (`deny`, `review`, `flag`, `hold_payout`, `deny_promo`, `suspend_courier`, `step_up`). Parallel `action_ids` maps each token to an idempotent `action_id`. The delivery also carries `action_id` (first suggested token’s id, or the empty-token hash when the list is empty).
 
-**`action_id` scheme** (`tarka.action_id/v1`): hex SHA-256 of UTF-8 lines `tarka.action_id/v1`, `tenant_id`, `trace_id`, action token, pack hash. Pack hash is evaluate `policy_set_id` (stable pack identity) or empty when unknown. Same tuple → same id on webhook retries. Different trace or action token → different id. Not a random UUID per POST. Buyer product sinks dedupe on `action_id`. Retry/DLQ is D9.
+**`action_id` scheme** (`tarka.action_id/v1`): hex SHA-256 of UTF-8 lines `tarka.action_id/v1`, `tenant_id`, `trace_id`, action token, pack hash. Pack hash is evaluate `policy_set_id` (stable pack identity) or empty when unknown. Same tuple → same id on webhook retries. Different trace or action token → different id. Not a random UUID per POST. Buyer product sinks dedupe on `action_id`.
+
+Webhook and journal also carry `idempotency_key` as an **alias of that same `action_id`** (G4.2). There is no second competing id. If a field is named `delivery_id`, it must alias `action_id`.
 
 | Event | When |
 |-------|------|
@@ -59,18 +61,79 @@ Buyer payment / promo / courier systems subscribe to webhooks or read `suggested
 
 ## Product ACK
 
-Inbound `POST /v1/enforcement/acks` records buyer delivery/application status bound to the evaluate/audit `trace_id` and the G4.2 `action_id`. Fields: `trace_id`, `action_id`, `status`, `ts`, `actor` (tenant_id). Query `GET /v1/enforcement/acks?trace_id=&tenant_id=&action_id=`. Unknown `trace_id` is a structured 4xx (not a silent 200). Malformed `action_id` is a structured 4xx.
+Inbound `POST /v1/enforcement/acks` records buyer delivery/application status bound to the evaluate/audit `trace_id` and the G4.2 `action_id`. Fields: `trace_id`, `action_id`, `status`, `ts`, `actor` (tenant_id). Query `GET /v1/enforcement/acks?trace_id=&tenant_id=&action_id=`. Unknown `trace_id` is a structured 4xx (not a silent 200). Malformed `action_id` is a structured 4xx. Product ACK is not journal `acked` (sink HTTP 2xx). Journal query is `GET /v1/enforcement/deliveries` (D9.3).
 
 When `TARKA_ENFORCEMENT_WEBHOOK_SECRET` is set, POST must carry `x-tarka-signature` = hex HMAC-SHA256 of the raw body (same brand as outbound enforcement webhooks).
 
-ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM. Desk delivery-status glass is G4.4.
+ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM.
+
+Desk `/decisions/:id` delivery-status glass (G4.4) sits next to pack-why. Chips: `emitted` / `acked` / `failed` / `not configured`. Empty enforcement webhook URL = **not configured** (plane off) — never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout”. Journal may record `retrying` / `dead_lettered` (D9.1). D9.4 may extend this same strip with those statuses; do not fork a second log product.
+
+## Retry / dead-letter (D9.1)
+
+Outbound enforcement POSTs use **in-process** bounded retry. Do not add Redis / SQS / Celery.
+
+| Constant | Value |
+|----------|--------|
+| `ENFORCEMENT_RETRY_ATTEMPTS` | `3` |
+| `ENFORCEMENT_RETRY_BACKOFF_S` | `0.05`, `0.15` (after failed attempts 1 and 2) |
+
+**Where the wait lives:** the first POST runs in `apply_enforcement_adapters` (the emit path). Evaluate already fire-and-forgets that function via `schedule_decision_outcomes` / FastAPI BackgroundTasks, so the decision HTTP return does not wait on the retry loop. Remaining attempts stay in the same background task with the short backoff above. Tests monkeypatch `_retry_wait` to 0. A second orphan `create_task` is not used — it can vanish when the request context ends.
+
+Retryable: HTTP 5xx, 429, and transport errors. 4xx (except 429) is terminal `non_2xx` with no retry storm.
+
+Empty URL = plane off: journal `skipped` + `reason=webhook_unset`, zero POSTs, no retry.
+
+Exhausted retries write **one** `dead_lettered` journal row (`tarka.enforcement_delivery/v1` → `enforcement_delivery.jsonl`) with `last_error` + `attempt_count`. Each prior failed attempt is journaled `retrying`. The evaluate / apply result still returns (no raise). Decision was already emitted. DLQ is not Demote and does not block/deny.
+
+`emit_only` stays the default. Webhook failure must never grow silent-block metadata. `handoff` only when `TARKA_ENFORCEMENT_MODE` or the desk contract says so.
+
+## Delivery idempotency (D9.2)
+
+Retries must not double-apply at buyer sinks. Every POST attempt for one evaluate decision reuses the G4.2 `action_id` as `idempotency_key`.
+
+| Field | Source |
+|-------|--------|
+| `action_id` | hex SHA-256 of `tarka.action_id/v1` + `tenant_id` + `trace_id` + action token + pack hash |
+| `idempotency_key` | same value as `action_id` (alias, not a second id) |
+| `action_ids` | map of each `suggested_actions[]` token → its G4.2 `action_id` |
+
+Journal rows (`tarka.enforcement_delivery/v1`) carry the same pair. In-process dedupe by `action_id` returns **one logical delivery** with `attempt_count` (max attempt across those rows) and the latest status. D9.3 GET reuses this helper — do not fork a second aggregator.
+
+Retries still POST. Duplicate key is **not** a silent block / deny. Buyer sinks apply once; Tarka does not execute holds or payouts and does not open CRM tickets as the action sink.
+
+## Delivery journal query (D9.3)
+
+Tenant-scoped product GET over the delivery journal. Not a case timeline and not a case CRM.
+
+`GET /v1/enforcement/deliveries?trace_id=&tenant_id=&action_id=&status=`
+
+`trace_id` and `tenant_id` are required. Optional `action_id` and `status` (`emitted` / `retrying` / `dead_lettered` / `acked` / `not_configured`). Unknown `trace_id` returns `deliveries: []` (200), not a 500 and not invented rows. Tenant A cannot read tenant B.
+
+Schema `tarka.enforcement_delivery_query/v1`: `deliveries[]` each with `attempt_count`, `last_status`, `last_error`, `acked_at` (null unless a real product ACK or journal HTTP 2xx timestamp exists).
+
+`last_status` mapping (honesty):
+
+| Source | `last_status` |
+|--------|----------------|
+| Empty URL / journal `skipped` + `reason=webhook_unset` | `not_configured` |
+| Journal `acked` (sink HTTP 2xx) with **no** product ACK | `emitted` |
+| Inbound product ACK (`POST /v1/enforcement/acks`) | `acked` |
+| Journal `retrying` / `dead_lettered` | same |
+
+Journal `acked` is sink HTTP 2xx. It is **not** the product ACK store. Query `GET /v1/enforcement/acks` for product ACKs. Ops tail `GET /v1/ops/enforcement-journal` (`tarka.enforcement_delivery_list/v1`) stays an unfiltered tail — this GET does not replace it.
+
+Not Promote/Demote. No assignee / SAR / ticket fields. No cross-tenant god-view.
 
 ## Out of scope
 
 - Implementing every vocabulary action as Tarka-owned side effects
 - Case CRM
-- Silent block / hold / deny in `emit_only`
+- Silent block / hold / deny in `emit_only` or on a duplicate `action_id`
 - Day-1 default of `handoff`
-- Desk delivery status glass (G4.4)
-- Treating ACK as Promote/Demote
-- D9 retry + DLQ
+- Treating ACK, journal status, or DLQ as Promote/Demote
+- A second competing `action_id` / `delivery_id`
+- D9.4 desk retry/DLQ glass
+- Executing holds from desk glass
+- Redis / SQS / Celery retry bus
+- Cross-tenant admin god-view
