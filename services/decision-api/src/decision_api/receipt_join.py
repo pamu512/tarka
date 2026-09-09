@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+REQUIRED_JOIN_KEYS = ("evaluation_token", "trace_id", "tenant_id", "entity_id")
 OPTIONAL_PARTY_KEYS = (
     "order_id",
     "promo_id",
@@ -46,3 +47,33 @@ def join_keys_from_event(
                 out[key] = text
                 break
     return out
+
+
+def require_join_keys(snap: dict[str, Any]) -> dict[str, Any]:
+    missing = [
+        key for key in REQUIRED_JOIN_KEYS if not str(snap.get(key) or "").strip()
+    ]
+    if missing:
+        raise ValueError(f"receipt join keys missing: {', '.join(missing)}")
+    return snap
+
+
+def stamp_join_keys(
+    snap: dict[str, Any],
+    *,
+    trace_id: str,
+    tenant_id: str,
+    entity_id: str,
+    payload: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    snap.update(
+        join_keys_from_event(
+            trace_id=trace_id,
+            tenant_id=tenant_id,
+            entity_id=entity_id,
+            payload=payload,
+            metadata=metadata,
+        )
+    )
+    return require_join_keys(snap)
