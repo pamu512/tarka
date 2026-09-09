@@ -17,6 +17,9 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("emit_only", text)
         self.assertIn("handoff", text)
         self.assertIn("decision.emitted", text)
+        self.assertIn("x-tarka-signature", text.lower())
+        self.assertIn("hmac-sha256", text.lower())
+        self.assertIn("empty url", text.lower())
 
     def test_label_join_contract_exists(self) -> None:
         path = ROOT / "docs/contracts/label-join-v1.md"
@@ -31,6 +34,10 @@ class TestPostgapContractSpine(unittest.TestCase):
         self.assertIn("docs/contracts/label-join-v1.md", lock)
         self.assertIn("contract-gated", lock.lower())
         self.assertIn("emit-only", lock.lower())
+        self.assertIn("x-tarka-signature", lock.lower())
+        self.assertIn("hmac-sha256", lock.lower())
+        self.assertIn("unsigned", lock.lower())
+        self.assertIn("silent block in emit-only", lock.lower())
         self.assertIn("PackWhyStrip", lock)
         self.assertIn("pack-why", lock.lower())
 
