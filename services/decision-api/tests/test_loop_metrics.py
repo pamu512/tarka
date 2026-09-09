@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from decision_api.loop_metrics import compute_loop_metrics
+from decision_api.loop_metrics import compute_loop_metrics, compute_pack_metrics
 
 
 def test_loop_metrics_from_drafts_and_fp_labels():
@@ -64,6 +64,93 @@ def test_loop_metrics_empty():
     assert out["fp_count"] == 0
     assert out["ai_backtest_block_rate"] is None
     assert out["leftover_to_draft_ms"]["p50"] is None
+    assert out["pack_metrics"] == []
+
+
+def test_pack_metrics_from_shadow_observations():
+    packs = [{"name": "pack_a", "tenant_id": "acme", "lifecycle": {"state": "observe"}}]
+    observations = [
+        {
+            "pack_id": "pack_a",
+            "tenant_id": "acme",
+            "diverged": True,
+            "shadow_rule_hits": ["r1"],
+        },
+        {
+            "pack_id": "pack_a",
+            "tenant_id": "acme",
+            "diverged": False,
+            "shadow_rule_hits": [],
+        },
+        {
+            "pack_id": "pack_a",
+            "tenant_id": "demo",
+            "diverged": True,
+            "shadow_rule_hits": ["leak"],
+        },
+    ]
+    out = compute_loop_metrics(
+        packs,
+        {},
+        tenant_id="acme",
+        observations=observations,
+    )
+    assert out["rule_hit_rate"] is None
+    assert out["shadow_divergence"] is None
+    rows = out["pack_metrics"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["pack_id"] == "pack_a"
+    assert row["rule_hit_rate"] == 0.5
+    assert row["shadow_divergence"] == 0.5
+    assert row["window"] == "7d"
+    assert row["as_of"]
+
+
+def test_pack_metrics_empty_tenant_is_empty_list():
+    packs = [{"name": "pack_a", "tenant_id": "acme"}]
+    assert (
+        compute_pack_metrics(
+            packs, [{"pack_id": "pack_a", "diverged": True}], tenant_id=""
+        )
+        == []
+    )
+
+
+def test_pack_metrics_unknown_when_no_observations():
+    rows = compute_pack_metrics(
+        [{"name": "pack_a", "tenant_id": "acme"}],
+        [],
+        tenant_id="acme",
+    )
+    assert rows[0]["rule_hit_rate"] is None
+    assert rows[0]["shadow_divergence"] is None
+    assert rows[0]["as_of"] is None
+
+
+def test_pack_metrics_tenant_isolation():
+    packs = [
+        {"name": "acme_pack", "tenant_id": "acme"},
+        {"name": "demo_pack", "tenant_id": "demo"},
+    ]
+    observations = [
+        {
+            "pack_id": "acme_pack",
+            "tenant_id": "acme",
+            "diverged": True,
+            "shadow_rule_hits": ["r1"],
+        },
+        {
+            "pack_id": "demo_pack",
+            "tenant_id": "demo",
+            "diverged": True,
+            "shadow_rule_hits": ["r1"],
+        },
+    ]
+    acme = compute_pack_metrics(packs, observations, tenant_id="acme")
+    assert [r["pack_id"] for r in acme] == ["acme_pack"]
+    demo = compute_pack_metrics(packs, observations, tenant_id="demo")
+    assert [r["pack_id"] for r in demo] == ["demo_pack"]
 
 
 @pytest.mark.asyncio
@@ -92,6 +179,8 @@ async def test_http_loop_metrics(tmp_path, monkeypatch):
     assert body["drafts_to_observe"]["human"] == 1
     assert "leftover_mint_rate" in body
     assert "demote_propose_count" in body
+    assert "pack_metrics" in body
+    assert isinstance(body["pack_metrics"], list)
 
 
 @pytest.mark.asyncio

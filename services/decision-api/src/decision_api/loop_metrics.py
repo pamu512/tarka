@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Any
 
 SCHEMA_ID = "tarka.loop_metrics/v1"
+PACK_METRICS_SCHEMA_ID = "tarka.pack_metrics/v1"
+PACK_METRICS_WINDOW = "7d"
 
 
 def _counter_path() -> Any:
@@ -99,12 +101,86 @@ def _fp_amount(raw: Any) -> float:
     return 0.0
 
 
+def _pack_id(pack: dict[str, Any]) -> str:
+    return str(pack.get("name") or pack.get("pack_id") or "").strip()
+
+
+def _hits(row: dict[str, Any]) -> bool:
+    hits = row.get("shadow_rule_hits")
+    if hits is None:
+        hits = row.get("rule_hits")
+    return bool(hits)
+
+
+def compute_pack_metrics(
+    packs: list[dict[str, Any]],
+    observations: list[dict[str, Any]] | None = None,
+    *,
+    tenant_id: str = "",
+) -> list[dict[str, Any]]:
+    """Per-pack hit rate / divergence. null = unknown. Empty tenant → []."""
+    want = (tenant_id or "").strip()
+    if not want:
+        return []
+    rows = observations if isinstance(observations, list) else []
+    by_pack: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        row_tenant = str(row.get("tenant_id") or "").strip()
+        if row_tenant and row_tenant != want:
+            continue
+        pid = str(row.get("pack_id") or "").strip()
+        if pid:
+            by_pack.setdefault(pid, []).append(row)
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    as_of = datetime.now().astimezone().isoformat()
+    for pack in packs:
+        if not isinstance(pack, dict):
+            continue
+        pack_tenant = str(pack.get("tenant_id") or "").strip()
+        if pack_tenant and pack_tenant != want:
+            continue
+        pid = _pack_id(pack)
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        sample = by_pack.get(pid) or []
+        if not sample:
+            out.append(
+                {
+                    "schema_id": PACK_METRICS_SCHEMA_ID,
+                    "pack_id": pid,
+                    "rule_hit_rate": None,
+                    "shadow_divergence": None,
+                    "window": PACK_METRICS_WINDOW,
+                    "as_of": None,
+                }
+            )
+            continue
+        n = len(sample)
+        out.append(
+            {
+                "schema_id": PACK_METRICS_SCHEMA_ID,
+                "pack_id": pid,
+                "rule_hit_rate": sum(1 for r in sample if _hits(r)) / n,
+                "shadow_divergence": sum(1 for r in sample if r.get("diverged")) / n,
+                "window": PACK_METRICS_WINDOW,
+                "as_of": as_of,
+            }
+        )
+    return out
+
+
 def compute_loop_metrics(
     packs: list[dict[str, Any]],
     labels: dict[str, Any],
     *,
     ai_blocked: int = 0,
     ai_passed: int = 0,
+    tenant_id: str = "",
+    observations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     human_n = 0
     ai_n = 0
@@ -207,4 +283,5 @@ def compute_loop_metrics(
         "action_mix": None,
         "rule_hit_rate": None,
         "shadow_divergence": None,
+        "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
     }
