@@ -15,11 +15,11 @@ Numbers for Observe/shadow of a pack. Thresholds are **tenant policy**, not Tark
 | promote TTL | `promote_ttl_ms` + `promote_ttl_hours` | null |
 | demote propose/confirm | `demote_propose_count`, `demote_confirm_count` | 0 |
 | evaluate_count / action_mix | `null` (forward — evaluate store not on this payload) | null |
-| rule_hit_rate / shadow_divergence | Top-level still `null` until compute lands. Pack-scoped values live on `pack_metrics[]` (below). | null |
+| rule_hit_rate / shadow_divergence | Top-level stays `null`. Pack-scoped values live on `pack_metrics[]` (below). | null |
 
 ## pack_metrics[] (`tarka.pack_metrics/v1`)
 
-Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote confirm (M3) and Suggest Propose Demote (M2). **null = unknown** — never fake zeros theater. Empty tenant → `pack_metrics: []`. Compute is a later PR; this file names the fields.
+Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote confirm (M3) and Suggest Propose Demote (M2). **null = unknown** — never fake zeros theater. Empty tenant → `pack_metrics: []`. Compute fills a row per tenant pack from Observe logs when `pack_id` is on the observation; otherwise rates stay null.
 
 | Field | Type | Empty / honesty |
 |-------|------|-----------------|
