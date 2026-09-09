@@ -69,4 +69,6 @@ async def test_outbound_webhook_signature_verified_by_mock(
     assert verify(raw, "wrong-secret", sig) is False
     assert verify(raw, secret, None) is False
     body = json.loads(raw.decode("utf-8"))
-    assert "action_id" not in body
+    assert body["suggested_actions"] == ["deny"]
+    assert body["action_ids"]["deny"] == body["action_id"]
+    assert len(body["action_id"]) == 64
