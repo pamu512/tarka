@@ -85,12 +85,8 @@ def test_malformed_event_structured_error_does_not_demote(
 
         return _inner
 
-    monkeypatch.setattr(
-        "decision_api.l2_draft.propose_demote", _mark("propose_demote")
-    )
-    monkeypatch.setattr(
-        "decision_api.l2_draft.confirm_demote", _mark("confirm_demote")
-    )
+    monkeypatch.setattr("decision_api.l2_draft.propose_demote", _mark("propose_demote"))
+    monkeypatch.setattr("decision_api.l2_draft.confirm_demote", _mark("confirm_demote"))
     monkeypatch.setattr(
         "decision_api.promote_gitops.emit_promote_export", _mark("emit_promote_export")
     )
@@ -118,7 +114,9 @@ def test_emit_succeeds_when_consumer_disabled_or_fails(tmp_path, monkeypatch) ->
     skipped = consumer.consume_after_emit(event, tmp_path / "stubs", notify_url="")
     assert skipped["skipped"] is True
     assert skipped["reason"] == "empty_url"
-    assert not (tmp_path / "stubs").exists() or list((tmp_path / "stubs").iterdir()) == []
+    assert (
+        not (tmp_path / "stubs").exists() or list((tmp_path / "stubs").iterdir()) == []
+    )
 
     def _boom(*_a, **_k):
         raise OSError("sink down")
