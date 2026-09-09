@@ -10,17 +10,26 @@ from uuid import uuid4
 
 import pytest
 from graph_contract import UnsignedGraphToken, require_etype
-from graph_pack_atoms import hop_view_from_graph_meta, pack_why_from_hop, require_pack_etype
+from graph_pack_atoms import (
+    hop_view_from_graph_meta,
+    pack_why_from_hop,
+    require_pack_etype,
+)
 
 from decision_api.graph_hop_contract import graph_pack_why
 from decision_api.receipt_export import receipt_row_from_audit
 
 _FIXTURE = (
-    Path(__file__).resolve().parent / "fixtures" / "graphs" / "graph-named-edge-uses-device.json"
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "graphs"
+    / "graph-named-edge-uses-device.json"
 )
 _RULES = Path(__file__).resolve().parents[1] / "rules"
 _CLAIM = Path(__file__).resolve().parents[3] / "docs" / "compliance" / "CLAIM_LOCK.md"
-_PLANES = Path(__file__).resolve().parents[3] / "docs" / "contracts" / "graph-planes-v1.md"
+_PLANES = (
+    Path(__file__).resolve().parents[3] / "docs" / "contracts" / "graph-planes-v1.md"
+)
 
 
 def _audit(snap: dict) -> SimpleNamespace:
@@ -38,7 +47,9 @@ def _audit(snap: dict) -> SimpleNamespace:
 
 def test_empty_url_receipt_is_graph_missing_no_invented_neighbors() -> None:
     leaked = {
-        "named_edges": [{"from_id": "alice", "to_id": "ghost-sib", "type": "USES_DEVICE"}],
+        "named_edges": [
+            {"from_id": "alice", "to_id": "ghost-sib", "type": "USES_DEVICE"}
+        ],
         "multi_id_user_ids": ["ghost-sib"],
         "parties": [{"entity_id": "invented-neighbor", "role": "member"}],
     }
