@@ -19,7 +19,7 @@
 | Control narrative (not a cert) | [`soc2-pci/`](./soc2-pci/) |
 | Enforcement | [`docs/contracts/enforcement-v1.md`](../contracts/enforcement-v1.md) |
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
-| Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Shared with Suggest Propose Demote. |
+| Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. |
 | Effectiveness tick | Suggests Propose Demote with pack metrics only. Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Tick cannot confirm. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
