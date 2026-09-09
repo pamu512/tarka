@@ -8,6 +8,7 @@ Hunt and analytics on the identity hop (`GRAPH_SERVICE_URL` / AGE). This is **no
 | Hop packs | `graph_v1_*` stay `mode=shadow`. Live FLAG only via human Promote |
 | GNN | Offline [Graph-risk / Ring-score challenger](gnn-label-loop.md). Never “GNN live.” Do not set `GRAPH_GNN_BETA_URL` in compose defaults |
 | Cases | Leftovers + Hunt. Not a case CRM |
+| Hunt depth | Day-1 AGE is depth-1. Empty URL stays off. [hunt-depth-v1](../../contracts/hunt-depth-v1.md) |
 
 When the URL is set, evaluate *may* upsert identity hops (fail-soft). When it is empty, neighbors are not invented and hop packs must not FLAG.
 
@@ -246,7 +247,7 @@ curl -s "http://localhost:8001/v1/subgraph?\
 entity_id=user-suspicious&tenant_id=acme&depth=2" | python -m json.tool
 ```
 
-Map out what the entity is connected to — devices, sessions, other accounts.
+`depth=2` is a hint. Day-1 AGE applies 1 hop and returns `depth_applied=1` with `degrade_reason=hunt:depth_capped`. Map the 1-hop neighborhood — devices, sessions, other accounts.
 
 ### Step 3: Check for Shared Devices
 

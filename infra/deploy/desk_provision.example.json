@@ -16,6 +16,14 @@
   "observe": {
     "auto_promote": false
   },
+  "label_horizons": {
+    "fp": { "window_days": 7 },
+    "promo_abuse": { "window_days": 14 },
+    "collusion": { "window_days": 30 },
+    "chargeback": { "window_days": 90 },
+    "fraud": { "window_days": 90 },
+    "other": { "window_days": 30 }
+  },
   "shadow_agent": {
     "start_when_llm_url": true
   },
