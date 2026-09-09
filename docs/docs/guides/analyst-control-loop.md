@@ -11,6 +11,8 @@ One desk path. No buyer-demo theater.
 
 Queue connectors (if `QUEUE_WEBHOOK_URL` is set) notify the buyer’s existing CX tool. Leftovers are not a case CRM.
 
+Hunt `/graph` is Day-1 Path B depth-1. Empty `GRAPH_SERVICE_URL` is UX0 `PlaneOff`, not invented neighbors. See [graph-analysis — Day-1 Hunt depth](graph-analysis.md#day-1-hunt-depth) and [hunt-depth-v1](../../contracts/hunt-depth-v1.md).
+
 Promote undo = Propose Demote (then Confirm). See [pack-gitops](pack-gitops.md): desk Promote is live SoT; git is export.
 
 See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md).
