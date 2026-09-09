@@ -12,7 +12,11 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from decision_api.gnn_loop.late_label import LABEL_KINDS, LateLabelError, normalize_label_kind
+from decision_api.gnn_loop.late_label import (
+    LABEL_KINDS,
+    LateLabelError,
+    normalize_label_kind,
+)
 from decision_api.shared_path import ensure_services_shared_on_path
 
 SCHEMA_ID = "tarka.label_horizon/v1"
