@@ -251,6 +251,10 @@ class EvaluateResponse(BaseModel):
         default_factory=list,
         description="Always-on advisory actions for buyer systems (emit_only or handoff).",
     )
+    action_ids: dict[str, str] = Field(
+        default_factory=dict,
+        description="Idempotent hex SHA-256 ids keyed by suggested_actions token. Stable across retries.",
+    )
     enforcement_mode: str | None = Field(
         default=None,
         description="emit_only (advisory) or handoff (authoritative).",
