@@ -135,9 +135,7 @@ async def test_known_trace_returns_logical_delivery_schema(
 
 
 @pytest.mark.asyncio
-async def test_unknown_trace_is_empty_deliveries_not_500(
-    monkeypatch, tmp_path
-) -> None:
+async def test_unknown_trace_is_empty_deliveries_not_500(monkeypatch, tmp_path) -> None:
     _journal_env(monkeypatch, tmp_path)
     _seed(trace_id="tr-other", tenant_id="t1", status="acked")
     async for client in _client(_app()):
@@ -178,9 +176,7 @@ async def test_tenant_a_cannot_see_tenant_b(monkeypatch, tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_empty_webhook_url_maps_to_not_configured(
-    monkeypatch, tmp_path
-) -> None:
+async def test_empty_webhook_url_maps_to_not_configured(monkeypatch, tmp_path) -> None:
     _journal_env(monkeypatch, tmp_path)
     monkeypatch.delenv("TARKA_ENFORCEMENT_WEBHOOK_URL", raising=False)
 
@@ -387,16 +383,10 @@ def test_query_helpers_reuse_logical_delivery(monkeypatch, tmp_path) -> None:
 
 def test_source_is_not_promote_demote_or_crm() -> None:
     src = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "decision_api"
-        / "enforcement.py"
+        Path(__file__).resolve().parents[1] / "src" / "decision_api" / "enforcement.py"
     ).read_text(encoding="utf-8")
     router = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "decision_api"
-        / "product_ack.py"
+        Path(__file__).resolve().parents[1] / "src" / "decision_api" / "product_ack.py"
     ).read_text(encoding="utf-8")
     blob = (src + "\n" + router).lower()
     assert "propose_demote" not in src

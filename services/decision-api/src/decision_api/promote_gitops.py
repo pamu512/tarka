@@ -1,4 +1,7 @@
-"""Desk Promote is live SoT. Git export is backup — not the go-live gate."""
+"""Desk Promote is live SoT. Git export is backup — not the go-live gate.
+
+Consumer contract: docs/contracts/pack-promote-export-v1.md
+"""
 
 from __future__ import annotations
 

@@ -23,6 +23,8 @@ from analytics.ml_export import (
     run_point_in_time_ml_export,
 )
 
+from decision_api.feature_l2 import holdout_split
+
 from decision_api.config import settings
 from decision_api.deps import require_analytics_engine
 from tarka_core.internal_monitor import InternalMonitor
@@ -39,6 +41,13 @@ router = APIRouter(prefix="/v1/ml/export", tags=["ml-export"])
 
 _jobs_lock = Lock()
 _jobs: dict[str, dict[str, Any]] = {}
+
+
+def apply_holdout_split_for_ml_export(
+    rows: list[dict[str, Any]], *, cutoff: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Sidecar/offline. Training excludes ``as_of >= cutoff``. Model never decides."""
+    return holdout_split(rows, cutoff=cutoff)
 
 
 def _normalize_dispute_allowlist(raw: list[str] | None) -> frozenset[str] | None:
