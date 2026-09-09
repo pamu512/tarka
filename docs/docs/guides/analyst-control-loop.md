@@ -11,6 +11,6 @@ One desk path. No buyer-demo theater.
 
 Queue connectors (if `QUEUE_WEBHOOK_URL` is set) notify the buyer’s existing CX tool. Leftovers are not a case CRM.
 
-Promote undo = Propose Demote (then Confirm). See [pack-gitops](pack-gitops.md): desk Promote is live SoT; git is export.
+Promote undo = Propose Demote (then Confirm). See [pack-gitops](pack-gitops.md) and [pack-promote-export-v1](../../contracts/pack-promote-export-v1.md): desk Promote is live SoT; git is export.
 
 See [bakeoff-sop](bakeoff-sop.md), [queue-seam-sop](queue-seam-sop.md).
