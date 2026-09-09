@@ -35,14 +35,18 @@ Tarka does not implement payout holds, promo denial, or courier suspension servi
 
 | Mode | HTTP `action` | Receipt |
 |------|----------------|---------|
-| `emit_only` | Advisory. Also listed on `receipt.suggested_actions[]`. | Pack-why always present. |
-| `handoff` | Authoritative for that tenant. | Pack-why always present. Same mapping may appear on `suggested_actions[]`. |
+| `emit_only` | Advisory. Also listed on `receipt.suggested_actions[]` with parallel `action_ids`. | Pack-why always present. |
+| `handoff` | Authoritative for that tenant. | Pack-why always present. Same mapping may appear on `suggested_actions[]` with parallel `action_ids`. |
 
 Product copy must not claim “we blocked” in `emit_only`.
 
 ## Webhooks
 
 Empty URL = that plane off. When a secret is set (`TARKA_ENFORCEMENT_WEBHOOK_SECRET` or provision `secret_env`), POSTs include `x-tarka-signature` = hex HMAC-SHA256 of the raw body. No secret = no signature header (not the contract default for a live sink).
+
+`suggested_actions[]` stays a `list[str]` token list (`deny`, `review`, `flag`, `hold_payout`, `deny_promo`, `suspend_courier`, `step_up`). Parallel `action_ids` maps each token to an idempotent `action_id`. The delivery also carries `action_id` (first suggested token’s id, or the empty-token hash when the list is empty).
+
+**`action_id` scheme** (`tarka.action_id/v1`): hex SHA-256 of UTF-8 lines `tarka.action_id/v1`, `tenant_id`, `trace_id`, action token, pack hash. Pack hash is evaluate `policy_set_id` (stable pack identity) or empty when unknown. Same tuple → same id on webhook retries. Different trace or action token → different id. Not a random UUID per POST. Buyer product sinks dedupe on `action_id`. This is not a product ACK (G4.3) and not retry/DLQ (D9).
 
 | Event | When |
 |-------|------|
