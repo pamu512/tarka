@@ -232,6 +232,31 @@ describe("ObserveEasePanel", () => {
     expect(preview.value).toContain('"mode": "shadow"');
   });
 
+  it("three plain-English sections: Ready to Promote, Suggest Demote, Live packs", async () => {
+    render(
+      wrap(
+        <ObserveEasePanel
+          tenantId="demo"
+          drafts={[{ name: "draft_a", file: "draft_a.json" }]}
+          promoteAllowed={false}
+          blockers={[]}
+          slipRules={[]}
+          selectedDraft="draft_a"
+          onSelectDraft={() => {}}
+          onPromote={() => {}}
+          canPromote={false}
+        />,
+      ),
+    );
+    expect(await screen.findByTestId("ready-to-promote")).toHaveTextContent("draft_a");
+    expect(screen.getByRole("heading", { name: "Ready to Promote" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Suggest Demote" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Live / Active packs" })).toBeInTheDocument();
+    expect(screen.getByTestId("suggest-demote-empty")).toHaveTextContent(/not a red alert/i);
+    expect(screen.getByTestId("suggest-demote-empty")).toHaveTextContent(/nothing auto-demotes/i);
+    expect(screen.queryByText(/inbox is clear/i)).not.toBeInTheDocument();
+  });
+
   it("successor copy says human owns Promote", async () => {
     render(
       wrap(

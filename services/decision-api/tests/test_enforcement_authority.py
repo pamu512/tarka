@@ -21,7 +21,9 @@ def test_default_emit_only(monkeypatch) -> None:
     assert desk_enforcement_mode() == "emit_only"
 
 
-def test_unset_env_and_desk_file_without_mode_is_emit_only(tmp_path, monkeypatch) -> None:
+def test_unset_env_and_desk_file_without_mode_is_emit_only(
+    tmp_path, monkeypatch
+) -> None:
     provision = tmp_path / "desk_provision.json"
     provision.write_text(
         json.dumps({"schema_id": "tarka.desk_provision/v1", "profile": "demo"}),
