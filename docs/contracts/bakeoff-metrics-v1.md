@@ -42,7 +42,7 @@ Never invent a new metric name. Evaluate stays Rust; this contract only names ag
 
 ### reason_code (optional companion)
 
-When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unknown_reasons` map (`evaluate_count` / `action_mix` / `shadow_divergence` → code). Examples: `evaluate_store_absent`, `no_shadow_live_pairs`, `empty_tenant`, `not_computed`. UI (D8.3) shows `—` plus that reason. Missing `reason_code` still means unknown, not 0%.
+When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unknown_reasons` map (`evaluate_count` / `action_mix` / `shadow_divergence` → code). Examples: `evaluate_store_absent`, `no_shadow_live_pairs`, `empty_tenant`, `not_computed`. LoopScoreboard shows `—` plus short English for that reason (e.g. no audit in window / metrics not yet available). Missing `reason_code` still means unknown, not 0%.
 
 ## M3 vs D8 ownership (share-with-M3 / do-not-double-implement)
 
@@ -59,9 +59,13 @@ Prefer **null + reason_code** over fake 0%. `null` = unknown. `0` / `0.0` = meas
 
 `schema_id` stays `tarka.loop_metrics/v1`. Additive keys only. Do not mint `tarka.loop_metrics/v2` or a forked global pack-metrics id.
 
+## LoopScoreboard bind (D8.3)
+
+LoopScoreboard reads top-level GLOBAL fields only. Non-null → counts / rate. Null → em-dash `—` plus short English from `unknown_reasons[field]` or `reason_code`. Never fake 0%. Parent-fed: OpsShadow refetches on tenant change and clears first. Does not bind `pack_metrics[]` (M3 Promote confirm).
+
 ## Out of scope (this slice)
 
-D8.3 LoopScoreboard bind. Re-implementing M3 Promote confirm pack bind. Auto-demote / auto-Promote. CRM analytics. Invented metrics.
+Re-implementing M3 Promote confirm pack bind. Auto-demote / auto-Promote. CRM analytics. Invented metrics. Analytics maturity matrix.
 
 See also [enforcement-v1](enforcement-v1.md) and [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).
 
