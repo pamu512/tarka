@@ -177,8 +177,9 @@ export default function Help() {
             Rule packs and thresholds. Rule performance lives at{" "}
             <code className="text-gray-500">/analytics/rule-performance</code>. Observe is a canary
             (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
-            ). Sentence pack on Observe emits the same pack JSON evaluate already runs; drafts stay Observe until a human Promotes.
-            The legacy canvas is not a product SKU. Hop packs stay shadow. A human Promotes — a model never goes live.
+            ). Thin no-code is SentencePackPanel on ObserveEasePanel — same pack JSON evaluate already runs; drafts stay
+            Observe until a human Promotes. VisualRuleBuilder (legacy canvas) is not a product SKU. Hop packs stay
+            shadow. A human Promotes — a model never goes live.
           </p>
         </Sub>
       </Section>
