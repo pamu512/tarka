@@ -84,6 +84,31 @@ describe("L2DraftButtons", () => {
     expect(await screen.findByTestId("open-existing-draft")).toHaveTextContent("Open draft l2_lo-1");
   });
 
+  it("keeps typed why visible on leftover after save without an Observe detour", async () => {
+    render(
+      <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" />,
+    );
+    fireEvent.change(screen.getByTestId("leftover-override-why"), {
+      target: { value: "seasonal leftover" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create draft/i }));
+    expect(await screen.findByTestId("leftover-saved-why")).toHaveTextContent("seasonal leftover");
+    expect(screen.queryByTestId("open-existing-draft")).not.toBeInTheDocument();
+    expect(screen.getByText(/is in Observe/i)).toBeInTheDocument();
+  });
+
+  it("explains why_required in English so the analyst can fix it", async () => {
+    vi.mocked(client.rules.createL2Draft).mockRejectedValue(
+      new Error('400 {"code":"why_required","detail":"override_why must be at least 8 characters"}'),
+    );
+    render(
+      <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" overrideWhy="known good leftover" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /create draft/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/at least 8 characters/i);
+    expect(screen.getByRole("alert")).toHaveTextContent(/leftover becomes an Observe draft/i);
+  });
+
   it("Author via BYO requires backtest (no skip)", async () => {
     render(
       <L2DraftButtons leftoverId="lo-1" traceId="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" tenantId="acme" />,
