@@ -12,7 +12,12 @@ describe("Help", () => {
     expect(screen.getAllByText("/disputes/:id").length).toBeGreaterThan(0);
     expect(screen.getAllByText("/help").length).toBeGreaterThan(0);
     expect(screen.getByText(/plane off/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? "").toMatch(/Hunt depth is AGE-bounded/i);
+    expect(document.body.textContent ?? "").toMatch(/leftovers and the queue are not a CRM/i);
     expect(document.body.textContent ?? "").not.toMatch(/coming soon/i);
+    expect(document.body.textContent ?? "").not.toMatch(/neo4j[- ]class/i);
+    expect(document.body.textContent ?? "").not.toMatch(/unlimited path/i);
+    expect(document.body.textContent ?? "").not.toMatch(/identity SKU/i);
     const body = document.body.textContent ?? "";
     expect(body.toLowerCase()).not.toMatch(/prototype/);
     expect(body.toLowerCase()).not.toMatch(/synthetic data/);
@@ -20,5 +25,30 @@ describe("Help", () => {
     expect(body).not.toMatch(/OSINT/);
     expect(body).not.toMatch(/Admin Panel/);
     expect(body).not.toMatch(/Simulation/);
+  });
+
+
+  it("points no-code at SentencePackPanel + ObserveEasePanel, not VisualRuleBuilder as a SKU", () => {
+    render(<Help />);
+    const body = document.body.textContent ?? "";
+    expect(body).toMatch(/SentencePackPanel/);
+    expect(body).toMatch(/ObserveEasePanel/);
+    expect(body).toMatch(/not a product SKU/i);
+    expect(body).not.toMatch(/Visual Rule Builder/i);
+    expect(body).not.toMatch(/full-page builder/i);
+    expect(body).not.toMatch(/book a demo/i);
+    expect(body).not.toMatch(/start free/i);
+  });
+
+  it("explains the investigator path in plain English", () => {
+    render(<Help />);
+    const section = document.getElementById("leftovers");
+    expect(section).toBeTruthy();
+    const copy = section?.textContent ?? "";
+    expect(copy).toMatch(/open receipt/i);
+    expect(copy).toMatch(/pack fired|which pack/i);
+    expect(copy).toMatch(/Create Observe draft/i);
+    expect(copy).toMatch(/not a case CRM|not your case CRM/i);
+    expect(copy).toMatch(/do not need to memorize pack UUIDs/i);
   });
 });

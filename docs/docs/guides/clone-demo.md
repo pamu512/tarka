@@ -34,6 +34,7 @@ If Docker is not available, doctor exits with that message. The walk logic is st
 ```bash
 PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py
 PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_sdk_walk.py
+PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_synth_loop.py
 ```
 
 ## What it does
@@ -61,6 +62,20 @@ The last line before PASS is one click: `NEXT: http://127.0.0.1:3000/graph?entit
 Optional outbound copy of those events: set `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` (and optional `TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET`) on decision-api. Envelope `tarka.observe_notify/v1`. Empty URL = desk only. Webhook 5xx does not block evaluate or Promote.
 
 To add a BYO LLM after Day-1, put the same four vars in `infra/deploy/.env` (`SHADOW_LLM_BACKEND=vllm` or `self-hosted`, `SHADOW_LLM_BASE_URL`, `SHADOW_LLM_API_KEY`, `SHADOW_LLM_MODEL`) and start `shadow_agent` with that env. Do not put keys in the browser. Advise `OPENAI_BASE_URL` is a different overlay.
+
+### Keep the desk live (local operator)
+
+`make demo` stops after three receipts. To keep `/decisions` moving for an evaluate-loop demo, with the stack already up:
+
+```bash
+make synth-loop
+# or
+python3 scripts/oss/synth_loop.py --interval 2 --max 0 --label-every 10
+```
+
+This is a **local operator tool**. It does not start compose and does not invent ALLOW / REVIEW / DENY. Every `--label-every` successful evaluate it POSTs a late-label (`fp` / `fraud`) using `evaluation_token` or `trace_id`+`tenant_id`. Bind failures are logged and the loop continues. Ctrl-C exits cleanly.
+
+Env: `DECISION_API` (default `http://127.0.0.1:8000/decisions`), optional `API_KEY`. `--dry-run` prints payloads only. Offline check: `PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_synth_loop.py`.
 
 ## What you're looking at
 

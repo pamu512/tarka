@@ -1,10 +1,11 @@
 import type { ReactElement } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as client from "@/api/client";
 import { TenantEnvironmentProvider } from "@/context/TenantEnvironmentContext";
+import Decisions from "@/pages/Decisions";
 import Leftovers from "@/pages/Leftovers";
 
 function HuntProbe() {
@@ -28,6 +29,8 @@ vi.mock("@/api/client", async (importOriginal) => {
     decisions: {
       ...actual.decisions,
       queueSeam: vi.fn(),
+      recentAudit: vi.fn(),
+      getAudit: vi.fn(),
     },
   };
 });
@@ -39,6 +42,8 @@ function wrap(ui: ReactElement, path = "/leftovers") {
         <Routes>
           <Route path="/leftovers" element={ui} />
           <Route path="/graph" element={<HuntProbe />} />
+          <Route path="/decisions" element={<Decisions />} />
+          <Route path="/decisions/:traceId" element={<Decisions />} />
         </Routes>
       </TenantEnvironmentProvider>
     </MemoryRouter>
@@ -75,9 +80,12 @@ describe("Leftovers", () => {
     vi.mocked(client.cases.listLeftovers).mockReset();
     vi.mocked(client.cases.claimLeftover).mockReset();
     vi.mocked(client.decisions.queueSeam).mockReset();
+    vi.mocked(client.decisions.recentAudit).mockReset();
+    vi.mocked(client.decisions.getAudit).mockReset();
     vi.mocked(client.cases.listLeftovers).mockResolvedValue({ leftovers: [freeRow, takenRow], truncated: false });
     vi.mocked(client.cases.claimLeftover).mockResolvedValue(freeRow);
     vi.mocked(client.decisions.queueSeam).mockResolvedValue({ connected: false });
+    vi.mocked(client.decisions.recentAudit).mockResolvedValue({ tenant_id: "demo", items: [] });
   });
 
   it("claims a free row then opens Hunt", async () => {
@@ -177,5 +185,38 @@ describe("Leftovers", () => {
     expect(cells).toHaveLength(2);
     expect(cells[0]).toHaveTextContent("Pack device_signals — hits sdk_bot");
     expect(cells[1]).toHaveTextContent("—");
+  });
+
+  it("opening leftover receipt reaches the receipt-why path", async () => {
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-1",
+      entity_id: "buyer-1",
+      tenant_id: "demo",
+      event_type: "login",
+      decision: "review",
+      score: 40,
+      tags: [],
+      rule_hits: ["sdk_bot"],
+      rule_pack_file: "device_signals.json",
+      created_at: "2026-08-24T08:00:00Z",
+    });
+
+    render(wrap(<Leftovers />));
+    const open = (await screen.findAllByRole("link", { name: /open receipt/i }))[0];
+    fireEvent.click(open);
+
+    expect(await screen.findByTestId("pack-why-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-pack")).toHaveTextContent("device_signals");
+    expect(screen.getByTestId("pack-why-reason")).toHaveTextContent("sdk_bot");
+  });
+
+  it("hints only real leftover next legal actions", async () => {
+    render(wrap(<Leftovers />));
+    const actions = await screen.findAllByTestId("next-legal-action");
+    expect(actions[0]).toHaveTextContent("Open receipt");
+    expect(actions[0]).toHaveTextContent("Create Observe draft");
+    expect(actions[0]).toHaveTextContent(/disposition/i);
+    expect(actions[0].textContent?.toLowerCase() ?? "").not.toMatch(/case crm|\bsar\b|open case/);
+    expect(within(actions[0]).queryByRole("link", { name: /open case/i })).not.toBeInTheDocument();
   });
 });
