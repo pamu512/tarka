@@ -21,7 +21,7 @@
 | Label join | [`docs/contracts/label-join-v1.md`](../contracts/label-join-v1.md) |
 | Warehouse consume | [`docs/contracts/warehouse-sink-v1.md`](../contracts/warehouse-sink-v1.md) — buyer-owned job; Tarka exports joinable receipts+labels. Not a hosted lake. Not CRM. |
 | Bake-off metrics | [`docs/contracts/bakeoff-metrics-v1.md`](../contracts/bakeoff-metrics-v1.md) — `pack_metrics[]` (`tarka.pack_metrics/v1`) names `rule_hit_rate` / `shadow_divergence`; **null = unknown**. API fills from Observe logs when present. Promote confirm binds the pack row or honest empty. Shared with Suggest Propose Demote. GLOBAL `evaluate_count` / `action_mix` / `shadow_divergence` fill from audit/receipts/shadow pairs when present (D8.2). **null = unknown**. share-with-M3; do-not-double-implement. |
-| Effectiveness tick | Suggests Propose Demote with pack metrics only. Human Confirm required. Auto-demote forbidden. |
+| Effectiveness tick | Suggests Propose Demote with pack metrics only. Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Tick cannot confirm. |
 | Queue connectors | [`docs/contracts/queue-seam-v1.md`](../contracts/queue-seam-v1.md) — connectors only; not a case CRM |
 | Feature store posture | [`docs/contracts/feature-store-posture-v1.md`](../contracts/feature-store-posture-v1.md) |
 | Field registry | [`docs/docs/guides/field-registry-onboarding.md`](../docs/guides/field-registry-onboarding.md) — product Postgres `field_registry` / `field_maps`; demo file/fixture + PUT 403. Windows on `counter_manifest`. Not G1.3 PIT serve. |
@@ -43,7 +43,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 |-------------|--------------------------|
 | ELv2 source-available (not OSS). Beta, no GA | Open-source; ready-for-beta testers; unattended merchant beta |
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
-| Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. Empty URL / model never demotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
+| Observe ≠ live until promote gates pass. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Propose→Confirm Demote human-only; auto-demote forbidden; model never demotes. Empty URL / model never Promotes. | Live hop FLAG without Promote; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). Outbound decision/action webhooks HMAC-SHA256 signed (`x-tarka-signature`) when secret is set. Empty URL = plane off. Suggested-action `action_id` is hex SHA-256 of tenant + trace_id + action token + pack hash — stable across retries, not a random UUID per POST. Inbound product ACK binds delivery status to `trace_id` + `action_id` (queryable). ACK is not Promote/Demote and not a case inbox. | Handoff as Day-1 default; silent block in emit-only; unsigned enforcement webhooks as the contract; random `action_id` per POST; ACK as Promote/Demote; case CRM from ACK; desk delivery glass as this slice (G4.4) |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
