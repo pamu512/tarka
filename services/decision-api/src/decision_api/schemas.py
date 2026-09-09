@@ -261,7 +261,7 @@ class EvaluateResponse(BaseModel):
     )
     feature_source: str | None = Field(
         default=None,
-        description="l2 | l1 | raw. Empty FEATURE_STORE_URL is not l2.",
+        description="l2 | l1 | raw matching the path used. Empty FEATURE_STORE_URL is not l2.",
     )
     challenge_policy_id: str | None = Field(
         default=None,

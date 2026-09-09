@@ -44,7 +44,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | Hop packs `mode=shadow`. Live only after promote gates pass (same gated-or-human rule). | Always-on graph; “every evaluate is on the graph”; GNN live / GNN god-model |
 | Enforcement contract-gated; default emit-only ([enforcement-v1](../contracts/enforcement-v1.md)). | Handoff as Day-1 default; silent block in emit-only |
 | Queue webhook empty = off. Leftovers residual. | Case CRM; Tarka-hosted ticket DB |
-| Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. | Feast-class / production FS from Redis alone |
+| Redis L1 ≠ production online FS. Empty `FEATURE_STORE_URL` = L2 off. Optional L2 PIT serve when the URL is set; evaluate fail-soft on miss/timeout; receipt `feature_source` matches the path used. L2 does not decide ALLOW/DENY. `feast_class_claim_allowed` stays false. | Feast-class / production FS from Redis alone |
 | Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is seed file/fixture; PUT 403. Windows stay on `counter_manifest`. | Durable registry on demo; windows in the registry; Redis as feature-def SoT |
 | Offline ring jobs → Observe proposals. Not GNN live. | Identity-as-SKU; live hop FLAG without Promote |
 | Optional `vendor_score` is a buyer URL slot. Empty URL = off. | Bundled third-party score SKU |
