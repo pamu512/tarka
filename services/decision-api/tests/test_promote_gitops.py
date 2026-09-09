@@ -69,7 +69,9 @@ def test_emit_payload_fields(tmp_path, monkeypatch) -> None:
     assert stored["emitted_at"]
 
 
-def test_human_promote_emits_schema_id_and_required_fields(tmp_path, monkeypatch) -> None:
+def test_human_promote_emits_schema_id_and_required_fields(
+    tmp_path, monkeypatch
+) -> None:
     from decision_api.config import settings
     from decision_api.json_rules import load_rules
     from decision_api.shadow_auto_promote import activate_shadow_pack
