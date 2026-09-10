@@ -209,6 +209,10 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
     // Empty URL / mock plane is off — never invent an ACK.
     return { schema_id: "tarka.product_ack_list/v1", items: [] };
   }
+  if (path.includes("/api/decisions/v1/enforcement/deliveries")) {
+    // Empty mock journal — never invent emitted/acked/retry rows.
+    return { schema_id: "tarka.enforcement_delivery_query/v1", deliveries: [] };
+  }
   if (path.includes("/api/decisions/v1/ops/enforcement-journal")) {
     return { schema_id: "tarka.enforcement_delivery_list/v1", items: [] };
   }
