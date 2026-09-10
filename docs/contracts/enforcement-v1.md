@@ -67,7 +67,7 @@ When `TARKA_ENFORCEMENT_WEBHOOK_SECRET` is set, POST must carry `x-tarka-signatu
 
 ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM.
 
-Desk `/decisions/:id` delivery-status glass (G4.4) sits next to pack-why. Chips: `emitted` / `acked` / `failed` / `not configured`. Empty enforcement webhook URL = **not configured** (plane off) — never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout”. Journal may record `retrying` / `dead_lettered` (D9.1). D9.4 may extend this same strip with those statuses; do not fork a second log product.
+Desk `/decisions/:id` delivery-status glass (G4.4 #461, D9.4) sits next to pack-why on **one** strip. Chips: `emitted` / `retrying` / `dead_lettered` / `acked` / `not configured`. Residual `failed` only when D9.3 still returns an unclassified journal error — never both `failed` and `dead_lettered` on the same row. Empty enforcement webhook URL = **not configured** (plane off) — never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout” / “blocked by Tarka”. Delivery reliability ≠ enforcement SKU suite. Do not fork a second log product.
 
 ## Retry / dead-letter (D9.1)
 
@@ -125,6 +125,10 @@ Journal `acked` is sink HTTP 2xx. It is **not** the product ACK store. Query `GE
 
 Not Promote/Demote. No assignee / SAR / ticket fields. No cross-tenant god-view.
 
+## Desk delivery status (D9.4)
+
+The G4.4 `DeliveryStatusStrip` on `/decisions/:id` reads D9.3 `GET /v1/enforcement/deliveries`. Same widget. Dead-letter is delivery-failure glass, not Demote. `emit_only` does not claim a blocked payout.
+
 ## Out of scope
 
 - Implementing every vocabulary action as Tarka-owned side effects
@@ -133,7 +137,9 @@ Not Promote/Demote. No assignee / SAR / ticket fields. No cross-tenant god-view.
 - Day-1 default of `handoff`
 - Treating ACK, journal status, or DLQ as Promote/Demote
 - A second competing `action_id` / `delivery_id`
-- D9.4 desk retry/DLQ glass
+- A second desk delivery widget / case queue from this glass
+- Auto-demote from `dead_lettered`
+- Brochure enforcement SKU suite
 - Executing holds from desk glass
 - Redis / SQS / Celery retry bus
 - Cross-tenant admin god-view
