@@ -368,6 +368,7 @@ export default function App() {
             <Route path="/ops/integrity" element={<OpsIntegrity />} />
             <Route path="/investigation" element={isPlaneEnabled("advise") ? <Investigation /> : <PlaneOff plane="advise" />} />
             <Route path="/investigation/dag-trace" element={isPlaneEnabled("advise") ? <DagTracePage /> : <PlaneOff plane="advise" />} />
+            <Route path="/investigation/shadow-llm" element={<Navigate to="/investigation" replace />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ops/counters" element={isPlaneEnabled("signals") ? <OpsCounters /> : <PlaneOff plane="signals" />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />

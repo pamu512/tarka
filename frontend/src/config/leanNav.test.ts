@@ -118,6 +118,7 @@ describe("leanNav", () => {
     expect(planeForPath("/graph")).toBe("graph");
     expect(planeForPath("/graph/mule-path")).toBe("graph");
     expect(planeForPath("/investigation")).toBe("advise");
+    expect(planeForPath("/investigation/shadow-llm")).toBe("advise");
     expect(isNavItemVisible("/graph")).toBe(false);
     expect(isNavItemVisible("/leftovers")).toBe(false);
     expect(isNavItemVisible("/investigation")).toBe(false);
