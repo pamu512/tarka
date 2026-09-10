@@ -178,6 +178,8 @@ class TestTipClaimsHonesty(unittest.TestCase):
         "docs/docs/guides/feature-data-flows.md",
         "docs/docs/guides/oss-15-minute-first-decision.md",
         "docs/docs/guides/shadow-and-ab-testing.md",
+        "docs/docs/guides/tls-pinning-and-signed-requests.md",
+        "docs/docs/guides/deployment-gcp.md",
         "frontend/src/pages/PlaneOff.tsx",
         "frontend/src/pages/Settings.tsx",
         "frontend/src/pages/Help.tsx",
@@ -210,6 +212,18 @@ class TestTipClaimsHonesty(unittest.TestCase):
             text = (_REPO / rel).read_text(encoding="utf-8").lower()
             for phrase in self._BANNED:
                 self.assertNotIn(phrase, text, rel)
+
+    def test_tls_and_gcp_do_not_name_bank_beachhead_or_case_crm(self) -> None:
+        tls = (_REPO / "docs/docs/guides/tls-pinning-and-signed-requests.md").read_text(
+            encoding="utf-8"
+        ).lower()
+        gcp = (_REPO / "docs/docs/guides/deployment-gcp.md").read_text(encoding="utf-8").lower()
+        self.assertNotIn("fintech / banking", tls)
+        self.assertNotIn("crypto-style", tls)
+        self.assertIn("last-mile / food / q-comm / gig / retail", tls)
+        self.assertNotIn("case-management", gcp)
+        self.assertIn("leftovers + hunt", gcp)
+        self.assertIn("case crm is unshipped", gcp)
 
     def test_readme_names_elv2_beta_and_doctor(self) -> None:
         text = (_REPO / "README.md").read_text(encoding="utf-8").lower()
