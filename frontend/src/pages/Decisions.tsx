@@ -18,6 +18,7 @@ import { getAuditForPackWhy } from "../utils/auditDetail";
 import { packNameForDisplay, resolvePackWhy } from "../utils/packWhy";
 import { resolveIntegrityPresence } from "../utils/deviceIntegrity";
 import {
+  deliveryQueryRowForTrace,
   journalRowForTrace,
   resolveDeliveryStatus,
   type DeliveryStatusView,
@@ -221,17 +222,20 @@ export default function Decisions() {
     setDelivery(null);
     (async () => {
       try {
-        const [acks, gov, journal] = await Promise.all([
+        const [acks, gov, journal, query] = await Promise.all([
           decisions.getProductAcks(traceId, tenantId),
           decisions.governance(),
           decisions.enforcementJournal(),
+          decisions.getEnforcementDeliveries(traceId, tenantId),
         ]);
         if (cancelled) return;
         const row = journalRowForTrace(journal.items, traceId, tenantId);
+        const d9 = deliveryQueryRowForTrace(query.deliveries, traceId, tenantId);
         const latestAck = acks.items?.length ? acks.items[acks.items.length - 1] : null;
         setDelivery(
           resolveDeliveryStatus({
             webhookConfigured: Boolean(gov.integrity_ingress?.enforcement_webhook_configured),
+            lastStatus: d9 ? String(d9.last_status || "") : null,
             journalStatus: row ? String(row.status || "") : null,
             journalReason: row ? String(row.reason || "") : null,
             productAck: latestAck,
