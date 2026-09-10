@@ -324,14 +324,14 @@ def _apply_session_cookies(
         "path": "/",
     }
     safe_access = _cookie_safe_token(access_token, kind="access")
-    response.set_cookie(
+    response.set_cookie(  # codeql[py/cookie-injection]
         ACCESS_COOKIE, safe_access, max_age=max_age, **common
-    )  # codeql[py/cookie-injection]
+    )
     if refresh_token:
         safe_refresh = _cookie_safe_token(str(refresh_token), kind="refresh")
-        response.set_cookie(
+        response.set_cookie(  # codeql[py/cookie-injection]
             REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common
-        )  # codeql[py/cookie-injection]
+        )
 
 
 async def fetch_discovery() -> dict[str, Any]:
