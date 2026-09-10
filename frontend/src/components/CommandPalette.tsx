@@ -50,7 +50,7 @@ export const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: Modul
     module: "graph",
     keywords: "fund flow mule payout layering user a user b",
   },
-  { to: "/investigation", label: "Investigation Copilot", module: "investigation", keywords: "chat copilot llm" },
+  { to: "/investigation", label: "Advise", module: "investigation", keywords: "chat copilot llm advise investigation" },
   {
     to: "/investigation/synthetic-identity",
     label: "Synthetic identity detectors",
@@ -62,12 +62,6 @@ export const MODULE_ROUTES_ALL: Array<{ to: string; label: string; module: Modul
     label: "Social engineering monitor",
     module: "investigation",
     keywords: "email password change high value listing account takeover scam",
-  },
-  {
-    to: "/investigation/shadow-llm",
-    label: "Advise",
-    module: "investigation",
-    keywords: "sidecar sse stream ollama shadow copilot",
   },
   { to: "/osint", label: "OSINT enrichment", module: "osint", keywords: "intel" },
   {

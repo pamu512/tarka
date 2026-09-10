@@ -92,6 +92,8 @@ signalApi:
   # Empty here is the same limitation as coreApi.digest. Grade generate --digest-map.
   digest: ""
 
+# Operator must still set OPENAI_BASE_URL + OPENAI_API_KEY (extraEnv / secrets).
+# Enabling without a BYO endpoint is chrome-only — prefer leave false.
 investigationAgent:
   enabled: true
   tag: "1.3.0-beta"

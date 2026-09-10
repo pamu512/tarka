@@ -174,6 +174,10 @@ triton:
   grpcPort: 8021
   metricsPort: 8022
 
+# Enable only when the operator supplies a BYO OpenAI-compat endpoint
+# (OPENAI_BASE_URL + OPENAI_API_KEY, optional OPENAI_MODEL — Azure / Gemini compat /
+# Bedrock gateway / vLLM). Empty URL or enabled=false = desk Advise off (PlaneOff).
+# Do not enable for chrome-only; fail-closed. Keys stay in extraEnv / secrets, never VITE_*.
 investigationAgent:
   enabled: false
   image: tarka-investigation-agent

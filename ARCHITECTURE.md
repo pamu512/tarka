@@ -99,15 +99,14 @@ sequenceDiagram
 
 ---
 
-## Shadow brand map (one product, three paths)
+## Shadow brand map (one product, two paths)
 
 | Path | Role | Product surface? |
 |------|------|------------------|
-| **`services/shadow_agent`** | FastAPI ingest sidecar (`POST /v1/analyze`) | **Yes — production Shadow on the ingest rail** |
+| **`services/shadow_agent`** | FastAPI ingest sidecar (`POST /v1/analyze`) | **Yes — ingest Advise** (`SHADOW_LLM_*` / `SHADOW_AGENT_URL`) |
 | **`services/shadow`** | Python library (`tarka-shadow`: hooks, NATS OSINT helpers) | **No — library only**, imported by orchestrator |
-| **`tools/shadow`** | Desktop forensics console (local Ollama / Tauri) | **Analyst workstation only** — not default compose |
 
-Do not add a fourth HTTP “Shadow” service. See `services/SHADOW.md`.
+Desk Advise is **investigation-agent** (`OPENAI_*`). Empty URL hides chrome. There is no desktop forensics console. See `services/SHADOW.md`.
 
 ---
 
@@ -182,9 +181,9 @@ Product SoT is Postgres `field_registry` (tenant overlay) and `field_maps` (buye
 | `services/decision-api/` | Canonical evaluate (Rust packs). |
 | `services/core-api/` | Macroservice mounting `/decisions`. |
 | `services/rule_engine/` | Legacy Python AST sidecar (profile only). |
-| `services/shadow_agent/` | Analyze + audit persistence + Ollama client. |
+| `services/shadow_agent/` | Analyze + audit persistence + ingest LLM (`SHADOW_LLM_*`). |
 | `services/shadow/` | Library hooks used by orchestrator (not an HTTP service). |
-| `tools/shadow/` | Desktop forensics console. |
+| `services/investigation-agent/` | Desk Advise (BYO `OPENAI_*`). Empty URL = plane off. |
 | `services/ingestor/` | `TransactionSchema` + manifest types. |
 | `packages/shared-core/tarka_shared/` | `AuditLog`, `Case`, DB session helpers. |
 | `docs/superpowers/specs/2026-07-11-one-rust-rule-engine-design.md` | Approach A design. |

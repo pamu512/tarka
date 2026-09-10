@@ -1,5 +1,7 @@
 # Product overlay — analyst jobs skin + desk_provision mount.
-# Does not change make demo. Shadow stays off unless compose profile `llm`.
+# Does not change make demo.
+# Desk Advise (investigation-agent) is a separate overlay — only when OPENAI_BASE_URL is set.
+# Ingest sidecar (shadow_agent) stays off unless compose profile `llm` and SHADOW_LLM_BASE_URL.
 #
 #   docker compose \
 #     -f infra/deploy/docker-compose.lite.yml \
@@ -7,7 +9,7 @@
 #     -f infra/deploy/docker-compose.product.yml \
 #     up --build
 #
-# + shadow_agent when an LLM URL is set:
+# + shadow_agent when ingest SHADOW_LLM_BASE_URL is set:
 #     --profile llm
 
 services:
@@ -39,9 +41,10 @@ services:
     environment:
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-dev-shadow-token-change-me}
       SHADOW_DATABASE_URL: sqlite+aiosqlite:////tmp/shadow_audit.db
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      SHADOW_LLM_BACKEND: ${SHADOW_LLM_BACKEND:-vllm}
+      SHADOW_LLM_BASE_URL: ${SHADOW_LLM_BASE_URL:-}
+      SHADOW_LLM_API_KEY: ${SHADOW_LLM_API_KEY:-}
+      SHADOW_LLM_MODEL: ${SHADOW_LLM_MODEL:-}
     healthcheck:
       test:
         [
