@@ -101,16 +101,16 @@ def main() -> int:
     )
     if args.expect_fail:
         if errors:
-            print(f"OK: expected failures ({len(errors)}):")
-            for e in errors:
-                print(f"  - {e}")
+            # Count only — never echo check strings (may be CodeQL-tainted via env map).
+            print(f"OK: expected failures ({len(errors)})")
             return 0
         print("FAIL: expected production checks to fail, but they passed", file=sys.stderr)
         return 1
     if errors:
-        print("FAIL: production profile checks:", file=sys.stderr)
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
+        print(
+            f"FAIL: production profile checks ({len(errors)} errors)",
+            file=sys.stderr,
+        )
         return 1
     print(f"OK: production profile checks passed ({args.env_file})")
     return 0
