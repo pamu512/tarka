@@ -35,7 +35,7 @@ Product observe inbox (`profile=product` or `TARKA_OBSERVE_NOTIFY_STORE=postgres
 
 Signature header: `x-tarka-signature` = hex HMAC-SHA256 of the raw body when secret is set.
 
-Inbound product ACK: `POST /v1/enforcement/acks` (same signature header when the enforcement secret is set). Query `GET /v1/enforcement/acks?trace_id=&tenant_id=`. Unknown trace is 4xx. ACK is not Promote/Demote. Delivery journal query: `GET /v1/enforcement/deliveries?trace_id=&tenant_id=&action_id=&status=` (tenant-scoped; unknown trace → empty `deliveries[]`). Journal HTTP 2xx ≠ product ACK. Desk `/decisions/:id` shows emit/ACK delivery chips (emitted / acked / failed / not configured). Empty URL = not configured.
+Inbound product ACK: `POST /v1/enforcement/acks` (same signature header when the enforcement secret is set). Query `GET /v1/enforcement/acks?trace_id=&tenant_id=`. Unknown trace is 4xx. ACK is not Promote/Demote. Delivery journal query: `GET /v1/enforcement/deliveries?trace_id=&tenant_id=&action_id=&status=` (tenant-scoped; unknown trace → empty `deliveries[]`). Journal HTTP 2xx ≠ product ACK. Desk `/decisions/:id` (G4.4 strip, D9.4) shows emitted / retrying / dead_lettered / acked / not configured. Residual `failed` only for unclassified journal error. Empty URL = not configured. Delivery reliability ≠ enforcement SKU suite.
 
 Headers: `x-tarka-enforcement-event` (`allow`/`step_up`/`block`) or `x-tarka-challenge-event` (`step_up`).
 

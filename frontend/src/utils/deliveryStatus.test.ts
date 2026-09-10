@@ -69,4 +69,80 @@ describe("resolveDeliveryStatus", () => {
     expect(view.chip).toBe("not_configured");
     expect(view.label).toBe("not configured");
   });
+
+  it("maps D9.3 last_status retrying to retrying, not failed", () => {
+    const view = resolveDeliveryStatus({
+      webhookConfigured: true,
+      lastStatus: "retrying",
+      journalStatus: "error",
+      productAck: null,
+      enforcementMode: "emit_only",
+    });
+    expect(view.chip).toBe("retrying");
+    expect(view.label).toBe("retrying");
+    expect(view.chip).not.toBe("failed");
+    expect(view.hint.toLowerCase()).toMatch(/advisory emit/);
+    expect(view.hint.toLowerCase()).not.toMatch(/blocked by tarka|we blocked|blocked payout/);
+  });
+
+  it("maps D9.3 last_status dead_lettered to dead_lettered, not failed", () => {
+    const view = resolveDeliveryStatus({
+      webhookConfigured: true,
+      lastStatus: "dead_lettered",
+      journalStatus: "non_2xx",
+      productAck: null,
+      enforcementMode: "emit_only",
+    });
+    expect(view.chip).toBe("dead_lettered");
+    expect(view.label).toBe("dead lettered");
+    expect(view.chip).not.toBe("failed");
+    expect(view.hint.toLowerCase()).toMatch(/not demote|not a demote/);
+    expect(view.hint.toLowerCase()).not.toMatch(/blocked by tarka|auto-demote|we blocked/);
+  });
+
+  it("keeps residual failed only for unclassified journal error", () => {
+    const view = resolveDeliveryStatus({
+      webhookConfigured: true,
+      lastStatus: "error",
+      journalStatus: "error",
+      productAck: null,
+    });
+    expect(view.chip).toBe("failed");
+    expect(view.label).toBe("failed");
+  });
+
+  it("empty webhook URL with D9.3 acked is not configured, never fake acked", () => {
+    const view = resolveDeliveryStatus({
+      webhookConfigured: false,
+      lastStatus: "acked",
+      productAck: { status: "applied" },
+      enforcementMode: "emit_only",
+    });
+    expect(view.chip).toBe("not_configured");
+    expect(view.chip).not.toBe("acked");
+    expect(view.hint.toLowerCase()).not.toMatch(/blocked by tarka|we blocked/);
+  });
+
+  it("emit_only copy is advisory emit, not blocked by Tarka", () => {
+    for (const lastStatus of ["emitted", "retrying", "dead_lettered", "acked"]) {
+      const view = resolveDeliveryStatus({
+        webhookConfigured: true,
+        lastStatus,
+        productAck: lastStatus === "acked" ? { status: "applied" } : null,
+        enforcementMode: "emit_only",
+      });
+      expect(view.hint.toLowerCase()).not.toMatch(/blocked by tarka|we blocked payout|blocked payout/);
+      expect(view.hint.toLowerCase()).toMatch(/advisory emit|plane off|not configured/);
+    }
+  });
+
+  it("help one-liner says delivery reliability is not an enforcement SKU suite", () => {
+    const view = resolveDeliveryStatus({
+      webhookConfigured: true,
+      lastStatus: "emitted",
+      enforcementMode: "emit_only",
+    });
+    expect(view.hint.toLowerCase()).toMatch(/delivery reliability/);
+    expect(view.hint.toLowerCase()).toMatch(/not an enforcement sku suite/);
+  });
 });
