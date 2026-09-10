@@ -297,9 +297,13 @@ def _cookie_safe_token(raw: str, *, kind: str) -> str:
     append attributes or a second cookie (CodeQL py/cookie-injection).
     """
     token = (raw or "").strip()
-    if not token or any(ch in token for ch in ("\r", "\n", ";", ",")):
+    if not token:
         raise HTTPException(status_code=502, detail=f"OIDC {kind} token rejected")
-    return token
+    # Replace (not only reject) so CodeQL treats the value as sanitized.
+    cleaned = token.replace("\r", "").replace("\n", "").replace(";", "").replace(",", "")
+    if cleaned != token:
+        raise HTTPException(status_code=502, detail=f"OIDC {kind} token rejected")
+    return cleaned
 
 
 def _apply_session_cookies(
@@ -324,14 +328,10 @@ def _apply_session_cookies(
         "path": "/",
     }
     safe_access = _cookie_safe_token(access_token, kind="access")
-    response.set_cookie(  # codeql[py/cookie-injection]
-        ACCESS_COOKIE, safe_access, max_age=max_age, **common
-    )
+    response.set_cookie(ACCESS_COOKIE, safe_access, max_age=max_age, **common)
     if refresh_token:
         safe_refresh = _cookie_safe_token(str(refresh_token), kind="refresh")
-        response.set_cookie(  # codeql[py/cookie-injection]
-            REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common
-        )
+        response.set_cookie(REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common)
 
 
 async def fetch_discovery() -> dict[str, Any]:
