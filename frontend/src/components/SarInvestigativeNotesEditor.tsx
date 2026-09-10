@@ -16,6 +16,8 @@ type Props = {
  */
 export function SarInvestigativeNotesEditor({ initialHtml, locked, onHtmlChange }: Props) {
   const editor = useEditor({
+    // TipTap v3: avoid SSR/hydration mismatch on first paint.
+    immediatelyRender: false,
     extensions: [StarterKit],
     content: initialHtml?.trim() ? initialHtml : "<p></p>",
     editable: !locked,

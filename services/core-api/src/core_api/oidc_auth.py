@@ -290,6 +290,18 @@ def _cookie_secure(request: Request) -> bool:
     return _env("TARKA_DEPLOYMENT_PROFILE").lower() == "production"
 
 
+def _cookie_safe_token(raw: str, *, kind: str) -> str:
+    """Reject cookie values that could inject extra Set-Cookie attributes.
+
+    IdP tokens are opaque strings; CR/LF/semicolon/comma would let an attacker
+    append attributes or a second cookie (CodeQL py/cookie-injection).
+    """
+    token = (raw or "").strip()
+    if not token or any(ch in token for ch in ("\r", "\n", ";", ",")):
+        raise HTTPException(status_code=502, detail=f"OIDC {kind} token rejected")
+    return token
+
+
 def _apply_session_cookies(
     response: JSONResponse,
     request: Request,
@@ -311,9 +323,15 @@ def _apply_session_cookies(
         "samesite": "lax",
         "path": "/",
     }
-    response.set_cookie(ACCESS_COOKIE, access_token, max_age=max_age, **common)
+    safe_access = _cookie_safe_token(access_token, kind="access")
+    response.set_cookie(  # codeql[py/cookie-injection]
+        ACCESS_COOKIE, safe_access, max_age=max_age, **common
+    )
     if refresh_token:
-        response.set_cookie(REFRESH_COOKIE, refresh_token, max_age=30 * 24 * 3600, **common)
+        safe_refresh = _cookie_safe_token(str(refresh_token), kind="refresh")
+        response.set_cookie(  # codeql[py/cookie-injection]
+            REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common
+        )
 
 
 async def fetch_discovery() -> dict[str, Any]:

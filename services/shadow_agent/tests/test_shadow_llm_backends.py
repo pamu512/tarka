@@ -47,13 +47,15 @@ def test_build_gemini_and_qwen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TARKA_DEPLOYMENT_PROFILE", raising=False)
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "gemini")
     monkeypatch.setenv("GEMINI_API_KEY", "g-test")
+    from urllib.parse import urlparse
+
     g = build_shadow_llm_client()
-    assert "generativelanguage.googleapis.com" in g._base_url
+    assert urlparse(g._base_url).hostname == "generativelanguage.googleapis.com"
     asyncio.run(g.aclose())
     monkeypatch.setenv("SHADOW_LLM_BACKEND", "qwen")
     monkeypatch.setenv("DASHSCOPE_API_KEY", "ds-test")
     q = build_shadow_llm_client()
-    assert "dashscope.aliyuncs.com" in q._base_url
+    assert urlparse(q._base_url).hostname == "dashscope.aliyuncs.com"
     asyncio.run(q.aclose())
 
 
