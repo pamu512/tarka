@@ -300,12 +300,7 @@ def _cookie_safe_token(raw: str, *, kind: str) -> str:
     if not token:
         raise HTTPException(status_code=502, detail=f"OIDC {kind} token rejected")
     # Replace (not only reject) so CodeQL treats the value as sanitized.
-    cleaned = (
-        token.replace("\r", "")
-        .replace("\n", "")
-        .replace(";", "")
-        .replace(",", "")
-    )
+    cleaned = token.replace("\r", "").replace("\n", "").replace(";", "").replace(",", "")
     if cleaned != token:
         raise HTTPException(status_code=502, detail=f"OIDC {kind} token rejected")
     return cleaned
@@ -333,14 +328,10 @@ def _apply_session_cookies(
         "path": "/",
     }
     safe_access = _cookie_safe_token(access_token, kind="access")
-    response.set_cookie(
-        ACCESS_COOKIE, safe_access, max_age=max_age, **common
-    )
+    response.set_cookie(ACCESS_COOKIE, safe_access, max_age=max_age, **common)
     if refresh_token:
         safe_refresh = _cookie_safe_token(str(refresh_token), kind="refresh")
-        response.set_cookie(
-            REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common
-        )
+        response.set_cookie(REFRESH_COOKIE, safe_refresh, max_age=30 * 24 * 3600, **common)
 
 
 async def fetch_discovery() -> dict[str, Any]:
