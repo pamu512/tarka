@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 ROOT = Path(__file__).resolve().parents[2]
 _DEC_SRC = ROOT / "services" / "decision-api" / "src"
@@ -21,6 +22,44 @@ if str(_DEC_SRC) not in sys.path:
     sys.path.insert(0, str(_DEC_SRC))
 
 from decision_api.production_profile import check_production_env  # noqa: E402
+
+# Keys whose values are never needed as cleartext by check_production_env —
+# only presence / emptiness matters. Keep credentials out of the env map so
+# diagnostic prints cannot leak them (CodeQL py/clear-text-logging-sensitive-data).
+_PRESENCE_ONLY_MARKERS = (
+    "PASSWORD",
+    "SECRET",
+    "TOKEN",
+    "API_KEYS",
+)
+
+
+def _presence_only_key(key: str) -> bool:
+    upper = key.upper()
+    # Tenant map JSON must stay intact for wildcard checks.
+    if upper == "API_KEY_TENANT_MAP":
+        return False
+    return any(marker in upper for marker in _PRESENCE_ONLY_MARKERS)
+
+
+def _strip_url_userinfo(raw: str) -> str:
+    """Keep host/path for SoR checks; drop userinfo (may hold a DB password)."""
+    text = (raw or "").strip()
+    if not text:
+        return text
+    normalized = text.replace("postgresql+asyncpg://", "postgresql://", 1)
+    try:
+        parts = urlparse(normalized)
+    except Exception:
+        return text
+    if not parts.hostname:
+        return text
+    host = parts.hostname
+    if parts.port:
+        host = f"{host}:{parts.port}"
+    netloc = host
+    scheme = parts.scheme or "postgresql"
+    return urlunparse((scheme, netloc, parts.path or "", "", "", ""))
 
 
 def _load_env_file(path: Path) -> dict[str, str]:
@@ -30,7 +69,15 @@ def _load_env_file(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        out[key.strip()] = val.strip()
+        name = key.strip()
+        value = val.strip()
+        if _presence_only_key(name):
+            out[name] = "1" if value else ""
+            continue
+        if name.upper() == "DATABASE_URL":
+            out[name] = _strip_url_userinfo(value)
+            continue
+        out[name] = value
     return out
 
 
@@ -54,16 +101,16 @@ def main() -> int:
     )
     if args.expect_fail:
         if errors:
-            print(f"OK: expected failures ({len(errors)}):")
-            for e in errors:
-                print(f"  - {e}")
+            # Count only — never echo check strings (may be CodeQL-tainted via env map).
+            print(f"OK: expected failures ({len(errors)})")
             return 0
         print("FAIL: expected production checks to fail, but they passed", file=sys.stderr)
         return 1
     if errors:
-        print("FAIL: production profile checks:", file=sys.stderr)
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
+        print(
+            f"FAIL: production profile checks ({len(errors)} errors)",
+            file=sys.stderr,
+        )
         return 1
     print(f"OK: production profile checks passed ({args.env_file})")
     return 0
