@@ -11,7 +11,7 @@ Demo first-hour path stays [`make demo`](./clone-demo.md). This page is the prod
 | Skin | How | What you get |
 |------|-----|----------------|
 | **Demo** | `make demo` | First-hour pages. `VITE_DESK_PROFILE=demo`. No `desk_provision` required. No `shadow_agent`. |
-| **Product** | `make product` | Analyst jobs (visual / backtest / lists / simulation / analytics) + `infra/deploy/desk_provision.example.json` mounted. `shadow_agent` only when `OPENAI_BASE_URL` is set (`--profile llm`). |
+| **Product** | `make product` | Analyst jobs (visual / backtest / lists / simulation / analytics) + `infra/deploy/desk_provision.example.json` mounted. investigation-agent only when `OPENAI_BASE_URL` is set. `shadow_agent` only when `SHADOW_LLM_BASE_URL` is set (`--profile llm`). |
 | **Sales-only overlay** | `VITE_DESK_PROFILE=brochure` / `VITE_LEAN_NAV=false` | Pitch pages. Not the product default. The env token stays `brochure`. |
 
 ## Command
@@ -67,7 +67,8 @@ What the **product compose desk** actually runs. Aligns with VISION: graph is re
 | Observe `/ops/shadow` | Canary, not live. Auto-Promote **off**. Beachhead seeds stay Observe |
 | L2 leftover / HIL override | Observe draft. AI author needs a backtest pass first (`409 backtest_required`) |
 | Graph-risk / ring-score challenger | Offline label loop. Never “GNN live.” `GRAPH_GNN_BETA_URL` unset |
-| `shadow_agent` | Only if `OPENAI_BASE_URL` is set |
+| investigation-agent (desk Advise) | Only if `OPENAI_BASE_URL` is set |
+| `shadow_agent` (ingest Advise) | Only if `SHADOW_LLM_BASE_URL` is set |
 | Enforcement / observe-notify hooks | Empty URL = off |
 
 Hunt-off on this desk: empty `VITE_GRAPH_SERVICE_URL` **or** `TARKA_HUNT_ENABLED=0` (rebuild). `hunt.enabled: false` in the file turns the loader off; chrome matches after that bake.

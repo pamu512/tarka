@@ -293,7 +293,7 @@ export default function Cases() {
       title: row.title || "Case",
     });
     navigate(
-      `/investigation/shadow-llm?case_id=${encodeURIComponent(row.id)}&tenant_id=${encodeURIComponent(row.tenant_id)}`,
+      `/investigation?case_id=${encodeURIComponent(row.id)}&tenant_id=${encodeURIComponent(row.tenant_id)}`,
     );
   }, [selectedIds, caseList, navigate, pinCase, toast]);
 

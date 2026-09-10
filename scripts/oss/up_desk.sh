@@ -19,10 +19,17 @@ python3 "$ROOT/scripts/oss/doctor.py" || {
   exit 1
 }
 python3 "$ROOT/scripts/oss/setup_llm_env.py" --env-file "$DEPLOY/.env" || true
-docker compose \
-  -f "$DEPLOY/docker-compose.lite.yml" \
-  -f "$DEPLOY/docker-compose.fraud-desk.yml" \
-  --env-file "$DEPLOY/.env" up -d --build
+compose_args=(
+  docker compose
+  -f "$DEPLOY/docker-compose.lite.yml"
+  -f "$DEPLOY/docker-compose.fraud-desk.yml"
+  --env-file "$DEPLOY/.env"
+)
+# Desk Advise = investigation-agent when OPENAI_BASE_URL is set. Empty = plane off.
+if grep -qE '^OPENAI_BASE_URL=.+' "$DEPLOY/.env"; then
+  compose_args+=(-f "$DEPLOY/docker-compose.investigation.yml")
+fi
+"${compose_args[@]}" up -d --build
 healthy=0
 for _ in $(seq 1 90); do
   if curl -sf http://127.0.0.1:8000/decisions/v1/health >/dev/null; then

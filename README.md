@@ -17,7 +17,7 @@ make doctor && make demo
 | Command | Skin | Notes |
 |---------|------|--------|
 | `make demo` | demo | First-hour pages. No `shadow_agent`. |
-| `make product` | product | Analyst jobs + `desk_provision.json`. `shadow_agent` only when an LLM URL is set. |
+| `make product` | product | Analyst jobs + `desk_provision.json`. investigation-agent only when `OPENAI_BASE_URL` is set; `shadow_agent` only when `SHADOW_LLM_BASE_URL` is set. |
 | sales-only overlay | `VITE_DESK_PROFILE=brochure` | Pitch pages. Not the product default. |
 
 P0: webhooks and product observe-notify are in `desk_provision.json` (empty URL = off). Helm prod-on-k8s keeps frontend / desk OFF and Shadow OFF. The `brochure` env token is unchanged.
@@ -36,7 +36,9 @@ Can-run
 Compose fraud-desk is day-1.
 Helm prod-on-k8s is core-api HA
 (replicaCount 2, tenant binding on).
-investigation-agent ON (postgres, 2 replicas).
+investigation-agent ON only when the operator
+supplies a BYO OpenAI-compat endpoint
+(OPENAI_BASE_URL + key). Chart default is OFF.
 frontend / desk OFF.
 Shadow OFF (no model in the chart;
 operator BYO URL later, no Tarka-branded model).
@@ -68,7 +70,7 @@ Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
 Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
 
-Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation overlay, signals overlay, local Advise/Ollama. Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
+Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation overlay (desk Advise, BYO `OPENAI_*` or skip), signals overlay, ingest `shadow_agent` (`SHADOW_LLM_*`). Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
 **15-minute first decision** (deeper than `make demo`): [docs/docs/guides/oss-15-minute-first-decision.md](docs/docs/guides/oss-15-minute-first-decision.md) → `python3 scripts/oss/first_decision_smoke.py`
 

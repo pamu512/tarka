@@ -9,7 +9,7 @@ Python package **`shadow`** — hooks, prompts, and NATS OSINT helpers used **in
 | Want | Use |
 |------|-----|
 | Ingest `POST /v1/analyze` | [`../shadow_agent/`](../shadow_agent/) |
-| Desktop forensics | [`../../tools/shadow/`](../../tools/shadow/) |
+| Desk Advise | [`../investigation-agent/`](../investigation-agent/) (`OPENAI_*`) |
 | Brand map | [`../SHADOW.md`](../SHADOW.md) |
 
 CI installs this package for unit tests (`pip install -e ./services/shadow[dev]`). Do not add a Dockerfile or compose service here.

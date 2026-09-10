@@ -483,7 +483,7 @@ export default function Investigation() {
       const errorMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: `Error: ${toUserFacingApiError(err, { subject: "Investigation Copilot", action: "send copilot request" })}`,
+        content: `Error: ${toUserFacingApiError(err, { subject: "Advise", action: "send copilot request" })}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -503,7 +503,7 @@ export default function Investigation() {
       <div className="shrink-0 border-b border-surface-800/90 bg-surface-950/40">
         <div className="flex items-start justify-between gap-4 px-5 py-3.5">
           <div className="min-w-0 space-y-1">
-            <PageTitle module="investigation">Investigation Copilot</PageTitle>
+            <PageTitle module="investigation">Advise</PageTitle>
             <p className="text-xs text-gray-500 max-w-xl">
               Read-only assistant over cases, graph, audits, and uploads.{" "}
               <span className="text-gray-600">Presets:</span> type{" "}

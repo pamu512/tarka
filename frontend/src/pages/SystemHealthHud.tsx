@@ -208,7 +208,7 @@ export default function SystemHealthHud(): ReactElement {
             <p className="text-sm text-gray-400">
               {data.ollama.reachable
                 ? "Pending local inference requests (daemon queue)."
-                : "Sidecar offline — start Ollama or check Shadow LLM forensics URL."}
+                : "Sidecar offline — start Ollama or check the ingest LLM URL (SHADOW_LLM_*)."}
             </p>
             {data.ollama.model_loaded ? (
               <p className="text-[11px] font-mono text-gray-500 truncate" title={data.ollama.model_loaded}>

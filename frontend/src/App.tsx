@@ -39,7 +39,6 @@ const RulePerformance = lazy(() => import("./pages/RulePerformance"));
 const AuditLogExplorer = lazy(() => import("./pages/AuditLogExplorer"));
 const Investigation = lazy(() => import("./pages/Investigation"));
 const DagTracePage = lazy(() => import("./pages/DagTracePage"));
-const ShadowLlmForensics = lazy(() => import("./pages/ShadowLlmForensics"));
 const OsintEnrichment = lazy(() => import("./pages/OsintEnrichment"));
 const NatsSetuMonitor = lazy(() => import("./pages/NatsSetuMonitor"));
 const ShadowMode = lazy(() => import("./pages/ShadowMode"));
@@ -114,9 +113,8 @@ const NAV_GROUPS_ALL: { label: string; items: NavItem[] }[] = [
     label: "Investigation",
     items: [
       { to: "/graph/mule-path", label: "Mule path", module: "graph" },
-      { to: "/investigation", label: "Investigation Copilot", module: "investigation" },
+      { to: "/investigation", label: "Advise", module: "investigation" },
       { to: "/investigation/dag-trace", label: "DAG trace", module: "investigation" },
-      { to: "/investigation/shadow-llm", label: "Advise", module: "investigation" },
       {
         to: "/investigation/synthetic-identity",
         label: "Synthetic identity",
@@ -370,7 +368,6 @@ export default function App() {
             <Route path="/ops/integrity" element={<OpsIntegrity />} />
             <Route path="/investigation" element={isPlaneEnabled("advise") ? <Investigation /> : <PlaneOff plane="advise" />} />
             <Route path="/investigation/dag-trace" element={isPlaneEnabled("advise") ? <DagTracePage /> : <PlaneOff plane="advise" />} />
-            <Route path="/investigation/shadow-llm" element={isPlaneEnabled("advise") ? <ShadowLlmForensics /> : <PlaneOff plane="advise" />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/ops/counters" element={isPlaneEnabled("signals") ? <OpsCounters /> : <PlaneOff plane="signals" />} />
             <Route path="/ops/pipelines" element={<OpsPipelines />} />

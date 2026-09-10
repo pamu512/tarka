@@ -20,7 +20,7 @@ Related: [ports](../guides/service-ports.md) · [SLOs](../guides/service-slos-v1
 | Postgres or Redis down | **Page** | Desk cannot persist audit / velocities. |
 | Graph / Janus / Gremlin down | Degrade | Evaluate fail-opens with `graph:unavailable` when `GRAPH_SERVICE_URL` is set. Empty URL tags `graph:unconfigured` (no 2.5s timeout). Do not block payments to save the graph. |
 | Data-plane / NATS / orchestrator / outbox down | Degrade (sync desk still up) | Async `/v1/events` stalls or side-effects NAK. Sync evaluate still works if core-api is up. |
-| Shadow / LLM down | Degrade | Forensics only. AI never owns allow/deny. Self-hosted Ollama/vLLM **or** Claude / Gemini / Qwen via `SHADOW_LLM_BACKEND`. |
+| Shadow / LLM down | Degrade | Advise only (never allow/deny). Desk Advise is investigation-agent (`OPENAI_*`). Ingest Advise is `shadow_agent` (`SHADOW_LLM_*`). |
 | Fingerprint / Incognia upstream 5xx | Degrade | Partner fusion fail-closed for that vendor; rules must still evaluate without vendor tags. |
 
 ---
@@ -32,16 +32,16 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 | Profile | Compose | Services (typical) | Linux RAM floor | When to turn on |
 |---------|---------|--------------------|-----------------|-----------------|
 | **Lite / thin desk** | `docker-compose.lite.yml` (optional `docker-compose.fraud-desk.yml`) | postgres (AGE), redis, graph-service, core-api, frontend | **~4 GB** | **Day-1 default.** Rust evaluate + packs + AGE Hunt. Lean `/graph`, `/leftovers`, `/ops/shadow`, `/decisions`, `/rules`. `/cases` hidden. No nats, no signal-api, no investigation-agent, no ingress. |
-| **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Advise / copilot. Sets desk `VITE_INVESTIGATION_AGENT_URL`. Empty URL hides Advise chrome. |
+| **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Desk Advise. Enable only with BYO OpenAI-compat (`OPENAI_BASE_URL` + key). Sets desk `VITE_INVESTIGATION_AGENT_URL` (URL only — never the key). Empty URL hides Advise chrome. |
 | **+ signals** | lite + `docker-compose.signals.yml` | nats, signal-api `:8004`, integration-ingress `:8003` | **+2–3 GB** | Features / ML / calibration + ingress. Sets `FEATURE_SERVICE_URL` / `ML_SCORING_URL` and desk `VITE_SIGNAL_API_URL`. |
 | **Full desk** | `docker-compose.full-desk.yml` (lite + fraud-desk + signals + investigation) | lite plus nats, signal-api, ingress, investigation-agent | **~8 GB** | Former "Desk" shape. Analyst tools. AGE graph already on lite. Still no Janus, no Ollama. |
 | **+ ingest** | lite `--profile ingest` (optional `docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
 | **+ OPA** | full compose `--profile opa` | `openpolicyagent/opa` `:8181` | **+256 MB** | Set `OPA_URL=http://opa:8181` on core-api. Empty URL skips the hop (no 2s timeout). Not part of `--profile full`. |
 | **+ Janus graph** | lite `--profile graph` + `docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`); graph-service already on lite | **+8 GB** | Optional Gremlin backend. Lite already has AGE. Empty `VITE_GRAPH_SERVICE_URL` hides Hunt (honest "plane off"). |
-| **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends (Claude / Gemini / Qwen) add ~256 MB. | Forensics. Advise only. Set `SHADOW_LLM_BACKEND`. |
+| **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends add ~256 MB. | Ingest Advise (`SHADOW_LLM_*`). Not desk chrome. |
 | **Full triad on one box** | full desk + graph + large local LLM | all of the above | **~24 GB+** | Lab / demo. Not the production default. |
 
-Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay — do not treat it as this Day-1 shape.
+Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Enable `investigationAgent` only when the operator supplies a BYO OpenAI-compat endpoint. Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay — do not treat it as this Day-1 shape.
 
 Disk: **≥ 12 GB** free for lite images; **≥ 20 GB** for full desk; **≥ 40 GB** if you also store 30B-class weights.
 
@@ -167,7 +167,7 @@ Evaluate metadata: `fingerprint_request_id`, `incognia_account_id`. Proof: `pyth
 |----|------|-----|
 | **evaluate** | postgres, redis, core-api, frontend | Hot path. Page this box. Add signal-api only when that plane is on. |
 | **graph** (optional) | Janus/Gremlin + graph-service | Isolate Gremlin heap from evaluate p95. |
-| **forensics** (optional) | shadow_agent + Ollama | Isolate model weights. Outage ≠ deny. |
+| **ingest Advise** (optional) | shadow_agent + Ollama | Isolate model weights. Outage ≠ deny. Desk Advise is investigation-agent on the evaluate/desk host when `OPENAI_BASE_URL` is set. |
 
 Do not put Janus + Ollama + evaluate on one VM and call it production.
 

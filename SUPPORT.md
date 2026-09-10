@@ -133,6 +133,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **No consortium** | No consortium SKU. Any adapter talks to **your** decision-api. |
 | **No case CRM** | Leftovers + Hunt are residual. Day-1 Hunt is Path B depth-1 (`hunt_depth_max=1`). Empty `GRAPH_SERVICE_URL` = Hunt/hops off. [Queue seam](docs/contracts/queue-seam-v1.md) is connectors only. Tarka does not host a ticket DB. |
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
+| **Advise is optional / BYO** | Desk Advise is investigation-agent. Enable Helm `investigationAgent` only with a buyer OpenAI-compat URL + key. Empty URL = hide chrome (PlaneOff). Ingest Advise is `SHADOW_LLM_*`. No Tarka-branded model. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
 | **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |
 | **Grade not claimed here** | GitLab-grade only after G0–G8 land **and** a **named** beachhead pilot signs the [G9 soak checklist](docs/docs/guides/production-install-soak-checklist.md). This file is G8 (support pack). It is not G9 and not the grade. |

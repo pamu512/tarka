@@ -16,7 +16,7 @@ help:
 	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk synth-loop"
 	@echo "  doctor   preflight: Docker, day-1 ports, ~4 GB RAM"
 	@echo "  demo     clone-and-run: lite+desk up, honest evaluate walk, one printed click"
-	@echo "  product  product skin + desk_provision; Shadow only when LLM URL is set"
+	@echo "  product  product skin + desk_provision; Advise (investigation-agent) only when OPENAI_BASE_URL is set"
 	@echo "  sdk-walk optional: same three evaluate cases via Python DecisionClient (desk already up)"
 	@echo "  synth-loop  local operator: loop evaluate (+ occasional late-label); desk already up"
 
