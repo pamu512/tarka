@@ -42,4 +42,4 @@ Set `INVESTIGATION_STORE=postgres` and `INVESTIGATION_DATABASE_URL` or `DATABASE
 
 Multi-replica requires postgres mode including batches.
 
-`prod-on-k8s` enables the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres. Helm prod also sets `COPILOT_PRODUCTION_MODE` (same Python lock as the compose hardening overlay) so `/v1/chat` is not network-open.
+`prod-on-k8s` can deploy the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres. That is the workload, not desk Advise: set `OPENAI_BASE_URL` + `OPENAI_API_KEY` in extraEnv / secrets or the plane is not on. Chart default stays `investigationAgent.enabled: false`. Helm prod also sets `COPILOT_PRODUCTION_MODE` (same Python lock as the compose hardening overlay) so `/v1/chat` is not network-open.

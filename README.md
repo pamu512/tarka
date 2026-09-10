@@ -36,10 +36,10 @@ Can-run
 Compose fraud-desk is day-1.
 Helm prod-on-k8s is core-api HA
 (replicaCount 2, tenant binding on).
-investigation-agent ON only when the operator
-supplies a BYO OpenAI-compat endpoint
-(OPENAI_BASE_URL + key). Chart default is OFF.
-frontend / desk OFF.
+investigation-agent chart default OFF.
+Named HA overlays may deploy the pod;
+Advise is not on until BYO OPENAI_BASE_URL + key.
+frontend / desk OFF (no Advise chrome).
 Shadow OFF (no model in the chart;
 operator BYO URL later, no Tarka-branded model).
 OIDC optional.
