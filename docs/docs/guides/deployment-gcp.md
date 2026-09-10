@@ -68,6 +68,6 @@ global:
 ## Suggested rollout path
 
 1. Start with `core-on-gcp` preset for fastest secure baseline.
-2. Add `investigation` modules after case-management integrations are verified.
+2. Add `investigation` modules after leftovers + Hunt residual flows are verified. Case CRM is unshipped.
 3. Introduce streaming and analytics once throughput and retention requirements are clear.
 4. Move to `full` only if teams need all modules in one cluster.

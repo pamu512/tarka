@@ -44,4 +44,4 @@ Edge gateways with **mTLS** to decision-api remain a common pattern for multi-ho
 
 - `services/decision-api` — `metadata.tls_pinning_verified` in evaluate path  
 - [SDK scorecard](../sdks/typescript.md)  
-- [Regulated markets feature pack](./tls-pinning-and-signed-requests.md) — optional checklist for fintech / banking / crypto-style deployments
+- [Regulated markets feature pack](./tls-pinning-and-signed-requests.md) — optional checklist for last-mile / food / q-comm / gig / retail (regulated self-host; not banks as P0)
