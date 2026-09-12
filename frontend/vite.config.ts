@@ -151,16 +151,6 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/ingest/, ""),
       },
-      /**
-       * Local-only: tools/shadow desktop sidecar (:8742).
-       * Production case-rail uses investigation-agent (/api/investigation).
-       * Keep for ShadowLlmForensics page / desktop forensics — not the analyst workbench path.
-       */
-      "/api/shadow-llm": {
-        target: "http://127.0.0.1:8742",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/shadow-llm/, "/api"),
-      },
     },
   },
 });

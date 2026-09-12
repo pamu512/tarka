@@ -23,7 +23,6 @@ Usage:
     python tools/tarka.py status                      # Show running services
     python tools/tarka.py dev <module>                # Run a single module locally (no Docker)
     python tools/tarka.py env                         # Generate .env from template
-    python tools/tarka.py forensics [--web]           # Local Shadow forensic suite (submodule + optional Tauri)
 """
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,8 +32,6 @@ ENV_FILE = DEPLOY / ".env"
 COMPOSE_FILE = DEPLOY / "docker-compose.yml"
 COMPOSE_LITE = DEPLOY / "docker-compose.lite.yml"
 COMPOSE_DESK = DEPLOY / "docker-compose.fraud-desk.yml"
-SHADOW_ROOT = ROOT / "tools" / "shadow"
-SHADOW_ENV_TEMPLATE = ROOT / "tools" / "shadow.tarka.env.example"
 
 # ───────────────────────────────────────────────────────────────────
 # Module registry — every installable component
@@ -924,147 +921,6 @@ def _get_all_profile_args(modules: list[str]) -> list[str]:
     return args_list
 
 
-def _parse_dotenv(path: Path) -> dict[str, str]:
-    """Minimal KEY=VALUE parser for Shadow's .env (no export syntax, no multiline)."""
-    out: dict[str, str] = {}
-    if not path.is_file():
-        return out
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        key = key.strip()
-        val = val.strip().strip('"').strip("'")
-        if key:
-            out[key] = val
-    return out
-
-
-def _shadow_venv_python(venv_dir: Path) -> Path:
-    if platform.system() == "Windows":
-        return venv_dir / "Scripts" / "python.exe"
-    return venv_dir / "bin" / "python"
-
-
-def _ensure_shadow_submodule() -> None:
-    if not (ROOT / ".git").is_dir():
-        print(
-            f"{C.RED}Not a git checkout — clone Tarka from GitHub to use the Shadow submodule.{C.RESET}"
-        )
-        sys.exit(1)
-    r = subprocess.run(
-        ["git", "submodule", "update", "--init", "--recursive", "tools/shadow"],
-        cwd=str(ROOT),
-    )
-    if r.returncode != 0:
-        print(f"{C.RED}git submodule update failed.{C.RESET}")
-        sys.exit(r.returncode)
-
-
-def _forensics_install_python(shadow_dir: Path) -> Path:
-    venv_dir = shadow_dir / ".venv"
-    if not venv_dir.is_dir():
-        print(f"{C.DIM}Creating Python venv in tools/shadow/.venv …{C.RESET}")
-        subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], cwd=str(ROOT), check=True)
-    py = _shadow_venv_python(venv_dir)
-    if not py.is_file():
-        print(f"{C.RED}Shadow venv python missing: {py}{C.RESET}")
-        sys.exit(1)
-    subprocess.run([str(py), "-m", "pip", "install", "-U", "pip"], cwd=str(shadow_dir), check=False)
-    print(f"{C.DIM}pip install -e . (shadow-backend) …{C.RESET}")
-    subprocess.run([str(py), "-m", "pip", "install", "-e", "."], cwd=str(shadow_dir), check=True)
-    return py
-
-
-def _forensics_api_port(env: dict[str, str]) -> str:
-    raw = (env.get("SHADOW_API_PORT") or "8742").strip()
-    try:
-        p = int(raw)
-        if 1 <= p <= 65535:
-            return str(p)
-    except ValueError:
-        pass
-    return "8742"
-
-
-def _forensics_run_web(shadow_dir: Path, py: Path, env: dict[str, str]) -> None:
-    port = _forensics_api_port(env)
-    api_cmd = [str(py), "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", port]
-    print(f"{C.GREEN}Shadow API → http://127.0.0.1:{port}/docs{C.RESET}  (Ctrl+C stops UI and API)")
-    proc = subprocess.Popen(api_cmd, cwd=str(shadow_dir), env=env)
-    try:
-        subprocess.run(["npm", "run", "dev"], cwd=str(shadow_dir), env=env, check=True)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=8)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-
-
-def cmd_forensics(args):
-    """Initialize optional Shadow submodule and launch the local forensic suite."""
-    _ensure_shadow_submodule()
-    shadow_dir = SHADOW_ROOT
-    if not shadow_dir.is_dir() or not (shadow_dir / "backend").is_dir():
-        print(f"{C.RED}tools/shadow is missing or incomplete after submodule init.{C.RESET}")
-        sys.exit(1)
-
-    env_file = shadow_dir / ".env"
-    if not env_file.is_file():
-        if SHADOW_ENV_TEMPLATE.is_file():
-            shutil.copy(SHADOW_ENV_TEMPLATE, env_file)
-            print(
-                f"{C.GREEN}Created {env_file.relative_to(ROOT)} from tools/shadow.tarka.env.example{C.RESET}"
-            )
-        else:
-            print(
-                f"{C.YELLOW}No template at {SHADOW_ENV_TEMPLATE}; create tools/shadow/.env manually.{C.RESET}"
-            )
-
-    if not shutil.which("npm"):
-        print(f"{C.RED}npm not found — install Node.js LTS to run Shadow.{C.RESET}")
-        sys.exit(1)
-
-    if not args.skip_install:
-        py = _forensics_install_python(shadow_dir)
-        print(f"{C.DIM}npm install …{C.RESET}")
-        subprocess.run(["npm", "install"], cwd=str(shadow_dir), check=True)
-    else:
-        py = _shadow_venv_python(shadow_dir / ".venv")
-        if not py.is_file():
-            py = Path(sys.executable)
-
-    if args.init_only:
-        print(
-            f"{C.GREEN}Shadow add-on ready. Run: {C.CYAN}python tools/tarka.py forensics{C.GREEN} to launch.{C.RESET}"
-        )
-        return
-
-    child_env = os.environ.copy()
-    child_env.update(_parse_dotenv(env_file))
-
-    use_web = bool(args.web)
-    if not use_web and not shutil.which("cargo"):
-        print(
-            f"{C.YELLOW}Rust/cargo not found — launching browser + API mode (--web). "
-            f"Install Rust for Tauri: https://rustup.rs/{C.RESET}"
-        )
-        use_web = True
-
-    if use_web:
-        _forensics_run_web(shadow_dir, py, child_env)
-        return
-
-    print(f"{C.GREEN}Launching Shadow desktop (Tauri + Vite + API)…{C.RESET}")
-    subprocess.run(["npm", "run", "tauri:dev"], cwd=str(shadow_dir), env=child_env, check=True)
-
-
 # ───────────────────────────────────────────────────────────────────
 # Main
 # ───────────────────────────────────────────────────────────────────
@@ -1140,28 +996,6 @@ def main():
     p_uninstall.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
     p_uninstall.set_defaults(func=cmd_uninstall)
 
-    # forensics — optional Shadow local-first suite (git submodule at tools/shadow)
-    p_forensics = subparsers.add_parser(
-        "forensics",
-        help="Shadow local forensic suite (init submodule, install deps, launch UI)",
-    )
-    p_forensics.add_argument(
-        "--web",
-        action="store_true",
-        help="Browser + FastAPI only (no Tauri; use when Rust is not installed)",
-    )
-    p_forensics.add_argument(
-        "--skip-install",
-        action="store_true",
-        help="Skip pip/npm install (faster re-launch after first setup)",
-    )
-    p_forensics.add_argument(
-        "--init-only",
-        action="store_true",
-        help="Submodule + .env + install only; do not start the UI",
-    )
-    p_forensics.set_defaults(func=cmd_forensics)
-
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -1169,9 +1003,6 @@ def main():
         print(f"  {C.CYAN}python tools/tarka.py install --all{C.RESET}    Full stack")
         print(f"  {C.CYAN}python tools/tarka.py install --lite{C.RESET}   Minimal setup")
         print(f"  {C.CYAN}python tools/tarka.py install{C.RESET}          Interactive picker")
-        print(
-            f"  {C.CYAN}python tools/tarka.py forensics{C.RESET}       Shadow local forensic suite (add-on)"
-        )
         sys.exit(0)
 
     args.func(args)

@@ -57,7 +57,6 @@ const EXACT_PATH_PLANE: Record<string, PlaneId> = {
   "/graph/link-analysis": "graph",
   "/investigation": "advise",
   "/investigation/dag-trace": "advise",
-  "/investigation/shadow-llm": "advise",
   "/ops/calibration": "signals",
   "/ops/counters": "signals",
 };

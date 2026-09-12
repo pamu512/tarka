@@ -14,6 +14,7 @@ dataPlane:
   enabled: true
   replicaCount: 1
 
+# Not evaluate-only. Still requires BYO OPENAI_BASE_URL + key or Advise is half-on.
 investigationAgent:
   enabled: true
   replicaCount: 1

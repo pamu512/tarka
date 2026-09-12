@@ -6,8 +6,9 @@
 #     -f infra/deploy/helm/fraud-stack/values.yaml \
 #     -f infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml
 #
-# Do not use this file to enable investigation. prod-on-k8s is a separate HA
-# overlay and may turn investigation on; it is not this evaluate-only shape.
+# Do not use this file to enable investigation. Enable investigationAgent only
+# when the operator supplies a BYO OpenAI-compat endpoint. prod-on-k8s is a
+# separate HA overlay and may turn investigation on; it is not this shape.
 
 coreApi:
   enabled: true

@@ -3870,69 +3870,6 @@ export const pitParquetMlExport = {
   },
 };
 
-// ── Shadow sidecar LLM (tools/shadow; Vite proxies /api/shadow-llm → :8742) ──
-
-export type ShadowSidecarChatMessage = { role: "system" | "user" | "assistant"; content: string };
-
-export type ShadowSidecarStreamEvent =
-  | { type: "delta"; payload?: { text?: string } }
-  | { type: "final"; payload?: Record<string, unknown> }
-  | { type: "error"; payload?: { message?: string; code?: string } };
-
-export const SHADOW_LLM_STREAM_URL = "/api/shadow-llm/chat/stream";
-
-/**
- * POST SSE stream from the local Shadow sidecar (`text/event-stream`).
- * Uses fetch + ReadableStream (not EventSource) so the body can be aborted via `signal` (Stop / disconnect).
- */
-export async function streamShadowLLMChat(
-  body: {
-    messages: ShadowSidecarChatMessage[];
-    case_id?: string | null;
-    persona_id?: string | null;
-    thread_id?: string | null;
-    thread_reset?: boolean;
-  },
-  opts: {
-    signal?: AbortSignal;
-    onEvent: (ev: ShadowSidecarStreamEvent) => void;
-  },
-): Promise<void> {
-  const res = await fetch(SHADOW_LLM_STREAM_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: opts.signal,
-    credentials: "include",
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw apiRequestErrorFromHttp(res.status, res.statusText, text, res.headers);
-  }
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error("No response body");
-  const dec = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const parts = buf.split("\n\n");
-    buf = parts.pop() ?? "";
-    for (const block of parts) {
-      const line = block.trim();
-      if (!line.startsWith("data:")) continue;
-      const raw = line.slice(5).trim();
-      try {
-        const msg = JSON.parse(raw) as ShadowSidecarStreamEvent;
-        opts.onEvent(msg);
-      } catch {
-        /* ignore malformed SSE line */
-      }
-    }
-  }
-}
-
 // ── Recommendations (decision-api :8000) ────────────────────────────
 
 export const recommendations = {

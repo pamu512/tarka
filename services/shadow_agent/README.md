@@ -31,7 +31,7 @@ SHADOW_LLM_API_KEY=...           # optional
 
 Without these vars the deterministic ``suggested_shadow_rule`` template is used (current default). See ``pack_author_llm.py`` and ``PACK_AUTHOR.md`` for the contract.
 
-Brand map (vs library `services/shadow` and desktop `tools/shadow`): [`../SHADOW.md`](../SHADOW.md).
+Brand map (vs library `services/shadow`; desk Advise is investigation-agent): [`../SHADOW.md`](../SHADOW.md).
 
 Container build: see `Dockerfile` (context = repo root).
 
