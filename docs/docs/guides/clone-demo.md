@@ -40,7 +40,7 @@ PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_synth_loop.py
 ## What it does
 
 1. `make doctor` (also run from `up_desk.sh` if evaluate is not already healthy). Copies `infra/deploy/env/community.env.example` to `infra/deploy/.env` when missing (local `ALLOW_INSECURE_NO_AUTH=true`).
-2. Optional TTY prompt for a BYO LLM URL / key / model. Enter skips. Values go in `infra/deploy/.env` only (not the browser). `make demo` never starts `shadow_agent`. `make product` starts it only when `OPENAI_BASE_URL` is set.
+2. Optional TTY prompts: desk Advise (`OPENAI_BASE_URL` + key + model) and, separately, ingest sidecar (`SHADOW_LLM_*`). Enter skips. Values go in `infra/deploy/.env` only (not the browser). Empty desk URL = Advise chrome hidden. `make demo` / `make product` start investigation-agent only when `OPENAI_BASE_URL` is set. `shadow_agent` starts only when `SHADOW_LLM_BASE_URL` is set.
 3. `docker compose` lite + fraud-desk. If health never comes up (3 min), the script stops and does **not** run the walk.
 4. `python3 scripts/oss/walk_receipts.py` — three evaluate POSTs against **shipped** packs (`default.json`, `device_signals.json`, `vertical_payment_risk_v1.json`). Decisions are whatever evaluate returns. The walk does not invent ALLOW / REVIEW / DENY.
 
@@ -61,7 +61,9 @@ The last line before PASS is one click: `NEXT: http://127.0.0.1:3000/graph?entit
 
 Optional outbound copy of those events: set `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` (and optional `TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET`) on decision-api. Envelope `tarka.observe_notify/v1`. Empty URL = desk only. Webhook 5xx does not block evaluate or Promote.
 
-To add a BYO LLM after Day-1, put the same four vars in `infra/deploy/.env` (`SHADOW_LLM_BACKEND=vllm` or `self-hosted`, `SHADOW_LLM_BASE_URL`, `SHADOW_LLM_API_KEY`, `SHADOW_LLM_MODEL`) and start `shadow_agent` with that env. Do not put keys in the browser. Advise `OPENAI_BASE_URL` is a different overlay.
+To add desk Advise after Day-1, put `OPENAI_BASE_URL` + `OPENAI_API_KEY` (optional `OPENAI_MODEL`) in `infra/deploy/.env` and include `docker-compose.investigation.yml` (or re-run `make demo` / `make product`). OpenAI-compat covers OpenAI / Gemini compat / Bedrock gateway / Azure / vLLM. Do not put keys in the browser.
+
+Ingest sidecar is separate: `SHADOW_LLM_BACKEND=vllm` or `self-hosted`, `SHADOW_LLM_BASE_URL`, `SHADOW_LLM_API_KEY`, `SHADOW_LLM_MODEL`, then start `shadow_agent`.
 
 ### Keep the desk live (local operator)
 

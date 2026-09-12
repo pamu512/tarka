@@ -41,8 +41,12 @@ compose_args=(
   -f "$DEPLOY/docker-compose.product.yml"
   --env-file "$DEPLOY/.env"
 )
-# ponytail: profile llm only when a base URL is already in .env (empty = Shadow off).
+# Desk Advise = investigation-agent when OPENAI_BASE_URL is set. Empty = plane off.
 if grep -qE '^OPENAI_BASE_URL=.+' "$DEPLOY/.env"; then
+  compose_args+=(-f "$DEPLOY/docker-compose.investigation.yml")
+fi
+# Ingest sidecar = shadow_agent when SHADOW_LLM_BASE_URL is set (not desk Advise).
+if grep -qE '^SHADOW_LLM_BASE_URL=.+' "$DEPLOY/.env"; then
   compose_args+=(--profile llm)
 fi
 "${compose_args[@]}" up -d --build

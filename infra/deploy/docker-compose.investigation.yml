@@ -5,6 +5,8 @@
 #     -f infra/deploy/docker-compose.investigation.yml \
 #     up --build
 #
+# Enable only when the operator supplies a BYO OpenAI-compat URL (OPENAI_BASE_URL).
+# Empty URL = do not include this overlay; desk hides Advise (PlaneOff).
 # Sets VITE_INVESTIGATION_AGENT_URL so desk nav can show Advise chrome.
 # GRAPH_SERVICE_URL stays empty unless the graph overlay (or host env) sets it.
 
@@ -21,6 +23,8 @@ services:
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       ALLOWED_ANALYSTS: ${ALLOWED_ANALYSTS:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-openai}
       LLM_PROVIDER_FALLBACKS: ${LLM_PROVIDER_FALLBACKS:-anthropic,gemini,ollama}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

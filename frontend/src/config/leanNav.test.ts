@@ -91,7 +91,6 @@ describe("leanNav", () => {
     expect(LEAN_NAV_PATHS.has("/rules/visual")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/command-center")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/observe")).toBe(true);
-    expect(LEAN_NAV_PATHS.has("/investigation/shadow-llm")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/investigation")).toBe(false);
     expect(LEAN_NAV_PATHS.has("/admin")).toBe(false);
     expect(isProductionSurfacePath("/command-center")).toBe(false);
@@ -118,10 +117,11 @@ describe("leanNav", () => {
     expect(isPlaneEnabled("signals")).toBe(false);
     expect(planeForPath("/graph")).toBe("graph");
     expect(planeForPath("/graph/mule-path")).toBe("graph");
+    expect(planeForPath("/investigation")).toBe("advise");
     expect(planeForPath("/investigation/shadow-llm")).toBe("advise");
     expect(isNavItemVisible("/graph")).toBe(false);
     expect(isNavItemVisible("/leftovers")).toBe(false);
-    expect(isNavItemVisible("/investigation/shadow-llm")).toBe(false);
+    expect(isNavItemVisible("/investigation")).toBe(false);
     expect(isNavItemVisible("/ops/calibration")).toBe(false);
     expect(isNavItemVisible("/ops/counters")).toBe(false);
     expect(isNavItemVisible("/decisions")).toBe(true);

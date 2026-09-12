@@ -26,7 +26,13 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 
 ## Configuration
 
-Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO Azure OpenAI / Vertex / Bedrock / Claude / Qwen / in-cluster vLLM preferred; public `api.openai.com` is not the enterprise default. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (or compatible). Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
+Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO only — no Tarka-branded model. OpenAI-compat URL covers OpenAI / Gemini (OpenAI-compat) / AWS Bedrock gateway / Azure / vLLM. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (optional **`OPENAI_MODEL`**). Empty URL = desk Advise off. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
+
+Helm `investigationAgent.enabled` defaults **false**. Enable only when the operator supplies that BYO endpoint. Keys stay in extraEnv / secrets — never `VITE_*`.
+
+Built-in playbooks are **generic defaults** only when the desk provides none. Prefer desk-owned playbooks / SOPs.
+
+**Advise context (planned):** Confluence / Wiki read-only sync into tenant OKF / RAG. Other connectors on request. SOP zip upload remains the air-gap bootstrap. This page does not implement a Confluence connector.
 
 ### Durable store (HA)
 
@@ -36,4 +42,4 @@ Set `INVESTIGATION_STORE=postgres` and `INVESTIGATION_DATABASE_URL` or `DATABASE
 
 Multi-replica requires postgres mode including batches.
 
-`prod-on-k8s` enables the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres. Helm prod also sets `COPILOT_PRODUCTION_MODE` (same Python lock as the compose hardening overlay) so `/v1/chat` is not network-open.
+`prod-on-k8s` can deploy the agent with `mode: postgres` and `replicaCount: 2` against the overlay's required external Postgres. That is the workload, not desk Advise: set `OPENAI_BASE_URL` + `OPENAI_API_KEY` in extraEnv / secrets or the plane is not on. Chart default stays `investigationAgent.enabled: false`. Helm prod also sets `COPILOT_PRODUCTION_MODE` (same Python lock as the compose hardening overlay) so `/v1/chat` is not network-open.
