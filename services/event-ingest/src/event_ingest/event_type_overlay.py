@@ -77,16 +77,13 @@ async def tenant_overlay_names(http: httpx.AsyncClient, tenant_id: str) -> froze
         )
         r.raise_for_status()
         body = r.json()
-        names = frozenset(
-            str(n) for n in (body.get("names") or []) if isinstance(n, str)
-        )
+        names = frozenset(str(n) for n in (body.get("names") or []) if isinstance(n, str))
     except Exception as exc:
         _fail_until[tenant_id] = now + _FAIL_BACKOFF_S
         _bump_metric("ingest_event_type_overlay_fetch_error_total")
         if not _fail_logged:
             log.warning(
-                "event-type overlay fetch failed (fail-closed to seed∪env during "
-                "backoff): %s",
+                "event-type overlay fetch failed (fail-closed to seed∪env during backoff): %s",
                 exc,
             )
             _fail_logged = True

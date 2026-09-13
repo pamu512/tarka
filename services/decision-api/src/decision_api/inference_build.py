@@ -318,9 +318,14 @@ def build_inference_context(
                 level=logging.DEBUG,
             )
 
-    counter_source = "local-fallback" if any(
-        k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")
-    ) else "heuristic"
+    counter_source = (
+        "local-fallback"
+        if any(
+            k in features
+            for k in ("event_count_5m", "event_count_1h", "event_count_24h")
+        )
+        else "heuristic"
+    )
 
     graph_risk_score = 0.0
     graph_risk_reasons: list[str] = []

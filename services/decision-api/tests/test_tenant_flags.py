@@ -42,9 +42,7 @@ def test_signal_availability_notes_and_decision_status():
 
 
 def test_compute_fallback_reason_covers_async_osint():
-    r = _compute_fallback_reason(
-        ["async_osint:unavailable"], []
-    )
+    r = _compute_fallback_reason(["async_osint:unavailable"], [])
     assert r
     assert "async_osint_redis" in r
 

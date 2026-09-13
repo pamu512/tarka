@@ -172,9 +172,9 @@ def test_hop_packs_stay_shadow_and_claim_lock_hop_rows() -> None:
 
     lock = _CLAIM.read_text(encoding="utf-8")
     planes = _PLANES.read_text(encoding="utf-8")
-    assert "Empty `GRAPH_SERVICE_URL` ≠ sibling identity (`graph:missing`" in lock
-    assert "named_edges []" in lock
-    assert "Closed omniscient AI author loop" in lock
+    assert "Empty `GRAPH_SERVICE_URL` = hops off (`graph:missing`)" in lock
+    assert "not sibling identity" in lock
+    assert "omniscient" in lock.lower()
     assert "invented neighbors" in lock
     assert "Hop packs `mode=shadow`" in lock
     assert "Always-on graph" in lock

@@ -91,7 +91,9 @@ except ImportError:
                 "timeout_seconds": float(
                     os.environ.get("ANUMANA_SIGNALS_TIMEOUT_SECONDS", "0.08")
                 ),
-                "max_attempts": int(os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")),
+                "max_attempts": int(
+                    os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")
+                ),
                 "circuit_failure_threshold": int(
                     os.environ.get("ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD", "5")
                 ),
@@ -441,7 +443,6 @@ async def _fetch_feature_snapshot_wrapped(
     return await fetch_feature_snapshot_wrapped(
         http, body, redis_tag_list, degrade_tags, tenant_flags
     )
-
 
 
 async def _fetch_location_evaluation(

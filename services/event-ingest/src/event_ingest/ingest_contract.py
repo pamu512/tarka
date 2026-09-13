@@ -158,9 +158,7 @@ def parse_ingest_event_body(
     return out
 
 
-def overlay_retry_hint(
-    raw: dict[str, Any], *, envelope_mode: str
-) -> tuple[str, str] | None:
+def overlay_retry_hint(raw: dict[str, Any], *, envelope_mode: str) -> tuple[str, str] | None:
     """``(tenant_id, event_type)`` when the only possible contract failure is an allow-list miss.
 
     Returns None when the body is malformed in some other way (envelope, missing

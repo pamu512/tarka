@@ -2,15 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import asyncio
 from typing import Any
-
-import pytest
-
-
-def asyncio_run(coro):
-    return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(coro)
 
 from decision_api.anumana_signals import (
     ANUMANA_VEL_PREFIX,
@@ -19,6 +12,10 @@ from decision_api.anumana_signals import (
     merge_anumana_signals,
     session_risk_key,
 )
+
+
+def asyncio_run(coro):
+    return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(coro)
 
 
 def test_prefix() -> None:
@@ -54,7 +51,9 @@ def test_velocity_key_format_exact() -> None:
     key_1m = f"{ANUMANA_VEL_PREFIX}:t:t1:device:1m:{token}:{now // 60}"
     r.mapping[key_1m] = "7"
     feats = asyncio_run(
-        anumana_velocity_features(r, tenant_id="t1", canvas="fp-canvas-abc", now_unix=now)
+        anumana_velocity_features(
+            r, tenant_id="t1", canvas="fp-canvas-abc", now_unix=now
+        )
     )
     assert feats == {"anumana_velocity_1m": 7}
 
