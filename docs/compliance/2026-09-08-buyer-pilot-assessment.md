@@ -451,7 +451,7 @@ UI F1–F3 are a **separate** agent. This PR does not fix them.
 
 ## 9. Locks
 
-- No named incumbents as analogues. No “X-class” copy in claims.
+- No named incumbents as analogues. No competitor-class analogies in claims.
 - No invented users, LOI, or ARR.
 - GitLab-grade **OFF** without signed G9 soak on a named pilot.
 - Model never evaluates or Promotes. `emit_only` default.
