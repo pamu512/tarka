@@ -9,7 +9,9 @@ The Redis half of hypothesis deploy stays (live reader: shadow_hypothesis).
 from __future__ import annotations
 
 import importlib
-import inspect
+from pathlib import Path
+
+_RULE_ENGINE = Path(__file__).resolve().parent.parent
 
 
 def test_promotion_feedback_module_removed() -> None:
@@ -20,9 +22,10 @@ def test_promotion_feedback_module_removed() -> None:
 
 
 def test_hypothesis_deploy_is_redis_only() -> None:
-    hypothesis_deploy = importlib.import_module("hypothesis_deploy")
-    src = inspect.getsource(hypothesis_deploy)
+    src = (_RULE_ENGINE / "hypothesis_deploy.py").read_text(encoding="utf-8")
     assert "import nats" not in src
     assert "nats.connect" not in src
     assert "_nats_url" not in src
+
+    hypothesis_deploy = importlib.import_module("hypothesis_deploy")
     assert hasattr(hypothesis_deploy, "publish_hypothesis_deployed")

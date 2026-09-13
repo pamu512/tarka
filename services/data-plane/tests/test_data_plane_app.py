@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 import importlib
-import inspect
+from pathlib import Path
+
+_SRC = Path(__file__).resolve().parent.parent / "src"
+
+
+def _find_data_plane_main() -> Path:
+    if (_SRC / "data_plane" / "main.py").is_file():
+        return _SRC / "data_plane" / "main.py"
+    return Path(__file__).resolve().parent.parent / "data_plane" / "main.py"
 
 
 def test_compat_platform_removed() -> None:
@@ -15,9 +23,7 @@ def test_compat_platform_removed() -> None:
     else:  # pragma: no cover - fails loudly if the module returns
         raise AssertionError("data_plane.platform should have been removed")
 
-    import data_plane.main as dm
-
-    src = inspect.getsource(dm)
+    src = _find_data_plane_main().read_text(encoding="utf-8")
     assert "TARKA_PLATFORM_COMPAT_PORT" not in src
     assert "_serve_platform_compat" not in src
 
