@@ -138,4 +138,3 @@ class VelocityUpdateHandler(BaseOutboxHandler):
             len(commands),
             amount_cents,
         )
-

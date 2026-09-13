@@ -671,11 +671,7 @@ async def ingest_dynamic(request: Request):
             detail={"error": "tenant_id_required", "reason_codes": ["ingest:tenant_required"]},
         )
     mapped = heuristic_map_to_evaluate_request(raw)
-    if (
-        mapped is None
-        and settings.event_type_overlay_enabled
-        and heuristic_candidates_present(raw)
-    ):
+    if mapped is None and settings.event_type_overlay_enabled and heuristic_candidates_present(raw):
         http = getattr(request.app.state, "http", None)
         if http is not None:
             tenant = (raw.get("tenant_id") or raw.get("tenantId") or "").strip()
@@ -889,8 +885,8 @@ async def ws_ingest(ws: WebSocket):
                     flat = await _parse_with_overlay_retry(
                         ws_http,
                         parsed,
-                        lambda extra: parse_ingest_event_body(
-                            parsed,
+                        lambda extra, _parsed=parsed: parse_ingest_event_body(
+                            _parsed,
                             envelope_mode=settings.ingest_envelope_mode,
                             extra_allowed=extra,
                         ),

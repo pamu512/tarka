@@ -42,6 +42,7 @@ def client(mock_js, monkeypatch):
 def _overlay(names):
     async def _fake(http, tenant_id):
         return frozenset(names)
+
     return _fake
 
 
@@ -74,6 +75,7 @@ def test_single_event_overlay_miss_still_422(client):
 def test_single_event_overlay_fetch_error_fails_closed(client):
     async def _boom(http, tenant_id):
         raise ConnectionError("decision-api down")
+
     with patch.object(main, "tenant_overlay_names", side_effect=_boom):
         r = client.post("/v1/events", json=_valid_event())
     assert r.status_code == 422
@@ -83,6 +85,7 @@ def test_single_event_overlay_fetch_error_fails_closed(client):
 def test_seed_hit_never_consults_overlay(client):
     async def _must_not_be_called(http, tenant_id):
         raise AssertionError("overlay consulted for a seed type")
+
     with patch.object(main, "tenant_overlay_names", side_effect=_must_not_be_called):
         r = client.post("/v1/events", json=_valid_event("login"))
     assert r.status_code == 200, r.text
@@ -99,6 +102,7 @@ def test_malformed_shape_not_rescued_by_overlay(client):
     # Invalid event_type *shape* (uppercase) must 422 without consulting overlay.
     async def _must_not_be_called(http, tenant_id):
         raise AssertionError("overlay consulted for a shape-invalid type")
+
     with patch.object(main, "tenant_overlay_names", side_effect=_must_not_be_called):
         r = client.post("/v1/events", json=_valid_event("Not_A_Type"))
     assert r.status_code == 422
@@ -148,6 +152,7 @@ def test_dynamic_missing_fields_stay_mapping_pending(client):
     # entity_id absent -> candidates not present -> no overlay consult, 202.
     async def _must_not_be_called(http, tenant_id):
         raise AssertionError("overlay consulted without entity")
+
     raw = {"tenantId": "acme", "type": TENANT_TYPE}
     with patch.object(main, "tenant_overlay_names", side_effect=_must_not_be_called):
         r = client.post("/v1/ingest/dynamic", json=raw)
@@ -165,9 +170,7 @@ class _FakeResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:
-            raise httpx.HTTPStatusError(
-                f"{self.status_code}", request=None, response=None
-            )
+            raise httpx.HTTPStatusError(f"{self.status_code}", request=None, response=None)
 
     def json(self):
         return self._payload

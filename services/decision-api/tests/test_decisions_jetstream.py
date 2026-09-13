@@ -8,7 +8,7 @@ with NoStreamResponseError and decisions are silently dropped (logged warning).
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 

@@ -57,7 +57,7 @@ async def anumana_velocity_features(
     pairs = _device_keys(tenant_id, token, now)
     try:
         raw = await redis_client.mget([k for k, _ in pairs])
-    except Exception as e:  # pragma: no cover — network
+    except Exception:  # pragma: no cover — network
         return {}
     out: dict[str, int] = {}
     for (key, win), val in zip(pairs, raw):

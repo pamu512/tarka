@@ -546,7 +546,9 @@ def create_app(
         items = [
             {
                 "id": str(row.id),
-                "normalized_label_id": str(row.normalized_label_id) if row.normalized_label_id else None,
+                "normalized_label_id": str(row.normalized_label_id)
+                if row.normalized_label_id
+                else None,
                 "entity_id": row.entity_id,
                 "ground_truth_class": row.ground_truth_class,
                 "rejection_reason": row.rejection_reason,

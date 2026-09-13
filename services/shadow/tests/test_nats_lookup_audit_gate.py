@@ -36,7 +36,9 @@ def test_ai_tool_logs_row_persists_exact_payloads() -> None:
 
         fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-        request_exact = json.dumps({"kind": "ip_osint", "ip": "198.51.100.200"}, separators=(",", ":"))
+        request_exact = json.dumps(
+            {"kind": "ip_osint", "ip": "198.51.100.200"}, separators=(",", ":")
+        )
         response_exact = json.dumps({"ip": "198.51.100.200", "vpn": False}, separators=(",", ":"))
 
         await log_ai_tool_nats_osint(
