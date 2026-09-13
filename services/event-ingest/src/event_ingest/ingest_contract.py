@@ -19,9 +19,11 @@ Supports optional v1 envelope ``{ "schema_version": "1", "event": { ... } }`` an
 VALID_EVENT_TYPES = frozenset({"login", "payment", "signup", "device", "session", "custom"})
 
 
-def _ingest_allowed_event_types() -> frozenset[str]:
+def _ingest_allowed_event_types(
+    extra_allowed: frozenset[str] | None = None,
+) -> frozenset[str]:
     return allowed_event_types(
-        None,
+        extra_allowed,
         parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
     )
 
@@ -103,11 +105,13 @@ def parse_ingest_event_body(
     raw: dict[str, Any],
     *,
     envelope_mode: str,
+    extra_allowed: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """
     Normalize to a flat event dict suitable for ``EventPayload.model_validate``.
 
     Raises ``IngestContractError`` with ``reason_codes`` on violation.
+    *extra_allowed* unions with seed ∪ ``TARKA_EVENT_TYPES`` (tenant overlay).
     """
     flat, env_extras = _unwrap_envelope(raw, envelope_mode=envelope_mode)
     tid = flat.get("tenant_id")
@@ -134,7 +138,7 @@ def parse_ingest_event_body(
             ["ingest_event_type_invalid"],
             f"event_type {et!r} is not a valid name.",
         ) from None
-    if et_s not in _ingest_allowed_event_types():
+    if et_s not in _ingest_allowed_event_types(extra_allowed):
         raise IngestContractError(
             ["ingest_event_type_invalid"],
             f"event_type {et_s!r} is not on the allow-list.",
@@ -154,10 +158,39 @@ def parse_ingest_event_body(
     return out
 
 
+def overlay_retry_hint(
+    raw: dict[str, Any], *, envelope_mode: str
+) -> tuple[str, str] | None:
+    """``(tenant_id, event_type)`` when the only possible contract failure is an allow-list miss.
+
+    Returns None when the body is malformed in some other way (envelope, missing
+    fields, invalid event_type shape) — in those cases the overlay must not be
+    consulted and the original error stands.
+    """
+    try:
+        flat, _ = _unwrap_envelope(raw, envelope_mode=envelope_mode)
+    except IngestContractError:
+        return None
+    tid = flat.get("tenant_id")
+    et = flat.get("event_type")
+    if not (isinstance(tid, str) and tid.strip()):
+        return None
+    if not (isinstance(et, str) and et.strip()):
+        return None
+    try:
+        et_s = validate_event_type_shape(et)
+    except ValueError:
+        return None
+    return (tid.strip(), et_s)
+
+
 def parse_batch_event_item(
     raw_item: dict[str, Any],
     *,
     envelope_mode: str,
+    extra_allowed: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Parse one element of ``events[]`` (may be flat or v1 envelope)."""
-    return parse_ingest_event_body(raw_item, envelope_mode=envelope_mode)
+    return parse_ingest_event_body(
+        raw_item, envelope_mode=envelope_mode, extra_allowed=extra_allowed
+    )

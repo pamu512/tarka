@@ -113,7 +113,6 @@ class RulesDeployResponse(BaseModel):
     ok: bool = True
     version: int
     rule_count: int
-    promotion_feedback: list[dict[str, Any]] | None = None
 
 
 class RuleVersionSummary(BaseModel):
@@ -154,7 +153,6 @@ class HypothesisDeployResponse(BaseModel):
     ok: bool = True
     redis_key: str
     rule_count: int
-    nats_subject: str | None = None
     version: int | None = None
 
 
@@ -392,39 +390,16 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
 
         request.app.state.ruleset = load_active_ruleset()
 
-        from promotion_feedback import (
-            emit_observation_promotion_feedback,
-            is_observation_promotion,
-        )
-
-        promotion_feedback: list[dict[str, Any]] = []
-        for raw in body.rules:
-            if not isinstance(raw, dict) or not is_observation_promotion(raw):
-                continue
-            try:
-                fb = await emit_observation_promotion_feedback(
-                    raw,
-                    rule_version=version,
-                )
-                promotion_feedback.append(fb)
-            except Exception:
-                logger.exception(
-                    "rule_engine_promotion_feedback_failed rule_id=%s",
-                    raw.get("id"),
-                )
-
         return RulesDeployResponse(
             version=version,
             rule_count=n,
-            promotion_feedback=promotion_feedback or None,
         )
 
     @application.post("/v1/hypotheses/deploy")
     async def v1_hypotheses_deploy(body: HypothesisDeployBody) -> HypothesisDeployResponse:
         """
-        Deploy active shadow hypotheses to Redis and publish NATS ``hypothesis_deployed``.
-
-        The Rust ``tarka-rule-engine-watcher`` reloads its in-memory ruleset via a ``watch`` channel.
+        Deploy active shadow hypotheses to Redis (sole delivery channel;
+        the NATS publish and the Rust watcher it referenced never shipped).
         """
         from hypothesis_deploy import publish_hypothesis_deployed
 
@@ -451,7 +426,6 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
         return HypothesisDeployResponse(
             redis_key=str(out["redis_key"]),
             rule_count=int(out["rule_count"]),
-            nats_subject=out.get("nats_subject"),
             version=body.version,
         )
 

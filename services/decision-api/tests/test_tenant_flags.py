@@ -41,13 +41,12 @@ def test_signal_availability_notes_and_decision_status():
     assert _decision_runtime_status(["load_shedding:active"], []) == "Degraded"
 
 
-def test_compute_fallback_reason_covers_async_osint_and_counter_fallback():
+def test_compute_fallback_reason_covers_async_osint():
     r = _compute_fallback_reason(
-        ["async_osint:unavailable", "counter:fallback_local_agg"], []
+        ["async_osint:unavailable"], []
     )
     assert r
     assert "async_osint_redis" in r
-    assert "counter_local_aggregate_fallback" in r
 
 
 def test_compute_fallback_reason_rules_only(monkeypatch):

@@ -83,6 +83,7 @@ from routes.legacy_feedback_bridge import router as legacy_feedback_bridge_route
 from routes.operational_signals import router as operational_signals_router
 from rule_shadow_test import execute_rule_shadow_test
 from ingest_side_effects import IngestSideEffectsRequest, handle_ingest_side_effects_request
+from models.label_dlq import TarkaLabelDlqDAO
 from transaction_ingest import execute_transaction_ingest
 
 logger = logging.getLogger(__name__)
@@ -428,6 +429,9 @@ def create_app(
                 getattr(request.app.state, "anumana_redis_key", "anumana:browser_telemetry")
             ),
             ingest_secret=getattr(request.app.state, "anumana_ingest_secret", None),
+            telemetry_list_cap=int(
+                getattr(request.app.state, "anumana_telemetry_list_cap", 100_000)
+            ),
         )
 
     @application.post(
@@ -506,6 +510,57 @@ def create_app(
         request: Request,
     ) -> dict[str, Any]:
         return await handle_ingest_side_effects_request(request, body)
+
+    def _require_internal_secret_closed(request: Request) -> None:
+        """Fail-closed internal auth (unlike legacy fail-open seams; see fix/ingest-tenant-overlay notes)."""
+        import hmac as _hmac
+
+        expected = (os.environ.get("ORCHESTRATOR_INTERNAL_SECRET") or "").strip()
+        if not expected:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="internal_secret_not_configured",
+            )
+        got = (request.headers.get("x-internal-secret") or "").strip()
+        if not got or not _hmac.compare_digest(got, expected):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid_internal_secret"
+            )
+
+    @application.get(
+        "/v1/internal/label-dlq/recent",
+        tags=["Operations"],
+        include_in_schema=False,
+    )
+    async def v1_internal_label_dlq_recent(
+        request: Request,
+        limit: int = Query(default=50, ge=1, le=500),
+        offset: int = Query(default=0, ge=0),
+    ) -> dict[str, Any]:
+        """Recent malformed-label DLQ rows (``tarka_label_dlq``) for ops triage."""
+        _require_internal_secret_closed(request)
+        factory = request.app.state.audit_session_factory
+        async with factory() as session:
+            rows = await TarkaLabelDlqDAO.list_recent(session, limit=limit, offset=offset)
+            counts = await TarkaLabelDlqDAO.count_by_reason(session)
+        items = [
+            {
+                "id": str(row.id),
+                "normalized_label_id": str(row.normalized_label_id) if row.normalized_label_id else None,
+                "entity_id": row.entity_id,
+                "ground_truth_class": row.ground_truth_class,
+                "rejection_reason": row.rejection_reason,
+                "source": row.source,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "payload": row.payload,
+            }
+            for row in rows
+        ]
+        return {
+            "total_written": sum(counts.values()),
+            "by_reason": counts,
+            "items": items,
+        }
 
     @application.get(
         "/v1/decisions/{transaction_id}",

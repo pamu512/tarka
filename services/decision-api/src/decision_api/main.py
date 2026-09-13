@@ -73,13 +73,6 @@ except ImportError:
                 "circuit_recovery_seconds": settings.circuit_opa_recovery_seconds,
                 "on_failure": "SKIP",
             },
-            "counter_snapshot": {
-                "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
-                "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
-                "circuit_failure_threshold": settings.circuit_counter_failure_threshold,
-                "circuit_recovery_seconds": settings.circuit_counter_recovery_seconds,
-                "on_failure": "SKIP",
-            },
             "location_eval": {
                 "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
                 "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
@@ -92,6 +85,19 @@ except ImportError:
                 "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
                 "circuit_failure_threshold": settings.circuit_calibration_failure_threshold,
                 "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
+                "on_failure": "SKIP",
+            },
+            "anumana_signals": {
+                "timeout_seconds": float(
+                    os.environ.get("ANUMANA_SIGNALS_TIMEOUT_SECONDS", "0.08")
+                ),
+                "max_attempts": int(os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")),
+                "circuit_failure_threshold": int(
+                    os.environ.get("ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD", "5")
+                ),
+                "circuit_recovery_seconds": float(
+                    os.environ.get("ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS", "2.0")
+                ),
                 "on_failure": "SKIP",
             },
             "async_osint_redis": {
@@ -248,11 +254,6 @@ _circuit_calibration = AsyncCircuitBreaker(
     "calibration",
     failure_threshold=settings.circuit_calibration_failure_threshold,
     recovery_seconds=settings.circuit_calibration_recovery_seconds,
-)
-_circuit_counter = AsyncCircuitBreaker(
-    "counter",
-    failure_threshold=settings.circuit_counter_failure_threshold,
-    recovery_seconds=settings.circuit_counter_recovery_seconds,
 )
 _circuit_location = AsyncCircuitBreaker(
     "location",
@@ -441,50 +442,6 @@ async def _fetch_feature_snapshot_wrapped(
         http, body, redis_tag_list, degrade_tags, tenant_flags
     )
 
-
-async def _fetch_counter_snapshot(
-    http: httpx.AsyncClient,
-    body: EvaluateRequest,
-    features: dict[str, Any],
-) -> dict[str, Any] | None:
-    if not settings.counter_service_url:
-        return None
-    url = settings.counter_service_url.rstrip("/") + "/v1/record-and-query"
-    payload = {
-        "tenant_id": body.tenant_id,
-        "entity_id": body.entity_id,
-        "event_id": str(uuid.uuid4()),
-        "payload": features,
-    }
-    r = await http.post(
-        url,
-        json=payload,
-        headers=_upstream_headers(),
-        timeout=settings.eval_step_feature_snapshot_timeout_seconds,
-    )
-    await _maybe_await(r.raise_for_status())
-    data = await _maybe_await(r.json())
-    return data if isinstance(data, dict) else None
-
-
-async def _fetch_counter_snapshot_wrapped(
-    http: httpx.AsyncClient,
-    body: EvaluateRequest,
-    features: dict[str, Any],
-    degrade_tags: list[str],
-) -> dict[str, Any] | None:
-    from decision_api.evaluate.score import tag_hop_unconfigured
-
-    if tag_hop_unconfigured(degrade_tags, "counter"):
-        return None
-    try:
-        return await _circuit_counter.call(
-            lambda: _fetch_counter_snapshot(http, body, features)
-        )
-    except CircuitOpenError:
-        _circuit_metrics_inc("tarka_circuit_open_total_counter")
-        degrade_tags.append("counter:unavailable")
-        return None
 
 
 async def _fetch_location_evaluation(
@@ -962,7 +919,11 @@ async def lifespan(application: FastAPI):
                 import nats
 
                 nc = await nats.connect(settings.nats_url)
-                application.state.message_broker = NatsBroker(nc, nc.jetstream())
+                js = nc.jetstream()
+                application.state.message_broker = NatsBroker(nc, js)
+                from decision_api.decisions_jetstream import ensure_decisions_stream
+
+                await ensure_decisions_stream(js)
                 log.info("Connected to NATS at %s", settings.nats_url)
             except Exception as e:
                 log.warning("NATS connection failed (publishing disabled): %s", e)

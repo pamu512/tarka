@@ -63,6 +63,10 @@ class CloudAnalytics(AnalyticsProvider):
         inst.load()
         return inst
 
+    def writable(self) -> bool:
+        """Cloud analytics is writable only with a live ClickHouse client."""
+        return self._client is not None
+
     def load(self) -> None:
         if self._client is None:
             logger.warning(

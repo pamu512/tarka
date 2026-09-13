@@ -50,6 +50,7 @@ async def handle_browser_telemetry_ingest(
     redis_client: Any | None,
     redis_key: str,
     ingest_secret: str | None,
+    telemetry_list_cap: int = 0,
 ) -> dict[str, Any]:
     if redis_client is None:
         raise HTTPException(
@@ -111,6 +112,7 @@ async def handle_browser_telemetry_ingest(
             payload_bytes=raw,
             velocity_commands=vel_cmds,
             session_watch=(body.tenant_id, body.device_session_id),
+            telemetry_list_cap=telemetry_list_cap,
         )
     except Exception as exc:
         logger.exception("anumana_redis_pipeline_failed key=%s", redis_key)

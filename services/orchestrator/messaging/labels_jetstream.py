@@ -6,21 +6,12 @@ import json
 import logging
 from typing import Any
 
-from config import get_settings
 from messaging.nats_jetstream import TARKA_EVENTS_STREAM_NAME
 
 logger = logging.getLogger(__name__)
 
 TARKA_LABELS_SUBJECT = "tarka.events.labels"
 NORMALIZED_LABEL_EVENT_SCHEMA = "tarka.normalized_label.v1"
-
-
-def consortium_labels_durable_name() -> str:
-    return get_settings().consortium_labels_jetstream_durable
-
-
-def consortium_labels_fetch_batch_size() -> int:
-    return get_settings().consortium_labels_jetstream_fetch_batch
 
 
 class LabelsJetStreamPublishError(RuntimeError):

@@ -1,7 +1,7 @@
 [project]
 name = "tarka-signal-api"
 version = "1.0.0"
-description = "Consolidated feature, ML, calibration, counter, and location APIs"
+description = "Consolidated feature, ML, calibration, and location APIs"
 requires-python = ">=3.11"
 dependencies = [
   "structlog>=24.1.0",

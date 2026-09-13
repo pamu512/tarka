@@ -29,5 +29,10 @@ class Settings(BaseSettings):
     orchestrator_url: str = ""
     orchestrator_internal_secret: str = ""
 
+    # Tenant event-type overlay: consult decision-api GET /v1/event-types when an
+    # event_type misses seed ∪ TARKA_EVENT_TYPES (fail-closed on fetch error).
+    event_type_overlay_enabled: bool = True
+    event_type_overlay_ttl_seconds: float = 30.0
+
 
 settings = Settings()

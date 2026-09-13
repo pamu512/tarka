@@ -13,4 +13,15 @@ Receipt field: `feature_source=l2|l1|raw` matches the path actually used (never 
 
 Product field-registry overlays persist in Postgres. Demo PUTs may 403 / stay fixture-only.
 
+## L1 ownership split (2026-09)
+
+Two distinct L1 Redis populations; neither is a shared "counter service" (that was deleted — write-only hop):
+
+| Keys | Writer | Reader | Notes |
+|------|--------|--------|-------|
+| aggregate counters (`fraud_aggregates.AggregateStore`) | decision-api, local ownership | decision-api evaluate | Formerly counter-service remote fetch; flipped local. Circuit/metrics/env (`COUNTER_SERVICE_URL`) removed. |
+| `anumana:velocity:t:{tenant}:device|card|ip:{win}:{token}:{bucket}` (+`:amt`) | orchestrator `velocity_update` handler, Redis MULTI/EXEC (sole channel) | decision-api `anumana_signals` → evaluate features | ClickHouse mirror removed (write-only). Keys are TTL-bucketed counters, not a production online FS. |
+
+Removed write-only surfaces (no readers anywhere): `anumana:consortium:threat:*` + CH `orchestrator_consortium_threat_counters` (worker deleted; labels publishes continue), NATS `tarka.hypothesis.deployed` / `tarka.hypothesis.promoted` (Redis hypothesis deploy is the delivery channel; `shadow_hypothesis.py` reads it).
+
 See [feature-data-flows](../docs/guides/feature-data-flows.md).

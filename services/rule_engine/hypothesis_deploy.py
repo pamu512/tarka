@@ -1,4 +1,9 @@
-"""Deploy shadow hypotheses to Redis and notify the Rust hot-reload watcher via NATS (Prompt 192)."""
+"""Deploy shadow hypotheses to Redis (Prompt 192).
+
+Redis is the sole delivery channel — live reader: ``services/shadow``
+``shadow_hypothesis.py``. The NATS ``tarka.hypothesis.deployed`` publish
+and the Rust watcher it claimed to notify never shipped a consumer.
+"""
 
 from __future__ import annotations
 
@@ -9,13 +14,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SUBJECT = "tarka.hypothesis.deployed"
 DEFAULT_REDIS_KEY = "shadow:rules:active"
-
-
-def _nats_url() -> str | None:
-    raw = (os.environ.get("RULE_ENGINE_NATS_URL") or os.environ.get("NATS_URL") or "").strip()
-    return raw or None
 
 
 def _redis_url() -> str | None:
@@ -36,10 +35,8 @@ async def publish_hypothesis_deployed(
     redis_key: str = DEFAULT_REDIS_KEY,
 ) -> dict[str, Any]:
     """
-    Persist active shadow rules to Redis and publish ``hypothesis_deployed`` on NATS.
-
-    The Rust ``tarka-rule-engine-watcher`` binary reloads its in-memory :class:`RuleSet` without
-    dropping the NATS connection.
+    Persist active shadow rules to Redis (sole delivery channel; the
+    ``tarka.hypothesis.deployed`` NATS publish had no consumer and was removed).
     """
     redis_url = _redis_url()
     if redis_url is None:
@@ -53,43 +50,16 @@ async def publish_hypothesis_deployed(
     finally:
         await client.aclose()
 
-    subject = (os.environ.get("RULE_ENGINE_HYPOTHESIS_DEPLOY_SUBJECT") or DEFAULT_SUBJECT).strip()
-    payload: dict[str, Any] = {
-        "event": "hypothesis_deployed",
-        "tenant_id": tenant_id,
-        "redis_key": redis_key,
-        "rules": rules,
-    }
-    if version is not None:
-        payload["version"] = int(version)
-
-    nats_url = _nats_url()
-    if nats_url:
-        import nats
-
-        nc = await nats.connect(nats_url)
-        try:
-            await nc.publish(subject, json.dumps(payload, default=str).encode("utf-8"))
-            await nc.flush()
-        finally:
-            await nc.drain()
-        logger.info(
-            "hypothesis_deployed_published subject=%s rule_count=%s version=%s",
-            subject,
-            len(rules),
-            version,
-        )
-    else:
-        logger.warning(
-            "hypothesis_deployed_nats_skipped_no_url redis_key=%s rule_count=%s",
-            redis_key,
-            len(rules),
-        )
+    logger.info(
+        "hypothesis_deployed_redis redis_key=%s rule_count=%s version=%s",
+        redis_key,
+        len(rules),
+        version,
+    )
 
     return {
         "ok": True,
         "redis_key": redis_key,
         "rule_count": len(rules),
-        "nats_subject": subject if nats_url else None,
         "version": version,
     }

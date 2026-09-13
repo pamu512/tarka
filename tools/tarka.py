@@ -714,7 +714,6 @@ def cmd_dev(args):
             str(ROOT / "services" / "feature-service" / "src"),
             str(ROOT / "services" / "ml-scoring" / "src"),
             str(ROOT / "services" / "calibration-service" / "src"),
-            str(ROOT / "services" / "counter-service" / "src"),
             str(ROOT / "services" / "location-service" / "src"),
             str(service_dir / "src"),
             str(ROOT / "services" / "shared"),

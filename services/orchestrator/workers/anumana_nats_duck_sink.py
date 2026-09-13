@@ -71,6 +71,27 @@ async def flush_redis_to_analytics(
     return {"popped": len(rows), "written": written, "dropped": dropped}
 
 
+def build_sink_analytics() -> Any:
+    """Build the analytics provider and refuse to run if it cannot write.
+
+    ``CloudAnalytics`` without a ClickHouse client silently drops every
+    ``append_transaction`` — starting the sink in that state would RPOP live
+    telemetry off Redis and discard it. Fail closed instead.
+    """
+    analytics = build_analytics_provider()
+    if not analytics.writable():
+        try:
+            analytics.close()
+        except Exception:  # pragma: no cover — provider cleanup best-effort
+            pass
+        raise RuntimeError(
+            "Analytics backend is not writable (ENVIRONMENT=cloud without a reachable "
+            "ClickHouse). Refusing to drain telemetry that would be discarded — "
+            "fix ClickHouse connectivity or set ENVIRONMENT=development.",
+        )
+    return analytics
+
+
 async def run_worker() -> None:
     redis_url = (
         os.environ.get("ANUMANA_TELEMETRY_REDIS_URL") or os.environ.get("ANUMANA_REDIS_URL") or ""
@@ -92,7 +113,8 @@ async def run_worker() -> None:
     import redis.asyncio as redis_mod
 
     redis_client = redis_mod.from_url(redis_url, decode_responses=False)
-    analytics = build_analytics_provider()
+
+    analytics = build_sink_analytics()
 
     async def do_flush(max_n: int) -> None:
         stats = await flush_redis_to_analytics(

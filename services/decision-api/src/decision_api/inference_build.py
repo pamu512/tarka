@@ -82,7 +82,6 @@ def build_inference_context(
     platform: str = "web",
     tls_pinning_verified: bool | None = None,
     location_meta: dict[str, Any] | None = None,
-    counter_meta: dict[str, Any] | None = None,
     calibration_meta: dict[str, Any] | None = None,
     graph_meta: dict[str, Any] | None = None,
     external_signal_meta: dict[str, Any] | None = None,
@@ -319,48 +318,9 @@ def build_inference_context(
                 level=logging.DEBUG,
             )
 
-    counter_source = "heuristic"
-    if counter_meta:
-        counter_source = "service"
-        counters = counter_meta.get("counters")
-        if isinstance(counters, dict):
-            ev5 = counters.get("event_count_5m")
-            ev1 = counters.get("event_count_1h")
-            ev24 = counters.get("event_count_24h")
-            try:
-                if ev5 is not None:
-                    features["event_count_5m"] = int(ev5)
-            except (TypeError, ValueError) as exc:
-                InternalMonitor.log_suppressed_error(
-                    exc,
-                    context="inference_counter_ev5",
-                    domain="fraud_decisioning",
-                    level=logging.DEBUG,
-                )
-            try:
-                if ev1 is not None:
-                    features["event_count_1h"] = int(ev1)
-            except (TypeError, ValueError) as exc:
-                InternalMonitor.log_suppressed_error(
-                    exc,
-                    context="inference_counter_ev1",
-                    domain="fraud_decisioning",
-                    level=logging.DEBUG,
-                )
-            try:
-                if ev24 is not None:
-                    features["event_count_24h"] = int(ev24)
-            except (TypeError, ValueError) as exc:
-                InternalMonitor.log_suppressed_error(
-                    exc,
-                    context="inference_counter_ev24",
-                    domain="fraud_decisioning",
-                    level=logging.DEBUG,
-                )
-    elif any(
+    counter_source = "local-fallback" if any(
         k in features for k in ("event_count_5m", "event_count_1h", "event_count_24h")
-    ):
-        counter_source = "local-fallback"
+    ) else "heuristic"
 
     graph_risk_score = 0.0
     graph_risk_reasons: list[str] = []
@@ -392,15 +352,6 @@ def build_inference_context(
             external_signal_providers = [
                 str(x).strip() for x in providers if str(x).strip()
             ]
-
-    try:
-        ev1h = int(features.get("event_count_1h") or ev1h)
-    except (TypeError, ValueError):
-        ev1h = int(ev1h)
-    try:
-        ev24 = int(features.get("event_count_24h") or ev24)
-    except (TypeError, ValueError):
-        ev24 = int(ev24)
 
     # Epic A: tier + analyst-facing drivers
     if integrity_confidence >= 0.72:

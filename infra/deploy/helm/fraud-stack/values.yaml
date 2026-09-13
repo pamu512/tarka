@@ -241,13 +241,6 @@ calibrationService:
   # Align with services/calibration-service/Dockerfile (uvicorn 8011).
   servicePort: 8011
 
-counterService:
-  enabled: false
-  image: tarka-counter-service
-  tag: latest
-  replicaCount: 1
-  servicePort: 8014
-
 locationService:
   enabled: false
   image: tarka-location-service

@@ -20,9 +20,8 @@ def _dlq_config() -> tuple[str, str, str]:
         or "fraud.dlq.evaluate"
     ).strip()
     stream = (
-        os.environ.get("NATS_STREAM_NAME")
-        or os.environ.get("INGEST_DLQ_STREAM_NAME")
-        or os.environ.get("INGEST_STREAM_NAME")
+        os.environ.get("INGEST_DLQ_STREAM_NAME")
+        or os.environ.get("NATS_DLQ_STREAM_NAME")
         or "FRAUD_DLQ"
     ).strip()
     prefix = (os.environ.get("INGEST_SUBJECT_PREFIX") or "fraud.events").strip()

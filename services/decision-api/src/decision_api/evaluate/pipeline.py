@@ -133,7 +133,6 @@ async def run_evaluate_decision(
     _evaluate_opa_wrapped = m._evaluate_opa_wrapped
     _feature_snapshot_fallback = m._feature_snapshot_fallback
     _fetch_calibration_adjustment_wrapped = m._fetch_calibration_adjustment_wrapped
-    _fetch_counter_snapshot_wrapped = m._fetch_counter_snapshot_wrapped
     _fetch_feature_snapshot_wrapped = m._fetch_feature_snapshot_wrapped
     _fetch_graph_risk_wrapped = m._fetch_graph_risk_wrapped
     _fetch_location_evaluation_wrapped = m._fetch_location_evaluation_wrapped
@@ -790,49 +789,9 @@ async def run_evaluate_decision(
         if case_karma_evidence:
             depth_evidence["case_karma"] = case_karma_evidence
 
-        # Counter ownership: prefer counter-service as source of truth; keep local aggregates as fallback.
-        counter_meta: dict[str, Any] | None = None
-        if settings.counter_service_url:
-            counter_meta, counter_trace = await run_evaluation_step(
-                "counter_snapshot",
-                lambda: _fetch_counter_snapshot_wrapped(
-                    http, body, features, degrade_tags
-                ),
-                timeout_seconds=settings.eval_step_feature_snapshot_timeout_seconds,
-                max_attempts=settings.eval_step_feature_snapshot_max_attempts,
-                on_failure="SKIP",
-                fallback=None,
-            )
-            step_trace.append(counter_trace)
-            if isinstance(counter_meta, dict):
-                counters = counter_meta.get("counters")
-                if isinstance(counters, dict):
-                    features.update(counters)
-                if counter_meta.get("definition_id"):
-                    features["counter_definition_id"] = counter_meta.get(
-                        "definition_id"
-                    )
-                if counter_meta.get("definition_version") is not None:
-                    features["counter_definition_version"] = counter_meta.get(
-                        "definition_version"
-                    )
-            elif agg_store._client:
-                # Adapter shim while services roll out; keeps evaluate path functional during outages.
-                degrade_tags.append("counter:fallback_local_agg")
-                agg_features = await agg_store.compute_features(
-                    body.tenant_id, body.entity_id, features
-                )
-                features.update(agg_features)
-                if not shadow_request:
-                    agg_ts = event_time_unix_for_evaluate(body.metadata, body.payload)
-                    await agg_store.record_event(
-                        body.tenant_id,
-                        body.entity_id,
-                        str(trace_id),
-                        features,
-                        ts=agg_ts,
-                    )
-        elif agg_store._client:
+        # Counter ownership: local AggregateStore (services/shared/fraud_aggregates.py)
+        # is the single source of truth — the counter-service hop was removed.
+        if agg_store._client:
             agg_features = await agg_store.compute_features(
                 body.tenant_id, body.entity_id, features
             )
@@ -905,6 +864,38 @@ async def run_evaluate_decision(
                     metrics_inc=_metrics_inc_safe,
                 )
             return True
+
+        async def _merge_anumana_signals() -> bool:
+            if agg_store._client:
+                from decision_api.anumana_signals import merge_anumana_signals
+
+                canvas = None
+                if body.device_context is not None:
+                    signals = body.device_context.signals or {}
+                    canvas = signals.get("canvas_fp_hash") or signals.get(
+                        "entropy_canvas_raster_digest"
+                    )
+                await merge_anumana_signals(
+                    agg_store._client,
+                    tenant_id=body.tenant_id,
+                    canvas=canvas,
+                    session_id=body.session_id,
+                    features=features,
+                    degrade_tags=degrade_tags,
+                )
+            return True
+
+        _anumana_pol = dependency_resilience_policy_table().get("anumana_signals", {})
+
+        _, anumana_trace = await run_evaluation_step(
+            "anumana_signals",
+            _merge_anumana_signals,
+            timeout_seconds=float(_anumana_pol.get("timeout_seconds", 0.08)),
+            max_attempts=int(_anumana_pol.get("max_attempts", 1)),
+            on_failure="SKIP",
+            fallback=None,
+        )
+        step_trace.append(anumana_trace)
 
         _osint_pol = dependency_resilience_policy_table().get("async_osint_redis", {})
         _, async_osint_trace = await run_evaluation_step(
@@ -1132,7 +1123,6 @@ async def run_evaluate_decision(
                     features,
                     ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
                     location_meta=location_meta,
-                    counter_meta=counter_meta,
                     graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
                     external_signal_meta=external_signal_meta
                     if isinstance(external_signal_meta, dict)
@@ -1299,7 +1289,6 @@ async def run_evaluate_decision(
             features,
             ml_detail=ml_detail if isinstance(ml_detail, dict) else None,
             calibration_meta=calibration_meta,
-            counter_meta=counter_meta,
             location_meta=location_meta,
             graph_meta=graph_risk if isinstance(graph_risk, dict) else None,
             external_signal_meta=external_signal_meta
@@ -1433,8 +1422,6 @@ async def run_evaluate_decision(
             snap_extra["policy_routing"] = policy_routing
         if calibration_meta is not None:
             snap_extra["calibration"] = calibration_meta
-        if counter_meta is not None:
-            snap_extra["counter"] = counter_meta
         if location_meta is not None:
             snap_extra["location"] = location_meta
         if graph_decision_explanation is not None:

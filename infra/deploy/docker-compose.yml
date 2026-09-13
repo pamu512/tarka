@@ -96,7 +96,6 @@ services:
       ML_SCORING_URL: ${ML_SCORING_URL:-http://signal-api:8004/ml}
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-}
       CALIBRATION_SERVICE_URL: ${CALIBRATION_SERVICE_URL:-http://signal-api:8004/calibration}
-      COUNTER_SERVICE_URL: ${COUNTER_SERVICE_URL:-http://signal-api:8004/counters}
       LOCATION_SERVICE_URL: ${LOCATION_SERVICE_URL:-http://signal-api:8004/location}
       OPA_URL: ${OPA_URL:-}
       NATS_URL: ${NATS_URL:-nats://nats:4222}
@@ -186,7 +185,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
-      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
       DISABLE_ML: ${DISABLE_ML:-false}
       TRITON_URL: ${TRITON_URL:-}
       TRITON_MODEL_INPUT: ${TRITON_MODEL_INPUT:-X}
@@ -347,9 +345,47 @@ services:
       - signal-api
     profiles: [ui, full]
 
+  anumana-duck-sink:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.anumana_nats_duck_sink"]
+    environment:
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+      # Local DuckDB file on the anumana_duck named volume — telemetry drained
+      # from Redis must outlive the container (in-memory default would discard
+      # it on restart, and CloudAnalytics without ClickHouse is refused by the
+      # worker's writable() guard).
+      ORCHESTRATOR_LOCAL_ANALYTICS_DUCKDB: /data/anumana_telemetry.duckdb
+      ORCHESTRATOR_AUDIT_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+      ENVIRONMENT: local
+    volumes:
+      - anumana_duck:/data
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    profiles: [analytics, full]
+
+  anumana-heartbeat-monitor:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.sdk_heartbeat_monitor"]
+    environment:
+      ANUMANA_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+      - orchestrator
+    restart: unless-stopped
+    profiles: [analytics, full]
+
 volumes:
   fraud_pg:
   fraud_nats:
   fraud_ch:
   investigation_agent_data:
   janusgraph_data:
+  anumana_duck:

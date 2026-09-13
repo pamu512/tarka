@@ -2523,6 +2523,22 @@ def _require_internal_hook_auth(request: Request) -> None:
         provided = (request.headers.get("x-api-key") or "").strip()
         if provided not in keys:
             raise HTTPException(status_code=401, detail="invalid_api_key")
+        return
+    allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not allow:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "internal hook auth misconfigured: neither INVESTIGATION_INTERNAL_SECRET nor "
+                "API_KEYS is set (set INVESTIGATION_INTERNAL_SECRET, or "
+                "ALLOW_INSECURE_NO_AUTH=true for local development)"
+            ),
+        )
 
 
 @app.post("/v1/internal/case-brief")

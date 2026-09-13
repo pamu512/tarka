@@ -45,7 +45,6 @@ def test_outbox_settings_from_environment(monkeypatch: pytest.MonkeyPatch) -> No
 def test_jetstream_settings_defaults() -> None:
     settings = get_settings()
     assert settings.shadow_investigate_jetstream_fetch_batch == 10
-    assert settings.consortium_labels_jetstream_fetch_batch == 10
     assert settings.tarka_events_jetstream_max_bytes > 0
 
 

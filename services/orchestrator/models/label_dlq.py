@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Index, String, Text, Uuid
+from sqlalchemy import DateTime, Index, String, Text, Uuid, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -80,3 +80,31 @@ class TarkaLabelDlqDAO:
         await session.flush()
         await session.refresh(row)
         return row
+
+    @classmethod
+    async def list_recent(
+        cls,
+        session: AsyncSession,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[TarkaLabelDlqORM]:
+        """Most-recent DLQ rows, newest first (capped read for ops/dashboards)."""
+        safe_limit = max(1, min(int(limit), 500))
+        result = await session.execute(
+            select(TarkaLabelDlqORM)
+            .order_by(TarkaLabelDlqORM.created_at.desc(), TarkaLabelDlqORM.id.desc())
+            .offset(max(0, int(offset)))
+            .limit(safe_limit)
+        )
+        return list(result.scalars().all())
+
+    @classmethod
+    async def count_by_reason(cls, session: AsyncSession) -> dict[str, int]:
+        """Row counts grouped by ``rejection_reason`` (monitoring signal)."""
+        result = await session.execute(
+            select(TarkaLabelDlqORM.rejection_reason, func.count())
+            .group_by(TarkaLabelDlqORM.rejection_reason)
+            .order_by(func.count().desc())
+        )
+        return {reason: int(count) for reason, count in result.all()}

@@ -23,14 +23,13 @@ Use when **TarkaHighErrorRate***, **TarkaRiskServiceHighErrorRate***, or **Tarka
 1. Confirm whether 5m window has recovered; if both hot, treat as incident.
 2. Review error budget consumption vs monthly target in `/v1/slo` JSON.
 3. Schedule fix-forward or capacity change; document in incident channel.
-4. For **calibration-service**, **counter-service**, **location-service**: verify upstream Redis/Postgres and dependency URLs in compose/Helm values.
+4. For **calibration-service**, **location-service**: verify upstream Redis/Postgres and dependency URLs in compose/Helm values.
 
 ## Circuit / fallback alerts (decision-api)
 
 | Alert | First checks |
 |-------|----------------|
 | TarkaDecisionApiCircuitOpenCalibration | `GET /v1/slo` on calibration-service; logs for timeout |
-| TarkaDecisionApiCircuitOpenCounter | counter-service health; `scripts/replay/` parity if counters stale |
 | TarkaDecisionApiCircuitOpenLocation | location-service health; geo fallback tags in audit |
 | TarkaDecisionApiCircuitOpenExternal | integration-ingress connector status |
 | TarkaDecisionApiFallbackRateElevated | `fraud_fallback_total`, `fallback_reason` in evaluate audit payloads |

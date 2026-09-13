@@ -20,10 +20,13 @@ class _FakePipeline:
 
     def __init__(self, parent: "_FakeRedis") -> None:
         self._parent = parent
-        self._ops: list[tuple[str, ...]] = []
+        self._ops: list[tuple] = []
 
     def lpush(self, key: str, value: bytes) -> None:
         self._ops.append(("lpush", key, value))
+
+    def ltrim(self, key: str, start: int, stop: int) -> None:
+        self._ops.append(("ltrim", key, int(start), int(stop)))
 
     def incr(self, key: str) -> None:
         self._ops.append(("incr", key))
@@ -49,6 +52,9 @@ class _FakePipeline:
             elif op[0] == "zadd":
                 n = await self._parent.zadd(op[1], op[2])
                 out.append(n)
+            elif op[0] == "ltrim":
+                self._parent.trims.append((op[1], op[2], op[3]))
+                out.append(1)
         return out
 
 
@@ -57,6 +63,7 @@ class _FakeRedis:
         self.pushes: list[tuple[str, bytes]] = []
         self.incrs: list[str] = []
         self.expires: list[tuple[str, int]] = []
+        self.trims: list[tuple[str, int, int]] = []
         self.strings: dict[str, str] = {}
         self.zsets: dict[str, dict[str, float]] = {}
 

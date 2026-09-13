@@ -152,7 +152,7 @@ static_resources:
                             timeout: 0s
                             max_stream_duration:
                               grpc_timeout_header_max: 0s
-                        # Signal plane (see decision_api.config feature/ml/calibration/counter/location URLs).
+                        # Signal plane (see decision_api.config feature/ml/calibration/location URLs).
                         - match: { prefix: "/features" }
                           route:
                             cluster: signal_provider
@@ -174,16 +174,6 @@ static_resources:
                                 base_interval: 0.05s
                                 max_interval: 0.5s
                         - match: { prefix: "/calibration" }
-                          route:
-                            cluster: signal_provider
-                            retry_policy:
-                              retry_on: "5xx,gateway-error,connect-failure,reset,refused-stream"
-                              num_retries: 3
-                              per_try_timeout: 0.5s
-                              retry_back_off:
-                                base_interval: 0.05s
-                                max_interval: 0.5s
-                        - match: { prefix: "/counters" }
                           route:
                             cluster: signal_provider
                             retry_policy:
@@ -348,16 +338,6 @@ static_resources:
                                 base_interval: 0.05s
                                 max_interval: 0.5s
                         - match: { prefix: "/calibration" }
-                          route:
-                            cluster: signal_provider
-                            retry_policy:
-                              retry_on: "5xx,gateway-error,connect-failure,reset,refused-stream"
-                              num_retries: 3
-                              per_try_timeout: 0.5s
-                              retry_back_off:
-                                base_interval: 0.05s
-                                max_interval: 0.5s
-                        - match: { prefix: "/counters" }
                           route:
                             cluster: signal_provider
                             retry_policy:

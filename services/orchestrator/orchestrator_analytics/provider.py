@@ -17,6 +17,15 @@ class AnalyticsProvider(ABC):
     def load(self) -> None:
         """Initialize backing storage (seed tables, connections, migrations)."""
 
+    def writable(self) -> bool:
+        """True when ``append_transaction`` actually persists rows.
+
+        ``CloudAnalytics`` without a ClickHouse client silently no-ops every
+        append; callers that move data off Redis (the duck sink) MUST refuse to
+        run in that state instead of RPOP-and-dropping telemetry.
+        """
+        return True
+
     @abstractmethod
     def append_transaction(self, transaction: "TransactionSchema") -> None:
         """Append one normalized ingest envelope to the analytical store."""

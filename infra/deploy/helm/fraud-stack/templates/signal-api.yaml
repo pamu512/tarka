@@ -33,12 +33,6 @@ spec:
               {{- else }}
               value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
               {{- end }}
-            - name: COUNTER_SERVICE_REDIS_URL
-              {{- if .Values.global.externalServices.redis.enabled }}
-              value: {{ .Values.global.externalServices.redis.redisUrl | quote }}
-              {{- else }}
-              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
-              {{- end }}
             {{- end }}
             {{- if .Values.triton.enabled }}
             - name: TRITON_URL

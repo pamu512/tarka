@@ -52,7 +52,6 @@ def test_unconfigured_tags_zero_delta():
         "ml:unconfigured",
         "opa:unconfigured",
         "calibration:unconfigured",
-        "counter:unconfigured",
         "location:unconfigured",
     ]
     assert degrade_skip_score_delta(posture) == 0.0
@@ -75,10 +74,6 @@ def test_disabled_by_tenant_zero_delta():
 
 def test_load_shedding_not_scored():
     assert degrade_skip_score_delta(["load_shedding:active"]) == 0.0
-
-
-def test_counter_fallback_not_scored():
-    assert degrade_skip_score_delta(["counter:fallback_local_agg"]) == 0.0
 
 
 def test_consortium_not_scored():

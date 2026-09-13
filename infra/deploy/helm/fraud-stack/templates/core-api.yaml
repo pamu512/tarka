@@ -47,8 +47,6 @@ spec:
               value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/ml"
             - name: CALIBRATION_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/calibration"
-            - name: COUNTER_SERVICE_URL
-              value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/counters"
             - name: LOCATION_SERVICE_URL
               value: "http://{{ include "tarka.fullname" . }}-signal-api:{{ .Values.signalApi.servicePort }}/location"
             {{- end }}

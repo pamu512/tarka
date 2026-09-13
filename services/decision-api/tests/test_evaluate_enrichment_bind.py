@@ -120,7 +120,6 @@ def test_evaluate_hop_matrix_empty_url_tags_unconfigured(
         "features",
         "ml",
         "opa",
-        "counter",
         "location",
         "calibration",
     }

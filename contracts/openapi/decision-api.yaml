@@ -1676,7 +1676,7 @@ components:
               description: calibration-service | calibration-heuristic
             counter:
               type: string
-              description: counter-service | counter-local-fallback | counter-heuristic
+              description: counter-local-fallback | counter-heuristic
             location:
               type: string
               description: location-service | location-heuristic
