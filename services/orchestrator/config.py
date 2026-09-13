@@ -43,6 +43,16 @@ class OrchestratorSettings(BaseSettings):
         default="",
         validation_alias="ANUMANA_REDIS_URL",
     )
+    anumana_telemetry_list_cap: int = Field(
+        default=100_000,
+        ge=0,
+        validation_alias="ANUMANA_TELEMETRY_LIST_CAP",
+        description=(
+            "Max envelopes kept in the 'anumana:browser_telemetry' Redis list "
+            "(LTRIM after LPUSH). 0 disables the cap. Prevents unbounded list "
+            "growth when the duck sink is down or undeployed."
+        ),
+    )
 
     # --- Outbox processor ---
     outbox_poll_interval_seconds: float = Field(
@@ -106,18 +116,6 @@ class OrchestratorSettings(BaseSettings):
         gt=0,
         validation_alias="SHADOW_INVESTIGATE_JETSTREAM_MAX_BYTES",
     )
-    consortium_labels_jetstream_durable: str = Field(
-        default="consortium-counter-workers",
-        min_length=1,
-        validation_alias="CONSORTIUM_LABELS_JETSTREAM_DURABLE",
-    )
-    consortium_labels_jetstream_fetch_batch: int = Field(
-        default=10,
-        ge=1,
-        le=100,
-        validation_alias="CONSORTIUM_LABELS_JETSTREAM_FETCH_BATCH",
-    )
-
     # --- Operational signal ingress constraints ---
     operational_signal_idempotency_ttl_sec: int = Field(
         default=3600,

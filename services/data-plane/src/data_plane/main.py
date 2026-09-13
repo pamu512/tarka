@@ -1,18 +1,10 @@
-"""Single process: event ingest (NATS + Decision API fan-out) + analytics (ClickHouse query + sink).
-
-Lite Redis+Postgres platform routes live in ``data_plane.platform`` and keep the
-documented port **8014** contract via a temporary compatibility listener
-(``TARKA_PLATFORM_COMPAT_PORT``, default unset). ``services/data-platform`` is a
-thin re-export of the same app for one release.
-"""
+"""Single process: event ingest (NATS + Decision API fan-out) + analytics (ClickHouse query + sink)."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import sys
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -82,61 +74,9 @@ def _merge_routes(target: FastAPI, source: FastAPI, *, skip_paths: set[str]) -> 
         target.router.routes.append(route)
 
 
-def _compat_port() -> int | None:
-    """Optional second listener for data-platform storage semantics (default off).
-
-    Removal gate: drop when ``services/data-platform`` and compose ``8014`` bindings
-    are removed (rg -n 'TARKA_PLATFORM_COMPAT_PORT|8014').
-    """
-    raw = os.environ.get("TARKA_PLATFORM_COMPAT_PORT", "").strip()
-    if not raw:
-        return None
-    try:
-        port = int(raw)
-    except ValueError:
-        log.warning("invalid TARKA_PLATFORM_COMPAT_PORT=%r; compat listener disabled", raw)
-        return None
-    if port <= 0 or port > 65535:
-        return None
-    return port
-
-
-async def _serve_platform_compat(port: int) -> None:
-    import uvicorn
-    from data_plane.platform.app import create_platform_app
-
-    platform_app = create_platform_app(with_observability=True)
-    config = uvicorn.Config(
-        platform_app,
-        host="0.0.0.0",
-        port=port,
-        log_level="info",
-        lifespan="on",
-    )
-    server = uvicorn.Server(config)
-    log.info("data_plane_platform_compat_listener port=%s", port)
-    await server.serve()
-
-
-@asynccontextmanager
 async def lifespan(app: FastAPI):
-    compat_task: asyncio.Task[Any] | None = None
-    port = _compat_port()
-    if port is not None:
-        compat_task = asyncio.create_task(_serve_platform_compat(port))
-        app.state.platform_compat_task = compat_task
-    try:
-        async with ei.lifespan(app), asink.lifespan(app):
-            yield
-    finally:
-        if compat_task is not None:
-            compat_task.cancel()
-            try:
-                await compat_task
-            except asyncio.CancelledError:
-                pass
-            except Exception:
-                log.exception("platform compat listener shutdown failed")
+    async with ei.lifespan(app), asink.lifespan(app):
+        yield
 
 
 def create_app() -> FastAPI:
@@ -175,7 +115,6 @@ def create_app() -> FastAPI:
                 "redis_ok": redis_ok,
             },
             "analytics": {"clickhouse": ch_ok, "configured": ch_configured},
-            "platform_compat_port": _compat_port(),
         }
         if code != 200:
             return JSONResponse(status_code=code, content=body)

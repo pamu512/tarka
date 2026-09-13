@@ -1,17 +1,25 @@
-"""Smoke: platform app factory and data-plane import remain wired."""
+"""Data-plane app smoke tests (post platform-compat removal)."""
 
 from __future__ import annotations
 
+import importlib
+import inspect
 
-def test_platform_app_factory_title() -> None:
-    from data_plane.platform.app import create_platform_app
 
-    app = create_platform_app(with_observability=False)
-    assert "Data Platform" in app.title
-    paths = {getattr(r, "path", None) for r in app.routes}
-    assert "/v1/health" in paths
-    assert "/v1/events" in paths
-    assert "/v1/analytics/decisions" in paths
+def test_compat_platform_removed() -> None:
+    """A10: the dark data-platform compat surface must not ship anymore."""
+    try:
+        importlib.import_module("data_plane.platform")
+    except ModuleNotFoundError:
+        pass
+    else:  # pragma: no cover - fails loudly if the module returns
+        raise AssertionError("data_plane.platform should have been removed")
+
+    import data_plane.main as dm
+
+    src = inspect.getsource(dm)
+    assert "TARKA_PLATFORM_COMPAT_PORT" not in src
+    assert "_serve_platform_compat" not in src
 
 
 def test_data_plane_app_imports() -> None:

@@ -45,7 +45,7 @@ docker compose -f docker-compose.yml ps
 
 ## CI / automation (R4.2)
 
-- **Script:** `scripts/chaos/chaos_smoke.py` — baseline recovery path (`redis` or `postgres`) plus optional dependency fallback matrix checks (`graph-service`, `feature-service`, `ml-scoring`, `counter-service`, `location-service`, `calibration-service`) that assert evaluate remains `200` with expected `fallback_reason` fragments.
+- **Script:** `scripts/chaos/chaos_smoke.py` — baseline recovery path (`redis` or `postgres`) plus optional dependency fallback matrix checks (`graph-service`, `feature-service`, `ml-scoring`, `location-service`, `calibration-service`) that assert evaluate remains `200` with expected `fallback_reason` fragments.
 - **GitHub Actions:** workflow **`chaos-smoke`** (manual dispatch only) in `.github/workflows/chaos-smoke.yml`. Choose profile (`core`/`full`), fault service, and whether to run dependency fallback checks.
 
 ```bash

@@ -1,7 +1,7 @@
 # Ingest data-agnostic + missing never false (P-ing1)
 
 **Date:** 2026-09-06  
-**Status:** Design — approved in chat; not implemented.  
+**Status:** Implemented (evaluate plane + tenant overlay 2026-09-06; ingest-plane overlay consult 2026-09-13, `fix/ingest-tenant-overlay`).  
 **Branch:** `honesty/ingest-agnostic` stacked on P-reg1 (`#378` / `feat/desk-demo-vs-product`)  
 **Related:** [field registry](./2026-09-05-field-registry-map-design.md), `packages/shared-core/tarka_shared/ingest_contract_v1.py`, `docs/docs/guides/ingest-contract-v1.md`, `services/decision-api/rules/device_signals.json`
 

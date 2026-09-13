@@ -1,4 +1,9 @@
-"""Gate (Prompt 135): NATS OSINT tool writes ``ai_tool_logs`` with exact request JSON."""
+"""Gate (Prompt 135, repointed #10): ``log_ai_tool_nats_osint`` persists exact-payload ``ai_tool_logs`` rows.
+
+Originally gated via the removed ``nats_lookup`` wrapper (``setu.query`` had
+zero responders — write-only subject, every prod call timed out). The audit
+lane itself is live; this gate exercises it directly.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +11,6 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -17,50 +21,9 @@ if str(_SERVICES) not in sys.path:
     sys.path.insert(0, str(_SERVICES))
 
 
-class _FakeMsg:
-    __slots__ = ("data",)
-
-    def __init__(self, data: bytes) -> None:
-        self.data = data
-
-
-class _FakeSub:
-    def __init__(self, body: bytes) -> None:
-        self._body = body
-
-    async def next_msg(self, timeout: float | None = None) -> _FakeMsg:
-        _ = timeout
-        return _FakeMsg(self._body)
-
-    async def unsubscribe(self) -> None:
-        return None
-
-
-class FakeNatsClient:
-    def __init__(self, reply_obj: dict[str, Any]) -> None:
-        self._body = json.dumps(reply_obj, separators=(",", ":")).encode()
-        self._inbox = "_INBOX.audit_gate"
-
-    def new_inbox(self) -> str:
-        return self._inbox
-
-    async def flush(self) -> None:
-        return None
-
-    async def subscribe(self, subject: str) -> _FakeSub:
-        return _FakeSub(self._body)
-
-    async def publish(self, subject: str, payload: bytes, reply: str = "") -> None:
-        _ = subject, reply
-        self.last_payload = payload
-
-    async def drain(self) -> None:
-        return None
-
-
-def test_ai_tool_logs_request_payload_matches_wire_json_exactly() -> None:
+def test_ai_tool_logs_row_persists_exact_payloads() -> None:
     from shadow.models.ai_tool_log import AIToolLogORM, Base
-    from shadow.tools.nats_lookup import nats_setu_osint_lookup
+    from shadow.tools.ai_tool_audit import log_ai_tool_nats_osint
 
     async def _run() -> None:
         engine = create_async_engine(
@@ -73,15 +36,18 @@ def test_ai_tool_logs_request_payload_matches_wire_json_exactly() -> None:
 
         fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
-        test_ip = "198.51.100.200"
-        expected_request = json.dumps({"kind": "ip_osint", "ip": test_ip}, separators=(",", ":"))
+        request_exact = json.dumps({"kind": "ip_osint", "ip": "198.51.100.200"}, separators=(",", ":"))
+        response_exact = json.dumps({"ip": "198.51.100.200", "vpn": False}, separators=(",", ":"))
 
-        reply = {"ip": test_ip, "vpn": False, "source": "audit-gate"}
-        nc = FakeNatsClient(reply)
-
-        out = await nats_setu_osint_lookup(nc, ip=test_ip, timeout=2.0, audit_session_factory=fac)
-        assert out["vpn"] is False
-        assert nc.last_payload.decode() == expected_request
+        await log_ai_tool_nats_osint(
+            fac,
+            tool_name="nats_setu_osint_lookup",
+            nats_subject="setu.query",
+            reply_inbox="_INBOX.audit_gate",
+            request_payload_exact=request_exact,
+            response_payload_exact=response_exact,
+            error=None,
+        )
 
         async with fac() as session:
             row = (
@@ -89,12 +55,24 @@ def test_ai_tool_logs_request_payload_matches_wire_json_exactly() -> None:
                     select(AIToolLogORM).order_by(AIToolLogORM.id.desc()).limit(1)
                 )
             ).scalar_one()
-        assert row.request_payload_exact == expected_request
+        assert row.request_payload_exact == request_exact
+        assert row.response_payload_exact == response_exact
         assert row.nats_subject == "setu.query"
         assert row.tool_name == "nats_setu_osint_lookup"
         assert row.reply_inbox == "_INBOX.audit_gate"
         assert row.error is None
-        assert row.response_payload_exact == nc._body.decode()
+
+        # DB failures stay swallowed: tool output is primary, audit is best-effort.
+        await engine.dispose()
+        await log_ai_tool_nats_osint(
+            fac,
+            tool_name="t",
+            nats_subject="s",
+            error="boom",
+            reply_inbox=None,
+            request_payload_exact="{}",
+            response_payload_exact=None,
+        )
 
         await engine.dispose()
 

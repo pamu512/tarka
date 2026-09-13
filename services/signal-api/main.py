@@ -1,4 +1,8 @@
-"""Macroservice: feature + ML + calibration + counter + location (single Uvicorn process)."""
+"""Macroservice: feature + ML + calibration + location (single Uvicorn process).
+
+Aggregate counters are owned by decision-api's local AggregateStore; the
+counter-service sub-app was removed (decision-api serves /v1/internal/counters/*).
+"""
 
 from __future__ import annotations
 
@@ -18,7 +22,6 @@ else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "shared"))
 
 import calibration_service.main as cal  # noqa: E402
-import counter_service.main as cnt  # noqa: E402
 import feature_service.main as feat  # noqa: E402
 import location_service.main as loc  # noqa: E402
 import ml_scoring.main as ml  # noqa: E402
@@ -49,7 +52,6 @@ def create_app() -> FastAPI:
     app.mount("/features", feat.app)
     app.mount("/ml", ml.app)
     app.mount("/calibration", cal.app)
-    app.mount("/counters", cnt.app)
     app.mount("/location", loc.app)
     return app
 

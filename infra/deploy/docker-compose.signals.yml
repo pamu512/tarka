@@ -30,7 +30,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       AGG_KEY_VERSION: ${AGG_KEY_VERSION:-local_v1}
       FEATURE_SERVICE_REDIS_URL: redis://redis:6379/0
-      COUNTER_SERVICE_REDIS_URL: redis://redis:6379/0
       DISABLE_ML: ${DISABLE_ML:-true}
     ports:
       - "8004:8004"

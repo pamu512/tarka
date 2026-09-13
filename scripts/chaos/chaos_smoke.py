@@ -26,7 +26,6 @@ DEPENDENCY_FALLBACK_MATRIX = [
     ("graph-service", "step_graph_risk:http_error"),
     ("feature-service", "step_feature_snapshot:http_error"),
     ("ml-scoring", "step_ml_score:http_error"),
-    ("counter-service", "step_counter_snapshot:http_error"),
     ("location-service", "step_location_eval:http_error"),
     ("calibration-service", "step_calibration:http_error"),
 ]

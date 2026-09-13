@@ -44,7 +44,6 @@ services:
       ML_SCORING_URL: ""
       GRAPH_SERVICE_URL: ""
       CALIBRATION_SERVICE_URL: ""
-      COUNTER_SERVICE_URL: ""
       LOCATION_SERVICE_URL: ""
       OPA_URL: ""
     volumes:

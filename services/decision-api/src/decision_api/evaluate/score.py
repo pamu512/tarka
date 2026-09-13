@@ -21,8 +21,6 @@ _SIGNAL_UNAVAILABLE_AUDIT: dict[str, str] = {
     "opa:unconfigured": "Signal Policy (OPA) URL unset",
     "calibration:unavailable": "Signal Calibration was unavailable",
     "calibration:unconfigured": "Signal Calibration URL unset",
-    "counter:unavailable": "Signal Counter service was unavailable",
-    "counter:unconfigured": "Signal Counter service URL unset",
     "location:unavailable": "Signal Location intelligence was unavailable",
     "location:unconfigured": "Signal Location intelligence URL unset",
     "redis:tag_merge_unavailable": "Signal Redis tag merge was unavailable",
@@ -39,7 +37,6 @@ EVALUATE_HOP_UNCONFIGURED: dict[str, tuple[str, str]] = {
     "features": ("feature_service_url", "enrichment:unconfigured"),
     "ml": ("ml_scoring_url", "ml:unconfigured"),
     "opa": ("opa_url", "opa:unconfigured"),
-    "counter": ("counter_service_url", "counter:unconfigured"),
     "location": ("location_service_url", "location:unconfigured"),
     "calibration": ("calibration_service_url", "calibration:unconfigured"),
 }
@@ -123,9 +120,7 @@ def compute_fallback_reason(
         "opa:unconfigured": "opa_unconfigured",
         "calibration:unavailable": "circuit_calibration",
         "calibration:unconfigured": "calibration_unconfigured",
-        "counter:unconfigured": "counter_unconfigured",
         "location:unconfigured": "location_unconfigured",
-        "counter:unavailable": "circuit_counter",
         "location:unavailable": "circuit_location",
         "consortium:unavailable": "circuit_consortium",
         "redis:tenant_flags_unavailable": "circuit_redis_tenant_flags",
@@ -133,7 +128,6 @@ def compute_fallback_reason(
         "redis:tag_merge_unavailable": "circuit_redis_tag_merge",
         "async_osint:unavailable": "async_osint_redis",
         "async_enrich:stale": "async_enrich_stale",
-        "counter:fallback_local_agg": "counter_local_aggregate_fallback",
         "lists:disabled_by_tenant": "tenant_disable_entity_lists",
         "graph:disabled_by_tenant": "tenant_disable_graph",
         "enrichment:disabled_by_tenant": "tenant_disable_feature_service",
@@ -179,7 +173,6 @@ _DEGRADE_SKIP_SCORE: dict[str, float] = {
     "ml:unavailable": 5.0,
     "opa:unavailable": 5.0,
     "calibration:unavailable": 5.0,
-    "counter:unavailable": 5.0,
     "location:unavailable": 5.0,
     "redis:tag_merge_unavailable": 5.0,
     "redis:tenant_flags_unavailable": 5.0,
@@ -209,7 +202,5 @@ def decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
     if notes:
         return "Degraded"
     if "load_shedding:active" in degrade_tags:
-        return "Degraded"
-    if "counter:fallback_local_agg" in degrade_tags:
         return "Degraded"
     return "Healthy"

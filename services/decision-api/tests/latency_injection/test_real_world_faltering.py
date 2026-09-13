@@ -183,12 +183,6 @@ async def faltering_eval_client_live_ml(monkeypatch):
                                     )
                                     monkeypatch.setattr(
                                         decision_settings,
-                                        "counter_service_url",
-                                        "",
-                                        raising=False,
-                                    )
-                                    monkeypatch.setattr(
-                                        decision_settings,
                                         "location_service_url",
                                         "",
                                         raising=False,

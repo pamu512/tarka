@@ -33,7 +33,21 @@ class IngestSideEffectsRequest(BaseModel):
 def require_internal_ingest_auth(request: Request) -> None:
     expected = (os.environ.get("ORCHESTRATOR_INTERNAL_SECRET") or "").strip()
     if not expected:
-        return
+        allow = os.environ.get("ALLOW_INSECURE_NO_AUTH", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if allow:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "internal ingest auth misconfigured: ORCHESTRATOR_INTERNAL_SECRET is empty "
+                "(set ORCHESTRATOR_INTERNAL_SECRET, or ALLOW_INSECURE_NO_AUTH=true for local development)"
+            ),
+        )
     got = (request.headers.get("x-internal-secret") or "").strip()
     if not got or not hmac.compare_digest(got, expected):
         raise HTTPException(

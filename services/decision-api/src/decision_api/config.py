@@ -35,16 +35,6 @@ class Settings(BaseSettings):
         max_length=128,
         pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
     )
-    #: Parallel Production vs Candidate rule evaluation; requires ``CANDIDATE_RULES_PATH`` packs.
-    shadow_evaluator_enabled: bool = os.environ.get(
-        "SHADOW_EVALUATOR_ENABLED", ""
-    ).strip().lower() in ("1", "true", "yes", "on")
-    shadow_evaluator_timeout_seconds: float = Field(
-        default=float(os.environ.get("SHADOW_EVALUATOR_TIMEOUT_SECONDS", "3.0")),
-        ge=0.25,
-        le=120.0,
-    )
-    candidate_rules_path: str = os.environ.get("CANDIDATE_RULES_PATH", "").strip()
     #: Observe-only pack canary on evaluate (slice 1). 0 = off. Live allow/deny stays live pack.
     pack_canary_percent: float = Field(
         default=float(os.environ.get("PACK_CANARY_PERCENT", "0") or "0"),
@@ -53,15 +43,6 @@ class Settings(BaseSettings):
     )
     pack_canary_pack_id: str = os.environ.get("PACK_CANARY_PACK_ID", "").strip()
     pack_canary_path: str = os.environ.get("PACK_CANARY_PATH", "").strip()
-    clickhouse_shadow_evaluations_table: str = Field(
-        default=os.environ.get(
-            "CLICKHOUSE_SHADOW_EVALUATIONS_TABLE", "shadow_rule_evaluations"
-        ).strip()
-        or "shadow_rule_evaluations",
-        min_length=1,
-        max_length=128,
-        pattern=r"^[a-zA-Z_][a-zA-Z0-9_]*$",
-    )
     #: Audit ingest sink :func:`~ingestor.manifest_row.decode_manifest_row` → ``trace_json``.
     clickhouse_evidence_manifests_table: str = Field(
         default=os.environ.get(
@@ -116,7 +97,6 @@ class Settings(BaseSettings):
     ml_scoring_url: str = "http://signal-api:8004/ml"
     graph_service_url: str = ""
     calibration_service_url: str = "http://signal-api:8004/calibration"
-    counter_service_url: str = "http://signal-api:8004/counters"
     location_service_url: str = "http://signal-api:8004/location"
     scameter_enabled: bool = os.environ.get(
         "SCAMETER_ENABLED", "false"
@@ -322,12 +302,6 @@ class Settings(BaseSettings):
     )
     circuit_calibration_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_CALIBRATION_RECOVERY_SECONDS", "30")
-    )
-    circuit_counter_failure_threshold: int = int(
-        os.environ.get("CIRCUIT_COUNTER_FAILURE_THRESHOLD", "5")
-    )
-    circuit_counter_recovery_seconds: float = float(
-        os.environ.get("CIRCUIT_COUNTER_RECOVERY_SECONDS", "30")
     )
     circuit_location_failure_threshold: int = int(
         os.environ.get("CIRCUIT_LOCATION_FAILURE_THRESHOLD", "5")
@@ -603,13 +577,6 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "circuit_recovery_seconds": settings.circuit_opa_recovery_seconds,
             "on_failure": "SKIP",
         },
-        "counter_snapshot": {
-            "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
-            "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
-            "circuit_failure_threshold": settings.circuit_counter_failure_threshold,
-            "circuit_recovery_seconds": settings.circuit_counter_recovery_seconds,
-            "on_failure": "SKIP",
-        },
         "location_eval": {
             "timeout_seconds": settings.eval_step_feature_snapshot_timeout_seconds,
             "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
@@ -622,6 +589,19 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "max_attempts": settings.eval_step_feature_snapshot_max_attempts,
             "circuit_failure_threshold": settings.circuit_calibration_failure_threshold,
             "circuit_recovery_seconds": settings.circuit_calibration_recovery_seconds,
+            "on_failure": "SKIP",
+        },
+        "anumana_signals": {
+            "timeout_seconds": float(
+                os.environ.get("ANUMANA_SIGNALS_TIMEOUT_SECONDS", "0.05")
+            ),
+            "max_attempts": int(os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")),
+            "circuit_failure_threshold": int(
+                os.environ.get("ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD", "5")
+            ),
+            "circuit_recovery_seconds": float(
+                os.environ.get("ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS", "2.0")
+            ),
             "on_failure": "SKIP",
         },
         "async_osint_redis": {

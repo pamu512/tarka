@@ -1,17 +1,11 @@
-"""Redis + ClickHouse velocity counter handler for ``VELOCITY_UPDATE`` outbox rows."""
+"""Redis velocity counter handler for ``VELOCITY_UPDATE`` outbox rows."""
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from orchestrator_analytics.velocity_counters import (
-    apply_velocity_counter_increments,
-    clickhouse_configured,
-    ensure_velocity_counters_table,
-)
 from anumana_velocity import (
     apply_velocity_incrby_multi_exec,
     build_transaction_velocity_incrby_commands,
@@ -108,7 +102,7 @@ def _parse_velocity_payload(
 
 
 class VelocityUpdateHandler(BaseOutboxHandler):
-    """Apply transaction velocity counter increments in Redis and ClickHouse."""
+    """Apply transaction velocity counter increments in Redis."""
 
     event_type = OUTBOX_EVENT_VELOCITY_UPDATE
 
@@ -138,24 +132,6 @@ class VelocityUpdateHandler(BaseOutboxHandler):
 
         await apply_velocity_incrby_multi_exec(self._deps.redis_client, commands)
 
-        ch_client = self._deps.clickhouse_client
-        if ch_client is None:
-            if clickhouse_configured():
-                raise RuntimeError(
-                    "CLICKHOUSE_HOST/CLICKHOUSE_URL is set but ClickHouse client is unavailable for VELOCITY_UPDATE",
-                )
-            logger.debug(
-                "outbox_velocity_update_clickhouse_skipped entity_id=%s reason=clickhouse_not_configured",
-                entity_id,
-            )
-            return
-
-        await asyncio.to_thread(
-            _apply_clickhouse_increments_sync,
-            ch_client,
-            commands,
-        )
-
         logger.info(
             "velocity_update_handler_completed entity_id=%s command_count=%s amount_cents=%s",
             entity_id,
@@ -163,10 +139,3 @@ class VelocityUpdateHandler(BaseOutboxHandler):
             amount_cents,
         )
 
-
-def _apply_clickhouse_increments_sync(
-    client: Any,
-    commands: list[Any],
-) -> None:
-    ensure_velocity_counters_table(client)
-    apply_velocity_counter_increments(client, commands)

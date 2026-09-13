@@ -21,7 +21,19 @@ def _first_str(body: dict[str, Any], keys: tuple[str, ...]) -> str | None:
     return None
 
 
-def heuristic_map_to_evaluate_request(body: dict[str, Any]) -> dict[str, Any] | None:
+def heuristic_candidates_present(body: dict[str, Any]) -> bool:
+    """True when tenant/entity/event_type are all present (mapping can only fail on allow-list)."""
+    return bool(
+        _first_str(body, _TENANT_KEYS)
+        and _first_str(body, _ENTITY_KEYS)
+        and _first_str(body, _TYPE_KEYS)
+    )
+
+
+def heuristic_map_to_evaluate_request(
+    body: dict[str, Any],
+    extra_allowed: frozenset[str] | None = None,
+) -> dict[str, Any] | None:
     tenant = _first_str(body, _TENANT_KEYS)
     entity = _first_str(body, _ENTITY_KEYS)
     event_type = _first_str(body, _TYPE_KEYS)
@@ -32,7 +44,7 @@ def heuristic_map_to_evaluate_request(body: dict[str, Any]) -> dict[str, Any] | 
         payload = {k: v for k, v in body.items() if k not in _SKIP}
     meta = body.get("metadata") if isinstance(body.get("metadata"), dict) else {}
     allowed = allowed_event_types(
-        None,
+        extra_allowed,
         parse_env_event_types(os.environ.get("TARKA_EVENT_TYPES")),
     )
     if event_type not in allowed:

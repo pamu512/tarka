@@ -1,4 +1,4 @@
-"""Async hooks to investigation-agent (case brief, label extraction)."""
+"""Async hooks to investigation-agent (case brief)."""
 
 from __future__ import annotations
 
@@ -97,26 +97,3 @@ async def fire_case_brief(
             await session.commit()
         except Exception as db_exc:
             log.error("case brief fallback comment failed: %s", db_exc)
-
-
-async def fire_label_extraction(http: httpx.AsyncClient, case_dict: dict[str, Any]) -> None:
-    base = _investigation_agent_url()
-    if not base:
-        return
-    url = f"{base.rstrip('/')}/v1/internal/label-extract"
-    for attempt in range(_CASE_BRIEF_MAX_ATTEMPTS):
-        try:
-            r = await http.post(
-                url, json={"case": case_dict}, headers=_upstream_headers(), timeout=60.0
-            )
-            r.raise_for_status()
-            return
-        except Exception as exc:
-            log.warning(
-                "label extract hook attempt %s/%s failed: %s",
-                attempt + 1,
-                _CASE_BRIEF_MAX_ATTEMPTS,
-                exc,
-            )
-            if attempt < _CASE_BRIEF_MAX_ATTEMPTS - 1:
-                await asyncio.sleep(_CASE_BRIEF_BACKOFF_BASE_S * (2**attempt))

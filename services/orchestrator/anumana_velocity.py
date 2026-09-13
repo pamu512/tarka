@@ -158,6 +158,7 @@ async def run_ingest_pipeline(
     payload_bytes: bytes,
     velocity_commands: list[tuple[str, int]],
     session_watch: tuple[str | None, str | None] | None = None,
+    telemetry_list_cap: int = 0,
 ) -> None:
     """
     Single round-trip: ``LPUSH`` stream + velocity ``INCR`` + ``EXPIRE`` per velocity key.
@@ -165,10 +166,16 @@ async def run_ingest_pipeline(
     Optional **session watch**: ``ZADD`` last-seen score + ``INCR`` event counter for SDK heartbeat
     dropoff monitoring (see :mod:`orchestrator.anumana_session_watch`).
 
+    Optional **telemetry list cap** (``telemetry_list_cap > 0``): ``LTRIM 0 cap-1`` in the same
+    pipeline so the list can never grow unbounded while the duck sink is down/undeployed.
+    Default ``0`` disables trimming (legacy behaviour for callers that drain the list themselves).
+
     Uses redis.asyncio pipeline (``transaction=False`` — non-atomic batch for lower latency).
     """
     pipe = redis_client.pipeline(transaction=False)
     pipe.lpush(stream_key, payload_bytes)
+    if telemetry_list_cap and int(telemetry_list_cap) > 0:
+        pipe.ltrim(stream_key, 0, int(telemetry_list_cap) - 1)
     seen_expire: set[str] = set()
     for key, ttl in velocity_commands:
         pipe.incr(key)

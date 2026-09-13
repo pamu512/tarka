@@ -31,9 +31,6 @@ frontend:
 calibrationService:
   enabled: false
 
-counterService:
-  enabled: false
-
 locationService:
   enabled: false
 

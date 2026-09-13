@@ -10,7 +10,7 @@ import sys
 import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 import nats
@@ -22,9 +22,11 @@ from nats.js import JetStreamContext
 from pydantic import BaseModel, Field, ValidationError
 
 from .config import settings
-from .dynamic import heuristic_map_to_evaluate_request
+from .dynamic import heuristic_candidates_present, heuristic_map_to_evaluate_request
+from .event_type_overlay import tenant_overlay_names
 from .ingest_contract import (
     IngestContractError,
+    overlay_retry_hint,
     parse_batch_event_item,
     parse_ingest_event_body,
 )
@@ -115,6 +117,38 @@ def _record_contract_reject(reason_codes: list[str]) -> None:
             m.inc(f"ingest_contract_reject_total_{code}")
     except Exception:
         pass
+
+
+async def _parse_with_overlay_retry(
+    http: httpx.AsyncClient | None,
+    raw: dict[str, Any],
+    parse: Callable[[frozenset[str] | None], dict[str, Any]],
+) -> dict[str, Any]:
+    """Parse with a one-shot tenant-overlay retry on an allow-list miss.
+
+    First pass is the plain contract parse (seed ∪ env). If it fails ONLY
+    because ``event_type`` is off the allow-list, consult decision-api's tenant
+    overlay (TTL-cached, fail-closed) and retry the parse with those names
+    unioned in. Any other failure propagates the original error.
+    """
+    try:
+        return parse(None)
+    except IngestContractError as e:
+        if "ingest_event_type_invalid" not in e.reason_codes:
+            raise
+        if not settings.event_type_overlay_enabled or http is None:
+            raise
+        hint = overlay_retry_hint(raw, envelope_mode=settings.ingest_envelope_mode)
+        if hint is None:
+            raise
+        tenant_id, _et = hint
+        try:
+            overlay_names = await tenant_overlay_names(http, tenant_id)
+        except Exception:
+            overlay_names = frozenset()
+        if not overlay_names:
+            raise
+        return parse(overlay_names)
 
 
 async def require_api_key(request: Request) -> None:
@@ -264,7 +298,7 @@ async def _commit_evaluate_side_effects(
     except Exception as e:
         log.warning("ingest_side_effects_transport_failed: %s", e)
         return False
-    if r.status_code in {401, 403} or r.status_code >= 500:
+    if not (200 <= r.status_code < 300):
         log.warning("ingest_side_effects_not_ack_safe status=%s", r.status_code)
         return False
     return True
@@ -520,8 +554,17 @@ async def ingest_event(request: Request):
             },
         )
 
+    http = getattr(request.app.state, "http", None)
     try:
-        flat = parse_ingest_event_body(raw, envelope_mode=settings.ingest_envelope_mode)
+        flat = await _parse_with_overlay_retry(
+            http,
+            raw,
+            lambda extra: parse_ingest_event_body(
+                raw,
+                envelope_mode=settings.ingest_envelope_mode,
+                extra_allowed=extra,
+            ),
+        )
         body = EventPayload.model_validate(flat)
     except IngestContractError as e:
         _record_contract_reject(e.reason_codes)
@@ -628,6 +671,17 @@ async def ingest_dynamic(request: Request):
             detail={"error": "tenant_id_required", "reason_codes": ["ingest:tenant_required"]},
         )
     mapped = heuristic_map_to_evaluate_request(raw)
+    if (
+        mapped is None
+        and settings.event_type_overlay_enabled
+        and heuristic_candidates_present(raw)
+    ):
+        http = getattr(request.app.state, "http", None)
+        if http is not None:
+            tenant = (raw.get("tenant_id") or raw.get("tenantId") or "").strip()
+            mapped = heuristic_map_to_evaluate_request(
+                raw, extra_allowed=await tenant_overlay_names(http, tenant)
+            )
     if mapped is None:
         return JSONResponse(
             status_code=202,
@@ -693,6 +747,7 @@ async def ingest_batch(request: Request):
         )
 
     parsed_events: list[EventPayload] = []
+    http = getattr(request.app.state, "http", None)
     for item in events_in:
         if not isinstance(item, dict):
             _record_contract_reject(["ingest_batch_item_not_object"])
@@ -704,7 +759,15 @@ async def ingest_batch(request: Request):
                 },
             )
         try:
-            flat = parse_batch_event_item(item, envelope_mode=settings.ingest_envelope_mode)
+            flat = await _parse_with_overlay_retry(
+                http,
+                item,
+                lambda extra, _item=item: parse_batch_event_item(
+                    _item,
+                    envelope_mode=settings.ingest_envelope_mode,
+                    extra_allowed=extra,
+                ),
+            )
             parsed_events.append(EventPayload.model_validate(flat))
         except IngestContractError as e:
             _record_contract_reject(e.reason_codes)
@@ -822,8 +885,15 @@ async def ws_ingest(ws: WebSocket):
                     )
                     continue
                 try:
-                    flat = parse_ingest_event_body(
-                        parsed, envelope_mode=settings.ingest_envelope_mode
+                    ws_http = getattr(ws.app.state, "http", None)
+                    flat = await _parse_with_overlay_retry(
+                        ws_http,
+                        parsed,
+                        lambda extra: parse_ingest_event_body(
+                            parsed,
+                            envelope_mode=settings.ingest_envelope_mode,
+                            extra_allowed=extra,
+                        ),
                     )
                     ep = EventPayload.model_validate(flat)
                 except IngestContractError as e:

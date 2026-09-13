@@ -157,6 +157,16 @@ def build_lifespan(config: LifespanConfig):
         app.state.anumana_redis_key = (
             os.environ.get("ANUMANA_TELEMETRY_REDIS_KEY") or "anumana:browser_telemetry"
         ).strip()
+        try:
+            app.state.anumana_telemetry_list_cap = int(
+                os.environ.get("ANUMANA_TELEMETRY_LIST_CAP") or "100000",
+            )
+        except ValueError:
+            logger.warning("anumana_telemetry_list_cap_invalid_fallback default=100000")
+            app.state.anumana_telemetry_list_cap = 100_000
+        if app.state.anumana_telemetry_list_cap < 0:
+            logger.warning("anumana_telemetry_list_cap_negative_fallback default=100000")
+            app.state.anumana_telemetry_list_cap = 100_000
         app.state.v1_rate_limiter = build_v1_rate_limiter()
 
         if config.anumana_redis_client is not None:

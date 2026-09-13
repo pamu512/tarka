@@ -1,11 +1,11 @@
-"""Gate: VelocityUpdateHandler Redis MULTI/EXEC + ClickHouse counter mirror."""
+"""Gate: VelocityUpdateHandler Redis MULTI/EXEC (CH mirror removed)."""
 
 from __future__ import annotations
 
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -71,7 +71,7 @@ def test_apply_velocity_incrby_multi_exec_uses_multi_exec() -> None:
     asyncio.run(_run())
 
 
-def test_velocity_update_handler_applies_redis_and_clickhouse() -> None:
+def test_velocity_update_handler_applies_redis_only() -> None:
     async def _run() -> None:
         from graph.client import NullGraphClient
         from workers.handlers.base import OutboxProcessorDeps
@@ -109,18 +109,12 @@ def test_velocity_update_handler_applies_redis_and_clickhouse() -> None:
             "transaction_timestamp_utc": "2026-05-09T12:00:00+00:00",
         }
 
-        with patch(
-            "workers.handlers.velocity_update.ensure_velocity_counters_table",
-        ) as ensure_table:
-            await handler.execute(payload)
+        await handler.execute(payload)
 
         redis_client.pipeline.assert_called_once_with(transaction=True)
         pipe.execute.assert_awaited_once()
-        ensure_table.assert_called_once_with(ch_client)
-        ch_insert.assert_called_once()
-        rows = ch_insert.call_args[0][1]
-        assert rows
-        assert all(len(row) == 2 for row in rows)
+        ch_client.insert.assert_not_called()
+        ch_client.command.assert_not_called()
 
     asyncio.run(_run())
 
