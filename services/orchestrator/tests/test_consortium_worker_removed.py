@@ -11,7 +11,9 @@ shadow_retro_tag, label DLQ reader) keep flowing.
 from __future__ import annotations
 
 import importlib
-import inspect
+from pathlib import Path
+
+_ORCHESTRATOR = Path(__file__).resolve().parent.parent.parent / "orchestrator"
 
 
 def test_consortium_worker_and_matrix_removed() -> None:
@@ -24,14 +26,12 @@ def test_consortium_worker_and_matrix_removed() -> None:
 
 
 def test_labels_jetstream_helpers_and_config_removed() -> None:
-    labels_jetstream = importlib.import_module("messaging.labels_jetstream")
-    src = inspect.getsource(labels_jetstream)
+    src = (_ORCHESTRATOR / "messaging" / "labels_jetstream.py").read_text(encoding="utf-8")
     assert "consortium_labels_durable_name" not in src
     assert "consortium_labels_labels" not in src  # write typo guard
     assert "consortium_labels_fetch_batch_size" not in src
 
-    config = importlib.import_module("config")
-    config_src = inspect.getsource(config)
+    config_src = (_ORCHESTRATOR / "config.py").read_text(encoding="utf-8")
     assert "consortium_labels_jetstream" not in config_src
 
 
