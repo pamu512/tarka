@@ -58,7 +58,9 @@ def test_outbox_stale_processing_row_is_reclaimed() -> None:
                 await session.execute(
                     sa_update(OutboxORM)
                     .where(OutboxORM.id == row.id)
-                    .values(claimed_at=datetime.now(UTC) - timedelta(seconds=OUTBOX_RECLAIM_SECONDS + 1))
+                    .values(
+                        claimed_at=datetime.now(UTC) - timedelta(seconds=OUTBOX_RECLAIM_SECONDS + 1)
+                    )
                 )
 
                 reclaimed = await OutboxDAO.fetch_pending_tasks(session)
