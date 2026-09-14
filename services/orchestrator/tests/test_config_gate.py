@@ -84,7 +84,6 @@ def test_configured_modules_avoid_os_environ() -> None:
         _SRC_ORCH / "workers" / "outbox_processor.py",
         _SRC_ORCH / "messaging" / "nats_jetstream.py",
         _SRC_ORCH / "messaging" / "shadow_investigate_jetstream.py",
-        _SRC_ORCH / "messaging" / "labels_jetstream.py",
         _SRC_ORCH / "queues" / "shadow_dispatch.py",
         _SRC_ORCH / "services" / "operational_signal_ingress.py",
         _SRC_ORCH / "rule_shadow_test.py",

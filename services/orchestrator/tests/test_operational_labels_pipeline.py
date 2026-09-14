@@ -234,7 +234,7 @@ async def _run_label_propagator_for_pending_outbox(
     assert feedback.get("ground_truth_class") == "FRAUD"
     assert isinstance(feedback.get("operational_metadata"), dict)
     assert feedback["operational_metadata"].get("chargeback_reason_code") == "4853"
-    jetstream.publish.assert_awaited_once()
+    jetstream.publish.assert_not_called()
 
 
 def test_operational_chargeback_pipeline_persists_signal_and_shadow_retro_outbox(
@@ -377,7 +377,7 @@ def test_operational_pipeline_via_outbox_processor_batch(
         assert stats.claimed == 1
         assert stats.completed == 1
         assert stats.failed == 0
-        jetstream.publish.assert_awaited_once()
+        jetstream.publish.assert_not_called()
 
         async with fac() as session:
             label_row = await session.scalar(

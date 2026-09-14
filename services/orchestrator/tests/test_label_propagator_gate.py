@@ -71,7 +71,6 @@ def test_label_propagator_handler_runs_retroactive_label_and_publishes_jetstream
         from audit_case_worker import ORCHESTRATOR_AUDIT_SOURCE
         from graph.client import NullGraphClient
         from label_propagation import build_label_propagate_payload
-        from messaging.labels_jetstream import TARKA_LABELS_SUBJECT
         from models.cases import CaseORM, CaseStatus
         from models.decision import DecisionORM
         from models.normalized_labels import GroundTruthClass, NormalizedLabelDAO
@@ -222,17 +221,7 @@ def test_label_propagator_handler_runs_retroactive_label_and_publishes_jetstream
         assert retro_args[1]["ground_truth_class"] == "FRAUD"
         assert retro_args[0]["trace_steps"]
 
-        jetstream.publish.assert_awaited_once()
-        publish_args = jetstream.publish.await_args
-        assert publish_args.args[0] == TARKA_LABELS_SUBJECT
-        published = json.loads(publish_args.args[1].decode("utf-8"))
-        assert published["schema"] == "tarka.normalized_label.v1"
-        assert published["id"] == str(label_id)
-        assert published["entity_id"] == entity_id
-        assert published["propagated_to_consortium"] is True
-        for tag in retro_tags:
-            assert tag in published["tags"]
-        assert "analyst_disposition" not in published["tags"]
+        jetstream.publish.assert_not_called()
 
         async with fac() as session:
             from models.normalized_labels import NormalizedLabelORM
@@ -339,10 +328,7 @@ def test_label_propagator_shadow_eval_retries_then_succeeds() -> None:
             await handler.execute(payload)
 
         assert attempt["count"] == 3
-        jetstream.publish.assert_awaited_once()
-        published = json.loads(jetstream.publish.await_args.args[1].decode("utf-8"))
-        for tag in retro_tags:
-            assert tag in published["tags"]
+        jetstream.publish.assert_not_called()
 
         async with fac() as session:
             from models.normalized_labels import NormalizedLabelORM
@@ -444,9 +430,7 @@ def test_label_propagator_shadow_eval_exhausted_uses_placeholder_tag() -> None:
             await handler.execute(payload)
 
         assert retro_mock.await_count == _SHADOW_EVAL_MAX_RETRIES + 1
-        jetstream.publish.assert_awaited_once()
-        published = json.loads(jetstream.publish.await_args.args[1].decode("utf-8"))
-        assert SHADOW_EVALUATION_FAILED_PLACEHOLDER_TAG in published["tags"]
+        jetstream.publish.assert_not_called()
 
         async with fac() as session:
             dlq_rows = (await session.scalars(select(TarkaLabelDlqORM))).all()
@@ -735,31 +719,17 @@ def test_label_propagator_routes_invalid_structural_tags_to_dlq() -> None:
     asyncio.run(_run())
 
 
-def test_label_bus_emit_payload_validates_structural_tags() -> None:
+def test_label_bus_structural_tag_validation() -> None:
     from schemas.label_bus import (
         LabelBusValidationError,
-        validate_label_bus_emit_payload,
+        validate_structural_tag_list,
     )
 
-    payload = {
-        "schema": "tarka.normalized_label.v1",
-        "id": str(uuid.uuid4()),
-        "source_type": "ANALYST_DISPOSITION",
-        "source_id": str(uuid.uuid4()),
-        "entity_id": "entity-1",
-        "ground_truth_class": "FRAUD",
-        "tags": ["vector:chargeback", "matched_rule:velocity_ip"],
-        "propagated_to_consortium": True,
-        "created_at": "2026-05-01T00:00:00+00:00",
-    }
-    validated = validate_label_bus_emit_payload(payload)
-    assert validated.entity_id == "entity-1"
-    assert validated.tags == ["vector:chargeback", "matched_rule:velocity_ip"]
+    tags = ["vector:chargeback", "matched_rule:velocity_ip"]
+    assert validate_structural_tag_list(tags) == tags
 
-    bad = dict(payload)
-    bad["tags"] = ["bad tag"]
     try:
-        validate_label_bus_emit_payload(bad)
+        validate_structural_tag_list(["bad tag"])
         raise AssertionError("expected validation failure")
     except LabelBusValidationError:
         pass

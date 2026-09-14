@@ -18,10 +18,6 @@ from label_propagation import (
     load_evidence_manifest_snapshot,
     load_transaction_for_entity,
 )
-from messaging.labels_jetstream import (
-    LabelsJetStreamPublishError,
-    publish_normalized_label_enriched,
-)
 from models.cases import CaseHistoryORM, CaseStatus
 from models.label_dlq import TarkaLabelDlqDAO
 from models.normalized_labels import (
@@ -36,8 +32,6 @@ from models.operational_signals import OperationalSignalORM
 from models.outbox import OUTBOX_EVENT_SHADOW_RETRO_TAG
 from schemas.label_bus import (
     LabelBusValidationError,
-    build_label_bus_emit_dict,
-    validate_label_bus_emit_payload,
     validate_structural_tag_list,
 )
 from schemas.operational_signals import OperationalSignalCreate
@@ -418,41 +412,11 @@ class ShadowRetroTagHandler(BaseOutboxHandler):
                     resolved_status=str(parsed.new_status or ""),
                     tags=structural_tags,
                 )
-            enriched_row = await NormalizedLabelDAO.mark_propagated(session, label_row.id)
-
-        assert enriched_row is not None
-        emit_dict = build_label_bus_emit_dict(enriched_row)
-        try:
-            validated_emit = validate_label_bus_emit_payload(emit_dict)
-        except LabelBusValidationError as exc:
-            await self._route_malformed_label_to_dlq(
-                entity_id=parsed.entity_id,
-                ground_truth_class=anchor.ground_truth_class.value,
-                candidate_payload=emit_dict,
-                rejection_reason=str(exc),
-            )
-            logger.warning(
-                "shadow_retro_tag_dlq_bus_payload entity_id=%s normalized_label_id=%s",
-                parsed.entity_id,
-                enriched_row.id,
-            )
-            return
-
-        jetstream = getattr(self._deps, "nats_jetstream", None)
-        if jetstream is None:
-            raise LabelsJetStreamPublishError(
-                "NATS JetStream is required to publish shadow retro normalized label events "
-                "(set NATS_URL and run JetStream bootstrap)",
-            )
-
-        await publish_normalized_label_enriched(
-            jetstream,
-            label_entity=validated_emit.model_dump(mode="json", by_alias=True),
-        )
+            await NormalizedLabelDAO.mark_propagated(session, label_row.id)
 
         logger.info(
             "shadow_retro_tag_completed normalized_label_id=%s entity_id=%s source_type=%s tag_count=%s",
-            enriched_row.id,
+            label_row.id,
             parsed.entity_id,
             anchor.source_type,
             len(structural_tags),

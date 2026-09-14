@@ -15,17 +15,11 @@ from label_propagation import (
     resolve_disposition_text,
     validate_label_propagate_payload,
 )
-from messaging.labels_jetstream import (
-    LabelsJetStreamPublishError,
-    publish_normalized_label_enriched,
-)
 from models.label_dlq import TarkaLabelDlqDAO
 from models.normalized_labels import NormalizedLabelDAO
 from models.outbox import OUTBOX_EVENT_LABEL_PROPAGATE
 from schemas.label_bus import (
     LabelBusValidationError,
-    build_label_bus_emit_dict,
-    validate_label_bus_emit_payload,
     validate_structural_tag_list,
 )
 from utils.entity_parser import parse_entities
@@ -121,40 +115,9 @@ class LabelPropagatorHandler(BaseOutboxHandler):
             )
             return
 
-        enriched_row = None
         async with atomic_transaction(self._deps.session_factory) as session:
             await NormalizedLabelDAO.append_structural_tags(session, label_id, structural_tags)
-            enriched_row = await NormalizedLabelDAO.mark_propagated(session, label_id)
-
-        emit_dict = build_label_bus_emit_dict(enriched_row)
-        try:
-            validated_emit = validate_label_bus_emit_payload(emit_dict)
-        except LabelBusValidationError as exc:
-            await self._route_malformed_label_to_dlq(
-                normalized_label_id=label_id,
-                entity_id=entity_id,
-                ground_truth_class=ground_truth_class,
-                candidate_payload=emit_dict,
-                rejection_reason=str(exc),
-            )
-            logger.warning(
-                "label_propagator_dlq_bus_payload normalized_label_id=%s entity_id=%s",
-                label_id,
-                entity_id,
-            )
-            return
-
-        jetstream = getattr(self._deps, "nats_jetstream", None)
-        if jetstream is None:
-            raise LabelsJetStreamPublishError(
-                "NATS JetStream is required to publish enriched normalized label events "
-                "(set NATS_URL and run JetStream bootstrap)",
-            )
-
-        await publish_normalized_label_enriched(
-            jetstream,
-            label_entity=validated_emit.model_dump(mode="json", by_alias=True),
-        )
+            await NormalizedLabelDAO.mark_propagated(session, label_id)
 
         logger.info(
             "label_propagator_completed normalized_label_id=%s entity_id=%s tag_count=%s",
