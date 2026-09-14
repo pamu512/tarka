@@ -14,7 +14,6 @@ TARKA_EVENTS_STREAM_NAME = "TARKA_EVENTS"
 TARKA_EVENTS_SUBJECTS: tuple[str, ...] = (
     "tarka.events.graph",
     "tarka.events.velocity",
-    "tarka.events.labels",
 )
 
 _DEFAULT_MAX_AGE_SEC = 7 * 24 * 3600  # 7 days

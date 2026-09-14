@@ -1,16 +1,15 @@
-"""Pydantic validation for enriched label payloads emitted to ``tarka.events.labels``."""
+"""Runtime validation for structural label tags (pre-persistence gate)."""
 
 from __future__ import annotations
 
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from messaging.labels_jetstream import NORMALIZED_LABEL_EVENT_SCHEMA
+NORMALIZED_LABEL_EVENT_SCHEMA = "tarka.normalized_label.v1"
 
 LABEL_BUS_STRUCTURAL_TAG_RE = re.compile(r"^[a-z0-9_-]+:[a-z0-9_-]+$")
-VALID_LABEL_BUS_GROUND_TRUTH = frozenset({"FRAUD", "LEGITIMATE"})
 
 
 class LabelBusValidationError(ValueError):
@@ -69,7 +68,7 @@ class LabelBusEmitPayload(BaseModel):
 
 
 def filter_structural_tags(raw_tags: list[str] | None) -> list[str]:
-    """Return deduplicated tags that satisfy the label-bus structural naming standard."""
+    """Return deduplicated tags that satisfy the structural naming standard."""
     if not raw_tags:
         return []
     out: list[str] = []
@@ -83,28 +82,6 @@ def filter_structural_tags(raw_tags: list[str] | None) -> list[str]:
         seen.add(token)
         out.append(token)
     return out
-
-
-def build_label_bus_emit_dict(row: Any) -> dict[str, Any]:
-    """Build a candidate label-bus payload from a ``NormalizedLabelORM`` row."""
-    from messaging.labels_jetstream import (
-        normalized_label_event_entity,
-    )  # noqa: PLC0415
-
-    payload = normalized_label_event_entity(row)
-    payload["tags"] = filter_structural_tags(list(payload.get("tags") or []))
-    gt = str(payload.get("ground_truth_class") or "").strip().upper()
-    if gt in VALID_LABEL_BUS_GROUND_TRUTH:
-        payload["ground_truth_class"] = gt
-    return payload
-
-
-def validate_label_bus_emit_payload(raw: dict[str, Any]) -> LabelBusEmitPayload:
-    """Validate a label bus payload; raises :class:`LabelBusValidationError` on failure."""
-    try:
-        return LabelBusEmitPayload.model_validate(raw)
-    except Exception as exc:
-        raise LabelBusValidationError(str(exc)) from exc
 
 
 def validate_structural_tag_list(tags: list[str]) -> list[str]:

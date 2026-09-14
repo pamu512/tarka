@@ -213,7 +213,7 @@ def test_shadow_retro_tag_handler_queries_clickhouse_and_persists_label() -> Non
         for tag in _MOCK_TAGS:
             assert tag in label_row.tags
 
-        jetstream.publish.assert_awaited_once()
+        jetstream.publish.assert_not_called()
         await engine.dispose()
 
     asyncio.run(_run())
