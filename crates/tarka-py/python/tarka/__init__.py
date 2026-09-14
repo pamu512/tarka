@@ -1,6 +1,5 @@
 """Tarka Python bindings."""
 
-from tarka import _tarka
 from tarka.decision import (
     TarkaDecision,
     evaluate,
@@ -9,14 +8,25 @@ from tarka.decision import (
     rule_expr_mermaid_flowchart,
 )
 from tarka.engine import TarkaEngine
-from tarka.verifier import (
-    ManifestIntegrityError,
-    ManifestVerifier,
-    VerificationFailureReason,
-    VerificationResult,
-)
+try:
+    from tarka.verifier import (
+        ManifestIntegrityError,
+        ManifestVerifier,
+        VerificationFailureReason,
+        VerificationResult,
+    )
+except ImportError:  # manifest verification needs PyNaCl; optional outside sealing contexts
+    ManifestIntegrityError = None
+    ManifestVerifier = None
+    VerificationFailureReason = None
+    VerificationResult = None
 
-BackpressureSignal = _tarka.BackpressureSignal
+try:
+    from tarka import _tarka
+
+    BackpressureSignal = _tarka.BackpressureSignal
+except ImportError:  # protobuf-only contexts (worker images without the native ext)
+    BackpressureSignal = None
 
 __all__ = [
     "BackpressureSignal",

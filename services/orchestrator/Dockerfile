@@ -16,6 +16,7 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/deploy-settings /packages/deploy-settings
+COPY crates/tarka-py/python/tarka ./crates/tarka-py/python/tarka
 COPY services/orchestrator/pyproject.toml services/orchestrator/README.md services/orchestrator/requirements.txt ./services/orchestrator/
 COPY services/orchestrator ./services/orchestrator
 COPY services/ingestor ./services/ingestor
@@ -25,13 +26,14 @@ COPY services/rule_engine ./services/rule_engine
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --prefix=/install --no-cache-dir ./services/rule_engine \
     && python -m pip install --prefix=/install --no-cache-dir ./services/orchestrator \
+    && python -m pip install --prefix=/install --no-cache-dir "nats-py>=2.7.0" \
     && python -m pip install --prefix=/install --no-cache-dir -r ./services/orchestrator/requirements.txt
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
 WORKDIR /app/services/orchestrator
 
-ENV PYTHONPATH=/app/services/orchestrator:/app/services:/app/services/rule_engine:/app/packages/shared-core \
+ENV PYTHONPATH=/app/services/orchestrator:/app/services:/app/services/rule_engine:/app/services/shadow_agent:/app/services/ingestor:/app/services/ingestor/src:/app/packages/shared-core \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -43,10 +45,13 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
 
 COPY --from=builder /install/lib/python3.12/site-packages \
     /usr/local/lib/python3.12/site-packages
+COPY --from=builder /build/crates/tarka-py/python/tarka \
+    /usr/local/lib/python3.12/site-packages/tarka
 
 COPY services/orchestrator /app/services/orchestrator
 COPY services/ingestor /app/services/ingestor
 COPY services/rule_engine /app/services/rule_engine
+COPY services/shadow_agent /app/services/shadow_agent
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 
 USER tarka
