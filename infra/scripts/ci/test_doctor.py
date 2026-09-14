@@ -94,7 +94,7 @@ class TestDoctor(unittest.TestCase):
         env = {"TARKA_PG_PORT": "15432"}
         lines = doctor.port_messages(check=lambda p: p != 5432, environ=env)
         text = "\n".join(lines)
-        self.assertTrue(any(l.startswith("[ok]") for l in lines), text)
+        self.assertTrue(any(line.startswith("[ok]") for line in lines), text)
 
     def test_ingest_ports_busy_warns_with_profile_hint(self) -> None:
         lines = doctor.ingest_port_messages(check=lambda p: p != 4222)
