@@ -783,6 +783,11 @@ jobs:
         env:
           PYTHONPATH: src:../shared:../../packages/shared-core
         run: pytest tests/test_analytics.py -q -k "retry or health"
+      - name: Pytest — analytics-sink delivery guarantees (B1)
+        working-directory: services/analytics-sink
+        env:
+          PYTHONPATH: src:../shared:../../packages/shared-core
+        run: pytest tests/test_sink_delivery_guarantees.py -q
       - name: JetStream DLQ not under consumer wildcard
         run: |
           docker run -d --name nats-js -p 4222:4222 nats:2-alpine -js
@@ -1058,6 +1063,12 @@ jobs:
         run: bash infra/scripts/ci/helm_prod_honesty.sh --self-check
       - name: Helm upgrade dry-run (G7 digest A → B)
         run: python3 infra/scripts/ci/test_helm_upgrade_dry_run.py
+      - name: Helm data-plane orchestrator wiring (B3 compose parity)
+        run: python3 infra/scripts/ci/test_helm_ingest_orchestrator.py
+      - name: Shadow investigate worker deployed (D5-4 compose guard)
+        run: python3 infra/scripts/ci/test_compose_shadow_worker.py
+      - name: Graph core backend doctrine (AGE core, pads opt-in)
+        run: python3 infra/scripts/ci/test_compose_graph_core.py
       - name: Schema migration expand/contract policy
         run: python3 infra/scripts/ci/test_schema_migration_policy.py
       - name: Production upgrade guide gate

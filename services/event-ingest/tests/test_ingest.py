@@ -286,8 +286,9 @@ class TestDynamicIngest:
 
     def test_dynamic_mapping_pending(self, client, mock_js):
         r = client.post("/v1/ingest/dynamic", json={"tenantId": "acme", "type": "payment"})
-        assert r.status_code == 202
+        assert r.status_code == 422
         assert r.json()["mapping_pending"] is True
+        assert r.json()["accepted"] is False
         mock_js.publish.assert_not_called()
 
     def test_dynamic_tenant_required(self, client):

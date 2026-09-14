@@ -89,6 +89,20 @@ spec:
             - name: API_KEYS
               value: {{ .Values.dataPlane.apiKeys | default "" | quote }}
             {{- end }}
+            {{- if .Values.dataPlane.orchestratorUrl }}
+            - name: ORCHESTRATOR_URL
+              value: {{ .Values.dataPlane.orchestratorUrl | quote }}
+            - name: ORCHESTRATOR_INTERNAL_SECRET
+              {{- if .Values.global.appSecretsName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: ORCHESTRATOR_INTERNAL_SECRET
+                  optional: true
+              {{- else }}
+              value: {{ .Values.dataPlane.orchestratorInternalSecret | default "" | quote }}
+              {{- end }}
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /v1/ready

@@ -29,6 +29,8 @@ from tenant_binding import enforce_tenant_access, parse_api_key_tenant_map  # no
 log = logging.getLogger("analytics-sink")
 
 _ch_client = None
+_FLUSH_RETRY_BACKOFF = 1.0
+_FLUSH_RETRY_SLEEP = 0.5
 _SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
 
 
@@ -143,33 +145,52 @@ def _init_clickhouse():
         log.warning("ClickHouse unavailable (analytics queries disabled): %s", e)
 
 
-async def _nats_consumer():
-    """Subscribe to NATS and write decision results to ClickHouse."""
+async def _nats_connect():
+    """Connect to NATS/JetStream and return (connection, pull subscription)."""
+    nc = await nats.connect(settings.nats_url)
+    js = nc.jetstream()
+    subject_pattern = f"{settings.subject_prefix}.>"
     try:
-        nc = await nats.connect(settings.nats_url)
-        js = nc.jetstream()
-        subject_pattern = f"{settings.subject_prefix}.>"
-        try:
-            await js.find_stream_name_by_subject(subject_pattern)
-        except Exception:
-            await js.add_stream(
-                name=settings.stream_name,
-                subjects=[subject_pattern],
-                retention="limits",
-                max_msgs=10_000_000,
-                max_bytes=1024 * 1024 * 1024,
-            )
-        sub = await js.pull_subscribe(
-            subject_pattern,
-            durable="analytics-sink",
-            stream=settings.stream_name,
+        await js.find_stream_name_by_subject(subject_pattern)
+    except Exception:
+        await js.add_stream(
+            name=settings.stream_name,
+            subjects=[subject_pattern],
+            retention="limits",
+            max_msgs=10_000_000,
+            max_bytes=1024 * 1024 * 1024,
         )
+    sub = await js.pull_subscribe(
+        subject_pattern,
+        durable="analytics-sink",
+        stream=settings.stream_name,
+    )
+    return nc, sub
+
+
+async def _nats_consumer():
+    """Subscribe to NATS and write decision results to ClickHouse.
+
+    B1 delivery guarantees: refuses to subscribe without a writable sink, acks
+    only after a confirmed flush, keeps messages redeliverable on failure.
+    """
+    if not clickhouse_configured() or not clickhouse_ok():
+        log.error(
+            "analytics_sink_refusing_to_subscribe: ClickHouse unconfigured or "
+            "unwritable — running in query-only mode would silently destroy "
+            "streamed events (B1)"
+        )
+        get_metrics().inc("analytics_sink_refused_subscriptions")
+        return
+
+    try:
+        nc, sub = await _nats_connect()
     except Exception as e:
         log.warning("NATS connection failed (analytics sink will only serve queries): %s", e)
         return
 
     db = settings.clickhouse_database
-    batch: list[dict[str, Any]] = []
+    batch: list[tuple[Any, dict[str, Any]]] = []
     FLUSH_SIZE = 100
     FLUSH_INTERVAL = 2.0
 
@@ -179,28 +200,64 @@ async def _nats_consumer():
             for msg in msgs:
                 try:
                     data = json.loads(msg.data.decode())
-                    batch.append(data)
-                    await msg.ack()
+                    batch.append((msg, data))
                 except Exception as e:
                     log.warning("parse error: %s", e)
                     await msg.ack()
 
             if batch:
-                _flush_batch(db, batch)
-                batch = []
+                if await _flush_with_retry(db, batch):
+                    for msg, _ in batch:
+                        await msg.ack()
+                    batch = []
+                else:
+                    for msg, _ in batch:
+                        await msg.nak()
+                    batch = []
+                    await asyncio.sleep(_FLUSH_RETRY_BACKOFF)
         except nats.errors.TimeoutError:
             if batch:
-                _flush_batch(db, batch)
-                batch = []
+                if await _flush_with_retry(db, batch):
+                    for msg, _ in batch:
+                        await msg.ack()
+                    batch = []
+                else:
+                    for msg, _ in batch:
+                        await msg.nak()
+                    batch = []
+                    await asyncio.sleep(_FLUSH_RETRY_BACKOFF)
             await asyncio.sleep(0.1)
         except Exception as e:
             log.error("NATS consumer error: %s", e)
+            for msg, _ in batch:
+                await msg.nak()
+            batch = []
             await asyncio.sleep(2)
 
 
-def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
-    if not _ch_client or not batch:
-        return
+async def _flush_with_retry(db: str, batch: list[tuple[Any, dict[str, Any]]]) -> bool:
+    """Flush up to 3 attempts; True only when every row hit ClickHouse."""
+    for attempt in (1, 2, 3):
+        try:
+            if _flush_batch(db, [d for _, d in batch]):
+                return True
+        except Exception as e:
+            log.warning("analytics flush attempt %s raised: %s", attempt, e)
+        if attempt < 3:
+            log.warning("analytics flush retry %s/3", attempt)
+            await asyncio.sleep(_FLUSH_RETRY_SLEEP * attempt)
+    get_metrics().inc("analytics_flush_failures_total")
+    return False
+
+
+def _flush_batch(db: str, batch: list[dict[str, Any]]) -> bool:
+    """Insert rows into ClickHouse. True only when every parsed row landed —
+    B1: the caller must never ack on an unverified write."""
+    if not batch:
+        return True
+    if not _ch_client:
+        log.error("analytics_flush_no_client: %d events NOT written (B1)", len(batch))
+        return False
     rows = []
     for d in batch:
         if "score" not in d or d.get("score") is None:
@@ -236,7 +293,7 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
             ]
         )
     if not rows:
-        return
+        return True
     try:
         _ch_client.insert(
             f"{db}.decision_events",
@@ -260,6 +317,8 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> None:
             get_metrics().inc("ch_rows_written", len(rows))
     except Exception as e:
         log.error("ClickHouse insert failed: %s", e)
+        return False
+    return True
 
 
 @asynccontextmanager
@@ -301,7 +360,7 @@ async def health():
     return body
 
 
-@app.get("/v1/analytics/decisions")
+@app.get("/v1/analytics/decisions", dependencies=[Depends(require_api_key)])
 async def query_decisions(
     tenant_id: str,
     days: int = Query(default=7, ge=1, le=365),
@@ -333,7 +392,7 @@ async def query_decisions(
     }
 
 
-@app.get("/v1/analytics/hourly")
+@app.get("/v1/analytics/hourly", dependencies=[Depends(require_api_key)])
 async def hourly_stats(
     tenant_id: str,
     days: int = Query(default=7, ge=1, le=90),
@@ -354,7 +413,7 @@ async def hourly_stats(
     }
 
 
-@app.get("/v1/analytics/entity/{entity_id}")
+@app.get("/v1/analytics/entity/{entity_id}", dependencies=[Depends(require_api_key)])
 async def entity_history(entity_id: str, tenant_id: str, limit: int = 50):
     """Full decision history for a specific entity."""
     if not _ch_client:
@@ -375,7 +434,7 @@ async def entity_history(entity_id: str, tenant_id: str, limit: int = 50):
     }
 
 
-@app.get("/v1/analytics/top-entities")
+@app.get("/v1/analytics/top-entities", dependencies=[Depends(require_api_key)])
 async def top_entities(
     tenant_id: str,
     days: int = Query(default=7, ge=1, le=90),
@@ -409,7 +468,7 @@ async def top_entities(
     }
 
 
-@app.get("/v1/analytics/scorecard")
+@app.get("/v1/analytics/scorecard", dependencies=[Depends(require_api_key)])
 async def decision_scorecard(
     tenant_id: str,
     days: int = Query(default=7, ge=1, le=90),

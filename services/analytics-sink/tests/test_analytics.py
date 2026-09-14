@@ -38,14 +38,11 @@ class TestFlushBatch:
         assert rows[0][4] == "allow"
 
     def test_flush_batch_handles_missing_fields(self):
+        """Unscored events are skipped with a warning; nothing reaches insert."""
         mock_client = MagicMock()
         with patch("analytics_sink.main._ch_client", mock_client):
-            batch = [{"tenant_id": "t1"}]
-            _flush_batch("fraud", batch)
-
-        rows = mock_client.insert.call_args[0][1]
-        assert rows[0][0] == ""
-        assert rows[0][4] == "pending"
+            assert _flush_batch("fraud", [{"tenant_id": "t1"}]) is True
+        mock_client.insert.assert_not_called()
 
     def test_flush_batch_empty_list_is_noop(self):
         mock_client = MagicMock()
@@ -53,9 +50,10 @@ class TestFlushBatch:
             _flush_batch("fraud", [])
         mock_client.insert.assert_not_called()
 
-    def test_flush_batch_no_client_is_noop(self):
+    def test_flush_batch_no_client_returns_false(self):
+        """B1 flip: no client = nothing written = must report False."""
         with patch("analytics_sink.main._ch_client", None):
-            _flush_batch("fraud", [{"trace_id": "tr1"}])
+            assert _flush_batch("fraud", [{"trace_id": "tr1"}]) is False
 
     def test_flush_batch_insert_error_logged(self):
         mock_client = MagicMock()

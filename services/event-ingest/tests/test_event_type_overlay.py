@@ -149,14 +149,14 @@ def test_dynamic_tenant_overlay_type_mapped(client):
 
 
 def test_dynamic_missing_fields_stay_mapping_pending(client):
-    # entity_id absent -> candidates not present -> no overlay consult, 202.
+    # entity_id absent -> candidates not present -> no overlay consult, 422.
     async def _must_not_be_called(http, tenant_id):
         raise AssertionError("overlay consulted without entity")
 
     raw = {"tenantId": "acme", "type": TENANT_TYPE}
     with patch.object(main, "tenant_overlay_names", side_effect=_must_not_be_called):
         r = client.post("/v1/ingest/dynamic", json=raw)
-    assert r.status_code == 202
+    assert r.status_code == 422
     assert r.json()["mapping_pending"] is True
 
 
