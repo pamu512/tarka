@@ -82,6 +82,7 @@ _DEFAULT_RELATIONSHIP_TYPES = [
     "REFERRED",
     "KYC_VERIFIED_BY",
     "SHARED_WITH",
+    "ALIAS_OF",
     "CUSTOM",
 ]
 
