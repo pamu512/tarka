@@ -12,17 +12,48 @@ FAST_GROWTH_24H = threshold_for("24h")
 _HIGH_RISK_TAGS = frozenset({"fraud", "suspicious", "flagged", "blocked", "chargedback"})
 
 
+def _rfc3339_now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _is_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True
+
+
 def link_props_for_create(properties: dict[str, Any] | None) -> dict[str, Any]:
-    """Stamp observed_at=now when omitted. Use for ON CREATE / Janus addE (new edges)."""
+    """Provenance envelope for a new edge (ON CREATE / Janus addE).
+
+    - ``ingested_at`` stamped exactly once (idempotent on re-entry);
+    - ``observed_at`` kept only when it parses as a timestamp — placeholders
+      (e.g. "evaluate") are repaired to now;
+    - ``confidence`` clamped to [0, 1] when present;
+    - ``decision_id`` / ``trace_id`` pass through untouched.
+    """
     props = dict(properties or {})
-    if "observed_at" not in props:
-        props["observed_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    if not _is_timestamp(props.get("ingested_at")):
+        props["ingested_at"] = _rfc3339_now()
+    if not _is_timestamp(props.get("observed_at")):
+        props["observed_at"] = _rfc3339_now()
+    confidence = props.get("confidence")
+    if confidence is not None:
+        try:
+            props["confidence"] = max(0.0, min(1.0, float(confidence)))
+        except (TypeError, ValueError):
+            props.pop("confidence", None)
     return props
 
 
 def link_props_for_match(properties: dict[str, Any] | None) -> dict[str, Any]:
-    """Caller-supplied props only. Do not inject observed_at on MERGE match."""
-    return dict(properties or {})
+    """Caller-supplied props only. Match-updates never rewrite the ingestion clock."""
+    props = dict(properties or {})
+    props.pop("ingested_at", None)
+    return props
 
 
 def _link_properties_with_observed_at(properties: dict[str, Any] | None) -> dict[str, Any]:

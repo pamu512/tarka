@@ -34,7 +34,7 @@ from .custom_schema import (
     load_tenant_schema,
     save_tenant_schema,
 )
-from .entity_risk_score import clamp_search_limit, is_found_payload
+from .entity_risk_score import clamp_search_limit, is_found_payload, link_props_for_create
 from .growth_policy import (
     count_growth,
     incident_edge_timestamps,
@@ -589,6 +589,7 @@ async def links_endpoint(body: LinkRequest):
             props["from_vtype"] = body.from_entity_type
         if body.to_entity_type:
             props["to_vtype"] = body.to_entity_type
+        props = link_props_for_create(props)
         await create_link(
             body.tenant_id,
             body.from_external_id,
