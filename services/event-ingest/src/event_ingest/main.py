@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import inspect
 import json
@@ -304,6 +305,80 @@ async def _commit_evaluate_side_effects(
     return True
 
 
+async def _handle_message_failure(
+    js: JetStreamContext,
+    msg: Any,
+    *,
+    kind: str,
+    eval_body: dict[str, Any] | None = None,
+    raw_event: dict[str, Any] | None = None,
+    response_text: str = "",
+    payload_b64: str | None = None,
+) -> None:
+    """NAK a consumer failure while redeliveries remain; park on the DLQ and ack
+    once deliveries are exhausted (D1c) — no failure class NAK-loops forever."""
+    m = get_metrics()
+    eval_body = eval_body or {}
+    raw_event = raw_event or {}
+    delivered = int(getattr(getattr(msg, "metadata", None), "num_delivered", 0) or 0)
+    if delivered < settings.ingest_max_deliver:
+        await msg.nak(delay=5)
+        m.inc("ingest_consumer_nats_nak_total")
+        return
+    log.error(
+        "ingest_terminal_failure kind=%s deliveries=%s subject=%s",
+        kind,
+        delivered,
+        getattr(msg, "subject", ""),
+    )
+    m.inc("ingest_terminal_failures_total")
+    if (
+        settings.ingest_dlq_publish_on_side_effect_failure
+        and settings.ingest_dlq_subject.strip()
+        and not _dlq_overlaps_consumer(settings.ingest_dlq_subject, settings.subject_prefix)
+    ):
+        try:
+            envelope: dict[str, Any] = {
+                "schema_version": "1",
+                "kind": kind,
+                "deliveries": delivered,
+                "nats_source_subject": getattr(msg, "subject", "") or "",
+                "event": raw_event,
+                "evaluate_request": eval_body,
+                "evaluate_response_preview": (response_text or "")[:8192],
+            }
+            if payload_b64:
+                envelope["payload_b64"] = payload_b64
+            await js.publish(
+                settings.ingest_dlq_subject.strip(),
+                json.dumps(envelope, default=str).encode(),
+            )
+            m.inc("ingest_dlq_published_total")
+            await msg.ack()
+            m.inc("ingest_consumer_nats_ack_total")
+            return
+        except Exception as e:
+            log.warning("ingest_terminal_dlq_publish_failed: %s", e)
+    await msg.nak(delay=5)
+    m.inc("ingest_consumer_nats_nak_total")
+
+
+def _log_side_effect_auth_config() -> None:
+    """D1: a consumer pointed at orchestrator with an empty internal secret is
+    doomed — the server 503s (fail-closed) or 401s every side-effect commit and
+    the durable NAK-loops forever. Say so loudly at startup instead."""
+    if not settings.orchestrator_url.strip():
+        return
+    if not settings.orchestrator_internal_secret.strip():
+        log.error(
+            "ingest_side_effects_misconfigured: ORCHESTRATOR_URL is set but "
+            "ORCHESTRATOR_INTERNAL_SECRET is empty — every side-effect commit "
+            "will be rejected and messages will redeliver indefinitely. Set "
+            "ORCHESTRATOR_INTERNAL_SECRET (or ALLOW_INSECURE_NO_AUTH=true on "
+            "the orchestrator for local development)."
+        )
+
+
 async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
     """Pull events from NATS and forward to Decision API."""
     sub = await js.pull_subscribe(
@@ -321,7 +396,12 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         payload = json.loads(msg.data.decode())
                     except json.JSONDecodeError:
                         m.inc("ingest_consumer_json_decode_errors_total")
-                        await msg.nak(delay=5)
+                        await _handle_message_failure(
+                            js,
+                            msg,
+                            kind="json_decode_error",
+                            payload_b64=base64.b64encode(msg.data).decode(),
+                        )
                         continue
                     if _is_parked_evaluate_envelope(payload):
                         await msg.ack()
@@ -336,8 +416,15 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                         m.inc("ingest_consumer_evaluate_2xx_total")
                         committed = await _commit_evaluate_side_effects(http, eval_body, r)
                         if not committed:
-                            await msg.nak(delay=5)
-                            m.inc("ingest_consumer_nats_nak_total")
+                            await _handle_message_failure(
+                                js,
+                                msg,
+                                kind="side_effect_failure",
+                                eval_body=eval_body,
+                                raw_event=payload if isinstance(payload, dict) else {},
+                                response_text=r.text,
+                                payload_b64=base64.b64encode(msg.data).decode(),
+                            )
                             continue
                         await msg.ack()
                         m.inc("ingest_consumer_nats_ack_total")
@@ -356,8 +443,14 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                             await msg.ack()
                             m.inc("ingest_consumer_nats_ack_total")
                         else:
-                            await msg.nak(delay=5)
-                            m.inc("ingest_consumer_nats_nak_total")
+                            await _handle_message_failure(
+                                js,
+                                msg,
+                                kind="evaluate_4xx_park_failed",
+                                eval_body=eval_body,
+                                raw_event=payload if isinstance(payload, dict) else {},
+                                response_text=r.text,
+                            )
                     else:
                         m.inc("ingest_consumer_evaluate_5xx_total")
                         await msg.nak(delay=5)
@@ -365,8 +458,12 @@ async def _consumer_loop(js: JetStreamContext, http: httpx.AsyncClient) -> None:
                 except Exception as e:
                     log.warning("consumer error: %s", e)
                     try:
-                        m.inc("ingest_consumer_nats_nak_total")
-                        await msg.nak(delay=5)
+                        await _handle_message_failure(
+                            js,
+                            msg,
+                            kind="consumer_error",
+                            payload_b64=base64.b64encode(msg.data).decode(),
+                        )
                     except Exception:
                         pass
         except nats.errors.TimeoutError:
@@ -396,6 +493,7 @@ async def lifespan(application: FastAPI):
         limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
     )
     application.state.http = http
+    _log_side_effect_auth_config()
     consumer_coro = _consumer_loop(_js, http)
     consumer_task = asyncio.create_task(consumer_coro)
     if not isinstance(consumer_task, asyncio.Task) and inspect.iscoroutine(consumer_coro):
@@ -680,7 +778,7 @@ async def ingest_dynamic(request: Request):
             )
     if mapped is None:
         return JSONResponse(
-            status_code=202,
+            status_code=422,
             content={
                 "accepted": False,
                 "mapping_pending": True,

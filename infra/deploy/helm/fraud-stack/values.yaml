@@ -270,6 +270,13 @@ dataPlane:
   schemaRegistryMode: enforce
   tenantBindingRequired: true
   apiKeyTenantMap: ""
+  # Orchestrator side-effect commits for the in-process ingest consumer. Unset =
+  # commits skipped (the chart deploys no orchestrator; compose parity target is
+  # http://orchestrator:8790). Secret comes from the global.appSecretsName secret
+  # (key ORCHESTRATOR_INTERNAL_SECRET) when set; URL-without-secret renders but
+  # event-ingest logs the misconfiguration loudly at startup.
+  orchestratorUrl: ""
+  orchestratorInternalSecret: ""
   extraEnv: {}
   autoscaling:
     enabled: false

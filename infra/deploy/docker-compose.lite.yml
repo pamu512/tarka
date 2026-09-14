@@ -182,6 +182,10 @@ services:
       GRAPH_BACKEND: ${GRAPH_BACKEND:-}
       GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
       ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
+      # D1: empty secret 503s every consumer side-effect commit and livelocks the
+      # async-ingest plane. Local-desk default = insecure-allow (parity with
+      # core-api/graph/frontend); set a real secret to override.
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
       SHADOW_AGENT_URL: ${SHADOW_AGENT_URL:-}
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-}
     ports:

@@ -200,5 +200,44 @@ class TestDocsTruth(unittest.TestCase):
         self.assertIn("TARKA_CORE_PORT", s)
 
 
+class TestOrchestratorSideEffectAuthParity(unittest.TestCase):
+    """D1/B2: the async-ingest plane livelocks (eternal NAK) when orchestrator
+    cannot authenticate the consumer's side-effect commit — every POST 503s.
+    Lite must therefore ship orchestrator in a WORKING auth mode (resolved
+    non-empty secret OR explicit insecure-allow), and the env example must
+    document the production setting."""
+
+    @staticmethod
+    def _env(service: dict) -> dict:
+        env = service.get("environment") or {}
+        if isinstance(env, list):
+            return dict(e.split(":", 1) for e in env)
+        return env
+
+    @staticmethod
+    def _resolved_default(raw: str) -> str:
+        """${VAR:-fallback} → fallback (the value compose actually ships)."""
+        if "${" in raw and ":-" in raw:
+            return raw.split(":-", 1)[1].rstrip("}")
+        return raw
+
+    def test_lite_orchestrator_ships_a_working_internal_auth_mode(self) -> None:
+        env = self._env(_lite()["services"]["orchestrator"])
+        secret = self._resolved_default(env.get("ORCHESTRATOR_INTERNAL_SECRET", ""))
+        insecure = self._resolved_default(env.get("ALLOW_INSECURE_NO_AUTH", ""))
+        secret_ok = bool(secret.strip())
+        insecure_ok = insecure.strip().lower() in {"1", "true", "yes", "on"}
+        self.assertTrue(
+            secret_ok or insecure_ok,
+            "lite orchestrator side-effect auth is doomed: empty "
+            "ORCHESTRATOR_INTERNAL_SECRET with insecure-allow unset 503s every "
+            "consumer commit and livelocks the ingest ETL plane",
+        )
+
+    def test_env_example_documents_orchestrator_internal_secret(self) -> None:
+        s = ENV_EXAMPLE.read_text(encoding="utf-8")
+        self.assertIn("ORCHESTRATOR_INTERNAL_SECRET", s)
+
+
 if __name__ == "__main__":
     unittest.main()

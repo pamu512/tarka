@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     ingest_dlq_subject: str = "fraud.dlq.evaluate"
     ingest_dlq_stream_name: str = "FRAUD_DLQ"
     ingest_dlq_publish_on_evaluate_4xx: bool = True
+    # D1c: after this many deliveries, a persistent side-effect failure parks the
+    # message on the DLQ (kind=side_effect_failure) instead of NAK-looping forever.
+    ingest_max_deliver: int = 5
+    ingest_dlq_publish_on_side_effect_failure: bool = True
 
     orchestrator_url: str = ""
     orchestrator_internal_secret: str = ""
