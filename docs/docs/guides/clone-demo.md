@@ -14,6 +14,16 @@ make doctor && make demo
 
 `make doctor` checks Docker Desktop (Compose v2), ports `8000` `8001` `3000` `5432` `6379`, and ~4 GB RAM. Each fail names the fix. Then `make demo` starts Lite + fraud-desk and runs the receipt walk.
 
+Port conflicts? Every desk port can be remapped without touching Tarka: set `TARKA_PG_PORT`, `TARKA_REDIS_PORT`, `TARKA_NATS_PORT`, `TARKA_CORE_PORT`, `TARKA_GRAPH_PORT`, `TARKA_FRONTEND_PORT`, `TARKA_DATA_PLANE_PORT`, or `TARKA_ORCHESTRATOR_PORT` in `infra/deploy/.env` (defaults 5432/6379/4222/8000/8001/3000/8007/8790). `make doctor` names the variable to set when a port is busy.
+
+**The demo is a fraction of the stack.** Lite + fraud-desk starts five services (postgres, redis, graph-service, core-api, frontend): evaluate, hunt, receipts, rules UI. The async ingest plane — NATS, data-plane `POST /v1/events`, orchestrator, outbox-processor — is behind the `ingest` compose profile and is **not** started by `make demo`. To run events end-to-end through the async pipeline:
+
+```bash
+docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up -d --build
+```
+
+See [SRE Compose profiles](../operations/sre-compose-profiles.md) for what each plane adds and its RAM floor.
+
 Same script: `bash scripts/oss/up_desk.sh`. First build is the long pole.
 
 Mac and Linux: Docker Desktop or Docker Engine + Compose v2. On a laptop, stop local Postgres/Redis if those ports are busy.

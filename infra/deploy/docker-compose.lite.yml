@@ -31,7 +31,7 @@ services:
       POSTGRES_PASSWORD: fraud
       POSTGRES_DB: fraud
     ports:
-      - "5432:5432"
+      - "${TARKA_PG_PORT:-5432}:5432"
     volumes:
       - fraud_pg:/var/lib/postgresql/data
     healthcheck:
@@ -43,7 +43,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${TARKA_REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -54,7 +54,7 @@ services:
     image: nats:2-alpine
     command: ["-js", "-sd", "/data"]
     ports:
-      - "4222:4222"
+      - "${TARKA_NATS_PORT:-4222}:4222"
     volumes:
       - fraud_nats_lite:/data
     # Sync evaluate does not use NATS. Started with --profile ingest or the signals overlay.
@@ -81,16 +81,19 @@ services:
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
       DECISION_API_URL: http://127.0.0.1:8000/decisions
       # Auto-create a case for deny/review evaluations (requires CASE_API_URL + CASE_INTERNAL_TOKEN).
-      CASE_CREATE_ON_DENY_REVIEW: ${CASE_CREATE_ON_DENY_REVIEW:-true}
+      CASE_CREATE_ON_DENY_REVIEW: ${CASE_CREATE_ON_DENY_REVIEW:-${CASE_INTERNAL_TOKEN:+true}}
+      # ^ auto-case only when an internal token is actually set (walkthrough S1:
+      #   default-true + empty token made every auto-case call 403 into log.warning)
       CASE_API_URL: ${CASE_API_URL:-http://127.0.0.1:8000/cases}
-      CASE_INTERNAL_TOKEN: ${CASE_INTERNAL_TOKEN:-}
+      CASE_INTERNAL_TOKEN: ${CASE_INTERNAL_TOKEN:-tarka-lite-dev-internal-token}
       TREND_AGENT_DATA_DIR: /var/trend-agent
       TREND_TICK_SKIP_LLM: "1"
       TREND_BASELINE_MIN_N: "3"
     volumes:
       - trend_agent_data:/var/trend-agent
+      - desk_rules:/app/rules   # named volume: pre-populated from image packs, survives recreate
     ports:
-      - "8000:8000"
+      - "${TARKA_CORE_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,7 +118,7 @@ services:
       API_KEYS: ${API_KEYS:-}
       ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
     ports:
-      - "8001:8001"
+      - "${TARKA_GRAPH_PORT:-8001}:8001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,7 +138,9 @@ services:
       DECISION_API_URL: http://core-api:8000/decisions
       REDIS_URL: redis://redis:6379/0
       API_KEYS: ${API_KEYS:-}
-      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-false}
+      ALLOW_INSECURE_NO_AUTH: ${ALLOW_INSECURE_NO_AUTH:-true}
+      # ^ parity with core-api (walkthrough B5): compose-direct buyers previously got
+      #   503 from /v1/events because this defaulted to false while core-api defaulted true
       UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
       INGEST_SCHEMA_REGISTRY_MODE: ${INGEST_SCHEMA_REGISTRY_MODE:-enforce}
       CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-}
@@ -143,7 +148,7 @@ services:
       ORCHESTRATOR_URL: ${ORCHESTRATOR_URL:-http://orchestrator:8790}
       ORCHESTRATOR_INTERNAL_SECRET: ${ORCHESTRATOR_INTERNAL_SECRET:-}
     ports:
-      - "8007:8007"
+      - "${TARKA_DATA_PLANE_PORT:-8007}:8007"
     depends_on:
       postgres:
         condition: service_healthy
@@ -180,7 +185,7 @@ services:
       SHADOW_AGENT_URL: ${SHADOW_AGENT_URL:-}
       SHADOW_API_KEY: ${TARKA_SHADOW_API_KEY:-}
     ports:
-      - "8790:8790"
+      - "${TARKA_ORCHESTRATOR_PORT:-8790}:8790"
     depends_on:
       postgres:
         condition: service_healthy
@@ -223,8 +228,10 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         VITE_GRAPH_SERVICE_URL: /api/graph
+        # Single key for the browser; falls back to API_KEYS when it holds one key.
+        VITE_API_KEY: ${VITE_API_KEY:-${API_KEYS:-}}
     ports:
-      - "3000:80"
+      - "${TARKA_FRONTEND_PORT:-3000}:80"
     depends_on:
       - core-api
     healthcheck:
@@ -237,3 +244,4 @@ volumes:
   fraud_pg:
   fraud_nats_lite:
   trend_agent_data:
+  desk_rules:

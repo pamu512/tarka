@@ -29,6 +29,10 @@ ARG VITE_INVESTIGATION_AGENT_URL=
 ENV VITE_INVESTIGATION_AGENT_URL=${VITE_INVESTIGATION_AGENT_URL}
 ARG VITE_SIGNAL_API_URL=
 ENV VITE_SIGNAL_API_URL=${VITE_SIGNAL_API_URL}
+# Optional API key for authenticated local REST alongside the open desk UI (B4).
+# Set together with services' API_KEYS so curl and UI both work on one box.
+ARG VITE_API_KEY=
+ENV VITE_API_KEY=${VITE_API_KEY}
 RUN npm run build
 
 FROM nginx:alpine

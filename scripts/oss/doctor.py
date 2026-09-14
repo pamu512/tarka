@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -19,6 +20,19 @@ import urllib.request
 from typing import Callable
 
 DAY1_PORTS: tuple[int, ...] = (8000, 8001, 3000, 5432, 6379)
+# Host port remaps honored by infra/deploy/docker-compose.lite.yml.
+PORT_ENV_MAP: dict[int, tuple[str, str]] = {
+    5432: ("TARKA_PG_PORT", "Postgres"),
+    6379: ("TARKA_REDIS_PORT", "Redis"),
+    8000: ("TARKA_CORE_PORT", "core-api"),
+    8001: ("TARKA_GRAPH_PORT", "graph-service"),
+    3000: ("TARKA_FRONTEND_PORT", "frontend"),
+    4222: ("TARKA_NATS_PORT", "NATS"),
+    8007: ("TARKA_DATA_PLANE_PORT", "data-plane"),
+    8790: ("TARKA_ORCHESTRATOR_PORT", "orchestrator"),
+}
+# Advisory only: needed just for the optional async-ingest profile.
+INGEST_PORTS: tuple[int, ...] = (4222, 8007, 8790)
 RAM_FLOOR_BYTES = 4 * 1024 * 1024 * 1024
 EVALUATE_HEALTH_URL = "http://127.0.0.1:8000/decisions/v1/health"
 LITE_COMPOSE = "infra/deploy/docker-compose.lite.yml"
@@ -64,33 +78,58 @@ def evaluate_health_ok(*, url: str = EVALUATE_HEALTH_URL, timeout: float = 1.5) 
         return False
 
 
+def effective_port(default_port: int, environ: dict[str, str] | None = None) -> int:
+    """Resolve a default port through its TARKA_*_PORT override when set."""
+    env = os.environ if environ is None else environ
+    entry = PORT_ENV_MAP.get(default_port)
+    if not entry:
+        return default_port
+    raw = env.get(entry[0], "").strip()
+    try:
+        return int(raw) if raw else default_port
+    except ValueError:
+        return default_port
+
+
 def port_messages(
     ports: tuple[int, ...] = DAY1_PORTS,
     *,
     check: PortCheck = port_is_free,
     probe_evaluate: EvaluateProbe | None = None,
+    environ: dict[str, str] | None = None,
 ) -> list[str]:
     lines: list[str] = []
-    busy = [p for p in ports if not check(p)]
+    targets = [(p, effective_port(p, environ)) for p in ports]
+    busy = [eff for _p, eff in targets if not check(eff)]
     if not busy:
-        lines.append(f"[ok] ports free: {', '.join(str(p) for p in ports)}")
+        shown = ", ".join(str(eff) for _p, eff in targets if _p == eff)
+        remapped = [f"{p}->{eff} ({PORT_ENV_MAP[p][0]})" for p, eff in targets if p != eff]
+        lines.append(f"[ok] ports free: {shown}" + (f" [remapped: {', '.join(remapped)}]" if remapped else ""))
         return lines
-    other = [p for p in busy if p != 8000]
+    other = [p for p in busy if p != effective_port(8000, environ)]
     if other:
         listed = ", ".join(str(p) for p in other)
+        hints: list[str] = []
+        for p in other:
+            entry = PORT_ENV_MAP.get(p)
+            if entry:
+                hints.append(f"{p} = {entry[1]} (remap with {entry[0]}=…)")
+        hint_text = (" — " + "; ".join(hints)) if hints else ""
         lines.append(
-            f"[fail] port in use: {listed} — stop the process bound there "
-            "(host Postgres often owns 5432; host Redis often owns 6379). "
+            f"[fail] port in use: {listed}{hint_text}. "
+            f"See what owns it: lsof -nP -iTCP:{other[0]} -sTCP:LISTEN. "
+            "Stop that process, or remap Tarka to a free port via the TARKA_*_PORT "
+            "vars in infra/deploy/env/community.env.example. "
             "That is not a healthy Tarka evaluate. Then re-run make doctor."
         )
-    if 8000 in busy:
+    if effective_port(8000, environ) in busy:
         probe = probe_evaluate if probe_evaluate is not None else evaluate_health_ok
         if probe():
             lines.append(
                 "[fail] port 8000 already serves GET /decisions/v1/health — "
                 "a Tarka evaluate is up. make demo skips compose wait when that "
-                f"probe succeeds. For a clean rebuild: docker compose -f {LITE_COMPOSE} down -v, "
-                "then make doctor && make demo."
+                "probe succeeds. For a clean rebuild: docker compose -f {LITE_COMPOSE} down -v, "
+                "then make doctor && make demo.".format(LITE_COMPOSE=LITE_COMPOSE)
             )
         else:
             lines.append(
@@ -100,6 +139,26 @@ def port_messages(
                 f"docker compose -f {LITE_COMPOSE} down -v, then make doctor && make demo."
             )
     return lines
+
+
+def ingest_port_messages(
+    ports: tuple[int, ...] = INGEST_PORTS,
+    *,
+    check: PortCheck = port_is_free,
+    environ: dict[str, str] | None = None,
+) -> list[str]:
+    """Advisory check for the optional async-ingest profile (nats/data-plane/orchestrator)."""
+    targets = [(p, effective_port(p, environ)) for p in ports]
+    busy = [eff for _p, eff in targets if not check(eff)]
+    if not busy:
+        shown = ", ".join(str(eff) for _p, eff in targets)
+        return [f"[ok] ingest ports free (optional --profile ingest): {shown}"]
+    listed = ", ".join(str(p) for p in busy)
+    return [
+        f"[warn] ingest port in use: {listed} — only matters if you enable the "
+        "optional async ingest plane (docker compose --profile ingest up). "
+        "Remap with TARKA_NATS_PORT / TARKA_DATA_PLANE_PORT / TARKA_ORCHESTRATOR_PORT."
+    ]
 
 
 def _sysctl_mem_bytes() -> int | None:
@@ -145,6 +204,8 @@ def run_doctor(*, check_port: PortCheck = port_is_free, mem_bytes: int | None | 
         print(line)
         if line.startswith("[fail]"):
             failed = True
+    for line in ingest_port_messages(check=check_port):
+        print(line)
     ram = _sysctl_mem_bytes() if mem_bytes is ... else mem_bytes
     ram_ok, ram_line = ram_message(mem_bytes=ram)  # type: ignore[arg-type]
     print(ram_line)

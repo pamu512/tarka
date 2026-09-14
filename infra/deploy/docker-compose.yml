@@ -112,8 +112,10 @@ services:
       EDGE_BOT_SCORE_BLOCK_THRESHOLD: ${EDGE_BOT_SCORE_BLOCK_THRESHOLD:-25}
       EDGE_BOT_SCORE_REVIEW_THRESHOLD: ${EDGE_BOT_SCORE_REVIEW_THRESHOLD:-50}
       DECISION_API_URL: http://127.0.0.1:8000/decisions
+    volumes:
+      - desk_rules:/app/rules   # named volume: pre-populated from image packs, survives recreate
     ports:
-      - "8000:8000"
+      - "${TARKA_CORE_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -386,6 +388,7 @@ volumes:
   fraud_pg:
   fraud_nats:
   fraud_ch:
+  desk_rules:
   investigation_agent_data:
   janusgraph_data:
   anumana_duck:

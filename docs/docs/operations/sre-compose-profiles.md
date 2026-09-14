@@ -54,6 +54,9 @@ From repo root:
 ```bash
 cp infra/deploy/env/community.env.example infra/deploy/.env
 # Production: set API_KEYS. Do not set ALLOW_INSECURE_NO_AUTH=true.
+# Busy ports? Remap with TARKA_*_PORT in infra/deploy/.env (see community.env.example):
+# TARKA_PG_PORT / TARKA_REDIS_PORT / TARKA_NATS_PORT / TARKA_CORE_PORT /
+# TARKA_GRAPH_PORT / TARKA_FRONTEND_PORT / TARKA_DATA_PLANE_PORT / TARKA_ORCHESTRATOR_PORT.
 
 # Evaluate-only (no agent / signal-api / ingress):
 docker compose \
