@@ -35,6 +35,7 @@ from .custom_schema import (
     save_tenant_schema,
 )
 from .entity_risk_score import clamp_search_limit, is_found_payload, link_props_for_create
+from .temporal_filter import apply_as_of, _validate_as_of
 from .growth_policy import (
     count_growth,
     incident_edge_timestamps,
@@ -416,14 +417,27 @@ async def get_entity(external_id: str, tenant_id: str, request: Request):
 
 
 @app.get("/v1/entities/{external_id}/links")
-async def get_entity_links(external_id: str, tenant_id: str, request: Request):
+async def get_entity_links(
+    external_id: str,
+    tenant_id: str,
+    request: Request,
+    as_of: str | None = None,
+):
+    try:
+        cutoff = _validate_as_of(as_of)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    del cutoff
     data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
     if _entity_from_subgraph(data, external_id) is None:
         raise HTTPException(status_code=404, detail="entity_not_found")
+    data = apply_as_of(data, as_of=as_of)
     return {
         "entity_id": external_id,
+        "as_of": as_of,
         "nodes": data.get("nodes") or [],
         "edges": data.get("edges") or [],
+        "unversioned_edges": data.get("unversioned_edges", 0) if as_of else 0,
         "attention": _attention_for_neighbors(external_id, data),
     }
 
@@ -626,13 +640,20 @@ async def subgraph(
     depth: int = 2,
     lookback_days: int | None = None,
     types: str | None = None,
+    as_of: str | None = None,
 ):
+    try:
+        cutoff = _validate_as_of(as_of)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    del cutoff
     walk = hunt_walk_depth(depth)
     data = _subgraph_for_read(await query_subgraph(tenant_id, entity_id, walk), request)
     lb = clamp_lookback_days(lookback_days)
     type_list = [part.strip() for part in (types or "").split(",") if part.strip()] or None
     if lb is not None or type_list is not None:
         data = apply_hunt_net(data, seed_id=entity_id, lookback_days=lb, types=type_list)
+    data = apply_as_of(data, as_of=as_of)
     return attach_hunt_depth(data, depth, depth_applied=walk)
 
 
