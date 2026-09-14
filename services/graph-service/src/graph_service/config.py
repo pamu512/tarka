@@ -8,9 +8,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # --- Backend selection (operators flip GRAPH_BACKEND; HTTP API unchanged) ---
+    # AGE is the core engine the stack is built around; neo4j/janusgraph are
+    # porting pads for desks bringing existing stores (degraded, declared tier).
     graph_backend: Literal["neo4j", "janusgraph", "age"] = Field(
-        default="janusgraph",
-        description="Graph persistence: neo4j (Bolt/Cypher), janusgraph (Gremlin), or age (Apache AGE on Postgres).",
+        default="age",
+        description="Graph persistence: age (Apache AGE on Postgres — core), neo4j or janusgraph (porting pads, degraded tier).",
     )
 
     # --- Neo4j (default) ---
