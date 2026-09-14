@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
@@ -30,6 +30,11 @@ OUTBOX_EVENT_GRAPH_INGEST = "GRAPH_INGEST"
 OUTBOX_EVENT_VELOCITY_UPDATE = "VELOCITY_UPDATE"
 OUTBOX_EVENT_SHADOW_RETRO_TAG = "SHADOW_RETRO_TAG"
 OUTBOX_EVENT_LABEL_PROPAGATE = "LABEL_PROPAGATE"
+
+# A PROCESSING row whose claim is older than this is presumed orphaned (worker
+# crash/OOM) and is re-admitted by ``fetch_pending_tasks``. Matches the worker
+# Redis dedup-lock TTL so a reclaimed row never races a live claim holder.
+OUTBOX_RECLAIM_SECONDS = 600
 
 
 class OutboxStatus(str, Enum):
@@ -76,6 +81,7 @@ class OutboxORM(Base):
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     max_retries: Mapped[int] = mapped_column(Integer, nullable=False, default=5, server_default="5")
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -134,13 +140,16 @@ class OutboxDAO:
         batch_size: int = 100,
     ) -> list[OutboxORM]:
         """
-        Claim-ready rows: ``PENDING``, or ``FAILED`` with retries remaining.
+        Claim-ready rows: ``PENDING``, ``FAILED`` with retries remaining, or a
+        ``PROCESSING`` row whose claim is older than ``OUTBOX_RECLAIM_SECONDS``
+        (orphaned by a worker crash).
 
         Uses ``FOR UPDATE SKIP LOCKED`` on PostgreSQL so concurrent pollers do not block.
         """
         if batch_size < 1:
             raise ValueError("batch_size must be >= 1")
 
+        reclaim_cutoff = datetime.now(UTC) - timedelta(seconds=OUTBOX_RECLAIM_SECONDS)
         stmt = (
             select(OutboxORM)
             .where(
@@ -149,6 +158,13 @@ class OutboxDAO:
                     and_(
                         OutboxORM.status == OutboxStatus.FAILED.value,
                         OutboxORM.retry_count < OutboxORM.max_retries,
+                    ),
+                    and_(
+                        OutboxORM.status == OutboxStatus.PROCESSING.value,
+                        or_(
+                            OutboxORM.claimed_at.is_(None),
+                            OutboxORM.claimed_at < reclaim_cutoff,
+                        ),
                     ),
                 ),
             )
@@ -165,11 +181,14 @@ class OutboxDAO:
 
     @classmethod
     async def mark_processing(cls, session: AsyncSession, task_id: UUID) -> OutboxORM:
-        """Transition a claimed row to ``PROCESSING`` before side-effect execution."""
+        """Transition a claimed row to ``PROCESSING`` and stamp the claim time."""
         stmt = (
             update(OutboxORM)
             .where(OutboxORM.id == task_id)
-            .values(status=OutboxStatus.PROCESSING.value)
+            .values(
+                status=OutboxStatus.PROCESSING.value,
+                claimed_at=datetime.now(UTC),
+            )
             .returning(OutboxORM)
         )
         row = (await session.scalars(stmt)).one_or_none()
@@ -194,6 +213,7 @@ class OutboxDAO:
         values: dict[str, Any] = {
             "status": OutboxStatus.COMPLETED.value,
             "processed_at": now,
+            "claimed_at": None,
         }
         if isinstance(last_error, str) and last_error:
             values["last_error"] = last_error[:8192]

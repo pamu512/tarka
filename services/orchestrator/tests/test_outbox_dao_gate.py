@@ -15,6 +15,72 @@ for _p in (_SRC_ORCH, _SRC_SHARED):
         sys.path.insert(0, str(_p))
 
 
+def test_outbox_stale_processing_row_is_reclaimed() -> None:
+    """Wedge fix: a PROCESSING row older than the staleness window returns to claimable."""
+
+    async def _run() -> None:
+        from datetime import UTC, datetime, timedelta
+
+        from sqlalchemy import update as sa_update
+        from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+        from sqlalchemy.pool import StaticPool
+
+        from models.outbox import (
+            OUTBOX_RECLAIM_SECONDS,
+            OutboxDAO,
+            OutboxORM,
+            OutboxStatus,
+        )
+        from tarka_shared.database.session import Base
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all, tables=[OutboxORM.__table__])
+
+        fac = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+        async with fac() as session:
+            async with session.begin():
+                row = await OutboxDAO.create_task(session, "GRAPH_INGEST", "idem-stale", {})
+                await OutboxDAO.mark_processing(session, row.id)
+
+        async with fac() as session:
+            async with session.begin():
+                # Fresh claim must NOT be re-admitted (crash-reclaim safety).
+                fresh = await OutboxDAO.fetch_pending_tasks(session)
+                assert all(t.id != row.id for t in fresh)
+
+                # Backdate the claim past the staleness window.
+                await session.execute(
+                    sa_update(OutboxORM)
+                    .where(OutboxORM.id == row.id)
+                    .values(claimed_at=datetime.now(UTC) - timedelta(seconds=OUTBOX_RECLAIM_SECONDS + 1))
+                )
+
+                reclaimed = await OutboxDAO.fetch_pending_tasks(session)
+                assert [t.id for t in reclaimed] == [row.id]
+                assert reclaimed[0].status == OutboxStatus.PROCESSING.value
+
+        await engine.dispose()
+
+    asyncio.run(_run())
+
+
+def test_outbox_fetch_signature_unchanged_for_callers() -> None:
+    """Existing callers pass only (session, batch_size); staleness is an ORM-level default."""
+
+    import inspect
+
+    from models.outbox import OutboxDAO
+
+    sig = inspect.signature(OutboxDAO.fetch_pending_tasks)
+    assert list(sig.parameters) == ["session", "batch_size"]
+
+
 def test_outbox_dao_lifecycle() -> None:
     async def _run() -> None:
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

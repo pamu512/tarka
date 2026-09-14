@@ -1252,6 +1252,16 @@ def create_app(
         )
 
     @application.get(
+        "/health",
+        tags=["Operations"],
+        summary="Process liveness",
+        description="Cheap process-liveness probe for compose/K8s healthchecks. Dependency status lives on /health/full.",
+    )
+    async def health_liveness() -> dict[str, str]:
+        """Liveness of THIS process only — no dependency probes."""
+        return {"status": "ok"}
+
+    @application.get(
         "/health/full",
         tags=["Operations"],
         summary="Aggregate health matrix",
@@ -1262,7 +1272,7 @@ def create_app(
         ),
         response_model=HealthFullResponse,
     )
-    async def health_full(request: Request) -> dict[str, Any]:
+    async def health_full(request: Request) -> JSONResponse:
         """Aggregate readiness across this process and configured backends."""
         rule_base: str = request.app.state.rule_engine_url
         shadow_base: str | None = request.app.state.shadow_agent_url
@@ -1412,10 +1422,19 @@ def create_app(
                         }
                     )
 
-        return {
-            "generated_at": datetime.now(UTC).isoformat(),
-            "services": services,
-        }
+        response_status = 200
+        for entry in services:
+            if entry["status"] == "offline":
+                response_status = 503
+                break
+
+        return JSONResponse(
+            status_code=response_status,
+            content={
+                "generated_at": datetime.now(UTC).isoformat(),
+                "services": services,
+            },
+        )
 
     @application.post(
         "/v1/demo/simulate_attack",
