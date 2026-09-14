@@ -15,19 +15,15 @@ import unittest
 class TestCoreDefault(unittest.TestCase):
     def test_default_backend_is_age(self) -> None:
         """Fresh settings with no env must select the core engine."""
-        import importlib
-
         from graph_service import config as gs_config
 
         saved = os.environ.pop("GRAPH_BACKEND", None)
         try:
-            fresh = importlib.import_module("graph_service.config")
-            importlib.reload(fresh)
-            self.assertEqual(fresh.Settings().graph_backend, "age")
+            fresh = gs_config.Settings()
+            self.assertEqual(fresh.graph_backend, "age")
         finally:
             if saved is not None:
                 os.environ["GRAPH_BACKEND"] = saved
-            importlib.reload(gs_config)
 
 
 class TestTierDeclaration(unittest.TestCase):
