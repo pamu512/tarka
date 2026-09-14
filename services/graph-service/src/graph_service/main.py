@@ -27,6 +27,7 @@ from .checkpoint_registry import (
     registry_public_view,
     reload_checkpoint_registry,
 )
+from .config import settings
 from .custom_schema import (
     TenantSchema,
     invalidate_cache,
@@ -129,8 +130,32 @@ async def require_api_key(request: Request) -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    tier = _experience_tier(settings.graph_backend)
+    if tier["experience_tier"] != "core":
+        log.warning(
+            "GRAPH_BACKEND=%s is a porting pad (experience_tier=%s); degraded capabilities: %s. "
+            "AGE is the core engine — see the operator guide's porting/graduation notes.",
+            settings.graph_backend,
+            tier["experience_tier"],
+            ", ".join(tier["degraded_capabilities"]),
+        )
     yield
     await close_graph_backend()
+
+
+def _experience_tier(backend: str) -> dict[str, Any]:
+    """Declare the experience tier for a graph backend (Gotham ladder is AGE-only)."""
+    if backend == "age":
+        return {"experience_tier": "core", "degraded_capabilities": []}
+    if backend in ("neo4j", "janusgraph"):
+        return {
+            "experience_tier": "porting",
+            "degraded_capabilities": [
+                "no AGE restore-drill guarantee for this backend",
+                "no Helm prod deployment route",
+            ],
+        }
+    raise ValueError(f"unknown graph backend: {backend!r}")
 
 
 app = FastAPI(
@@ -231,6 +256,10 @@ async def health():
     db_path = _db_path()
     return {
         "status": "ok",
+        "graph_backend": {
+            "backend": settings.graph_backend,
+            **_experience_tier(settings.graph_backend),
+        },
         "decision_graph": {
             "enabled": dg_enabled,
             "store": "sqlite",

@@ -145,21 +145,22 @@ services:
       timeout: 5s
       retries: 10
       start_period: 60s
-    profiles: [graph, full]
+    profiles: [graph]
 
   graph-service:
     build:
       context: ../..
       dockerfile: services/graph-service/Dockerfile
     environment:
-      GRAPH_BACKEND: janusgraph
+      GRAPH_BACKEND: ${GRAPH_BACKEND:-age}
+      AGE_DATABASE_URL: postgresql://fraud:fraud@postgres:5432/fraud
       JANUSGRAPH_GREMLIN_URL: ws://janusgraph:8182/gremlin
       TENANT_BINDING_REQUIRED: ${TENANT_BINDING_REQUIRED:-false}
       API_KEY_TENANT_MAP: ${API_KEY_TENANT_MAP:-}
     ports:
       - "8001:8001"
     depends_on:
-      janusgraph:
+      postgres:
         condition: service_healthy
     profiles: [graph, full]
 
@@ -317,6 +318,20 @@ services:
       GREMLIN_REMOTE_URL: ${GREMLIN_REMOTE_URL:-}
     depends_on:
       - orchestrator
+    profiles: [streaming, analytics, full]
+
+  shadow-investigate-worker:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    entrypoint: ["/usr/local/bin/python3"]
+    command: ["-m", "workers.nats_shadow_investigate"]
+    environment:
+      NATS_URL: nats://nats:4222
+      SHADOW_DATABASE_URL: postgresql+asyncpg://fraud:fraud@postgres:5432/fraud
+    depends_on:
+      - orchestrator
+      - nats
     profiles: [streaming, analytics, full]
 
   graphql-gateway:
