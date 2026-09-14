@@ -406,7 +406,16 @@ async def maybe_create_case_for_outcome(
     try:
         r = await http.post(f"{base}/v1/cases", json=body, headers=headers, timeout=5.0)
         status = getattr(r, "status_code", None)
-        if status is not None and int(status) >= 400:
+        if status is not None and int(status) in (401, 403):
+            log.error(
+                "case_create_auth_rejected status=%s tenant_id=%s trace_id=%s "
+                "hint=set CASE_INTERNAL_TOKEN (shared with case-api) so the S2S "
+                "call authenticates; every auto-case is failing until then",
+                status,
+                ctx.tenant_id,
+                ctx.trace_id,
+            )
+        elif status is not None and int(status) >= 400:
             log.warning(
                 "case_create_failed status=%s tenant_id=%s trace_id=%s",
                 status,
@@ -419,6 +428,29 @@ async def maybe_create_case_for_outcome(
             ctx.tenant_id,
             ctx.trace_id,
             exc_info=True,
+        )
+
+
+def log_doomed_auto_case_config(
+    *, case_create_on_deny_review: bool, case_api_url: str, case_internal_token: str
+) -> None:
+    """Loudly flag the guaranteed-403 combo at startup instead of per-event.
+
+    Auto-case enabled + case URL configured + empty S2S token means every
+    deny/review auto-case call arrives unauthenticated against an
+    analyst-gated endpoint (lite default before the compose fix).
+    """
+    if (
+        case_create_on_deny_review
+        and (case_api_url or "").strip()
+        and not (case_internal_token or "").strip()
+    ):
+        log.error(
+            "auto_case_config_doomed: CASE_CREATE_ON_DENY_REVIEW is on and "
+            "CASE_API_URL is set but CASE_INTERNAL_TOKEN is empty — case-api "
+            "requires analyst; every auto-case create will 401/403. Set "
+            "CASE_INTERNAL_TOKEN (shared with case-api) or turn off "
+            "CASE_CREATE_ON_DENY_REVIEW."
         )
 
 

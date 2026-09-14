@@ -308,6 +308,114 @@ def test_case_create_uses_internal_token_header():
     assert captured_headers[0].get("X-Internal-Token") == "s2s-secret-token"
 
 
+def test_case_create_403_logs_error_with_config_hint(caplog):
+    """Walkthrough S1: a 401/403 on auto-case is a doomed config, not a transient
+    failure — it must log at ERROR with the remediation hint, not a swallowed warning."""
+    import asyncio
+    import logging
+    from types import SimpleNamespace
+
+    from decision_api.decision_outcome import maybe_create_case_for_outcome
+
+    class _Http:
+        async def post(self, url, *, json=None, headers=None, timeout=None):
+            return SimpleNamespace(status_code=403)
+
+    ctx = DecisionOutcomeContext(
+        trace_id="tr-403",
+        tenant_id="ten",
+        entity_id="e9",
+        event_type="payment",
+        decision="deny",
+        score=90.0,
+        tags=[],
+        rule_hits=[],
+    )
+    with caplog.at_level(logging.DEBUG, logger="decision-api.outcome"):
+        asyncio.run(
+            maybe_create_case_for_outcome(
+                http=_Http(),
+                case_api_url="http://case.test",
+                ctx=ctx,
+                headers={},
+            )
+        )
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert errors, "403 on auto-case must log at ERROR level"
+    assert any("CASE_INTERNAL_TOKEN" in r.getMessage() for r in errors)
+
+
+def test_case_create_5xx_stays_warning(caplog):
+    """Transient upstream failures stay warnings — only auth rejection escalates."""
+    import asyncio
+    import logging
+    from types import SimpleNamespace
+
+    from decision_api.decision_outcome import maybe_create_case_for_outcome
+
+    class _Http:
+        async def post(self, url, *, json=None, headers=None, timeout=None):
+            return SimpleNamespace(status_code=503)
+
+    ctx = DecisionOutcomeContext(
+        trace_id="tr-503",
+        tenant_id="ten",
+        entity_id="e9",
+        event_type="payment",
+        decision="review",
+        score=50.0,
+        tags=[],
+        rule_hits=[],
+    )
+    with caplog.at_level(logging.DEBUG, logger="decision-api.outcome"):
+        asyncio.run(
+            maybe_create_case_for_outcome(
+                http=_Http(),
+                case_api_url="http://case.test",
+                ctx=ctx,
+                headers={},
+            )
+        )
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+
+
+def test_log_doomed_auto_case_config_errors_at_startup():
+    """Enabled auto-case + configured URL + empty token = guaranteed 403s; the
+    app must say so loudly at startup instead of failing silently per-event."""
+    import logging
+
+    from decision_api.decision_outcome import log_doomed_auto_case_config
+
+    records: list[str] = []
+    logger = logging.getLogger("decision-api.outcome")
+
+    class _Handler(logging.Handler):
+        def emit(self, record):
+            records.append(record.getMessage())
+
+    handler = _Handler()
+    old_level = logger.level
+    logger.setLevel(logging.ERROR)
+    logger.addHandler(handler)
+    try:
+        log_doomed_auto_case_config(
+            case_create_on_deny_review=True,
+            case_api_url="http://case.test",
+            case_internal_token="",
+        )
+        log_doomed_auto_case_config(
+            case_create_on_deny_review=True,
+            case_api_url="http://case.test",
+            case_internal_token="set",
+        )
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(old_level)
+
+    assert len(records) == 1, "exactly the doomed combo errors"
+    assert "CASE_INTERNAL_TOKEN" in records[0]
+
+
 def test_degraded_metrics_dedupes_reason():
     seen: list[str] = []
     emitted = record_degraded_decision_metrics(

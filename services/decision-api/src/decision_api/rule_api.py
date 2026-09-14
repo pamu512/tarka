@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,120}\.json$")
 _SAFE_SLUG_RE = re.compile(r"[^a-z0-9_-]+")
 
-from auth_rbac import require_role  # noqa: E402
+from auth_rbac import require_role, require_role_or_insecure_desk  # noqa: E402
 
 
 class Condition(BaseModel):
@@ -465,7 +465,7 @@ async def _backtest_gate_for_vertical(
 
 @router.get("/backtest-before-promote-posture")
 async def backtest_before_promote_posture(
-    _user=Depends(require_role("analyst")),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
 ) -> dict[str, Any]:
     """Ops: whether warehouse backtest is required before vertical pack install/promote."""
     return {
@@ -617,7 +617,7 @@ class ShadowAutoPromoteProvisionIn(BaseModel):
 @router.get("/shadow-auto-promote-provision")
 async def get_shadow_auto_promote_provision(
     tenant_id: str = Query(..., min_length=1, max_length=128),
-    _user=Depends(require_role("analyst")),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
 ) -> dict[str, Any]:
     return public_provision(tenant_id)
 
@@ -626,7 +626,7 @@ async def get_shadow_auto_promote_provision(
 async def put_shadow_auto_promote_provision(
     body: ShadowAutoPromoteProvisionIn,
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    user=Depends(require_role("analyst")),
+    user=Depends(require_role_or_insecure_desk("analyst")),
 ) -> dict[str, Any]:
     actor = (x_actor or "").strip() or str(getattr(user, "user_id", "") or "")
     if not actor:
@@ -647,7 +647,7 @@ async def put_shadow_auto_promote_provision(
 @router.post("/shadow-packs/auto-promote-tick")
 async def auto_promote_tick(
     tenant_id: str = Query(..., min_length=1, max_length=128),
-    _user=Depends(require_role("analyst")),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
 ) -> dict[str, Any]:
     out = await maybe_auto_promote_shadow(tenant_id)
     parked = await maybe_park_live_rule_slip(tenant_id)
@@ -674,7 +674,7 @@ async def promote_shadow_pack(
     calibration_override_reason: str | None = Query(default=None),
     session: AsyncSession = Depends(get_session),
     x_actor: str | None = Header(default=None, alias="X-Actor"),
-    _user=Depends(require_role("analyst")),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
 ):
     from decision_api.calibration_window import (
         apply_window_override,

@@ -259,6 +259,25 @@ These are injected from `device_context.signals`:
 
 Instead of editing JSON files directly, you can manage rules via the REST API.
 
+### Authentication (local desk vs production)
+
+On the **local desk** (default `ALLOW_INSECURE_NO_AUTH=true`, no `API_KEYS`), anonymous
+requests authenticate as a viewer-plus-desk user: reads work, and the desk's analyst
+actions — create pack, add rule, promote — work through the `require_role_or_insecure_desk`
+grant. The curl examples below run as-is.
+
+In **production** (`API_KEYS` set, or any authenticated deployment):
+
+- Reads (list packs, list rules, telemetry) require a key with `viewer` or above.
+- Writes (create/delete pack, add/delete rule, promote, shadow endpoints) require a key
+  with role `analyst` or higher — send `X-API-Key`.
+- Pack CRUD additionally honors `RULE_GOVERNANCE_SECRET`: when set on the server, mutating
+  pack APIs also require `X-Rule-Governance-Secret`. This is the production pack-governance
+  gate; leave it unset on the local desk.
+
+A 403 on these endpoints means the key's role is below `analyst` (or the governance secret
+is missing) — not that the endpoint is down.
+
 ### Create a Rule Pack
 
 ```bash

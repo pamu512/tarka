@@ -889,6 +889,14 @@ async def lifespan(application: FastAPI):
     if should_enforce_production_profile(os.environ):
         assert_production_env(os.environ)
 
+    from decision_api.decision_outcome import log_doomed_auto_case_config
+
+    log_doomed_auto_case_config(
+        case_create_on_deny_review=settings.case_create_on_deny_review,
+        case_api_url=settings.case_api_url,
+        case_internal_token=settings.case_internal_token,
+    )
+
     from tarka_core.cache import LocalDictCache, RedisCache
     from tarka_core.messaging import LocalAsyncBroker, NatsBroker, NullMessageBroker
 
