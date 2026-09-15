@@ -17,7 +17,7 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
 
 COPY packages/deploy-settings /packages/deploy-settings
 COPY crates/tarka-py/python/tarka ./crates/tarka-py/python/tarka
-COPY infra/deploy/constraints.txt ./infra/deploy/constraints.txt
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY services/orchestrator/pyproject.toml services/orchestrator/README.md services/orchestrator/requirements.txt ./services/orchestrator/
 COPY services/orchestrator ./services/orchestrator
 COPY services/ingestor ./services/ingestor
@@ -54,7 +54,6 @@ COPY services/ingestor /app/services/ingestor
 COPY services/rule_engine /app/services/rule_engine
 COPY services/shadow_agent /app/services/shadow_agent
 COPY services/shared /app/services/shared
-COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 
 USER tarka
