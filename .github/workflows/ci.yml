@@ -898,6 +898,11 @@ jobs:
               time.sleep(2)
           raise SystemExit("core-api decision plane did not become ready")
           PY
+      - name: Dump core-api boot logs on failure
+        if: failure()
+        run: |
+          docker compose -f infra/deploy/docker-compose.lite.yml ps -a
+          docker compose -f infra/deploy/docker-compose.lite.yml logs --tail=200 core-api postgres
       - name: Run latency benchmark and capture output
         run: |
           python3 scripts/benchmarks/latency_evaluate.py \
