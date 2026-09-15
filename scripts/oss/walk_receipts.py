@@ -98,11 +98,15 @@ def looking_at_lines() -> list[str]:
 
 
 def desk_urls() -> dict[str, str]:
+    import os
+
+    port = (os.environ.get("TARKA_FRONTEND_PORT") or "3000").strip() or "3000"
+    base = f"http://127.0.0.1:{port}"
     return {
-        "desk": "http://127.0.0.1:3000",
-        "hunt": "http://127.0.0.1:3000/graph",
-        "receipts": "http://127.0.0.1:3000/decisions",
-        "observe": "http://127.0.0.1:3000/ops/shadow",
+        "desk": base,
+        "hunt": f"{base}/graph",
+        "receipts": f"{base}/decisions",
+        "observe": f"{base}/ops/shadow",
     }
 
 

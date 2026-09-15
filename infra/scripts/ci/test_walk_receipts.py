@@ -129,6 +129,17 @@ class TestHonestCopy(unittest.TestCase):
         self.assertIn("/decisions", blob)
         self.assertIn("/ops/shadow", blob)
 
+    def test_desk_urls_honor_frontend_port_override(self) -> None:
+        """Remapped-port buyers (TARKA_FRONTEND_PORT) must not get dead links."""
+        import os as _os
+        from unittest import mock
+
+        with mock.patch.dict(_os.environ, {"TARKA_FRONTEND_PORT": "23000"}):
+            urls = walk_receipts.desk_urls()
+        for url in urls.values():
+            self.assertIn(":23000", url)
+            self.assertNotIn(":3000", url)
+
     def test_format_receipt_includes_why_and_entity(self) -> None:
         line = walk_receipts.format_receipt(
             label="clean_payment",
