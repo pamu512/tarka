@@ -1170,6 +1170,9 @@ export interface SubgraphResponse {
   depth_requested?: number;
   depth_applied?: number;
   degrade_reason?: string | null;
+  /** Bitemporal read (F2): present only when as_of was requested. */
+  as_of?: string;
+  unversioned_edges?: number;
 }
 
 export interface CommunityResult {
@@ -3219,11 +3222,13 @@ export const graph = {
     tenantId: string,
     depth?: number,
     net?: { lookbackDays?: number; types?: string[] },
+    asOf?: string | null,
   ) {
     const q = new URLSearchParams({ entity_id: entityId, tenant_id: tenantId });
     if (depth) q.set("depth", String(depth));
     if (net?.lookbackDays) q.set("lookback_days", String(net.lookbackDays));
     if (net?.types?.length) q.set("types", net.types.join(","));
+    if (asOf) q.set("as_of", asOf);
     return request<SubgraphResponse>(`/api/graph/v1/subgraph?${q}`);
   },
 

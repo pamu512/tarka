@@ -36,6 +36,7 @@ import {
   pickHomePerson,
   readLastPersonEntity,
   seedInstrumentFanout,
+  validateAsOfInput,
   writeLastPersonEntity,
   type GrowthPolicyWindow,
   type WorkspaceFilter,
@@ -148,6 +149,9 @@ export default function GraphInvestigationPage() {
   const depth = parsed.depth;
   const lookbackDays = parsed.lookbackDays;
   const decisionId = parsed.decisionId;
+  const asOf = parsed.asOf;
+  const [asOfDraft, setAsOfDraft] = useState(asOf ?? "");
+  const [asOfNote, setAsOfNote] = useState<string | null>(null);
   const leftoverId = params.get("leftover_id");
   const leftoverPack = params.get("pack");
   const leftoverHits = params.get("hits");
@@ -209,6 +213,7 @@ export default function GraphInvestigationPage() {
       depth: number;
       lookbackDays?: number;
       decisionId?: string;
+      asOf?: string | null;
     }) => {
       const sp = new URLSearchParams();
       if (next.entityId) {
@@ -221,18 +226,21 @@ export default function GraphInvestigationPage() {
       if (lb !== HUNT_LOOKBACK_DEFAULT_DAYS) sp.set("lookback_days", String(lb));
       const dec = next.decisionId ?? decisionId;
       if (dec) sp.set("decision_id", dec);
+      const asOf = next.asOf !== undefined ? next.asOf : parsed.asOf;
+      if (asOf) sp.set("as_of", asOf);
       const keepLeftover = leftoverId?.trim();
       if (keepLeftover) sp.set("leftover_id", keepLeftover);
       if (leftoverPack) sp.set("pack", leftoverPack);
       if (leftoverHits) sp.set("hits", leftoverHits);
       setParams(sp, { replace: true });
     },
-    [decisionId, leftoverHits, leftoverId, leftoverPack, lookbackDays, setParams],
+    [decisionId, leftoverHits, leftoverId, leftoverPack, lookbackDays, parsed.asOf, setParams],
   );
 
   useEffect(() => {
     if (entityId) writeLastPersonEntity(tenantId, entityId);
-  }, [entityId, tenantId]);
+    setAsOfDraft(asOf ?? "");
+  }, [asOf, entityId, tenantId]);
 
   useEffect(() => {
     if (graphPlaneDisabled || entityId) return;
@@ -361,13 +369,26 @@ export default function GraphInvestigationPage() {
     void (async () => {
       try {
         const [sub, links] = await Promise.all([
-          graph.subgraph(entityId, tenantId, depth, {
-            lookbackDays,
-            types: huntFetchTypes(),
-          }),
+          graph.subgraph(
+            entityId,
+            tenantId,
+            depth,
+            {
+              lookbackDays,
+              types: huntFetchTypes(),
+            },
+            asOf,
+          ),
           graph.entityLinks(entityId, tenantId),
         ]);
         if (cancelled) return;
+        setAsOfNote(
+          asOf
+            ? sub.unversioned_edges
+              ? `As of ${asOf} · ${sub.unversioned_edges} unversioned edge(s) kept (no dual-clock stamps)`
+              : `As of ${asOf}`
+            : null,
+        );
         setHuntDepthApi(readHuntDepthFromPayload(sub));
         const fanout = seedInstrumentFanout(
           entityId,
@@ -389,7 +410,7 @@ export default function GraphInvestigationPage() {
         if (instrumentIds.length > 0) {
           const settled = await Promise.allSettled(
             instrumentIds.map((id) =>
-              graph.subgraph(id, tenantId, 1, { lookbackDays, types: huntFetchTypes() }),
+              graph.subgraph(id, tenantId, 1, { lookbackDays, types: huntFetchTypes() }, asOf),
             ),
           );
           if (cancelled) return;
@@ -421,7 +442,7 @@ export default function GraphInvestigationPage() {
     return () => {
       cancelled = true;
     };
-  }, [decisionId, depth, entityId, graphPlaneDisabled, lookbackDays, tenantId]);
+  }, [asOf, decisionId, depth, entityId, graphPlaneDisabled, lookbackDays, tenantId]);
 
   const expandNode = useCallback(
     async (id: string) => {
@@ -433,10 +454,16 @@ export default function GraphInvestigationPage() {
       setExpanding(true);
       setError(null);
       try {
-        const extra = await graph.subgraph(id, tenantId, 1, {
-          lookbackDays,
-          types: expandTypes,
-        });
+        const extra = await graph.subgraph(
+          id,
+          tenantId,
+          1,
+          {
+            lookbackDays,
+            types: expandTypes,
+          },
+          asOf,
+        );
         if (seedLoadGenRef.current !== genAtStart) return;
         const others = extra.nodes.filter((node) => node.id !== id).slice(0, expandMax);
         const keep = new Set([id, ...others.map((node) => node.id)]);
@@ -462,7 +489,7 @@ export default function GraphInvestigationPage() {
         setExpanding(false);
       }
     },
-    [entityId, expandMax, expandTypes, graphPlaneDisabled, lookbackDays, tenantId],
+    [asOf, entityId, expandMax, expandTypes, graphPlaneDisabled, lookbackDays, tenantId],
   );
 
   const pathFromSeed = useCallback(async () => {
@@ -708,6 +735,52 @@ export default function GraphInvestigationPage() {
             <option value={HUNT_LOOKBACK_MAX_DAYS}>Retention</option>
           </select>
         </label>
+        <label className="text-xs text-gray-500 flex flex-col gap-1">
+          As of
+          <span className="flex items-center gap-1">
+            <input
+              type="text"
+              placeholder="live"
+              value={asOfDraft}
+              disabled={disabled}
+              onChange={(e) => setAsOfDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const err = validateAsOfInput(asOfDraft);
+                if (err) return;
+                writeUrl({ entityId, tenantId, depth, asOf: asOfDraft.trim() || null });
+              }}
+              className={`${inputClass} w-44`}
+              aria-label="As-of timestamp"
+            />
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                const err = validateAsOfInput(asOfDraft);
+                if (err) return;
+                writeUrl({ entityId, tenantId, depth, asOf: asOfDraft.trim() || null });
+              }}
+              className="px-2 py-1 rounded-lg bg-slate-100/8 hover:bg-slate-100/14 border border-white/10 text-[11px] text-gray-300 transition-colors"
+            >
+              Set
+            </button>
+            {asOf ? (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  setAsOfDraft("");
+                  writeUrl({ entityId, tenantId, depth, asOf: null });
+                }}
+                className="px-2 py-1 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 border border-amber-300/30 text-[11px] text-amber-200 transition-colors"
+                title="Return to the live graph"
+              >
+                Live
+              </button>
+            ) : null}
+          </span>
+        </label>
       </div>
 
       {error ? (
@@ -723,6 +796,14 @@ export default function GraphInvestigationPage() {
       {pruneNote ? (
         <p className="text-xs text-amber-200/90 border border-amber-500/30 rounded-md px-3 py-2 bg-amber-500/10">
           {pruneNote}
+        </p>
+      ) : null}
+      {asOfNote ? (
+        <p
+          className="text-xs text-sky-200/90 border border-sky-500/30 rounded-md px-3 py-2 bg-sky-500/10"
+          data-testid="as-of-note"
+        >
+          {asOfNote}
         </p>
       ) : null}
       {instrumentCapNote ? (

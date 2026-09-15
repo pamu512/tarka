@@ -65,10 +65,36 @@ export function huntFetchTypes(): string[] {
   ];
 }
 
+export function parseAsOfParam(raw: string | null): string | null {
+  const token = (raw || "").trim();
+  if (!token) return null;
+  const normalized = token.replace(/\+00:00$/, "Z");
+  const ms = Date.parse(normalized);
+  if (Number.isNaN(ms)) return null;
+  return normalized;
+}
+
+/** Field-level validation for the toolbar input; null = valid (or empty = live). */
+export function validateAsOfInput(raw: string): string | null {
+  const token = (raw || "").trim();
+  if (!token) return null;
+  if (Number.isNaN(Date.parse(token.replace(/\+00:00$/, "Z")))) {
+    return "Enter a valid ISO timestamp (e.g. 2026-09-01T12:00:00Z) or clear for live";
+  }
+  return null;
+}
+
 export function parseGraphWorkspaceParams(
   sp: URLSearchParams,
   defaultTenant: string,
-): { entityId: string; tenantId: string; depth: number; lookbackDays: number; decisionId: string } {
+): {
+  entityId: string;
+  tenantId: string;
+  depth: number;
+  lookbackDays: number;
+  decisionId: string;
+  asOf: string | null;
+} {
   const entityId = sp.get("entity_id") || sp.get("entity") || "";
   const tenantId = sp.get("tenant_id") || sp.get("tenant") || defaultTenant;
   const parsed = Number.parseInt(sp.get("depth") ?? "", 10);
@@ -78,7 +104,8 @@ export function parseGraphWorkspaceParams(
     ? Math.min(HUNT_LOOKBACK_MAX_DAYS, Math.max(1, rawLb))
     : HUNT_LOOKBACK_DEFAULT_DAYS;
   const decisionId = (sp.get("decision_id") || "").trim();
-  return { entityId, tenantId, depth, lookbackDays, decisionId };
+  const asOf = parseAsOfParam(sp.get("as_of"));
+  return { entityId, tenantId, depth, lookbackDays, decisionId, asOf };
 }
 
 export function primaryLabel(labels: string[] | undefined): string {
