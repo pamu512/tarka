@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sys
@@ -498,6 +499,26 @@ async def get_entity_history(external_id: str, tenant_id: str, request: Request)
     }
 
 
+def _schedule_mutation_refresh(tenant_id: str, entity_ids: list[str]) -> None:
+    """Fire-and-forget post-mutation risk refresh (bounded, failure-isolated).
+
+    Awaited inline this amplifies link/entity write latency by the full
+    1-hop neighborhood recompute (measured: link write 2x entity write on a
+    2-entity tenant; seconds at volume). Risk staleness self-heals on the
+    next refresh cycle; write latency is the user-facing cost.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    task = loop.create_task(refresh_touched_and_neighbors(tenant_id, entity_ids))
+    _MUTATION_REFRESH_TASKS.add(task)
+    task.add_done_callback(_MUTATION_REFRESH_TASKS.discard)
+
+
+_MUTATION_REFRESH_TASKS: set[asyncio.Task] = set()
+
+
 @app.post("/v1/entities", response_model=EntityResponse)
 async def upsert_entity_endpoint(body: UpsertEntityRequest):
     try:
@@ -511,7 +532,7 @@ async def upsert_entity_endpoint(body: UpsertEntityRequest):
     except UnsignedGraphToken as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     try:
-        await refresh_touched_and_neighbors(body.tenant_id, [body.external_id])
+        _schedule_mutation_refresh(body.tenant_id, [body.external_id])
     except Exception:
         log.exception(
             "mutation risk refresh failed after upsert tenant=%s entity=%s",
@@ -535,7 +556,7 @@ async def ingest_mapped_objects(body: MappedIngestRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     try:
-        await refresh_touched_and_neighbors(out["tenant_id"], [out["person_id"], out["object_id"]])
+        _schedule_mutation_refresh(out["tenant_id"], [out["person_id"], out["object_id"]])
     except Exception:
         log.exception(
             "mutation risk refresh failed after mapped ingest tenant=%s person=%s",
@@ -549,7 +570,7 @@ async def ingest_mapped_objects(body: MappedIngestRequest):
 async def update_entity_tags(external_id: str, body: TagsRequest):
     result = await update_tags(body.tenant_id, external_id, body.tags)
     try:
-        await refresh_touched_and_neighbors(body.tenant_id, [external_id])
+        _schedule_mutation_refresh(body.tenant_id, [external_id])
     except Exception:
         log.exception(
             "mutation risk refresh failed after tags tenant=%s entity=%s",
@@ -619,9 +640,7 @@ async def links_endpoint(body: LinkRequest):
         log.exception("create_link failed")
         raise HTTPException(status_code=502, detail="Unable to create graph link") from None
     try:
-        await refresh_touched_and_neighbors(
-            body.tenant_id, [body.from_external_id, body.to_external_id]
-        )
+        _schedule_mutation_refresh(body.tenant_id, [body.from_external_id, body.to_external_id])
     except Exception:
         log.exception(
             "mutation risk refresh failed after link tenant=%s from=%s to=%s",
