@@ -237,19 +237,35 @@ async def _park_evaluate_4xx(
     return True
 
 
+async def _close_nats_quietly(nc: NatsClient) -> None:
+    try:
+        await nc.close()
+    except Exception:
+        log.debug("nats_close_failed_during_startup_error", exc_info=True)
+
+
 async def _connect_nats() -> tuple[NatsClient, JetStreamContext]:
     nc = await nats.connect(settings.nats_url)
     js = nc.jetstream()
     try:
         await js.find_stream_name_by_subject(f"{settings.subject_prefix}.>")
     except Exception:
-        await js.add_stream(
-            name=settings.stream_name,
-            subjects=[f"{settings.subject_prefix}.>"],
-            retention="limits",
-            max_msgs=10_000_000,
-            max_bytes=1024 * 1024 * 1024,
-        )
+        try:
+            await js.add_stream(
+                name=settings.stream_name,
+                subjects=[f"{settings.subject_prefix}.>"],
+                retention="limits",
+                max_msgs=10_000_000,
+                max_bytes=1024 * 1024 * 1024,
+            )
+        except Exception as exc:
+            await _close_nats_quietly(nc)
+            raise RuntimeError(
+                "NATS broker has no usable JetStream (stream discovery and creation "
+                f"both failed: {exc}). Start NATS with JetStream enabled "
+                "(e.g. nats-server -js / image nats:2-alpine with '-js') and set "
+                "NATS_URL accordingly."
+            ) from exc
     dlq_subj = settings.ingest_dlq_subject.strip()
     if dlq_subj and not _dlq_overlaps_consumer(dlq_subj, settings.subject_prefix):
         try:
