@@ -7,6 +7,7 @@ RUN apt-get update \
 
 WORKDIR /repo/services/integration-ingress
 RUN pip install --no-cache-dir pip -U
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY services/core /repo/services/core
 COPY services/integration-ingress/pyproject.toml /repo/services/integration-ingress/
 COPY services/integration-ingress/alembic.ini /repo/services/integration-ingress/
@@ -16,6 +17,6 @@ COPY services/shared /repo/services/shared
 RUN sed -i \
         -e 's|file:../core|file:/repo/services/core|g' \
         /repo/services/integration-ingress/pyproject.toml \
-    && pip install --no-cache-dir -e .
+    && pip install --no-cache-dir -c /tmp/constraints.txt -e .
 ENV PYTHONPATH=/repo/services/integration-ingress/src:/repo/services/shared
 CMD ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn integration_ingress.main:app --host 0.0.0.0 --port 8003"]

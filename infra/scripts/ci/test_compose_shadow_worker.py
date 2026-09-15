@@ -70,6 +70,33 @@ class TestShadowInvestigateWorkerDeployed(unittest.TestCase):
         dockerfile = _DOCKERFILE.read_text()
         self.assertIn("COPY services/shared /app/services/shared", dockerfile)
 
+
+class TestConstraintsAdoption(unittest.TestCase):
+    """Fresh builds must resolve inside the verified-good cap set."""
+
+    SERVICES = (
+        "core-api",
+        "orchestrator",
+        "graph-service",
+        "data-plane",
+        "integration-ingress",
+        "case-api",
+        "event-ingest",
+    )
+
+    def test_constraints_file_covers_verified_set(self) -> None:
+        text = (_REPO / "infra/deploy/constraints.txt").read_text()
+        for cap in ("fastapi<", "pydantic<", "uvicorn<", "starlette<", "sqlalchemy<"):
+            self.assertIn(cap, text)
+
+    def test_every_service_dockerfile_uses_constraints(self) -> None:
+        missing = []
+        for svc in self.SERVICES:
+            dockerfile = (_REPO / f"services/{svc}/Dockerfile").read_text()
+            if "-c /tmp/constraints.txt" not in dockerfile:
+                missing.append(svc)
+        self.assertEqual(missing, [])
+
     def test_orchestrator_image_ships_shadow_agent(self) -> None:
         dockerfile = _DOCKERFILE.read_text()
         self.assertIn(
