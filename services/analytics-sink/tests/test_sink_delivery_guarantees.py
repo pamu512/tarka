@@ -25,9 +25,7 @@ def _consumer_env(monkeypatch, *, ch_client, msgs=None, flush=None):
     terminates.
     """
     monkeypatch.setattr(m.settings, "clickhouse_host", "ch" if ch_client else "")
-    sub = SimpleNamespace(
-        fetch=AsyncMock(side_effect=[list(msgs or []), asyncio.CancelledError()])
-    )
+    sub = SimpleNamespace(fetch=AsyncMock(side_effect=[list(msgs or []), asyncio.CancelledError()]))
     nc = SimpleNamespace(close=AsyncMock())
     js = MagicMock()
     js.find_stream_name_by_subject = AsyncMock(return_value="TARKA")
@@ -129,14 +127,11 @@ def test_every_analytics_route_carries_api_key_dep():
     from fastapi.routing import APIRoute
 
     protected = [
-        r
-        for r in m.app.routes
-        if isinstance(r, APIRoute) and r.path.startswith("/v1/analytics")
+        r for r in m.app.routes if isinstance(r, APIRoute) and r.path.startswith("/v1/analytics")
     ]
     assert protected, "analytics routes missing from app"
     for r in protected:
         calls = [
-            getattr(dep, "dependency", None) or getattr(dep, "call", None)
-            for dep in r.dependencies
+            getattr(dep, "dependency", None) or getattr(dep, "call", None) for dep in r.dependencies
         ]
         assert m.require_api_key in calls, f"{r.path} lacks route-level require_api_key"

@@ -68,9 +68,13 @@ async def test_anonymous_insecure_desk_can_read_promote_posture(anon_client):
 
 
 @pytest.mark.asyncio
-async def test_anonymous_insecure_desk_can_promote_shadow_pack(anon_client, tmp_path, monkeypatch):
+async def test_anonymous_insecure_desk_can_promote_shadow_pack(
+    anon_client, tmp_path, monkeypatch
+):
     monkeypatch.setenv("TARKA_RULES_DIR", str(tmp_path))
-    r = await anon_client.post("/v1/rules/shadow-packs/does-not-exist/promote?tenant_id=t1")
+    r = await anon_client.post(
+        "/v1/rules/shadow-packs/does-not-exist/promote?tenant_id=t1"
+    )
     assert r.status_code != 403, (
         "insecure desk anonymous must not 403 on promote (got "
         f"{r.status_code}: {r.text[:200]})"
