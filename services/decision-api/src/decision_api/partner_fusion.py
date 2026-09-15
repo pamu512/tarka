@@ -85,7 +85,7 @@ def graph_writeback_hints(
                 "from": {"label": "Entity", "id": entity_id},
                 "to": {"label": "Device", "id": f"fp:{fp}"},
                 "props": {
-                                        "transaction_id": transaction_id,
+                    "transaction_id": transaction_id,
                     "source": "fingerprint",
                 },
             }
@@ -111,7 +111,7 @@ def graph_writeback_hints(
                 "from": {"label": "Entity", "id": entity_id},
                 "to": {"label": "Place", "id": place_id},
                 "props": {
-                                        "transaction_id": transaction_id,
+                    "transaction_id": transaction_id,
                     "source": "incognia",
                 },
             }
@@ -141,7 +141,7 @@ def graph_writeback_hints(
                     "from": {"label": "Entity", "id": entity_id},
                     "to": {"label": "Device", "id": did},
                     "props": {
-                                                "transaction_id": transaction_id,
+                        "transaction_id": transaction_id,
                         "source": "host_device_cluster",
                     },
                 }
@@ -166,7 +166,7 @@ def graph_writeback_hints(
                 "from": {"label": "Entity", "id": entity_id},
                 "to": {"label": "List", "id": lid},
                 "props": {
-                                        "transaction_id": transaction_id,
+                    "transaction_id": transaction_id,
                     "source": "opensanctions",
                 },
             }

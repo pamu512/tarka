@@ -27,9 +27,24 @@ class TestResolutionCandidates(unittest.TestCase):
         from graph_service.entity_resolution import resolve_entity_candidates
 
         groups = [
-            {"attribute": "device_id", "shared_value": "d-1", "entity_ids": ["u1", "u2"], "group_size": 2},
-            {"attribute": "device_id", "shared_value": "d-2", "entity_ids": ["u2"], "group_size": 1},
-            {"attribute": "email", "shared_value": "e@x", "entity_ids": ["u1", "u3"], "group_size": 2},
+            {
+                "attribute": "device_id",
+                "shared_value": "d-1",
+                "entity_ids": ["u1", "u2"],
+                "group_size": 2,
+            },
+            {
+                "attribute": "device_id",
+                "shared_value": "d-2",
+                "entity_ids": ["u2"],
+                "group_size": 1,
+            },
+            {
+                "attribute": "email",
+                "shared_value": "e@x",
+                "entity_ids": ["u1", "u3"],
+                "group_size": 2,
+            },
         ]
 
         async def _run() -> None:
@@ -118,8 +133,15 @@ class TestResolveEntities(unittest.TestCase):
             with self.assertRaises(ValueError):
                 await resolve_entities(
                     "acme",
-                    [{"from_id": "u1", "to_id": "u1", "attribute": "device_id",
-                      "shared_value": "d", "strategy": "shared_attribute"}],
+                    [
+                        {
+                            "from_id": "u1",
+                            "to_id": "u1",
+                            "attribute": "device_id",
+                            "shared_value": "d",
+                            "strategy": "shared_attribute",
+                        }
+                    ],
                     create_link=AsyncMock(),
                 )
 
@@ -137,10 +159,20 @@ class TestResolveEntities(unittest.TestCase):
 
         async def _run() -> None:
             candidates = [
-                {"from_id": "u1", "to_id": "u2", "attribute": "device_id",
-                 "shared_value": "d-1", "strategy": "shared_attribute"},
-                {"from_id": "u2", "to_id": "u1", "attribute": "device_id",
-                 "shared_value": "d-1", "strategy": "shared_attribute"},
+                {
+                    "from_id": "u1",
+                    "to_id": "u2",
+                    "attribute": "device_id",
+                    "shared_value": "d-1",
+                    "strategy": "shared_attribute",
+                },
+                {
+                    "from_id": "u2",
+                    "to_id": "u1",
+                    "attribute": "device_id",
+                    "shared_value": "d-1",
+                    "strategy": "shared_attribute",
+                },
             ]
             await resolve_entities("acme", candidates, create_link=_capture)
             self.assertEqual(len(calls), 1, "u1~u2 and u2~u1 are the same pair")
