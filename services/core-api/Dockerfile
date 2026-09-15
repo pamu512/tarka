@@ -113,4 +113,9 @@ print("OK package audit")
 PY
 ENV PYTHONPATH=/app/src:/app:/app/shared:/app/packages/shared-core
 ENV RULES_PATH=/app/rules
-CMD ["/bin/sh", "-c", "alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head && exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]
+# Retry the migration boot: on a freshly created compose network the embedded DNS
+# resolver can transiently fail (psycopg "failed to resolve host" EAI_AGAIN/EAI_NODATA)
+# for up to a few minutes on Docker Desktop; with no restart policy a single early
+# failure kills the container for good (CI benchmark job health-wait is 240s).
+# 60 x 5s = 300s of retries covers the observed window.
+CMD ["/bin/sh", "-c", "i=0; until alembic -c /app/config/decision_alembic.ini upgrade head && alembic -c /app/config/case_alembic.ini upgrade head; do i=$((i+1)); echo \"boot: migration attempt $i failed, retrying\" >&2; [ \"$i\" -ge 60 ] && exit 1; sleep 5; done; exec uvicorn core_api.main:app --host 0.0.0.0 --port 8000"]
