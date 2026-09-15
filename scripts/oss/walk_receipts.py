@@ -193,8 +193,7 @@ def run_walk(
             print(f"[fail] evaluate {label} status={st} body={out!r}", file=sys.stderr)
             if st in (401, 403):
                 print(
-                    "Hint: set ALLOW_INSECURE_NO_AUTH=true in infra/deploy/.env "
-                    "(or pass API_KEY).",
+                    "Hint: set ALLOW_INSECURE_NO_AUTH=true in infra/deploy/.env (or pass API_KEY).",
                     file=sys.stderr,
                 )
             return 1
