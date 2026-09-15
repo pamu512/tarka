@@ -146,8 +146,9 @@ class CaseHistoryORM(Base):
     )
     audit_log_id: Mapped[int | None] = mapped_column(
         Integer,
-        ForeignKey("audit_logs.id", ondelete="CASCADE"),
         nullable=True,
+        index=True,
+        doc="Logical ref to ``audit_logs.id`` (physical FK omitted: audit_logs is owned by shared-core migrations and may not exist when orchestrator boots standalone on the shared DB).",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -161,10 +162,13 @@ class CaseHistoryORM(Base):
     auth_token_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     lifecycle_case: Mapped["CaseORM"] = relationship("CaseORM", back_populates="history_rows")
+    # No physical FK: audit_logs is owned by shared-core. Join declared explicitly.
     audit_log: Mapped[AuditLog] = relationship(
         "AuditLog",
+        primaryjoin="CaseHistoryORM.audit_log_id == AuditLog.id",
         foreign_keys=[audit_log_id],
         viewonly=True,
+        uselist=False,
     )
 
 
@@ -185,10 +189,9 @@ class CaseORM(Base):
     case_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     transaction_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("audit_logs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        doc="FK to ``audit_logs.id`` for the first ingest event that opened this case.",
+        doc="Logical ref to ``audit_logs.id`` (physical FK omitted: audit_logs is owned by shared-core; see case_history.audit_log_id).",
     )
     user_link_key: Mapped[str] = mapped_column(
         String(256),
@@ -222,8 +225,10 @@ class CaseORM(Base):
 
     audit_log: Mapped[AuditLog] = relationship(
         "AuditLog",
+        primaryjoin="CaseORM.transaction_id == AuditLog.id",
         foreign_keys=[transaction_id],
         viewonly=True,
+        uselist=False,
     )
     history_rows: Mapped[list["CaseHistoryORM"]] = relationship(
         "CaseHistoryORM",
