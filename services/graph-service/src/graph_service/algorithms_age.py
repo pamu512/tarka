@@ -401,15 +401,14 @@ def entity_risk_sql(hop_depth: int) -> str:
 
         OPTIONAL MATCH (n)-[r]-(neighbor)
         WHERE neighbor.tenant_id = $tenant_id
+        WITH n, neighbor,
+             size([t IN COALESCE(neighbor.tags, [])
+                   WHERE t IN $high_risk_tags]) > 0 AS nb_flagged
+
         WITH n,
              count(DISTINCT neighbor) AS conn_count,
+             count(DISTINCT CASE nb_flagged WHEN true THEN neighbor ELSE null END) AS flagged_neighbors,
              collect(DISTINCT neighbor) AS neighbors
-
-        WITH n, conn_count, neighbors,
-             size([nb IN neighbors
-                   WHERE ANY(t IN COALESCE(nb.tags, [])
-                             WHERE t IN $high_risk_tags)
-             ]) AS flagged_neighbors
 
         WITH n, conn_count, flagged_neighbors,
              conn_count + 1 AS community_size
