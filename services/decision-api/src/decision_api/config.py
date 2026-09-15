@@ -1,6 +1,6 @@
 import os
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -238,9 +238,17 @@ class Settings(BaseSettings):
     ).strip()
     #: When true and ``case_api_url`` set, auto-create a case on deny/review outcomes.
     #: Opt-out. Unset / lite default mints leftovers on material deny/review.
-    case_create_on_deny_review: bool = os.environ.get(
-        "CASE_CREATE_ON_DENY_REVIEW", "true"
-    ).strip().lower() not in ("0", "false", "no", "off")
+    #: Empty string (compose nested interpolation with no token set) = False, not
+    #: a boot crash — S1 semantics: no token, no auto-case.
+    case_create_on_deny_review: bool = True
+
+    @field_validator("case_create_on_deny_review", mode="before")
+    @classmethod
+    def _empty_bool_means_false(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return False
+        return value
+
     #: Opt-in. FLAG is residual; mint a leftover only when a named desk turns this on.
     flag_mints_leftover: bool = _flag_mints_leftover()
     #: S2S token for internal case-api calls (sent as X-Internal-Token). Avoids
