@@ -100,7 +100,10 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/decisions/v1/health')"]
+      # Sends the first API key when set: once API_KEYS is configured the
+      # health route requires auth and an anonymous probe 401s (container
+      # flaps unhealthy while the service is fine).
+      test: ["CMD", "python", "-c", "import os,urllib.request; r=urllib.request.Request('http://localhost:8000/decisions/v1/health'); k=os.environ.get('API_KEYS','').split(',')[0].strip(); k and r.add_header('x-api-key',k); urllib.request.urlopen(r)"]
       interval: 10s
       timeout: 5s
       retries: 5
