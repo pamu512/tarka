@@ -76,7 +76,12 @@ def liveness_http(
 def _payload_for_decision_api(msg: dict[str, Any]) -> dict[str, Any]:
     inner = msg.get("evaluate_request")
     src = inner if isinstance(inner, dict) else msg
-    return {k: v for k, v in src.items() if k not in _INGEST_INTERNAL_KEYS}
+    out = {k: v for k, v in src.items() if k not in _INGEST_INTERNAL_KEYS}
+    if not str(out.get("role") or "").strip():
+        # EvaluateRequest.role is required; canonical default for producers
+        # that never carried a party role (matches the quickstart smoke).
+        out["role"] = "member"
+    return out
 
 
 def _idempotency_redis_key(tenant_id: str, idempotency_key: str) -> str:
@@ -544,6 +549,9 @@ class EventPayload(BaseModel):
     tenant_id: str
     event_type: str
     entity_id: str
+    #: Party role required by Decision API evaluate; unknown producers omit it,
+    #: so the consumer maps a canonical default when absent.
+    role: str | None = None
     session_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     device_context: dict[str, Any] | None = None

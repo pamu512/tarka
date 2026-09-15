@@ -10,7 +10,8 @@ from tarka_shared.ingest_contract_v1 import allowed_event_types, parse_env_event
 _TENANT_KEYS = ("tenant_id", "tenantId")
 _ENTITY_KEYS = ("entity_id", "entityId", "user_id", "userId", "customer_id", "customerId")
 _TYPE_KEYS = ("event_type", "eventType", "type")
-_SKIP = frozenset(_TENANT_KEYS + _ENTITY_KEYS + _TYPE_KEYS + ("metadata", "payload"))
+_ROLE_KEYS = ("role", "party_role")
+_SKIP = frozenset(_TENANT_KEYS + _ENTITY_KEYS + _TYPE_KEYS + _ROLE_KEYS + ("metadata", "payload"))
 
 
 def _first_str(body: dict[str, Any], keys: tuple[str, ...]) -> str | None:
@@ -53,6 +54,9 @@ def heuristic_map_to_evaluate_request(
         "tenant_id": tenant,
         "entity_id": entity,
         "event_type": event_type,
+        # EvaluateRequest.role is required; unknown producers omit it. "member"
+        # matches the canonical smoke/quickstart party role.
+        "role": _first_str(body, _ROLE_KEYS) or "member",
         "payload": payload,
         "metadata": meta,
     }

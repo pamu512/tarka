@@ -230,8 +230,20 @@ class TestPayloadForDecisionApi:
             "tenant_id": "t1",
             "event_type": "login",
             "entity_id": "u1",
+            "role": "member",
             "payload": {},
         }
+
+    def test_explicit_role_preserved(self):
+        raw = {
+            "tenant_id": "t1",
+            "event_type": "payment",
+            "entity_id": "u1",
+            "role": "buyer",
+            "payload": {},
+        }
+        out = _payload_for_decision_api(raw)
+        assert out["role"] == "buyer"
 
 
 class TestWebSocketIngest:
