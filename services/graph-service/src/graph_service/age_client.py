@@ -416,30 +416,28 @@ async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
 
 async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict[str, Any]) -> None:
     pool = await get_pool()
-    q = """
+    # AGE raises "Entity failed to be updated" when SET assigns a null param,
+    # so only set the properties this payload actually carries.
+    available = {
+        "risk_score": props.get("risk_score"),
+        "risk_factors": list(props.get("risk_factors") or []),
+        "risk_computed_at": props.get("risk_computed_at"),
+        "relation_count": props.get("relation_count"),
+        "relation_growth_1h": props.get("relation_growth_1h"),
+        "relation_growth_24h": props.get("relation_growth_24h"),
+    }
+    present = {k: v for k, v in available.items() if v is not None}
+    if not present:
+        return
+    assignments = ", ".join(f"n.{key} = ${key}" for key in present)
+    q = f"""
     SELECT * FROM ag_catalog.cypher('tarka'::name, $$
         MATCH (n) WHERE n.tenant_id = $tenant_id AND n.external_id = $entity_id
-        SET n.risk_score = $risk_score,
-            n.risk_factors = $risk_factors,
-            n.risk_computed_at = $risk_computed_at,
-            n.relation_count = $relation_count,
-            n.relation_growth_1h = $relation_growth_1h,
-            n.relation_growth_24h = $relation_growth_24h
+        SET {assignments}
         RETURN n
     $$::cstring, $1::ag_catalog.agtype) as (n ag_catalog.agtype);
     """
-    params_json = json.dumps(
-        {
-            "tenant_id": tenant_id,
-            "entity_id": entity_id,
-            "risk_score": props.get("risk_score"),
-            "risk_factors": list(props.get("risk_factors") or []),
-            "risk_computed_at": props.get("risk_computed_at"),
-            "relation_count": props.get("relation_count"),
-            "relation_growth_1h": props.get("relation_growth_1h"),
-            "relation_growth_24h": props.get("relation_growth_24h"),
-        }
-    )
+    params_json = json.dumps({"tenant_id": tenant_id, "entity_id": entity_id, **present})
     async with _acquire() as conn:
         await conn.execute(q, params_json)
 
