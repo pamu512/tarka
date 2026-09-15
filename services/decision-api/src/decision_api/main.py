@@ -2286,6 +2286,7 @@ async def _graph_upsert(
                 "properties": {
                     "trace_id": trace_id,
                     "event_type": body.event_type,
+                    "decision_id": f"dec:{trace_id}",
                 },
             },
             headers=_upstream_headers(),
@@ -2339,6 +2340,7 @@ async def _graph_upsert(
                 "properties": {
                     "trace_id": trace_id,
                     "event_type": body.event_type,
+                    "decision_id": f"dec:{trace_id}",
                 },
             },
             headers=_upstream_headers(),
@@ -2353,7 +2355,7 @@ async def _graph_upsert(
                     "from_external_id": sess_ext,
                     "to_external_id": cell,
                     "relationship": "SEEN_AT",
-                    "properties": {"trace_id": trace_id},
+                    "properties": {"trace_id": trace_id, "decision_id": f"dec:{trace_id}"},
                 },
                 headers=_upstream_headers(),
             )
