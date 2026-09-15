@@ -500,22 +500,52 @@ async def get_entity_history(external_id: str, tenant_id: str, request: Request)
 
 
 def _schedule_mutation_refresh(tenant_id: str, entity_ids: list[str]) -> None:
-    """Fire-and-forget post-mutation risk refresh (bounded, failure-isolated).
+    """Coalesced, capped, fire-and-forget post-mutation risk refresh.
 
-    Awaited inline this amplifies link/entity write latency by the full
-    1-hop neighborhood recompute (measured: link write 2x entity write on a
-    2-entity tenant; seconds at volume). Risk staleness self-heals on the
-    next refresh cycle; write latency is the user-facing cost.
+    Awaited inline this amplified write latency by the full 1-hop neighborhood
+    recompute (link write 2x entity write measured; seconds at volume).
+    Un-coalesced fire-and-forget then saturated the loop (800 writes → 800
+    concurrent refreshes → 2 writes/sec). This version merges pending
+    entities per tenant into one delayed sweep and caps concurrency: cheap
+    writes now, at most one refresh per entity per sweep window.
     """
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return
-    task = loop.create_task(refresh_touched_and_neighbors(tenant_id, entity_ids))
+    key = tenant_id
+    _MUTATION_REFRESH_PENDING.setdefault(key, set()).update(entity_ids)
+    if key in _MUTATION_REFRESH_SWEEPS:
+        return  # a sweep is already scheduled; it will pick these up
+    _MUTATION_REFRESH_PENDING[key].update(entity_ids)
+
+    async def _sweep() -> None:
+        await asyncio.sleep(_MUTATION_REFRESH_DELAY_SEC)
+        while True:
+            ids = sorted(_MUTATION_REFRESH_PENDING.pop(key, set()))
+            _MUTATION_REFRESH_SWEEPS.discard(key)
+            if not ids:
+                return
+            try:
+                async with _MUTATION_REFRESH_SEMAPHORE:
+                    await refresh_touched_and_neighbors(tenant_id, ids[:_MUTATION_REFRESH_BATCH])
+            except Exception:
+                log.exception("mutation risk sweep failed tenant=%s", tenant_id)
+            leftovers = _MUTATION_REFRESH_PENDING.get(key)
+            if not leftovers:
+                return
+            _MUTATION_REFRESH_SWEEPS.add(key)  # re-arm for the remainder
+
+    task = loop.create_task(_sweep())
     _MUTATION_REFRESH_TASKS.add(task)
     task.add_done_callback(_MUTATION_REFRESH_TASKS.discard)
 
 
+_MUTATION_REFRESH_DELAY_SEC = 0.25
+_MUTATION_REFRESH_BATCH = 64
+_MUTATION_REFRESH_SEMAPHORE = asyncio.Semaphore(2)
+_MUTATION_REFRESH_PENDING: dict[str, set[str]] = {}
+_MUTATION_REFRESH_SWEEPS: set[str] = set()
 _MUTATION_REFRESH_TASKS: set[asyncio.Task] = set()
 
 
