@@ -19,4 +19,6 @@ RUN sed -i \
         /repo/services/integration-ingress/pyproject.toml \
     && pip install --no-cache-dir -c /tmp/constraints.txt -e .
 ENV PYTHONPATH=/repo/services/integration-ingress/src:/repo/services/shared
-CMD ["/bin/sh", "-c", "alembic upgrade head && exec uvicorn integration_ingress.main:app --host 0.0.0.0 --port 8003"]
+# First boot / ops contexts run migrations; compose sets TARKA_SKIP_STARTUP_MIGRATIONS=1
+# (same contract as case-api) so routine restarts never execute DDL unconditionally.
+CMD ["/bin/sh", "-c", "if [ \"$(echo \"$TARKA_SKIP_STARTUP_MIGRATIONS\" | tr '[:upper:]' '[:lower:]')\" != \"1\" ]; then alembic upgrade head; fi; exec uvicorn integration_ingress.main:app --host 0.0.0.0 --port 8003"]
