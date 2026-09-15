@@ -17,6 +17,7 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
 
 COPY packages/deploy-settings /packages/deploy-settings
 COPY crates/tarka-py/python/tarka ./crates/tarka-py/python/tarka
+COPY infra/deploy/constraints.txt ./infra/deploy/constraints.txt
 COPY services/orchestrator/pyproject.toml services/orchestrator/README.md services/orchestrator/requirements.txt ./services/orchestrator/
 COPY services/orchestrator ./services/orchestrator
 COPY services/ingestor ./services/ingestor
@@ -24,8 +25,8 @@ COPY services/rule_engine/pyproject.toml services/rule_engine/README.md ./servic
 COPY services/rule_engine ./services/rule_engine
 
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install --prefix=/install --no-cache-dir ./services/rule_engine \
-    && python -m pip install --prefix=/install --no-cache-dir ./services/orchestrator \
+    && python -m pip install --prefix=/install --no-cache-dir -c /tmp/constraints.txt ./services/rule_engine \
+    && python -m pip install --prefix=/install --no-cache-dir -c /tmp/constraints.txt ./services/orchestrator \
     && python -m pip install --prefix=/install --no-cache-dir "nats-py>=2.7.0" \
     && python -m pip install --prefix=/install --no-cache-dir -r ./services/orchestrator/requirements.txt
 
@@ -53,6 +54,7 @@ COPY services/ingestor /app/services/ingestor
 COPY services/rule_engine /app/services/rule_engine
 COPY services/shadow_agent /app/services/shadow_agent
 COPY services/shared /app/services/shared
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 
 USER tarka

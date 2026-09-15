@@ -7,10 +7,11 @@ RUN apt-get update \
 
 WORKDIR /app
 RUN pip install --no-cache-dir pip -U
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY services/event-ingest/pyproject.toml /app/
 COPY services/event-ingest/src/event_ingest /app/src/event_ingest
 COPY services/shared /app/shared
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -c /tmp/constraints.txt -e .
 ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core
 CMD ["uvicorn", "event_ingest.main:app", "--host", "0.0.0.0", "--port", "8007"]

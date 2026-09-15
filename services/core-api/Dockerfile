@@ -42,6 +42,7 @@ COPY services/core /app/core
 COPY services/analytics /app/analytics
 COPY services/shared /app/shared
 COPY adapters /app/adapters
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 COPY services/core-api/pyproject.toml /app/
 COPY services/decision-api/src/decision_api /app/decision_api
 COPY services/decision-api/alembic /app/decision_migrations
@@ -61,8 +62,8 @@ RUN sed -i -e 's|file:../core|file:/app/core|g' /app/analytics/pyproject.toml \
         -e 's|file:../core|file:/app/core|g' \
         -e 's|file:../analytics|file:/app/analytics|g' \
         /app/pyproject.toml \
-    && pip install --no-cache-dir /wheels/*.whl \
-    && pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir -c /tmp/constraints.txt /wheels/*.whl \
+    && pip install --no-cache-dir -c /tmp/constraints.txt -e . \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
     && rm -f /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \

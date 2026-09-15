@@ -1,0 +1,25 @@
+# Verified-good upper bounds for the shared web/runtime stack.
+#
+# Purpose: every service Dockerfile installs unpinned pyproject floors, so a
+# fresh build can silently jump to a brand-new release overnight. These caps
+# (passed via `-c constraints.txt`) freeze resolution to the set that is
+# actually boot-tested in CI, while pyproject floors continue to express
+# minimums. Bump a cap here only after a green CI run on the newer version.
+#
+# Usage in a Dockerfile layer:
+#   COPY infra/deploy/constraints.txt /tmp/constraints.txt
+#   RUN pip install -c /tmp/constraints.txt -e .
+#
+# Last verified-good set (CI, 2026-09-15): fastapi 0.141.1, starlette 1.6.0,
+# pydantic 2.13.5, pydantic-settings 2.15.0, uvicorn 0.53.0, sqlalchemy 2.0.53.
+
+fastapi<0.142
+starlette<1.7
+pydantic<2.14
+pydantic-core<2.47
+pydantic-settings<2.16
+uvicorn<0.54
+httpx<0.29
+anyio<4.16
+sqlalchemy<2.1
+asyncpg<0.32
