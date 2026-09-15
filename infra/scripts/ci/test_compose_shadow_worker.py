@@ -64,6 +64,12 @@ class TestShadowInvestigateWorkerDeployed(unittest.TestCase):
         init = (_REPO / "crates/tarka-py/python/tarka/__init__.py").read_text()
         self.assertIn("except ImportError", init)
 
+    def test_orchestrator_image_ships_services_shared(self) -> None:
+        """deps/v1_api_guard imports minute_rate_limit from services/shared;
+        without it the uvicorn API entrypoint dies at import (workers fine)."""
+        dockerfile = _DOCKERFILE.read_text()
+        self.assertIn("COPY services/shared /app/services/shared", dockerfile)
+
     def test_orchestrator_image_ships_shadow_agent(self) -> None:
         dockerfile = _DOCKERFILE.read_text()
         self.assertIn(

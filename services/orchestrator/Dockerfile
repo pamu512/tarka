@@ -52,6 +52,7 @@ COPY services/orchestrator /app/services/orchestrator
 COPY services/ingestor /app/services/ingestor
 COPY services/rule_engine /app/services/rule_engine
 COPY services/shadow_agent /app/services/shadow_agent
+COPY services/shared /app/services/shared
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 
 USER tarka
