@@ -225,9 +225,11 @@ class TestTipClaimsHonesty(unittest.TestCase):
                 self.assertNotIn(phrase, text, rel)
 
     def test_tls_and_gcp_do_not_name_bank_beachhead_or_case_crm(self) -> None:
-        tls = (_REPO / "docs/docs/guides/tls-pinning-and-signed-requests.md").read_text(
-            encoding="utf-8"
-        ).lower()
+        tls = (
+            (_REPO / "docs/docs/guides/tls-pinning-and-signed-requests.md")
+            .read_text(encoding="utf-8")
+            .lower()
+        )
         gcp = (_REPO / "docs/docs/guides/deployment-gcp.md").read_text(encoding="utf-8").lower()
         self.assertNotIn("fintech / banking", tls)
         self.assertNotIn("crypto-style", tls)
