@@ -205,6 +205,17 @@ async def upsert_search_keys(
             )
 
 
+async def delete_search_keys(tenant_id: str, external_id: str) -> None:
+    """Remove a deleted entity's search index rows (delete counterpart of upsert)."""
+    pool = await _acquire()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM search_keys WHERE tenant_id = $1 AND entity_external_id = $2",
+            tenant_id,
+            external_id,
+        )
+
+
 async def search_prefix(
     tenant_id: str,
     q: str,

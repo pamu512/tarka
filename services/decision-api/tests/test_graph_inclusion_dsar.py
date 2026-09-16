@@ -71,3 +71,47 @@ class TestGraphInclusionInDSAR(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGraphErasureInDSAR(unittest.IsolatedAsyncioTestCase):
+    async def test_erasure_deletes_graph_entity_when_wired(self) -> None:
+        from decision_api.compliance_api import _graph_subject_erasure
+
+        with patch(
+            "decision_api.compliance_api._delete_graph_entity",
+            AsyncMock(return_value=True),
+        ):
+            block = await _graph_subject_erasure(
+                "t1", "u1", graph_url="http://graph:8001"
+            )
+        self.assertEqual(block["status"], "deleted")
+
+    async def test_erasure_reports_absence(self) -> None:
+        from decision_api.compliance_api import _graph_subject_erasure
+
+        with patch(
+            "decision_api.compliance_api._delete_graph_entity",
+            AsyncMock(return_value=False),
+        ):
+            block = await _graph_subject_erasure(
+                "t1", "u1", graph_url="http://graph:8001"
+            )
+        self.assertEqual(block["status"], "no_graph_data")
+
+    async def test_erasure_not_configured(self) -> None:
+        from decision_api.compliance_api import _graph_subject_erasure
+
+        block = await _graph_subject_erasure("t1", "u1", graph_url="")
+        self.assertEqual(block["status"], "not_configured")
+
+    async def test_erasure_failsoft_on_hop_failure(self) -> None:
+        from decision_api.compliance_api import _graph_subject_erasure
+
+        async def _boom(*_a, **_k):
+            raise RuntimeError("graph down")
+
+        with patch("decision_api.compliance_api._delete_graph_entity", _boom):
+            block = await _graph_subject_erasure(
+                "t1", "u1", graph_url="http://graph:8001"
+            )
+        self.assertEqual(block["status"], "unavailable")
