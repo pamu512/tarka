@@ -520,3 +520,21 @@ export function pathHighlightLinkKeys(expl: GraphPathExplanation): Set<string> {
   }
   return keys;
 }
+
+/** Subject export (DSAR access): build the entity export URL for the graph plane. */
+export function entityExportPath(entityId: string, tenantId: string): string {
+  const q = new URLSearchParams({ tenant_id: tenantId });
+  return `/api/graph/v1/entities/${encodeURIComponent(entityId)}/export?${q}`;
+}
+
+/** Human summary of a subject export payload (node/edge counts for the analyst). */
+export function summarizeEntityExport(payload: {
+  nodes?: unknown[];
+  edges?: unknown[];
+  deep_context?: Record<string, unknown> | null;
+}): string {
+  const n = Array.isArray(payload.nodes) ? payload.nodes.length : 0;
+  const e = Array.isArray(payload.edges) ? payload.edges.length : 0;
+  const ctx = payload.deep_context ? "context included" : "no context";
+  return `${n} node(s), ${e} edge(s) — ${ctx}`;
+}
