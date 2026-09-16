@@ -18,6 +18,7 @@ import { SupportIdHint } from "../components/SupportIdHint";
 import PlaneOff from "./PlaneOff";
 import { useFailoverPlanes } from "../context/FailoverPlaneContext";
 import {
+  entityExportPath,
   filterWorkspaceNodes,
   parseGraphWorkspaceParams,
   pathHighlightLinkKeys,
@@ -25,6 +26,7 @@ import {
   searchHitMatchedOn,
   searchHitViaSubtitle,
   storedDisplayRisk,
+  summarizeEntityExport,
   typeHistogram,
   buildPersonHuntGraph,
   decisionToastText,
@@ -152,6 +154,8 @@ export default function GraphInvestigationPage() {
   const asOf = parsed.asOf;
   const [asOfDraft, setAsOfDraft] = useState(asOf ?? "");
   const [asOfNote, setAsOfNote] = useState<string | null>(null);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const [exportBusy, setExportBusy] = useState(false);
   const leftoverId = params.get("leftover_id");
   const leftoverPack = params.get("pack");
   const leftoverHits = params.get("hits");
@@ -781,6 +785,40 @@ export default function GraphInvestigationPage() {
             ) : null}
           </span>
         </label>
+        <button
+          type="button"
+          disabled={disabled || !entityId || exportBusy}
+          onClick={() => {
+            setExportBusy(true);
+            setExportNote(null);
+            fetch(entityExportPath(entityId, tenantId), { credentials: "include" })
+              .then(async (r) => {
+                if (!r.ok) throw new Error(`export failed (${r.status})`);
+                return r.json();
+              })
+              .then((payload: { nodes?: unknown[]; edges?: unknown[]; deep_context?: Record<string, unknown> | null }) => {
+                setExportNote(summarizeEntityExport(payload));
+                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `entity-export-${entityId}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              })
+              .catch(() => setExportNote("export unavailable"))
+              .finally(() => setExportBusy(false));
+          }}
+          className="px-2 py-1 rounded-lg bg-slate-100/8 hover:bg-slate-100/14 border border-white/10 text-[11px] text-gray-300 transition-colors"
+          title="Download the graph-plane subject export (DSAR access) for this entity"
+        >
+          {exportBusy ? "Exporting…" : "Export"}
+        </button>
+        {exportNote ? (
+          <span className="text-[11px] text-gray-400" data-testid="entity-export-note">
+            {exportNote}
+          </span>
+        ) : null}
       </div>
 
       {error ? (
