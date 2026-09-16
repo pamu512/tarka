@@ -90,6 +90,13 @@ services:
       #   default-true + empty token made every auto-case call 403 into log.warning)
       CASE_API_URL: ${CASE_API_URL:-http://127.0.0.1:8000/cases}
       CASE_INTERNAL_TOKEN: ${CASE_INTERNAL_TOKEN:-tarka-lite-dev-internal-token}
+      # SAR FinCEN SFTP transport (case-api sub-app worker runs in this process).
+      # Empty host = feature off (worker fails queued intents honestly).
+      FINCEN_BSA_SFTP_HOST: ${FINCEN_BSA_SFTP_HOST:-}
+      FINCEN_BSA_SFTP_USER: ${FINCEN_BSA_SFTP_USER:-}
+      FINCEN_BSA_SFTP_PASSWORD: ${FINCEN_BSA_SFTP_PASSWORD:-}
+      FINCEN_BSA_SFTP_PORT: ${FINCEN_BSA_SFTP_PORT:-22}
+      FINCEN_BSA_SFTP_REMOTE_DIR: ${FINCEN_BSA_SFTP_REMOTE_DIR:-/upload}
       TREND_AGENT_DATA_DIR: /var/trend-agent
       TREND_TICK_SKIP_LLM: "1"
       TREND_BASELINE_MIN_N: "3"
