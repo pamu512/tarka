@@ -89,9 +89,13 @@ spec:
             - name: API_KEYS
               value: {{ .Values.dataPlane.apiKeys | default "" | quote }}
             {{- end }}
-            {{- if .Values.dataPlane.orchestratorUrl }}
+            {{- $orchUrl := .Values.dataPlane.orchestratorUrl }}
+            {{- if and (not $orchUrl) .Values.orchestrator.enabled }}
+            {{-   $orchUrl = printf "http://%s-orchestrator:%v" (include "tarka.fullname" .) .Values.orchestrator.port }}
+            {{- end }}
+            {{- if $orchUrl }}
             - name: ORCHESTRATOR_URL
-              value: {{ .Values.dataPlane.orchestratorUrl | quote }}
+              value: {{ $orchUrl | quote }}
             - name: ORCHESTRATOR_INTERNAL_SECRET
               {{- if .Values.global.appSecretsName }}
               valueFrom:
