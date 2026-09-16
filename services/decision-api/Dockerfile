@@ -7,6 +7,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repo/services/decision-api
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 RUN pip install --no-cache-dir -U pip wheel \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
@@ -25,7 +26,7 @@ COPY services/decision-api/src /repo/services/decision-api/src
 COPY services/decision-api/rules /repo/services/decision-api/rules
 COPY services/decision-api/static /repo/services/decision-api/static
 COPY adapters /repo/adapters
-RUN pip install --no-cache-dir -e . \
+RUN pip install -c /tmp/constraints.txt --no-cache-dir -e . \
     && pip uninstall -y setuptools msgpack || true \
     && pip install --no-cache-dir "setuptools>=83.0.0" "msgpack>=1.2.1" \
     && rm -f /usr/local/lib/python*/site-packages/pip/_vendor/bom.cdx.json \

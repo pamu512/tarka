@@ -4,6 +4,7 @@
 FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /build
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -21,8 +22,8 @@ COPY services/shared ./services/shared
 COPY packages/shared-core/tarka_shared ./packages/shared-core/tarka_shared
 
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install --prefix=/install --no-cache-dir "./services/shadow_agent" \
-    && python -m pip install --prefix=/install --no-cache-dir "openai>=1.50.0"
+    && python -m pip install -c /tmp/constraints.txt --prefix=/install --no-cache-dir "./services/shadow_agent" \
+    && python -m pip install -c /tmp/constraints.txt --prefix=/install --no-cache-dir "openai>=1.50.0"
 
 FROM python:3.12-slim-bookworm AS runtime
 

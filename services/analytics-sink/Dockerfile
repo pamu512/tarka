@@ -6,10 +6,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 RUN pip install --no-cache-dir pip -U
 COPY services/analytics-sink/pyproject.toml /app/
 COPY services/analytics-sink/src/analytics_sink /app/src/analytics_sink
 COPY services/shared /app/shared
-RUN pip install --no-cache-dir -e .
+RUN pip install -c /tmp/constraints.txt --no-cache-dir -e .
 ENV PYTHONPATH=/app/src:/app/shared
 CMD ["uvicorn", "analytics_sink.main:app", "--host", "0.0.0.0", "--port", "8008"]
