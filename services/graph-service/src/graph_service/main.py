@@ -58,6 +58,7 @@ from .schemas import EntityRiskResponse
 from .graph_runtime import (
     close_graph_backend,
     create_link,
+    delete_entity,
     get_tags,
     list_entity_risk_top,
     query_entity_deep_context,
@@ -486,6 +487,32 @@ async def export_entity(external_id: str, tenant_id: str, request: Request):
         "edges": data.get("edges") or [],
         "deep_context": deep,
     }
+
+
+@app.delete("/v1/entities/{external_id}")
+async def delete_entity_route(external_id: str, tenant_id: str, request: Request):
+    """Subject deletion (DSAR erasure counterpart of the export above).
+
+    ``delete_entity`` DETACH-deletes the node and its edges. Erasure flows
+    call this after exporting; absence is 404 so callers can distinguish
+    "already gone" from "deleted now".
+    """
+    data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
+    if _entity_from_subgraph(data, external_id) is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    await delete_entity(tenant_id, external_id)
+    # The search index (Postgres search_keys) outlives the node; drop its rows
+    # so a deleted subject stops appearing in entity search.
+    from .search_keys import delete_search_keys
+
+    try:
+        await delete_search_keys(tenant_id, external_id)
+    except Exception:
+        # AGE node is gone; a stale index row is recoverable, not data loss.
+        log.warning(
+            "search_keys_delete_failed tenant=%s entity=%s", tenant_id, external_id, exc_info=True
+        )
+    return {"entity_id": external_id, "tenant_id": tenant_id, "deleted": True}
 
 
 @app.get("/v1/entities/{entity_id}/relation-growth")

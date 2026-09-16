@@ -95,6 +95,49 @@ async def _graph_subject_export(
     return {"status": "included", "export": export}
 
 
+async def _delete_graph_entity(
+    tenant_id: str, entity_id: str, graph_url: str
+) -> bool | None:
+    """DELETE /v1/entities/{id} on graph-service. True=deleted, False=absent, error raises."""
+    import httpx
+
+    key = (
+        os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or ""
+    ).strip()
+    headers = {"x-api-key": key} if key else {}
+    async with httpx.AsyncClient(timeout=_GRAPH_TIMEOUT_SECONDS) as client:
+        r = await client.delete(
+            f"{graph_url.rstrip('/')}/v1/entities/{entity_id}",
+            params={"tenant_id": tenant_id},
+            headers=headers,
+        )
+    if r.status_code == 404:
+        return False
+    r.raise_for_status()
+    return True
+
+
+async def _graph_subject_erasure(
+    tenant_id: str, entity_id: str, graph_url: str
+) -> dict[str, Any]:
+    """Fail-soft graph deletion block for DSAR erasure (symmetry with export)."""
+    if not graph_url:
+        return {"status": "not_configured"}
+    try:
+        deleted = await _delete_graph_entity(tenant_id, entity_id, graph_url)
+    except Exception as exc:  # hop failure must not break the SQL anonymization
+        log.warning(
+            "dsar_graph_erasure_failed tenant=%s entity=%s err=%s",
+            tenant_id,
+            entity_id[:8],
+            exc,
+        )
+        return {"status": "unavailable", "reason": "graph deletion hop failed"}
+    if deleted is False:
+        return {"status": "no_graph_data"}
+    return {"status": "deleted"}
+
+
 def _bundle_hash(payload: dict[str, Any]) -> str:
     return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
 
@@ -289,6 +332,12 @@ async def dsar_erasure(
 
     await session.commit()
 
+    # Graph-plane erasure (fail-soft, symmetry with access export above):
+    # anonymized SQL rows AND the entity's graph node must both go.
+    graph_erasure = await _graph_subject_erasure(
+        body.tenant_id, body.entity_id, settings.graph_service_url
+    )
+
     log.info(
         "DSAR erasure: tenant=%s entity=%s records=%d reason=%s",
         body.tenant_id,
@@ -300,6 +349,7 @@ async def dsar_erasure(
     return {
         "entity_id": body.entity_id,
         "records_anonymized": anonymized_count,
+        "graph_erasure": graph_erasure,
         "status": "completed",
         "method": "anonymization",
         "regulation": profile.regulation_name,
