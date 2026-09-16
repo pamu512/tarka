@@ -1041,6 +1041,8 @@ jobs:
         run: python3 infra/scripts/ci/test_dockerfile_constraints.py
       - name: Pruned REST facade stays gone
         run: python3 infra/scripts/ci/test_gateway_pruned.py
+      - name: SAR SFTP env passthrough
+        run: python3 infra/scripts/ci/test_sar_transport_passthrough.py
       - name: Graph core backend doctrine (AGE core, pads opt-in)
         run: python3 infra/scripts/ci/test_compose_graph_core.py
       - name: Schema migration expand/contract policy
