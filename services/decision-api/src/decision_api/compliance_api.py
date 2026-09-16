@@ -52,11 +52,15 @@ def _canonical_json(value: Any) -> str:
 _GRAPH_TIMEOUT_SECONDS = 5.0
 
 
-async def _fetch_graph_export(tenant_id: str, entity_id: str, graph_url: str) -> dict[str, Any] | None:
+async def _fetch_graph_export(
+    tenant_id: str, entity_id: str, graph_url: str
+) -> dict[str, Any] | None:
     """GET /v1/entities/{id}/export on graph-service. Returns None on 404."""
     import httpx
 
-    key = (os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or "").strip()
+    key = (
+        os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or ""
+    ).strip()
     headers = {"x-api-key": key} if key else {}
     async with httpx.AsyncClient(timeout=_GRAPH_TIMEOUT_SECONDS) as client:
         r = await client.get(
@@ -70,14 +74,21 @@ async def _fetch_graph_export(tenant_id: str, entity_id: str, graph_url: str) ->
     return r.json()
 
 
-async def _graph_subject_export(tenant_id: str, entity_id: str, graph_url: str) -> dict[str, Any]:
+async def _graph_subject_export(
+    tenant_id: str, entity_id: str, graph_url: str
+) -> dict[str, Any]:
     """Fail-soft graph inclusion block for DSAR access/portability."""
     if not graph_url:
         return {"status": "not_configured"}
     try:
         export = await _fetch_graph_export(tenant_id, entity_id, graph_url)
     except Exception as exc:  # hop failure must not break the SQL export
-        log.warning("dsar_graph_export_failed tenant=%s entity=%s err=%s", tenant_id, entity_id[:8], exc)
+        log.warning(
+            "dsar_graph_export_failed tenant=%s entity=%s err=%s",
+            tenant_id,
+            entity_id[:8],
+            exc,
+        )
         return {"status": "unavailable", "reason": "graph export hop failed"}
     if export is None:
         return {"status": "no_graph_data"}

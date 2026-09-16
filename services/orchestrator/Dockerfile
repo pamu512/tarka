@@ -27,8 +27,8 @@ COPY services/rule_engine ./services/rule_engine
 RUN python -m pip install --upgrade pip setuptools wheel \
     && python -m pip install --prefix=/install --no-cache-dir -c /tmp/constraints.txt ./services/rule_engine \
     && python -m pip install --prefix=/install --no-cache-dir -c /tmp/constraints.txt ./services/orchestrator \
-    && python -m pip install --prefix=/install --no-cache-dir "nats-py>=2.7.0" \
-    && python -m pip install --prefix=/install --no-cache-dir -r ./services/orchestrator/requirements.txt
+    && python -m pip install -c /tmp/constraints.txt --prefix=/install --no-cache-dir "nats-py>=2.7.0" \
+    && python -m pip install -c /tmp/constraints.txt --prefix=/install --no-cache-dir -r ./services/orchestrator/requirements.txt
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
