@@ -269,11 +269,12 @@ dataPlane:
   schemaRegistryMode: enforce
   tenantBindingRequired: true
   apiKeyTenantMap: ""
-  # Orchestrator side-effect commits for the in-process ingest consumer. Unset =
-  # commits skipped (the chart deploys no orchestrator; compose parity target is
-  # http://orchestrator:8790). Secret comes from the global.appSecretsName secret
-  # (key ORCHESTRATOR_INTERNAL_SECRET) when set; URL-without-secret renders but
-  # event-ingest logs the misconfiguration loudly at startup.
+  # Orchestrator side-effect commits for the in-process ingest consumer. Unset
+  # = commits skipped (compose parity target is http://orchestrator:8790).
+  # Enabling orchestrator.enabled auto-wires this URL to the in-chart service;
+  # an explicit value always wins. Secret comes from the global.appSecretsName
+  # secret (key ORCHESTRATOR_INTERNAL_SECRET) when set; URL-without-secret
+  # renders but event-ingest logs the misconfiguration loudly at startup.
   orchestratorUrl: ""
   orchestratorInternalSecret: ""
   extraEnv: {}
@@ -291,6 +292,39 @@ frontend:
   replicaCount: 1
   port: 80
   serviceType: ClusterIP
+
+# Orchestrator API + worker family (compose streaming/analytics/full parity).
+# One image (services/orchestrator/Dockerfile), five workloads: the API and
+# four `python -m workers.*` sidecars. Workers default on when the parent is
+# enabled — outbox-processor drains the E3 outbox (stale-claim reclaim makes
+# it load-bearing; a deployment without it accumulates rows forever).
+# Workers override the image ENTRYPOINT (uvicorn) with python -m.
+orchestrator:
+  enabled: false
+  image: tarka-orchestrator
+  tag: latest
+  digest: ""
+  replicaCount: 1
+  port: 8790
+  ruleEvalBackend: decision_api
+  internalSecret: ""
+  # Compose parity: duck-sink persists telemetry to a DuckDB file; in-memory
+  # default discards it on restart (worker's writable() guard refuses that).
+  duckDb:
+    size: 2Gi
+    storageClass: ""
+  workers:
+    outboxProcessor:
+      enabled: true
+    shadowInvestigate:
+      enabled: true
+      databaseUrl: ""
+    duckSink:
+      enabled: true
+    heartbeatMonitor:
+      enabled: true
+  extraEnv: {}
+
 
 opa:
   enabled: false

@@ -50,7 +50,14 @@ RAM floors and per-plane details: [SRE Compose profiles](operations/sre-compose-
 - Auto-case on deny/review needs `CASE_INTERNAL_TOKEN` (shared with case-api). Empty
   token + enabled flag = startup ERROR in core-api logs; the lite default now ships a
   dev token so the desk works out of the box — set a real one before production.
-- Helm deploys evaluate-only by default (no orchestrator/outbox): events are acked but
-  the async plane does not run. Compose `--profile ingest` is the pilot shape.
-- SAR transport (JetStream `fraud.shadow.*`) is not wired in any compose flavor —
-  shadow output stays in the shadow store until that lands.
+- Helm's default render is evaluate-only (orchestrator off): events are acked but
+  the async plane does not run. `orchestrator.enabled=true` deploys the full
+  worker family (API, outbox-processor, shadow-investigate-worker, anumana
+  duck-sink + heartbeat-monitor) and auto-wires data-plane's ORCHESTRATOR_URL.
+  Compose `--profile ingest` remains the one-command pilot shape.
+- Shadow evaluation streaming (JetStream `fraud.shadow.*`) runs only in the full
+  compose flavor (shadow-investigate-worker consumes it into the shadow store);
+  lite leaves core-api's `NATS_URL` empty by default. SAR FinCEN SFTP transport
+  IS wired in lite — the worker runs inside core-api (DB-tick mode, no NATS
+  needed); empty `FINCEN_BSA_SFTP_HOST` = feature off, queued intents fail
+  honestly rather than silently.

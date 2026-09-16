@@ -1,0 +1,262 @@
+{{/*
+Orchestrator API + worker family — compose streaming/analytics/full parity.
+
+One image, five workloads (see values.yaml orchestrator:). The API keeps the
+image ENTRYPOINT (uvicorn main:app); workers override it with python -m.
+*/}}
+{{- if .Values.orchestrator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-orchestrator
+spec:
+  replicas: {{ .Values.orchestrator.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-orchestrator
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.orchestrator.image "tag" .Values.orchestrator.tag "digest" .Values.orchestrator.digest) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - containerPort: {{ .Values.orchestrator.port }}
+          env:
+            - name: RULE_EVAL_BACKEND
+              value: {{ .Values.orchestrator.ruleEvalBackend | quote }}
+            {{- if .Values.coreApi.enabled }}
+            - name: DECISION_API_URL
+              value: "http://{{ include "tarka.fullname" . }}-core-api:{{ .Values.coreApi.servicePort }}/decisions"
+            {{- end }}
+            {{- if or .Values.postgres.enabled .Values.global.externalServices.postgres.enabled }}
+            - name: ORCHESTRATOR_AUDIT_DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - name: ANUMANA_REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            {{- end }}
+            {{- if .Values.nats.enabled }}
+            - name: NATS_URL
+              value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+            {{- end }}
+            {{- if .Values.graphService.enabled }}
+            - name: GRAPH_BACKEND
+              value: "age"
+            {{- end }}
+            {{- if .Values.orchestrator.internalSecret }}
+            - name: ORCHESTRATOR_INTERNAL_SECRET
+              {{- if .Values.global.appSecretsName }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: ORCHESTRATOR_INTERNAL_SECRET
+                  optional: true
+              {{- else }}
+              value: {{ .Values.orchestrator.internalSecret | quote }}
+              {{- end }}
+            {{- end }}
+            {{- range $k, $v := .Values.orchestrator.extraEnv }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health/full
+              port: {{ .Values.orchestrator.port }}
+            initialDelaySeconds: 25
+            periodSeconds: 10
+            timeoutSeconds: 12
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.orchestrator.port }}
+            initialDelaySeconds: 25
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tarka.fullname" . }}-orchestrator
+spec:
+  selector:
+    app: {{ include "tarka.fullname" . }}-orchestrator
+  ports:
+    - port: {{ .Values.orchestrator.port }}
+      targetPort: {{ .Values.orchestrator.port }}
+{{- end }}
+---
+{{/* ---- outbox-processor ---- */}}
+{{- if and .Values.orchestrator.enabled .Values.orchestrator.workers.outboxProcessor.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-outbox-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-outbox-processor
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-outbox-processor
+    spec:
+      containers:
+        - name: outbox-processor
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.orchestrator.image "tag" .Values.orchestrator.tag "digest" .Values.orchestrator.digest) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/usr/local/bin/python3", "-m", "workers.outbox_processor"]
+          env:
+            {{- if or .Values.postgres.enabled .Values.global.externalServices.postgres.enabled }}
+            - name: ORCHESTRATOR_AUDIT_DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - name: ANUMANA_REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            {{- end }}
+            {{- if .Values.nats.enabled }}
+            - name: NATS_URL
+              value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+            {{- end }}
+            {{- if .Values.graphService.enabled }}
+            - name: GRAPH_BACKEND
+              value: "age"
+            {{- end }}
+{{- end }}
+---
+{{/* ---- shadow-investigate-worker ---- */}}
+{{- if and .Values.orchestrator.enabled .Values.orchestrator.workers.shadowInvestigate.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-shadow-investigate-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-shadow-investigate-worker
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-shadow-investigate-worker
+    spec:
+      containers:
+        - name: shadow-investigate-worker
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.orchestrator.image "tag" .Values.orchestrator.tag "digest" .Values.orchestrator.digest) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/usr/local/bin/python3", "-m", "workers.nats_shadow_investigate"]
+          env:
+            {{- if .Values.nats.enabled }}
+            - name: NATS_URL
+              value: "nats://{{ include "tarka.fullname" . }}-nats:4222"
+            {{- end }}
+            {{- if .Values.orchestrator.workers.shadowInvestigate.databaseUrl }}
+            - name: SHADOW_DATABASE_URL
+              value: {{ .Values.orchestrator.workers.shadowInvestigate.databaseUrl | quote }}
+            {{- end }}
+{{- end }}
+---
+{{/* ---- anumana-duck-sink ---- */}}
+{{- if and .Values.orchestrator.enabled .Values.orchestrator.workers.duckSink.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tarka.fullname" . }}-anumana-duck
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.orchestrator.duckDb.size }}
+  {{- if .Values.orchestrator.duckDb.storageClass }}
+  storageClassName: {{ .Values.orchestrator.duckDb.storageClass | quote }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-anumana-duck-sink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-anumana-duck-sink
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-anumana-duck-sink
+    spec:
+      containers:
+        - name: anumana-duck-sink
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.orchestrator.image "tag" .Values.orchestrator.tag "digest" .Values.orchestrator.digest) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/usr/local/bin/python3", "-m", "workers.anumana_nats_duck_sink"]
+          env:
+            {{- if .Values.redis.enabled }}
+            - name: ANUMANA_REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            {{- end }}
+            - name: ORCHESTRATOR_LOCAL_ANALYTICS_DUCKDB
+              value: "/data/anumana_telemetry.duckdb"
+            {{- if or .Values.postgres.enabled .Values.global.externalServices.postgres.enabled }}
+            - name: ORCHESTRATOR_AUDIT_DATABASE_URL
+              {{- if .Values.global.externalServices.postgres.enabled }}
+              value: {{ .Values.global.externalServices.postgres.databaseUrl | quote }}
+              {{- else }}
+              value: "postgresql+asyncpg://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password | default "fraud" }}@{{ include "tarka.fullname" . }}-postgres:5432/{{ .Values.postgres.auth.database }}"
+              {{- end }}
+            {{- end }}
+            - name: ENVIRONMENT
+              value: {{ include "tarka.helmEnvironment" . | quote }}
+          volumeMounts:
+            - name: duckdb
+              mountPath: /data
+      volumes:
+        - name: duckdb
+          persistentVolumeClaim:
+            claimName: {{ include "tarka.fullname" . }}-anumana-duck
+{{- end }}
+---
+{{/* ---- anumana-heartbeat-monitor ---- */}}
+{{- if and .Values.orchestrator.enabled .Values.orchestrator.workers.heartbeatMonitor.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tarka.fullname" . }}-anumana-heartbeat-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "tarka.fullname" . }}-anumana-heartbeat-monitor
+  template:
+    metadata:
+      labels:
+        app: {{ include "tarka.fullname" . }}-anumana-heartbeat-monitor
+    spec:
+      containers:
+        - name: anumana-heartbeat-monitor
+          image: {{ include "tarka.image" (dict "registry" .Values.global.imageRegistry "image" .Values.orchestrator.image "tag" .Values.orchestrator.tag "digest" .Values.orchestrator.digest) | quote }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["/usr/local/bin/python3", "-m", "workers.sdk_heartbeat_monitor"]
+          env:
+            {{- if .Values.redis.enabled }}
+            - name: ANUMANA_REDIS_URL
+              value: "redis://{{ include "tarka.fullname" . }}-redis:6379/0"
+            {{- end }}
+{{- end }}

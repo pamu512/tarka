@@ -3,12 +3,13 @@
 
 docker-compose.yml wires ORCHESTRATOR_URL + ORCHESTRATOR_INTERNAL_SECRET into the
 data-plane facade; the chart never did, so the ingest consumer silently skipped
-orchestrator side-effect commits on Helm deploys. The chart deploys no orchestrator
-of its own, so the default render must NOT emit the env (unset URL = skip; pointing
-the consumer at a dead host would wedge side-effects). Setting
-dataPlane.orchestratorUrl renders both envs — secret via secretKeyRef when
-global.appSecretsName is set, plaintext value otherwise. URL-without-secret renders
-too: event-ingest logs that misconfiguration loudly at startup (D1).
+orchestrator side-effect commits on Helm deploys. Default (orchestrator
+disabled) must NOT emit the env (unset URL = skip; pointing the consumer at a
+dead host would wedge side-effects). Setting dataPlane.orchestratorUrl renders
+both envs — secret via secretKeyRef when global.appSecretsName is set,
+plaintext value otherwise. URL-without-secret renders too: event-ingest logs
+that misconfiguration loudly at startup (D1). Auto-wiring from
+orchestrator.enabled is covered in test_helm_orchestrator_workers.py.
 """
 
 from __future__ import annotations
