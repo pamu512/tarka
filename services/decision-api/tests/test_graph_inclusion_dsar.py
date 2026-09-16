@@ -16,7 +16,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 _SRC = Path(__file__).resolve().parents[1]
-for _p in (_SRC / "src", _SRC.parent / "shared", _SRC.parents[2] / "packages/shared-core"):
+for _p in (
+    _SRC / "src",
+    _SRC.parent / "shared",
+    _SRC.parents[2] / "packages/shared-core",
+):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -36,9 +40,12 @@ class TestGraphInclusionInDSAR(unittest.IsolatedAsyncioTestCase):
         from decision_api.compliance_api import _graph_subject_export
 
         with patch(
-            "decision_api.compliance_api._fetch_graph_export", AsyncMock(return_value=_GRAPH_EXPORT)
+            "decision_api.compliance_api._fetch_graph_export",
+            AsyncMock(return_value=_GRAPH_EXPORT),
         ):
-            block = await _graph_subject_export("t1", "u1", graph_url="http://graph:8001")
+            block = await _graph_subject_export(
+                "t1", "u1", graph_url="http://graph:8001"
+            )
         self.assertEqual(block["status"], "included")
         self.assertEqual(block["export"], _GRAPH_EXPORT)
 
@@ -55,7 +62,9 @@ class TestGraphInclusionInDSAR(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("graph down")
 
         with patch("decision_api.compliance_api._fetch_graph_export", _boom):
-            block = await _graph_subject_export("t1", "u1", graph_url="http://graph:8001")
+            block = await _graph_subject_export(
+                "t1", "u1", graph_url="http://graph:8001"
+            )
         self.assertEqual(block["status"], "unavailable")
         self.assertIn("reason", block)
 
