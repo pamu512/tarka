@@ -5,7 +5,6 @@ global:
     annotations:
       nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
     frontendHost: "__FRONTEND_HOST__"
-    graphqlHost: "__GRAPHQL_HOST__"
 
 coreApi:
   edgeSecurity:

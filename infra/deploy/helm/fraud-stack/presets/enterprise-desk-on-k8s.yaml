@@ -110,5 +110,3 @@ integrationIngress:
   enabled: false
 dataPlane:
   enabled: false
-graphqlGateway:
-  enabled: false

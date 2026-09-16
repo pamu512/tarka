@@ -19,7 +19,6 @@ scrape_configs:
           - integration-ingress:8003
           - data-plane:8007
           - investigation-agent:8006
-          - graphql-gateway:8010
     relabel_configs:
       - source_labels: [__address__]
         regex: (.+)

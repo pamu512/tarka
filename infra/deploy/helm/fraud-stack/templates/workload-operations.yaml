@@ -52,8 +52,7 @@ spec:
           averageUtilization: {{ .Values.dataPlane.autoscaling.targetCPUUtilizationPercentage }}
 {{- end }}
 {{- $ingressFrontend := and .Values.frontend.enabled .Values.global.ingress.frontendHost }}
-{{- $ingressGraphql := and .Values.graphqlGateway.enabled .Values.global.ingress.graphqlHost }}
-{{- if and .Values.global.ingress.enabled (or $ingressFrontend $ingressGraphql) }}
+{{- if and .Values.global.ingress.enabled $ingressFrontend }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -79,17 +78,5 @@ spec:
                 name: {{ include "tarka.fullname" . }}-frontend
                 port:
                   number: {{ .Values.frontend.port }}
-    {{- end }}
-    {{- if $ingressGraphql }}
-    - host: {{ .Values.global.ingress.graphqlHost | quote }}
-      http:
-        paths:
-          - path: /
-            pathType: {{ .Values.global.ingress.pathType }}
-            backend:
-              service:
-                name: {{ include "tarka.fullname" . }}-graphql-gateway
-                port:
-                  number: {{ .Values.graphqlGateway.port }}
     {{- end }}
 {{- end }}

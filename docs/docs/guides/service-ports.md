@@ -17,7 +17,6 @@ Single reference for **default HTTP ports**, **Docker Compose service names** (i
 | Graph Service | 8001 | `graph-service` | [graph-service.yaml](../../../contracts/openapi/graph-service.yaml) | Neo4j-backed; requires `graph` profile |
 | Integration ingress | 8003 | `integration-ingress` | [integration-ingress.yaml](../../../contracts/openapi/integration-ingress.yaml) | `integration` profile; compose **signals** overlay (`docker-compose.signals.yml`), not default lite |
 | Investigation agent | 8006 | `investigation-agent` | [investigation-agent.yaml](../../../contracts/openapi/investigation-agent.yaml) | `agent` profile; Slack/Teams/Lark **chat_bridge** embedded under **`/v1/chat/…`** (not a separate `:8009` container in default compose) |
-| GraphQL gateway | 8010 | `graphql-gateway` | _(no REST OpenAPI in repo — GraphQL schema is code-first; see [API Reference — GraphQL Gateway](../api-reference.md#graphql-gateway))_ | `gateway` profile; defaults target **`http://core-api:8000/decisions`** and **`/cases`**. |
 | Frontend (nginx) | 3000 → container 80 | `frontend` | _(UI)_ | `ui` / `full` profile |
 
 Standalone Python packages under `services/decision-api`, `services/case-api`, `services/feature-service`, etc. remain the **source modules** for the macroservices; CI and local `python tools/tarka.py dev <legacy-name>` may still target them individually.
@@ -32,7 +31,6 @@ From any container on the default Compose network, use **service name + containe
 - `http://graph-service:8001`
 - `http://investigation-agent:8006`
 - `http://data-plane:8007`
-- `http://graphql-gateway:8010`
 
 **In-process case → decision:** `core-api` sets `DECISION_API_URL=http://127.0.0.1:8000/decisions` for the case sub-app (see `infra/deploy/docker-compose.yml`).
 
@@ -44,7 +42,7 @@ From any container on the default Compose network, use **service name + containe
 
 **Canonical chart:** `infra/deploy/helm/fraud-stack/` (install name/chart name `tarka`).
 
-Service names follow `{{ release-name }}-<component>` (see `infra/deploy/helm/fraud-stack/templates/*.yaml`). Key toggles: **`coreApi`**, **`signalApi`**, **`dataPlane`**, **`graphqlGateway`**, etc. Ports default like the table unless overridden in `values.yaml`.
+Service names follow `{{ release-name }}-<component>` (see `infra/deploy/helm/fraud-stack/templates/*.yaml`). Key toggles: **`coreApi`**, **`signalApi`**, **`dataPlane`**, etc. Ports default like the table unless overridden in `values.yaml`.
 
 Templates wire **`DECISION_API_URL`** / **`CASE_API_URL`** with **`/decisions`** and **`/cases`** suffixes where consumers expect the consolidated **core-api** service. **`CALIBRATION_SERVICE_URL`** targets signal-api `/calibration` when `signalApi` is enabled.
 

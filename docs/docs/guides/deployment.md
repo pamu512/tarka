@@ -28,7 +28,6 @@ The `infra/deploy/docker-compose.yml` file uses Compose profiles so you can pick
 | `analytics`   | **Data plane** analytics path, ClickHouse                                          |
 | `integration` | Integration Ingress                                                               |
 | `agent`       | Investigation Agent (embedded **chat_bridge** for Slack / Teams / Lark)          |
-| `gateway`     | GraphQL Gateway                                                                   |
 | `opa`         | Open Policy Agent                                                                 |
 | `risk`        | Same **Signal API** image profile hook for counter/location-heavy demos (optional) |
 | `full`        | All of the above                                                                  |

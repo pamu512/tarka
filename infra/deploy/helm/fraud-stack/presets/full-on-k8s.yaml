@@ -27,8 +27,6 @@ dataPlane:
   enabled: true
   extraEnv:
     INGEST_REQUIRE_IDEMPOTENCY_KEY: "true"
-graphqlGateway:
-  enabled: true
 frontend:
   enabled: true
 opa:

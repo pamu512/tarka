@@ -19,6 +19,3 @@ services:
   investigation-agent:
     environment:
       GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
-  graphql-gateway:
-    environment:
-      GRAPH_SERVICE_URL: ${GRAPH_SERVICE_URL:-http://graph-service:8001}
