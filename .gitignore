@@ -90,3 +90,21 @@ docs/site/
 
 # Local buyer script — not public product copy
 buyer-demo-5min.md
+
+# Runtime-generated calibration/enforcement artifacts (loop decision 1a)
+services/decision-api/rules/calibration_data/references.json
+services/decision-api/rules/calibration_data/snapshots.jsonl
+services/decision-api/rules/calibration_data/gnn_receipts_*
+services/decision-api/rules/calibration_data/effectiveness_suggestions_*
+services/decision-api/rules/enforcement_delivery.jsonl
+services/decision-api/rules/experiment_registry.jsonl
+services/decision-api/_loop/
+services/decision-api/rules/calibration_data/graph_risk_export_*
+services/decision-api/rules/calibration_data/graph_risk_lifecycle_*
+services/decision-api/rules/calibration_data/gnn_serve_gate.json
+services/decision-api/rules/calibration_data/y_labels_??*.json
+services/decision-api/rules/l2_*.json
+services/decision-api/rules/rule_hit_telemetry.json
+services/decision-api/rules/tenant_benchmark_exports/
+services/decision-api/var/
+tools/shadow/
