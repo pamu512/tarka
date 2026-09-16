@@ -8,7 +8,6 @@ global:
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
       alb.ingress.kubernetes.io/wafv2-acl-arn: "__AWS_WAFV2_ACL_ARN__"
     frontendHost: "__FRONTEND_HOST__"
-    graphqlHost: "__GRAPHQL_HOST__"
 
 coreApi:
   edgeSecurity:

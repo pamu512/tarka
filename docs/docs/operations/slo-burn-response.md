@@ -46,7 +46,6 @@ When burn alerts reference these `service` labels, use the linked runbook sectio
 | feature-service | 8004 |
 | ml-scoring | 8005 |
 | event-ingest | 8007 |
-| graphql-gateway | 8080 |
 | investigation-agent | 8010 |
 | analytics-sink | 8012 |
 

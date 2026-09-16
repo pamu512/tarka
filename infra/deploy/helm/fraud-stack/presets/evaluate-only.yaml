@@ -35,8 +35,6 @@ clickhouse:
 dataPlane:
   enabled: false
 
-graphqlGateway:
-  enabled: false
 
 frontend:
   enabled: true

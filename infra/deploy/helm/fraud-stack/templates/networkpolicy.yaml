@@ -11,7 +11,7 @@
 {{- if and (hasKey $extraEnvOidc "OIDC_ISSUER") (ne (trim (toString (index $extraEnvOidc "OIDC_ISSUER"))) "") }}
 {{- $oidc = true }}
 {{- end }}
-{{- $frontendUpstreams := or .Values.coreApi.enabled .Values.signalApi.enabled .Values.investigationAgent.enabled .Values.integrationIngress.enabled .Values.graphService.enabled .Values.dataPlane.enabled .Values.graphqlGateway.enabled }}
+{{- $frontendUpstreams := or .Values.coreApi.enabled .Values.signalApi.enabled .Values.investigationAgent.enabled .Values.integrationIngress.enabled .Values.graphService.enabled .Values.dataPlane.enabled}}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -206,15 +206,6 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.dataPlane.port }}
-    {{- end }}
-    {{- if .Values.graphqlGateway.enabled }}
-    - to:
-        - podSelector:
-            matchLabels:
-              app: {{ $fullname }}-graphql-gateway
-      ports:
-        - protocol: TCP
-          port: {{ .Values.graphqlGateway.port }}
     {{- end }}
 ---
 {{- end }}

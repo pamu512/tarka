@@ -115,16 +115,6 @@ MODULES: dict[str, dict[str, Any]] = {
         "port": 8007,
         "requires": ["streaming"],
     },
-    "gateway": {
-        "codename": "Riti",
-        "name": "GraphQL Gateway",
-        "description": "Unified GraphQL API over all REST services",
-        "services": ["graphql-gateway"],
-        "infra": [],
-        "profiles": ["gateway"],
-        "port": 8010,
-        "requires": ["core"],
-    },
     "frontend": {
         "codename": "Dwar",
         "name": "React Frontend",
@@ -693,7 +683,6 @@ def cmd_dev(args):
         "event-ingest": ("event_ingest.main:app", "8007"),
         "analytics-sink": ("analytics_sink.main:app", "8008"),
         "data-plane": ("data_plane.main:app", "8007"),
-        "graphql-gateway": ("graphql_gateway.main:app", "8010"),
     }
 
     if service not in port_map:

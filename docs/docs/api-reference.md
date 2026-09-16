@@ -887,27 +887,6 @@ Ingress audit model:
 
 ---
 
-## GraphQL Gateway — `:8010` {#graphql-gateway}
-
-**Compose default:** host **8010** (`8010:8010` in `infra/deploy/docker-compose.yml`). Do not confuse with **investigation-agent** on **:8006** (copilot + embedded collaboration ingress).
-
-Strawberry **GraphQL** over HTTP, with the same shared **observability** stack as other Python services (**`GET` `/metrics`**, structured request logging). Send **`X-API-Key`** when the gateway is configured with **`API_KEYS`** (empty keys without `ALLOW_INSECURE_NO_AUTH` yields **`503`** — see `services/graphql-gateway`).
-
-| Kind | Field | Upstream (summary) |
-|------|-------|--------------------|
-| `Query` | `cases`, `case` | Case API list + get |
-| `Query` | `subgraph`, `entity_tags` | Graph Service subgraph + entity tags |
-| `Mutation` | `evaluate` | Decision API evaluate (includes `recommended_action` / `inference_context` when the upstream payload provides them) |
-| `Mutation` | `create_case` | Case API create (optional **`playbookId`** → JSON **`playbook_id`** on **`POST /v1/cases`**) |
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/graphql` | GraphQL queries and mutations |
-| `GET` | `/v1/health` | Health (`{"status": "ok"}`) |
-
-OpenAPI: _not published under `contracts/openapi/`._ The schema is **code-first** in `services/graphql-gateway/src/graphql_gateway/schema.py`.
-
----
 
 ## Error Responses {#error-responses}
 

@@ -67,7 +67,6 @@ global:
     className: ""
     annotations: {}
     frontendHost: ""
-    graphqlHost: ""
     pathType: Prefix
 
 postgres:
@@ -284,16 +283,6 @@ dataPlane:
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
 
-graphqlGateway:
-  enabled: true
-  image: tarka-graphql-gateway
-  tag: latest
-  replicaCount: 1
-  port: 8010
-  # Defaults resolve to in-cluster core-api mounts (see templates/graphql-gateway.yaml).
-  decisionApiUrl: ""
-  caseApiUrl: ""
-  graphServiceUrl: ""
 
 frontend:
   enabled: true

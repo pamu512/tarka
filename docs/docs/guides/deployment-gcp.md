@@ -13,7 +13,7 @@ It is intentionally parallel to AWS guidance so operators can follow the same me
 | Concern | GCP service (typical) | Notes |
 |---|---|---|
 | Kubernetes runtime | GKE | Primary production runtime for modular Tarka bundles |
-| Ingress and TLS | GKE Ingress + Google Cloud Load Balancing + Certificate Manager | Expose frontend, GraphQL, and APIs with managed certificates |
+| Ingress and TLS | GKE Ingress + Google Cloud Load Balancing + Certificate Manager | Expose frontend and APIs with managed certificates |
 | Container images | Artifact Registry | Build from `services/*/Dockerfile` and publish immutable tags |
 | Relational DB | Cloud SQL for PostgreSQL | Shared or isolated DB instances for decision and case workloads |
 | Cache | Memorystore for Redis | Use private networking and AUTH/TLS where supported |

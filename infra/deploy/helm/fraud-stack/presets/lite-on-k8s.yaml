@@ -22,8 +22,6 @@ investigationAgent:
 signalApi:
   enabled: false
 
-graphqlGateway:
-  enabled: false
 
 frontend:
   enabled: false
