@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -42,6 +43,45 @@ from privacy import (  # noqa: E402
 
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+# ---------------------------------------------------------------------------
+# Graph subject export (DSAR): the graph's personal data must ride the export
+# ---------------------------------------------------------------------------
+
+_GRAPH_TIMEOUT_SECONDS = 5.0
+
+
+async def _fetch_graph_export(tenant_id: str, entity_id: str, graph_url: str) -> dict[str, Any] | None:
+    """GET /v1/entities/{id}/export on graph-service. Returns None on 404."""
+    import httpx
+
+    key = (os.environ.get("GRAPH_SERVICE_API_KEY") or os.environ.get("API_KEY") or "").strip()
+    headers = {"x-api-key": key} if key else {}
+    async with httpx.AsyncClient(timeout=_GRAPH_TIMEOUT_SECONDS) as client:
+        r = await client.get(
+            f"{graph_url.rstrip('/')}/v1/entities/{entity_id}/export",
+            params={"tenant_id": tenant_id},
+            headers=headers,
+        )
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return r.json()
+
+
+async def _graph_subject_export(tenant_id: str, entity_id: str, graph_url: str) -> dict[str, Any]:
+    """Fail-soft graph inclusion block for DSAR access/portability."""
+    if not graph_url:
+        return {"status": "not_configured"}
+    try:
+        export = await _fetch_graph_export(tenant_id, entity_id, graph_url)
+    except Exception as exc:  # hop failure must not break the SQL export
+        log.warning("dsar_graph_export_failed tenant=%s entity=%s err=%s", tenant_id, entity_id[:8], exc)
+        return {"status": "unavailable", "reason": "graph export hop failed"}
+    if export is None:
+        return {"status": "no_graph_data"}
+    return {"status": "included", "export": export}
 
 
 def _bundle_hash(payload: dict[str, Any]) -> str:
@@ -187,6 +227,9 @@ async def dsar_access(
         "regulation": profile.regulation_name,
         "records_found": len(exported),
         "data": exported,
+        "graph_data": await _graph_subject_export(
+            body.tenant_id, body.entity_id, settings.graph_service_url
+        ),
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "note": "This export contains all data held about the data subject in the decision engine.",
     }
@@ -285,6 +328,9 @@ async def dsar_portability(
         "entity_id": body.entity_id,
         "tenant_id": body.tenant_id,
         "exported_at": datetime.now(timezone.utc).isoformat(),
+        "graph_data": await _graph_subject_export(
+            body.tenant_id, body.entity_id, settings.graph_service_url
+        ),
         "records": [
             {
                 "trace_id": str(r.trace_id),

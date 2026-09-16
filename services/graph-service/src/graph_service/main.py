@@ -466,6 +466,28 @@ async def get_entity_links(
     }
 
 
+@app.get("/v1/entities/{external_id}/export")
+async def export_entity(external_id: str, tenant_id: str, request: Request):
+    """Subject export of everything the graph holds about an entity.
+
+    DSAR counterpart of ``delete_entity``: access/portability must include the
+    graph's personal data (nodes, one-hop edges, risk properties), not just SQL
+    audit rows.
+    """
+    data = _subgraph_for_read(await query_subgraph(tenant_id, external_id, 1), request)
+    if _entity_from_subgraph(data, external_id) is None:
+        raise HTTPException(status_code=404, detail="entity_not_found")
+    deep = await query_entity_deep_context(tenant_id, external_id)
+    return {
+        "entity_id": external_id,
+        "tenant_id": tenant_id,
+        "exported_at": datetime.now(UTC).isoformat(),
+        "nodes": data.get("nodes") or [],
+        "edges": data.get("edges") or [],
+        "deep_context": deep,
+    }
+
+
 @app.get("/v1/entities/{entity_id}/relation-growth")
 async def entity_relation_growth(
     entity_id: str, tenant_id: str, request: Request, windows: str | None = None
