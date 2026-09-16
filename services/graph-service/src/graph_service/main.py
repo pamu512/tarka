@@ -160,6 +160,27 @@ def _experience_tier(backend: str) -> dict[str, Any]:
     raise ValueError(f"unknown graph backend: {backend!r}")
 
 
+async def _backend_reachable(backend: str) -> bool:
+    """Probe the configured graph backend driver with a trivial query.
+
+    Health must reflect the engine actually answering, not the config label:
+    a down Postgres/AGE previously still reported ``status: ok``.
+    """
+    try:
+        from graph_service import age_client
+
+        if backend != "age":
+            from graph_service import neo4j_client  # noqa: F401  (pads: label-only)
+
+            return True
+        pool = await age_client.get_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+        return True
+    except Exception:
+        return False
+
+
 app = FastAPI(
     title="Tarka Graph Service",
     version="3.0.0",
@@ -256,10 +277,12 @@ async def health():
 
     dg_enabled = decision_graph_enabled()
     db_path = _db_path()
+    reachable = await _backend_reachable(settings.graph_backend)
     return {
-        "status": "ok",
+        "status": "ok" if reachable else "degraded",
         "graph_backend": {
             "backend": settings.graph_backend,
+            "reachable": reachable,
             **_experience_tier(settings.graph_backend),
         },
         "decision_graph": {
