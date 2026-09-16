@@ -1072,6 +1072,8 @@ jobs:
         run: python3 infra/scripts/ci/test_helm_ingest_orchestrator.py
       - name: Shadow investigate worker deployed (D5-4 compose guard)
         run: python3 infra/scripts/ci/test_compose_shadow_worker.py
+      - name: Dockerfile pip constraints guard
+        run: python3 infra/scripts/ci/test_dockerfile_constraints.py
       - name: Graph core backend doctrine (AGE core, pads opt-in)
         run: python3 infra/scripts/ci/test_compose_graph_core.py
       - name: Schema migration expand/contract policy

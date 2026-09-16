@@ -5,9 +5,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 RUN pip install --no-cache-dir pip -U
 COPY services/core /app/core
-RUN pip install --no-cache-dir -e /app/core
+RUN pip install -c /tmp/constraints.txt --no-cache-dir -e /app/core
 COPY services/signal-api/main.py /app/main.py
 COPY services/signal-api/pyproject.toml /app/
 COPY services/feature-service/src/feature_service /app/feature_service
@@ -16,6 +17,6 @@ COPY services/calibration-service/src/calibration_service /app/calibration_servi
 COPY services/location-service/src/location_service /app/location_service
 COPY services/signal-api/src/signal_api /app/signal_api
 COPY services/shared /app/shared
-RUN pip install --no-cache-dir -e .
+RUN pip install -c /tmp/constraints.txt --no-cache-dir -e .
 ENV PYTHONPATH=/app:/app/shared:/app/ml_scoring:/app/feature_service:/app/calibration_service:/app/location_service:/app/signal_api
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004"]

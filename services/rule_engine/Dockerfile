@@ -4,6 +4,7 @@
 FROM python:3.12-alpine AS builder
 
 WORKDIR /build
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -19,7 +20,7 @@ COPY services/ingestor ./services/ingestor
 COPY packages/shared-core/tarka_shared ./packages/shared-core/tarka_shared
 
 RUN python -m pip install --upgrade pip setuptools wheel \
-    && python -m pip install --prefix=/install --no-cache-dir ./services/rule_engine
+    && python -m pip install -c /tmp/constraints.txt --prefix=/install --no-cache-dir ./services/rule_engine
 
 FROM python:3.12-alpine AS runtime
 

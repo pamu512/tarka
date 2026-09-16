@@ -6,6 +6,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY infra/deploy/constraints.txt /tmp/constraints.txt
 RUN pip install --no-cache-dir pip -U
 COPY services/investigation-agent/pyproject.toml /app/
 COPY services/investigation-agent/src /app/src
@@ -15,8 +16,8 @@ COPY packages/shared-core/pyproject.toml /app/packages/shared-core/
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 COPY knowledge/shared /app/knowledge/shared
 RUN sed -i 's|file:../collaboration-chat-bridge|file:/app/collaboration-chat-bridge|g' /app/pyproject.toml \
-    && pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir -e /app/packages/shared-core
+    && pip install -c /tmp/constraints.txt --no-cache-dir -e . \
+    && pip install -c /tmp/constraints.txt --no-cache-dir -e /app/packages/shared-core
 RUN mkdir -p /var/lib/tarka/knowledge/tenants
 ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core:/app/collaboration-chat-bridge/src
 ENV OKF_SHARED_ROOT=/app/knowledge/shared
