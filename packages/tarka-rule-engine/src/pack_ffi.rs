@@ -97,6 +97,7 @@ fn ast_malformed_py_err(m: &json_ast::AstMalformed) -> PyErr {
 
 struct ParsedPack {
     source_file: String,
+    name: String,
     rules: Vec<Rule>,
     tag_rules: Vec<TagRule>,
     canary_percent: Option<f64>,
@@ -139,6 +140,21 @@ fn json_str_pythonish(v: &Value) -> String {
         Value::Number(n) => n.to_string(),
         Value::Null => "None".to_string(),
         _ => v.to_string(),
+    }
+}
+
+fn json_regex_subject(actual: Option<&Value>) -> String {
+    match actual {
+        Some(Value::String(s)) => s.clone(),
+        Some(v) => format!("{v}"),
+        None => "null".to_string(),
+    }
+}
+
+fn pack_version_is_v1(v: &Value) -> bool {
+    match v.get("version") {
+        None => true,
+        Some(x) => x.as_u64() == Some(1),
     }
 }
 
@@ -207,6 +223,8 @@ fn pack_should_apply(
     }
     let key = if !pack.source_file.is_empty() {
         pack.source_file.as_str()
+    } else if !pack.name.is_empty() {
+        pack.name.as_str()
     } else {
         "pack"
     };
@@ -297,7 +315,7 @@ pub(crate) fn match_condition(features: &serde_json::Map<String, Value>, conditi
                 .is_some_and(|a| a.ends_with(suf))
         }
         "regex" => {
-            let act = format!("{}", actual.cloned().unwrap_or(Value::Null));
+            let act = json_regex_subject(actual);
             match &condition.regex_compiled {
                 Some(re) => re.is_match(&act),
                 None => false,
@@ -398,11 +416,7 @@ fn evaluate_pack(
 fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<ParsedPack>>, TarkaEngineError> {
     let mut out = Vec::new();
     for v in arr {
-        let version_ok = match v.get("version").and_then(|x| x.as_u64()) {
-            Some(1) => true,
-            Some(_) | None => false,
-        };
-        if !version_ok {
+        if !pack_version_is_v1(v) {
             continue;
         }
         let mode = v.get("mode").and_then(|x| x.as_str()).unwrap_or("active");
@@ -414,6 +428,11 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
         }
         let source_file = v
             .get("_source_file")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string();
+        let name = v
+            .get("name")
             .and_then(|x| x.as_str())
             .unwrap_or("")
             .to_string();
@@ -556,6 +575,7 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
         }
         out.push(Arc::new(ParsedPack {
             source_file,
+            name,
             rules,
             tag_rules,
             canary_percent,
@@ -590,7 +610,7 @@ pub(crate) fn sync_packs_json(packs_json: String) -> PyResult<()> {
     let active: Vec<Value> = arr
         .into_iter()
         .filter(|v| {
-            v.get("version").and_then(|x| x.as_u64()) == Some(1)
+            pack_version_is_v1(v)
                 && v.get("mode").and_then(|x| x.as_str()) != Some("disabled")
                 && v.get("mode").and_then(|x| x.as_str()) != Some("shadow")
         })
@@ -800,4 +820,68 @@ pub(crate) fn register_pack_ffi(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate_json_rule_ast, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_json_ast_strict, m)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn always_hit_pack(extra: serde_json::Value) -> Value {
+        let mut p = extra.as_object().cloned().unwrap_or_default();
+        p.entry("rules").or_insert(json!([{
+            "id": "always",
+            "when": [{"field": "x", "op": "gte", "value": 0}],
+            "tags": ["t"],
+            "score_delta": 1
+        }]));
+        p.entry("tag_rules").or_insert(json!([]));
+        Value::Object(p)
+    }
+
+    fn cond(op: &str, field: &str, value: Value) -> Condition {
+        let regex_compiled = if op == "regex" {
+            let pat = value.as_str().expect("regex value");
+            Some(compile_regex_for_rule(pat, "probe", None).expect("regex compile"))
+        } else {
+            None
+        };
+        Condition {
+            op: op.to_string(),
+            field: field.to_string(),
+            value,
+            regex_compiled,
+        }
+    }
+
+    #[test]
+    fn f3_canary_uses_name_when_source_file_absent() {
+        let pack = always_hit_pack(json!({
+            "version": 1,
+            "name": "canary-name",
+            "canary_percent": 50
+        }));
+        let parsed = parse_active_packs(&[pack], false).expect("parse");
+        assert_eq!(parsed.len(), 1);
+        assert!(pack_should_apply(&parsed[0], "acme", "user-42", "production"));
+    }
+
+    #[test]
+    fn f4_missing_version_defaults_to_v1() {
+        let pack = always_hit_pack(json!({"name": "no-ver"}));
+        let parsed = parse_active_packs(&[pack], false).expect("parse");
+        assert_eq!(parsed.len(), 1);
+        let fmap = json!({"x": 1}).as_object().cloned().unwrap();
+        let out = evaluate_parsed_slice(&parsed, &fmap, &[], "acme", "user-42", "production")
+            .expect("eval");
+        let hits = out.get("rule_hits").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        assert_eq!(hits, vec![json!("always")]);
+    }
+
+    #[test]
+    fn q1_pack_regex_string_subject_is_unquoted() {
+        let mut feats = serde_json::Map::new();
+        feats.insert("s".into(), json!("abc"));
+        assert!(match_condition(&feats, &cond("regex", "s", json!("abc"))));
+    }
 }

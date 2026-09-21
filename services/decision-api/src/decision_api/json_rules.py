@@ -479,7 +479,9 @@ def _json_str_pythonish_actual(expected: Any, actual: Any) -> tuple[str, str]:
 
 
 def _json_value_display_for_regex(v: Any) -> str:
-    """Subject string for ``regex`` op — serde_json ``Value`` ``Display`` / compact JSON."""
+    """Subject string for ``regex`` op — serde_json ``Value`` ``Display``, strings unquoted."""
+    if isinstance(v, str):
+        return v
     try:
         return json.dumps(v, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError):
@@ -508,11 +510,12 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
     if expected is not None and len(str(expected)) > _MAX_VALUE_LEN:
         return False
 
+    present = key in features
     try:
         if op == "eq":
-            return actual == expected
+            return present and _json_collection_equals(actual, expected)
         if op == "not_eq":
-            return actual != expected
+            return (not present) or (not _json_collection_equals(actual, expected))
         if op == "gte":
             av = _json_f64_py(actual)
             ev = _json_f64_py(expected)
@@ -563,9 +566,9 @@ def _match_condition(features: dict[str, Any], condition: dict[str, Any]) -> boo
         if op == "is_false":
             return actual is False
         if op == "exists":
-            return actual is not None
+            return present
         if op == "not_exists":
-            return actual is None
+            return not present
     except (TypeError, ValueError, OverflowError):
         return False
     return False

@@ -150,7 +150,7 @@ pub(crate) fn match_condition(features: &Map<String, Value>, condition: &Conditi
                 .is_some_and(|a| a.ends_with(suf))
         }
         "regex" => {
-            let act = format!("{}", actual.cloned().unwrap_or(Value::Null));
+            let act = json_regex_subject(actual);
             condition
                 .regex_compiled
                 .as_ref()
@@ -177,6 +177,14 @@ fn json_str_pythonish(v: &Value) -> String {
         Value::Number(n) => n.to_string(),
         Value::Null => "None".to_string(),
         _ => v.to_string(),
+    }
+}
+
+fn json_regex_subject(actual: Option<&Value>) -> String {
+    match actual {
+        Some(Value::String(s)) => s.clone(),
+        Some(v) => format!("{v}"),
+        None => "null".to_string(),
     }
 }
 
@@ -295,6 +303,26 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn cond(op: &str, field: &str, value: Value) -> Condition {
+        let regex_compiled = if op == "regex" {
+            let pat = value.as_str().expect("regex value");
+            let safe = build_safe_regex_pattern(pat);
+            Some(Arc::new(Regex::new(&safe).expect("regex compile")))
+        } else {
+            None
+        };
+        Condition {
+            op: op.to_string(),
+            field: field.to_string(),
+            value,
+            regex_compiled,
+        }
+    }
+
+    fn feats(v: Value) -> Map<String, Value> {
+        v.as_object().cloned().unwrap_or_default()
+    }
+
     #[test]
     fn ruleset_version_bumps_on_reload_shape() {
         let rs = RuleSet::from_rules_json(
@@ -307,5 +335,53 @@ mod tests {
         );
         assert_eq!(rs.version(), 3);
         assert_eq!(rs.rule_count(), 1);
+    }
+
+    #[test]
+    fn f1_eq_is_serde_representation_strict() {
+        let amount = feats(json!({"amount": 10000}));
+        assert!(match_condition(&amount, &cond("eq", "amount", json!(10000))));
+        assert!(!match_condition(
+            &amount,
+            &cond("eq", "amount", json!(10000.0))
+        ));
+        assert!(match_condition(
+            &amount,
+            &cond("not_eq", "amount", json!(10000.0))
+        ));
+        let flag = feats(json!({"is_new": true}));
+        assert!(!match_condition(&flag, &cond("eq", "is_new", json!(1))));
+        assert!(match_condition(&flag, &cond("eq", "is_new", json!(true))));
+    }
+
+    #[test]
+    fn f2_exists_is_key_presence() {
+        let present_null = feats(json!({"maybe_absent": null}));
+        assert!(match_condition(
+            &present_null,
+            &cond("exists", "maybe_absent", Value::Null)
+        ));
+        assert!(!match_condition(
+            &present_null,
+            &cond("not_exists", "maybe_absent", Value::Null)
+        ));
+        let missing = Map::new();
+        assert!(!match_condition(
+            &missing,
+            &cond("exists", "maybe_absent", Value::Null)
+        ));
+        assert!(match_condition(
+            &missing,
+            &cond("not_exists", "maybe_absent", Value::Null)
+        ));
+    }
+
+    #[test]
+    fn q1_regex_string_subject_is_unquoted() {
+        let s = feats(json!({"s": "abc"}));
+        assert!(match_condition(&s, &cond("regex", "s", json!("abc"))));
+        assert!(match_condition(&s, &cond("regex", "s", json!("ABC"))));
+        let n = feats(json!({"x": null}));
+        assert!(match_condition(&n, &cond("regex", "x", json!("null"))));
     }
 }
