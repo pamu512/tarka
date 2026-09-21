@@ -56,7 +56,7 @@ class TestOrchestratorDeployment(unittest.TestCase):
         self.assertIn("containerPort: 8790", doc)
         # Service must exist so data-plane can point ORCHESTRATOR_URL at it
         self.assertIn("kind: Service", rendered.split("kind: Deployment")[0] or rendered)
-        self.assertIn(f"-orchestrator", rendered)
+        self.assertIn("-orchestrator", rendered)
 
 
 class TestWorkerFamily(unittest.TestCase):
