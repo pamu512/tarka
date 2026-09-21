@@ -145,7 +145,7 @@ def summarize_outcomes(decisions: list[str]) -> str:
 
 def first_click_url(entity_id: str) -> str:
     q = str(entity_id or "").strip() or "clone-demo-bot-vpn"
-    return f"http://127.0.0.1:3000/graph?entity_id={q}"
+    return f"{desk_urls()['hunt']}?entity_id={q}"
 
 
 def _print_next_steps(entity_id: str) -> None:

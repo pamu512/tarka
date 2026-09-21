@@ -437,3 +437,15 @@ class TestWalkRunner(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFirstClickUrlPortRemap(unittest.TestCase):
+    def test_first_click_url_honors_frontend_port_override(self) -> None:
+        """first_click_url must not hardcode 3000 (same class as desk_urls X-29)."""
+        import os as _os
+        from unittest import mock
+
+        with mock.patch.dict(_os.environ, {"TARKA_FRONTEND_PORT": "23000"}):
+            url = walk_receipts.first_click_url("ent-1")
+        self.assertIn(":23000", url)
+        self.assertNotIn(":3000", url)
