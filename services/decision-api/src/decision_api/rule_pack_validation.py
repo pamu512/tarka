@@ -4,6 +4,8 @@
 def validate_rule_pack(pack: dict) -> list[str]:
     """Validate a rule pack and return list of error messages."""
     errors: list[str] = []
+    if pack.get("version") != 1:
+        errors.append("version must be 1")
     canary = pack.get("canary_percent")
     if canary is not None:
         try:

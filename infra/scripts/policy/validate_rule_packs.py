@@ -29,7 +29,13 @@ def _validate_v1_packs(rules_dir: Path) -> list[str]:
     from decision_api.rule_pack_validation import validate_rule_pack
 
     errors: list[str] = []
-    skip_names = frozenset({"typology_definitions_v1.json", "typology_predicate_registry_v1.json"})
+    skip_names = frozenset(
+        {
+            "typology_definitions_v1.json",
+            "typology_predicate_registry_v1.json",
+            "rule_hit_telemetry.json",
+        }
+    )
     for f in sorted(rules_dir.glob("*.json")):
         if f.name in skip_names:
             continue
@@ -41,7 +47,9 @@ def _validate_v1_packs(rules_dir: Path) -> list[str]:
         if not isinstance(data, dict):
             errors.append(f"{f.name}: root must be object")
             continue
-        ver = data.get("version", 1)
+        if data.get("schema_id") == "tarka.rule_hit_telemetry/v1":
+            continue
+        ver = data.get("version")
         if ver != 1:
             errors.append(f"{f.name}: unsupported version {ver!r} (expected 1)")
             continue
@@ -86,7 +94,7 @@ def _validate_v2_packs(v2_root: Path) -> list[str]:
             elif isinstance(data, dict) and isinstance(data.get("rules"), list):
                 rules_payload = data["rules"]
             else:
-                errors.append(f"v2 {rel}: root must be {{\"rules\": [...]}} or a list")
+                errors.append(f'v2 {rel}: root must be {{"rules": [...]}} or a list')
                 continue
 
             if not rules_payload:
