@@ -5,6 +5,8 @@ export type GrowthPolicyWindow = { window: string; threshold: number };
 
 export type WorkspaceFilter = {
   types: string[] | null;
+  /** R10: when set, only these node ids stay visible (saved-set pin). */
+  onlyIds?: string[] | null;
   minRisk: number | null;
   scoredOnly: boolean;
   growthOnly: boolean;
@@ -198,6 +200,7 @@ export function typeHistogram(nodes: GraphNode[]): Array<{ label: string; count:
 }
 
 function keepWorkspaceNode(node: GraphNode, opts: WorkspaceFilter): boolean {
+  if (opts.onlyIds != null && !opts.onlyIds.includes(node.id)) return false;
   if (opts.types !== null && !opts.types.includes(primaryLabel(node.labels))) return false;
 
   const risk = storedDisplayRisk(node);
