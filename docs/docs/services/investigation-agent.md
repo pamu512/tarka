@@ -32,7 +32,25 @@ Helm `investigationAgent.enabled` defaults **false**. Enable only when the opera
 
 Built-in playbooks are **generic defaults** only when the desk provides none. Prefer desk-owned playbooks / SOPs.
 
-**Advise context (planned):** Confluence / Wiki read-only sync into tenant OKF / RAG. Other connectors on request. SOP zip upload remains the air-gap bootstrap. This page does not implement a Confluence connector.
+### Air-gap SOP / OKF bootstrap
+
+Operator imports a **validated** tenant OKF zip. Nothing is written into git
+(`knowledge/tenants/` stays empty except this operator-mount README).
+
+```bash
+python3 scripts/oss/advise_sop_import.py --zip /path/to/tenant-okf.zip --tenant-id YOUR_TENANT
+# unzip → staging → validate_okf_bundle --scope tenant (exit 0) → overlay
+export OKF_TENANT_OVERLAYS_PATH=knowledge/tenants   # compose default; or the printed path
+```
+
+Compose (`docker-compose.investigation.yml`) mounts
+`${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}` **read-only** into
+investigation-agent as `OKF_TENANT_ROOT`. Retrieval against the mount must
+return cites **or** an explicit abstain — empty retrieval is not a soft success.
+
+**Advise context (later):** Confluence / Wiki read-only sync into tenant OKF / RAG.
+Other connectors on request. This page does not implement a Confluence connector.
+SOP zip remains the air-gap bootstrap.
 
 ### Durable store (HA)
 
