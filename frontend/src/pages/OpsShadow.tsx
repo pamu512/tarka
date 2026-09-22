@@ -18,6 +18,7 @@ import { ObserveEasePanel } from "../components/ObserveEasePanel";
 import { decodeJwtPayload, extractRolesFromClaims } from "../security/jwtClaims";
 import { TarkaRbacRole } from "../security/rbacConstants";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { PackJourneyTabs } from "../components/PackJourneyTabs";
 
 function jwtHasRiskArchitect(): boolean {
   const token = getAccessToken();
@@ -492,6 +493,7 @@ export default function OpsShadow() {
   return (
     <div className="p-6 space-y-4">
       <h1 className="text-2xl font-bold text-gray-100">Observe vs primary</h1>
+      <PackJourneyTabs />
       <FirstHourHint
         job="Observe is a canary. Promote to live; seeds are Observe. Live packs still decide. A model never ALLOW, DENY, or REVIEW. If a draft says model drafted, you still own Promote."
         nextTo="/analytics/rule-performance"

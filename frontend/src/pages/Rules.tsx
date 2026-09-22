@@ -29,6 +29,7 @@ import {
   prependVerticalBenchmarkHistory,
   type VerticalBenchmarkHistoryEntry,
 } from "../lib/verticalBenchmarkHistory";
+import { PackJourneyTabs } from "../components/PackJourneyTabs";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -681,6 +682,7 @@ export default function Rules() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-surface-700 shrink-0 gap-4">
         <div>
           <PageTitle module="rules">Rule Builder</PageTitle>
+          <PackJourneyTabs />
           <FirstHourHint
             job="Create a pack here. It starts as Observe, not live. Sentences and JSON emit the same evaluate pack. Promote stays on Observe."
             nextTo="/ops/shadow"

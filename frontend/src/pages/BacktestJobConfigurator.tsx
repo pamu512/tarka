@@ -12,6 +12,7 @@ import { BacktestResultsDashboard } from "../components/BacktestResultsDashboard
 import { PageTitle } from "../components/PageTitle";
 import { isTerminalBacktestStatus } from "../utils/backtestMetrics";
 import { isLikelyClientTimeoutOrAbort, toUserFacingError } from "../utils/userFacingErrors";
+import { PackJourneyTabs } from "../components/PackJourneyTabs";
 
 const MS_PER_DAY = 86_400_000;
 const MAX_WINDOW_MS = 90 * MS_PER_DAY;
@@ -226,6 +227,7 @@ export default function BacktestJobConfigurator() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 text-gray-200">
       <PageTitle module="rules">Backtest job configurator</PageTitle>
+      <PackJourneyTabs />
       <p className="mt-2 text-sm text-gray-500">
         Submit warehouse rule backtests with the same JSON body as{" "}
         <code className="text-gray-400">POST /decisions/v1/rules/backtest/jobs</code> (<code className="text-gray-400">BacktestRequest</code> →{" "}
