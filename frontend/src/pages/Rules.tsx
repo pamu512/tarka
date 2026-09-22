@@ -17,6 +17,7 @@ import {
 } from "../api/client";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
+import { DraftBacktestButton } from "../components/DraftBacktestButton";
 import { FieldMapPanel } from "../components/FieldMapPanel";
 import { SentencePackPanel } from "../components/SentencePackPanel";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
@@ -1075,6 +1076,7 @@ export default function Rules() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <DraftBacktestButton pack={editingPack} tenantId={sandboxTenantDefault} />
                   <button
                     onClick={() => setShowTemplates((v) => !v)}
                     className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showTemplates ? "bg-brand-600/20 text-brand-400 border border-brand-500/40" : "bg-surface-700 hover:bg-surface-600 text-gray-300"}`}
