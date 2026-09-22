@@ -3217,6 +3217,14 @@ export type GraphSearchHit = {
 };
 
 export const graph = {
+  health() {
+    return request<{
+      status?: string;
+      graph_backend?: { backend?: string; reachable?: boolean; experience_tier?: string };
+      decision_graph?: { enabled?: boolean };
+    }>("/api/graph/v1/health");
+  },
+
   subgraph(
     entityId: string,
     tenantId: string,

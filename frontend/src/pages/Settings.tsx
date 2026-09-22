@@ -8,6 +8,8 @@ import { decisions } from "../api/v1/decisions";
 import { decisions as decisionsClient } from "../api/client";
 import { MarketplaceSdkApiKeyPanel } from "../components/settings/MarketplaceSdkApiKeyPanel";
 import { SupportIdHint } from "../components/SupportIdHint";
+import { ProvisionGlass } from "../components/ProvisionGlass";
+import { graph } from "../api/client";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 export default function Settings() {
@@ -16,6 +18,25 @@ export default function Settings() {
     Array<{ policy_id: string; version: number; description: string; escalation_ladder?: string[] }>
   >([]);
   const [challengeErr, setChallengeErr] = useState<string | null>(null);
+  const [graphHealth, setGraphHealth] = useState<{
+    status?: string;
+    graph_backend?: { backend?: string; reachable?: boolean; experience_tier?: string };
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    graph
+      .health()
+      .then((h) => {
+        if (!cancelled) setGraphHealth(h);
+      })
+      .catch(() => {
+        if (!cancelled) setGraphHealth(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [gov, setGov] = useState<{
     inference_schema_version?: string;
     experiment_registry_lines?: number;
@@ -89,6 +110,20 @@ export default function Settings() {
         </Link>
         . Optional outbound copy is <span className="font-mono">TARKA_OBSERVE_NOTIFY_WEBHOOK_URL</span>. SSO and tenant provisioning stay deployment-specific.
       </p>
+
+      <ProvisionGlass
+        health={
+          graphHealth
+            ? {
+                status: graphHealth.status,
+                backend: graphHealth.graph_backend?.backend,
+                experience_tier: graphHealth.graph_backend?.experience_tier,
+                degrade_reason:
+                  graphHealth.status && graphHealth.status !== "ok" ? "backend_unreachable" : undefined,
+              }
+            : null
+        }
+      />
 
       <GraphRiskChallengerPanel
         tenantId={challengerTenant}
