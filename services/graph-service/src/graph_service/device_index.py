@@ -107,3 +107,33 @@ async def count_shared_device(tenant_id: str, device_id: str | None, external_id
             external_id,
         )
     return int(n or 0)
+
+
+async def backfill_tenant_device_index(tenant_id: str) -> int:
+    """Bulk-load the index for a pre-existing tenant (one INSERT..SELECT per tenant,
+    not per entity). Returns rowcount-ish 0; failures propagate to the caller."""
+    await ensure_device_index_table()
+    pool = await _acquire()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO entity_device_index (tenant_id, device_id, external_id, updated_at)
+            SELECT $1, dev, eid, now()
+            FROM ag_catalog.cypher('tarka'::name, $$
+                MATCH (n)
+                WHERE n.tenant_id = $tenant_id AND n.device_id IS NOT NULL
+                RETURN n.external_id AS eid, n.device_id AS dev
+            $$::cstring, $2::ag_catalog.agtype)
+            AS (eid ag_catalog.agtype, dev ag_catalog.agtype)
+            ON CONFLICT (tenant_id, device_id, external_id) DO UPDATE SET updated_at = now()
+            """,
+            tenant_id,
+            _ag_param({"tenant_id": tenant_id}),
+        )
+    return 0
+
+
+def _ag_param(payload: dict) -> str:
+    import json as _json
+
+    return _json.dumps(payload)
