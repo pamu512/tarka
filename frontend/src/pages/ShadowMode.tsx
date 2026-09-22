@@ -4,6 +4,7 @@ import { PageTitle } from "../components/PageTitle";
 import { PromoteConfirmDialog } from "../components/PromoteConfirmDialog";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { PackJourneyTabs } from "../components/PackJourneyTabs";
 
 type PackMode = "active" | "shadow" | "disabled";
 
@@ -94,6 +95,7 @@ export default function ShadowMode() {
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <PageTitle module="shadow">Observe</PageTitle>
+          <PackJourneyTabs />
           <p className="text-sm text-gray-500 mt-1">
             Compare observe-only rule packs against production without affecting live decisions
           </p>

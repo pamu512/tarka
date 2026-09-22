@@ -16,6 +16,7 @@ import {
   type RuleOutcomeRow,
 } from "../utils/rulePerformance";
 import { toUserFacingError } from "../utils/userFacingErrors";
+import { PackJourneyTabs } from "../components/PackJourneyTabs";
 
 const CHART_TOP_N = 12;
 const FETCH_LIMIT = 2500;
@@ -135,6 +136,7 @@ export default function RulePerformance() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <PageTitle module="analytics">Rule performance</PageTitle>
+        <PackJourneyTabs />
         <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
           <span className="text-gray-600">Tenant: {tenantId}</span>
           <button
