@@ -3529,6 +3529,31 @@ const _ruleActorHeaders = (): HeadersInit => {
 };
 
 export const rules = {
+  shadowPackReadiness(draftId: string, tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId });
+    return request<{
+      draft_id: string;
+      tenant_id: string;
+      ready: boolean;
+      blockers: string[];
+      desk_promote_gate: {
+        promote_allowed?: boolean;
+        blockers?: string[];
+        metrics?: { rule_hit_rate?: number | null; shadow_divergence?: number | null };
+      };
+      leftover_promote_gate?: LeftoverPromoteGate;
+      calibration_window?: {
+        ok?: boolean;
+        blockers?: string[];
+        days?: number;
+        min_days?: number;
+        label_count?: number;
+        min_labels?: number;
+        fp_rate?: number | null;
+      };
+    }>(`/api/decisions/v1/rules/shadow-packs/${encodeURIComponent(draftId)}/readiness?${q}`);
+  },
+
   authorCatalog(tenantId?: string) {
     const q = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
     return request<AuthorCatalog>(`/api/decisions/v1/rules/author-catalog${q}`);

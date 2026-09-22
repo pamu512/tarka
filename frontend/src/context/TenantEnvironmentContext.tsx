@@ -72,6 +72,10 @@ export function TenantEnvironmentProvider({ children }: { children: ReactNode })
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+export function useTenantEnvironmentOrNull(): Value | null {
+  return useContext(Ctx);
+}
+
 export function useTenantEnvironment(): Value {
   const v = useContext(Ctx);
   if (!v) throw new Error("useTenantEnvironment must be used within TenantEnvironmentProvider");

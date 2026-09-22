@@ -676,6 +676,34 @@ async def auto_promote_tick(
     return out
 
 
+@router.get("/shadow-packs/{draft_id}/readiness")
+async def shadow_pack_readiness(
+    draft_id: str,
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    session: AsyncSession = Depends(get_session),
+    _user=Depends(require_role_or_insecure_desk("analyst")),
+) -> dict[str, Any]:
+    """Read-only promote-readiness view: the same gates the promote route
+    enforces (desk science, leftover floor, calibration window), assembled
+    for the desk panel. Never mutates, never promotes."""
+    from decision_api.leftover_promote_gate import compute_desk_and_leftover_gates
+
+    gates = await compute_desk_and_leftover_gates(tenant_id, draft_id, session=session)
+    desk = gates.get("desk_promote_gate") or {}
+    leftover_g = gates.get("leftover_promote_gate") or {}
+    window = gates.get("calibration_window") or {}
+    blockers = list(desk.get("blockers") or []) + list(leftover_g.get("blockers") or [])
+    return {
+        "draft_id": draft_id,
+        "tenant_id": tenant_id,
+        "ready": not blockers and bool(desk.get("promote_allowed")),
+        "blockers": blockers,
+        "desk_promote_gate": desk,
+        "leftover_promote_gate": leftover_g,
+        "calibration_window": window,
+    }
+
+
 @router.post("/shadow-packs/{draft_id}/promote")
 async def promote_shadow_pack(
     draft_id: str,
