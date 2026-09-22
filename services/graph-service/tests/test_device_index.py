@@ -32,10 +32,10 @@ class _Conn:
 class _Pool:
     def __init__(self, conn):
         self._conn = conn
-        self.acquire = lambda: _ctx(self._conn)
+        self.acquire = lambda: _Ctx(self._conn)
 
 
-class _ctx:
+class _Ctx:
     def __init__(self, conn):
         self._conn = conn
 
@@ -47,15 +47,15 @@ class _ctx:
 
 
 def _row(**kw):
-    defaults = dict(
-        tags='["fraud"]',
-        conn_count="3",
-        flagged_neighbors="1",
-        community_size="4",
-        device_id="dev-1",
-        node_labels='["Person"]',
-        edge_timestamps="[]",
-    )
+    defaults = {
+        "tags": '["fraud"]',
+        "conn_count": "3",
+        "flagged_neighbors": "1",
+        "community_size": "4",
+        "device_id": "dev-1",
+        "node_labels": '["Person"]',
+        "edge_timestamps": "[]",
+    }
     defaults.update(kw)
     return defaults
 
