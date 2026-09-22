@@ -294,6 +294,15 @@ async def list_vertical_pack_catalog():
     return {"vertical_packs": list_vertical_packs()}
 
 
+@router.get("/vertical-packs/{vertical_name}")
+async def get_vertical_pack_definition(vertical_name: str) -> dict[str, Any]:
+    """Full pack definition for the desk wizard preview (rules, kill criteria)."""
+    pack = get_vertical_pack(vertical_name)
+    if pack is None:
+        raise HTTPException(404, f"unknown vertical pack '{vertical_name}'")
+    return pack
+
+
 def _fetch_growth_windows(graph_url: str) -> list[dict] | None:
     """GET graph growth-policy. None on empty URL or any failure (empty growth)."""
     base = (graph_url or "").strip().rstrip("/")
