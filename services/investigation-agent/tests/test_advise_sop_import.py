@@ -167,6 +167,48 @@ def test_refuses_in_repo_dest_outside_operator_mount(tmp_path: Path) -> None:
     assert not (_REPO_ROOT / "docs" / "t1").exists()
 
 
+def test_tenant_id_cannot_escape_overlays(tmp_path: Path) -> None:
+    zip_path = _zip_dir(_FIXTURES / "tenants" / "t1", tmp_path / "t1.zip")
+    victim = tmp_path / "shared"
+    victim.mkdir()
+    keep = victim / "keep.md"
+    keep.write_text("keep\n", encoding="utf-8")
+    overlays = tmp_path / "overlays"
+    overlays.mkdir()
+    result = _run_import(
+        zip_path=zip_path,
+        tenant_id="../shared",
+        staging=tmp_path / "staging",
+        overlays=overlays,
+        shared_root=_FIXTURES / "shared",
+    )
+    assert result.returncode != 0
+    assert keep.is_file()
+    assert keep.read_text(encoding="utf-8") == "keep\n"
+    assert "tenant-id" in result.stderr.lower()
+
+
+def test_symlink_zip_member_is_rejected(tmp_path: Path) -> None:
+    zip_path = tmp_path / "link.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        info = zipfile.ZipInfo("outside")
+        info.create_system = 3
+        info.external_attr = 0o120777 << 16
+        zf.writestr(info, "/etc/passwd")
+        zf.writestr("index.md", '---\nokf_version: "0.1"\n---\n')
+    overlays = tmp_path / "overlays"
+    result = _run_import(
+        zip_path=zip_path,
+        tenant_id="t1",
+        staging=tmp_path / "staging",
+        overlays=overlays,
+        shared_root=_FIXTURES / "shared",
+    )
+    assert result.returncode != 0
+    assert not (overlays / "t1").exists()
+    assert "symlink" in result.stderr.lower() or "zip" in result.stderr.lower()
+
+
 def test_missing_zip_fails(tmp_path: Path) -> None:
     result = _run_import(
         zip_path=tmp_path / "missing.zip",
