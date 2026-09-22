@@ -1,0 +1,5 @@
+# Operator-mounted tenant OKF overlays. Import via
+# scripts/oss/advise_sop_import.py — never commit SOP payloads.
+*
+!.gitignore
+!README.md

@@ -19,6 +19,6 @@ There is no desktop forensics console in this repo. Do not add a third Advise pa
 - Do not rename JSON fields, tags, SQL, Helm keys, or compose services.
 - Never name a new compose service `shadow` without a suffix (`shadow_agent`).
 
-## Advise context (planned)
+## Advise context (air-gap SOP zip)
 
-Future path: Confluence / Wiki **read-only** sync into tenant OKF / RAG. Other knowledge connectors on request. SOP zip upload remains the air-gap bootstrap. Built-in playbooks are generic defaults only when the desk provides none — desks should bring their own SOPs. This repo does not ship a Confluence connector.
+SOP zip is the air-gap bootstrap (`scripts/oss/advise_sop_import.py`). Confluence / Wiki **read-only** sync into tenant OKF / RAG is later. Other knowledge connectors on request. Built-in playbooks are generic defaults only when the desk provides none — desks should bring their own SOPs. This repo does not ship a Confluence connector.
