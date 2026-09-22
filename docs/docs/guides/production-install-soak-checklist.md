@@ -47,7 +47,7 @@ Unsigned / unnamed = **not** a GitLab-grade claim.
 
 ## Soak start kit (internal lab)
 
-Internal lab is a valid named pilot. Binder: [`docs/pilots/internal-lab/README.md`](../../../pilots/internal-lab/README.md).
+Internal lab is a valid named pilot. Binder: [`docs/pilots/internal-lab/README.md`](../../pilots/internal-lab/README.md).
 
 Date G6 backup + G7 upgrade **before** those rows can pass:
 
