@@ -212,3 +212,65 @@ class TestDeleteSweepsIndex(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBackfill(unittest.IsolatedAsyncioTestCase):
+    async def test_backfill_bulk_loads_index_from_graph(self) -> None:
+        """One bulk pass: entities WITH device_id land in the index; absent tolerated."""
+        from graph_service import device_index
+
+        conn = _Conn()
+        conn.execute = AsyncMock()
+        pool = _Pool(conn)
+
+        async def _fake_pool():
+            return pool
+
+        with (
+            patch.object(device_index, "ensure_device_index_table", AsyncMock()),
+            patch.object(device_index, "_acquire", _fake_pool),
+        ):
+            n = await device_index.backfill_tenant_device_index("t1")
+        sql = conn.execute.await_args.args[0]
+        self.assertIn("INSERT INTO entity_device_index", sql)
+        self.assertIn("ag_catalog.cypher", sql)
+        self.assertEqual(n, 0)
+
+
+class TestRefreshTenantBackfills(unittest.IsolatedAsyncioTestCase):
+    async def test_refresh_tenant_warms_index_before_scoring(self) -> None:
+        from graph_service import entity_risk_writeback as wb
+
+        calls: list[str] = []
+
+        async def _bf(tenant_id):
+            calls.append("backfill")
+
+        async def _scan(tenant_id, limit):
+            calls.append("scan")
+            return ["u1"], False
+
+        async def _compute(tenant_id, eid, checkpoint=None):
+            calls.append("compute")
+            return {
+                "entity_id": eid,
+                "risk_score": 5,
+                "risk_factors": [],
+                "relation_count": 1,
+                "relation_growth_1h": 0,
+                "relation_growth_24h": 0,
+                "primary_label": "Person",
+                "scored": True,
+            }
+
+        with (
+            patch.object(wb, "scan_tenant_entity_ids", _scan),
+            patch.object(wb, "compute_entity_risk", _compute),
+            patch.object(wb, "persist_entity_risk", AsyncMock()),
+            patch.object(wb, "upsert_graph_risk_stats", AsyncMock()),
+            patch("graph_service.device_index.backfill_tenant_device_index", _bf),
+        ):
+            out = await wb.refresh_tenant("t1", limit=10)
+        self.assertEqual(out["updated"], 1)
+        self.assertEqual(calls[0], "backfill")
+        self.assertIn("scan", calls)

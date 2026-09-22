@@ -125,6 +125,13 @@ async def refresh_entity(
 
 async def refresh_tenant(tenant_id: str, limit: int = REFRESH_LIMIT_DEFAULT) -> dict[str, Any]:
     limit = clamp_refresh_limit(limit)
+    # R3: keep the shared-device index warm so compute reads O(devices), not O(tenant).
+    try:
+        from .device_index import backfill_tenant_device_index
+
+        await backfill_tenant_device_index(tenant_id)
+    except Exception:
+        log.exception("device_index backfill failed tenant=%s (continuing refresh)", tenant_id)
     ids, truncated = await scan_tenant_entity_ids(tenant_id, limit)
     updated = 0
     skipped = 0
