@@ -2623,6 +2623,51 @@ async def get_audit_recent(
     return {"items": [shape_audit_recent_item(r) for r in rows]}
 
 
+@app.get("/v1/audit/entity-timeline")
+async def get_entity_timeline(
+    request: Request,
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    entity_ids: list[str] = Query(..., min_length=1, max_length=10),
+    limit: int = Query(default=100, ge=1, le=100),
+    session: AsyncSession = Depends(get_session),
+):
+    """Cross-entity decision timeline (investigation workspace read).
+
+    Merges real decision_audit rows for up to 10 entities into one
+    chronological feed. Every row is trace-cited; nothing is invented and no
+    case semantics are attached (guardrail M2: read-only workspace view).
+    """
+    from decision_api.audit_recent import shape_audit_recent_item
+
+    seen: dict[str, None] = {}
+    ids: list[str] = []
+    for raw in entity_ids:
+        eid = raw.strip()
+        if eid and eid not in seen:
+            seen[eid] = None
+            ids.append(eid)
+
+    result = await session.execute(
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id, AuditRecord.entity_id.in_(ids))
+        .order_by(AuditRecord.created_at.asc())
+        .limit(limit)
+    )
+    rows = result.scalars().all()
+    counts: dict[str, int] = {eid: 0 for eid in ids}
+    timeline: list[dict[str, Any]] = []
+    for row in rows:
+        counts[row.entity_id] = counts.get(row.entity_id, 0) + 1
+        item = shape_audit_recent_item(row)
+        timeline.append({"entity_id": row.entity_id, **item})
+    return {
+        "schema_id": "tarka.entity_timeline/v1",
+        "entities": [{"entity_id": eid, "count": counts.get(eid, 0)} for eid in ids],
+        "timeline": timeline,
+        "total": len(timeline),
+    }
+
+
 @app.get("/v1/audit/{trace_id}")
 async def get_audit(
     trace_id: UUID,

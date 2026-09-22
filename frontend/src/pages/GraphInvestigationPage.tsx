@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { EntitySetPanel } from "../components/EntitySetPanel";
 
 import {
   graph,
@@ -178,6 +179,8 @@ export default function GraphInvestigationPage() {
   const [huntDepthApi, setHuntDepthApi] = useState<HuntDepthFields | null>(null);
 
   const [filter, setFilter] = useState<WorkspaceFilter>(EMPTY_FILTER);
+  const [onlyIds, setOnlyIds] = useState<string[] | null>(null);
+  const clearPin = () => setOnlyIds(null);
   const [minRiskText, setMinRiskText] = useState("");
   const [expandTypes, setExpandTypes] = useState<string[]>(huntFetchTypes());
   const [expandMax, setExpandMax] = useState(HUNT_SEED_MAX);
@@ -576,6 +579,7 @@ export default function GraphInvestigationPage() {
   const graphData = useMemo(() => {
     if (!loaded) return null;
     const filtered = filterWorkspaceNodes(loaded.nodes, loaded.edges, {
+      onlyIds,
       ...filter,
       growthWindows,
     });
@@ -971,6 +975,23 @@ export default function GraphInvestigationPage() {
             >
               {analyzing ? "Loading…" : "Rings / communities"}
             </button>
+            <EntitySetPanel
+              tenantId={tenantId}
+              canvasEntityIds={loaded ? loaded.nodes.map((n) => n.id) : []}
+              onLoadSet={(ids) => {
+                setOnlyIds(ids.length ? ids : null);
+              }}
+            />
+            {onlyIds != null && (
+              <button
+                type="button"
+                onClick={clearPin}
+                className="w-full px-2 py-1 bg-surface-800 hover:bg-surface-700 rounded text-[10px] text-gray-300"
+                data-testid="clear-set-pin"
+              >
+                Clear set pin ({onlyIds.length})
+              </button>
+            )}
             {communities.length > 0 ? (
               <div className="space-y-1">
                 <h3 className="text-[10px] font-semibold text-gray-400">Communities</h3>
