@@ -482,14 +482,18 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
         "e ag_catalog.agtype, nb ag_catalog.agtype",
         "CAST(e AS VARCHAR) as e, CAST(nb AS VARCHAR) as nb",
     )
-    q_hop2 = _cypher_sql(
-        f"MATCH (root)-[e1]-(nb1)-[e2]-(nb2) WHERE root.tenant_id = {tid} "
-        f"AND root.external_id = {eid} AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
-        f"AND id(nb2) <> id(root) RETURN e1, nb1, e2, nb2",
-        "e1 ag_catalog.agtype, nb1 ag_catalog.agtype, e2 ag_catalog.agtype, nb2 ag_catalog.agtype",
-        "CAST(e1 AS VARCHAR) as e1, CAST(nb1 AS VARCHAR) as nb1, "
-        "CAST(e2 AS VARCHAR) as e2, CAST(nb2 AS VARCHAR) as nb2",
-    ) if walk >= 2 else None
+    q_hop2 = (
+        _cypher_sql(
+            f"MATCH (root)-[e1]-(nb1)-[e2]-(nb2) WHERE root.tenant_id = {tid} "
+            f"AND root.external_id = {eid} AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
+            f"AND id(nb2) <> id(root) RETURN e1, nb1, e2, nb2",
+            "e1 ag_catalog.agtype, nb1 ag_catalog.agtype, e2 ag_catalog.agtype, nb2 ag_catalog.agtype",
+            "CAST(e1 AS VARCHAR) as e1, CAST(nb1 AS VARCHAR) as nb1, "
+            "CAST(e2 AS VARCHAR) as e2, CAST(nb2 AS VARCHAR) as nb2",
+        )
+        if walk >= 2
+        else None
+    )
     nodes_out: list[dict[str, Any]] = []
     edges_out: list[dict[str, Any]] = []
     seen_nodes: set[str] = set()
