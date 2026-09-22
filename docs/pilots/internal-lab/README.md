@@ -38,6 +38,8 @@ python3 scripts/oss/soak_backup_upgrade_dry_run.py \
   --date <UTC>
 ```
 
+Script path: [`scripts/oss/soak_backup_upgrade_dry_run.py`](../../../scripts/oss/soak_backup_upgrade_dry_run.py).
+
 The script:
 
 1. **G6** — calls [`infra/scripts/deploy/backup_restore_drill.sh --dry-run`](../../../infra/scripts/deploy/backup_restore_drill.sh). Runbook: [production-backup-restore](../../docs/guides/production-backup-restore.md).

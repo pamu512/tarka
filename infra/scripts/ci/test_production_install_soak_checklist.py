@@ -178,6 +178,15 @@ class TestProductionInstallSoakChecklist(unittest.TestCase):
         checklist = _CHECKLIST.read_text(encoding="utf-8")
         self.assertIn("docs/pilots/internal-lab", checklist)
         self.assertIn("soak_backup_upgrade_dry_run.py", checklist)
+        for src, rel in (
+            (_CHECKLIST, "../../pilots/internal-lab/README.md"),
+            (_DEPLOY, "../../pilots/internal-lab/README.md"),
+            (_BINDER, "../../docs/guides/production-install-soak-checklist.md"),
+            (_BINDER, "../../../scripts/oss/soak_backup_upgrade_dry_run.py"),
+        ):
+            self.assertIn(rel, src.read_text(encoding="utf-8"), f"{src.name} must link {rel}")
+            target = (src.parent / rel).resolve()
+            self.assertTrue(target.is_file(), f"broken link from {src.name}: {rel} -> {target}")
 
 
 if __name__ == "__main__":
