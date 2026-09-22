@@ -512,6 +512,16 @@ async def delete_entity_route(external_id: str, tenant_id: str, request: Request
         log.warning(
             "search_keys_delete_failed tenant=%s entity=%s", tenant_id, external_id, exc_info=True
         )
+    # Device index rows (entity_device_index) must go too — a deleted subject
+    # must stop counting toward other entities' shared-device risk.
+    from .device_index import delete_device_index
+
+    try:
+        await delete_device_index(tenant_id, external_id)
+    except Exception:
+        log.warning(
+            "device_index_delete_failed tenant=%s entity=%s", tenant_id, external_id, exc_info=True
+        )
     return {"entity_id": external_id, "tenant_id": tenant_id, "deleted": True}
 
 
