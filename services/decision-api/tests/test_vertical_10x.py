@@ -98,16 +98,26 @@ async def test_promote_readiness_endpoint_assembles_gates():
             "metrics": {"rule_hit_rate": 0.12, "shadow_divergence": 0.0},
         },
         "leftover_promote_gate": {"promote_allowed": True, "blockers": []},
-        "calibration_window": {"ok": False, "blockers": ["window_open"], "days": 2, "min_days": 7},
+        "calibration_window": {
+            "ok": False,
+            "blockers": ["window_open"],
+            "days": 2,
+            "min_days": 7,
+        },
     }
     with patch("decision_api.main.init_db", new_callable=AsyncMock):
-        with patch("decision_api.leftover_promote_gate.compute_desk_and_leftover_gates", new=AsyncMock(return_value=fake_gates)):
+        with patch(
+            "decision_api.leftover_promote_gate.compute_desk_and_leftover_gates",
+            new=AsyncMock(return_value=fake_gates),
+        ):
             from decision_api.main import app
 
             transport = httpx.ASGITransport(app=app)
 
             async def _call():
-                async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://testserver"
+                ) as c:
                     return await c.get(
                         "/v1/rules/shadow-packs/l2_x/readiness",
                         params={"tenant_id": "acme"},
