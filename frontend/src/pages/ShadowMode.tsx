@@ -5,6 +5,8 @@ import { PromoteConfirmDialog } from "../components/PromoteConfirmDialog";
 import { SupportIdHint } from "../components/SupportIdHint";
 import { toUserFacingError } from "../utils/userFacingErrors";
 import { PackJourneyTabs } from "../components/PackJourneyTabs";
+import { PromoteReadinessPanel } from "../components/PromoteReadinessPanel";
+import { useTenantEnvironmentOrNull } from "../context/TenantEnvironmentContext";
 
 type PackMode = "active" | "shadow" | "disabled";
 
@@ -31,6 +33,8 @@ interface Observation {
 
 export default function ShadowMode() {
   const [packs, setPacks] = useState<(RulePack & { mode?: PackMode })[]>([]);
+  const envTenant = useTenantEnvironmentOrNull();
+  const [readinessDraft, setReadinessDraft] = useState<string | null>(null);
   const [stats, setStats] = useState<ObservationStats | null>(null);
   const [observations, setObservations] = useState<Observation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +173,10 @@ export default function ShadowMode() {
         </div>
       )}
 
+      {readinessDraft && (
+        <PromoteReadinessPanel draftId={readinessDraft} tenantId={envTenant?.tenantId || "demo"} />
+      )}
+
       {/* Rule Pack Mode Toggles */}
       <div className="bg-surface-900 border border-surface-700 rounded-xl p-5" data-testid="rule-pack-modes">
         <h2 className="text-sm font-semibold text-gray-300 mb-4">Rule Pack Modes</h2>
@@ -196,6 +204,14 @@ export default function ShadowMode() {
                     {pack.name && file ? (
                       <span className="text-xs text-gray-500 ml-5">{file}</span>
                     ) : null}
+                    {currentMode === "shadow" && (
+                      <button
+                        onClick={() => setReadinessDraft(readinessDraft === (pack.name || file) ? null : pack.name || file)}
+                        className="text-[10px] ml-2 px-2 py-0.5 rounded bg-surface-700 hover:bg-surface-600 text-gray-300"
+                      >
+                        {readinessDraft === (pack.name || file) ? "Hide readiness" : "Readiness"}
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 ml-4 flex-shrink-0">
