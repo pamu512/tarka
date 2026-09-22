@@ -66,7 +66,9 @@ async def test_get_vertical_pack_route_serves_full_definition():
             transport = httpx.ASGITransport(app=app)
 
             async def _call():
-                async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as c:
+                async with httpx.AsyncClient(
+                    transport=transport, base_url="http://testserver"
+                ) as c:
                     r = await c.get("/v1/rules/vertical-packs/fintech")
                     r404 = await c.get("/v1/rules/vertical-packs/not-a-vertical")
                 return r, r404
@@ -75,7 +77,9 @@ async def test_get_vertical_pack_route_serves_full_definition():
             assert r.status_code == 200
             body = r.json()
             assert body["id"] == "fintech"
-            assert isinstance(body["rules"], list) and body["rules"], "rules must be previewable"
+            assert isinstance(body["rules"], list) and body["rules"], (
+                "rules must be previewable"
+            )
             assert "kill_criteria" in body
             # unknown vertical: honest 404, not an empty 200
             assert r404.status_code == 404
