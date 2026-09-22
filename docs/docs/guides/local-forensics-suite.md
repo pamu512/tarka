@@ -26,7 +26,8 @@ SOP zip is the air-gap bootstrap. Confluence / Wiki **read-only** sync into tena
 ```bash
 # After setup wrote OPENAI_* (empty URL = Advise plane off):
 python3 scripts/oss/advise_sop_import.py --zip /path/to/tenant-okf.zip --tenant-id YOUR_TENANT
-export OKF_TENANT_OVERLAYS_PATH=knowledge/tenants
+# Optional: export the absolute OKF_TENANT_OVERLAYS_PATH printed on stderr.
+# Omit it to use compose default ../../knowledge/tenants (from infra/deploy/).
 docker compose \
   -f infra/deploy/docker-compose.lite.yml \
   -f infra/deploy/docker-compose.investigation.yml \

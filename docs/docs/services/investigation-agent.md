@@ -40,7 +40,8 @@ Operator imports a **validated** tenant OKF zip. Nothing is written into git
 ```bash
 python3 scripts/oss/advise_sop_import.py --zip /path/to/tenant-okf.zip --tenant-id YOUR_TENANT
 # unzip → staging → validate_okf_bundle --scope tenant (exit 0) → overlay
-export OKF_TENANT_OVERLAYS_PATH=knowledge/tenants   # compose default; or the printed path
+# Use the absolute OKF_TENANT_OVERLAYS_PATH the importer prints, or omit it
+# (compose default ../../knowledge/tenants is relative to infra/deploy/).
 ```
 
 Compose (`docker-compose.investigation.yml`) mounts

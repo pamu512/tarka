@@ -17,7 +17,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -28,6 +30,8 @@ _VALIDATE = Path("services") / "investigation-agent" / "scripts" / "validate_okf
 _VALIDATE_SRC = Path("services") / "investigation-agent" / "src"
 _OPERATOR_MOUNT = Path("knowledge") / "tenants"
 _SKIP_DIRS = frozenset({"__MACOSX"})
+# Path-safe tenant directory name. Rejects ../, slashes, and empty.
+_TENANT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 
 
 def default_repo_root() -> Path:
@@ -36,6 +40,13 @@ def default_repo_root() -> Path:
         if (candidate / _VALIDATE).is_file():
             return candidate
     return here.parents[2]
+
+
+def normalize_tenant_id(tenant_id: str) -> str:
+    value = tenant_id.strip()
+    if not _TENANT_ID.fullmatch(value):
+        raise ValueError("tenant-id must be 1–128 chars [A-Za-z0-9._-] (not a path)")
+    return value
 
 
 def overlays_path_is_safe(overlays: Path, repo_root: Path) -> bool:
@@ -72,18 +83,34 @@ def find_bundle_root(extracted: Path, tenant_id: str) -> Path:
     raise ValueError(f"no tenant OKF bundle root (index.md) for tenant-id {tenant_id!r} in extract")
 
 
+def _zip_member_kind(info: zipfile.ZipInfo) -> str:
+    mode = info.external_attr >> 16
+    if stat.S_ISLNK(mode):
+        return "symlink"
+    if info.is_dir() or stat.S_ISDIR(mode):
+        return "dir"
+    if mode and not stat.S_ISREG(mode):
+        return "special"
+    return "file"
+
+
 def safe_extract(zip_path: Path, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     dest_root = dest.resolve()
     with zipfile.ZipFile(zip_path) as handle:
+        allowed: list[zipfile.ZipInfo] = []
         for info in handle.infolist():
             name = info.filename.replace("\\", "/")
+            kind = _zip_member_kind(info)
+            if kind in {"symlink", "special"}:
+                raise ValueError(f"zip {kind} member rejected: {name}")
             if name.startswith("/") or ".." in Path(name).parts:
                 raise ValueError(f"zip path escapes staging: {name}")
             target = (dest / name).resolve()
             if not target.is_relative_to(dest_root):
                 raise ValueError(f"zip path escapes staging: {name}")
-        handle.extractall(dest)
+            allowed.append(info)
+        handle.extractall(dest, members=allowed)
 
 
 def run_validate(
@@ -155,9 +182,7 @@ def import_sop(
     staging: Path | None = None,
     shared_root: Path | None = None,
 ) -> dict[str, object]:
-    tenant_id = tenant_id.strip()
-    if not tenant_id:
-        raise ValueError("tenant-id is required")
+    tenant_id = normalize_tenant_id(tenant_id)
     if not zip_path.is_file():
         raise FileNotFoundError(f"zip not found: {zip_path}")
     if not overlays_path_is_safe(overlays, repo_root):
@@ -165,6 +190,10 @@ def import_sop(
             "in-repo overlays-path must be knowledge/tenants "
             "(operator mount; do not write tenant SOP payloads into git)"
         )
+    overlays_root = overlays.resolve()
+    dest = (overlays_root / tenant_id).resolve()
+    if not dest.is_relative_to(overlays_root):
+        raise ValueError("tenant dest escapes overlays-path")
 
     work = _resolve_staging(staging, tenant_id)
     extract_dir = work / "extract"
@@ -184,7 +213,6 @@ def import_sop(
             f"validate_okf_bundle --scope tenant failed (exit {validated.returncode}): {detail}"
         )
 
-    dest = overlays.resolve() / tenant_id
     stage_overlay(bundle, dest)
     return {
         "ok": True,
