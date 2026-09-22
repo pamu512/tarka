@@ -18,6 +18,7 @@ import {
 import { FirstHourHint } from "../components/FirstHourHint";
 import { PageTitle } from "../components/PageTitle";
 import { DraftBacktestButton } from "../components/DraftBacktestButton";
+import { VerticalPackWizard } from "../components/VerticalPackWizard";
 import { FieldMapPanel } from "../components/FieldMapPanel";
 import { SentencePackPanel } from "../components/SentencePackPanel";
 import { DegradedModeBanner } from "../components/DegradedModeBanner";
@@ -231,6 +232,7 @@ export default function Rules() {
   const [simulating, setSimulating] = useState(false);
 
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [tagInputs, setTagInputs] = useState<Record<number, string>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [verticalCatalog, setVerticalCatalog] = useState<Record<string, { name: string; rules: number; version: number }>>({});
@@ -1078,6 +1080,12 @@ export default function Rules() {
                 <div className="flex items-center gap-2">
                   <DraftBacktestButton pack={editingPack} tenantId={sandboxTenantDefault} />
                   <button
+                    onClick={() => setShowWizard((v) => !v)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showWizard ? "bg-brand-600/20 text-brand-400 border border-brand-500/40" : "bg-surface-700 hover:bg-surface-600 text-gray-300"}`}
+                  >
+                    Vertical wizard
+                  </button>
+                  <button
                     onClick={() => setShowTemplates((v) => !v)}
                     className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${showTemplates ? "bg-brand-600/20 text-brand-400 border border-brand-500/40" : "bg-surface-700 hover:bg-surface-600 text-gray-300"}`}
                   >
@@ -1092,6 +1100,20 @@ export default function Rules() {
                   </button>
                 </div>
               </div>
+
+              {/* Vertical pack wizard */}
+              {showWizard && (
+                <div className="bg-surface-900 border border-surface-700 rounded-xl p-4 animate-fade-in">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    Vertical Pack Wizard
+                  </h3>
+                  <VerticalPackWizard
+                    onInstalled={() => {
+                      void fetchPacks();
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Templates */}
               {showTemplates && (

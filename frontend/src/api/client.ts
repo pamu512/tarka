@@ -3664,6 +3664,17 @@ export const rules = {
     );
   },
 
+  verticalPackDefinition(verticalName: string) {
+    return request<{
+      id: string;
+      name: string;
+      version: number;
+      rules: Array<Record<string, unknown>>;
+      tag_rules: Array<Record<string, unknown>>;
+      kill_criteria: Record<string, unknown>;
+    }>(`/api/decisions/v1/rules/vertical-packs/${encodeURIComponent(verticalName)}`);
+  },
+
   installVerticalPack(
     verticalName: string,
     metrics: {
