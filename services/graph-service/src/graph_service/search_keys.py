@@ -259,4 +259,71 @@ async def search_prefix(
         want = str(label).strip()
         hits = [h for h in hits if want in (h.get("labels") or [])]
     truncated = len(hits) > cap
-    return sort_search_hits(hits, limit=cap), truncated
+    ranked = sort_search_hits(hits, limit=cap)
+    await hydrate_search_risk(tenant_id, ranked)
+    return ranked, truncated
+
+
+def _cypher_lit_str(val: str) -> str:
+    """JSON-quote a string for direct cypher interpolation (AGE 1.6 $$-params
+    are unreliable for IN-lists via asyncpg; literals are the repo convention)."""
+    import json as _json
+
+    return _json.dumps(str(val))
+
+
+async def hydrate_search_risk(tenant_id: str, hits: list[dict[str, Any]]) -> None:
+    """Fill scored/risk_score from stored AGE properties (spec: search carries
+    the subgraph sentinel; never live-compute risk on the search path).
+
+    One batched cypher IN-list for all hit ids; fail-soft to the existing
+    scored=False/risk=None placeholders when AGE is unavailable.
+    """
+    ids = [str(h.get("entity_id") or h.get("entity_external_id") or "") for h in hits]
+    ids = [i for i in ids if i]
+    if not ids:
+        return
+    try:
+        from .age_client import get_pool
+
+        pool = await get_pool()
+    except Exception:
+        log.warning("search risk hydrate skipped (pool)", exc_info=True)
+        return
+    in_list = ", ".join(_cypher_lit_str(i) for i in ids[:50])
+    tid = _cypher_lit_str(tenant_id)
+    q = f"""
+    SELECT CAST(CAST(eid AS VARCHAR) AS JSON) as eid,
+           CAST(CAST(score AS VARCHAR) AS JSON) as score
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id IN [{in_list}]
+        RETURN n.external_id AS eid, n.risk_score AS score
+    $$::cstring) as (eid ag_catalog.agtype, score ag_catalog.agtype);
+    """
+    try:
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(q)
+    except Exception:
+        log.warning("search risk hydrate skipped (query)", exc_info=True)
+        return
+    import json as _json
+
+    by_id: dict[str, Any] = {}
+    for r in rows or []:
+        try:
+            eid = _json.loads(r["eid"]) if r["eid"] else None
+            score = _json.loads(r["score"]) if r["score"] and r["score"] != "null" else None
+        except (TypeError, ValueError):
+            continue
+        if eid is not None:
+            by_id[str(eid)] = score
+    for h in hits:
+        eid = str(h.get("entity_id") or h.get("entity_external_id") or "")
+        score = by_id.get(eid)
+        if score is None:
+            continue
+        try:
+            h["risk_score"] = float(score)
+            h["scored"] = True
+        except (TypeError, ValueError):
+            continue

@@ -88,3 +88,67 @@ async def test_search_entities_uses_prefix_not_scan(monkeypatch):
     assert ok is True
     assert rows == [{"entity_id": "user-441"}]
     assert scanned == []
+
+
+@pytest.mark.asyncio
+async def test_search_prefix_hydrates_stored_risk(monkeypatch):
+    """Search hits must carry stored AGE risk (spec sentinel), not hardcoded None."""
+    from graph_service import search_keys as sk
+
+    rows = [
+        {
+            "entity_external_id": "bp-0",
+            "entity_type": "Person",
+            "key_kind": "person",
+            "last_outcome": None,
+        },
+        {
+            "entity_external_id": "bp-9",
+            "entity_type": "Person",
+            "key_kind": "person",
+            "last_outcome": None,
+        },
+    ]
+
+    class _Conn:
+        async def fetch(self, q, *a):
+            if "search_keys" in q:
+                return rows
+            # AGE hydration rows: bp-0 scored 40, bp-9 unscored (null)
+            return [
+                {"eid": '"bp-0"', "score": "40"},
+                {"eid": '"bp-9"', "score": "null"},
+            ]
+
+    class _Pool:
+        def acquire(self):
+            return self
+
+        async def __aenter__(self):
+            return _Conn()
+
+        async def __aexit__(self, *_a):
+            return False
+
+    async def _acquire():
+        return _Pool()
+
+    async def _get_age_pool():
+        return _Pool()
+
+    async def _ensure():
+        return None
+
+    from graph_service import age_client
+
+    monkeypatch.setattr(age_client, "get_pool", _get_age_pool)
+    monkeypatch.setattr(sk, "_acquire", _acquire)
+    monkeypatch.setattr(sk, "ensure_search_keys_table", _ensure)
+
+    hits, truncated = await sk.search_prefix("t1", "bp-", limit=5)
+    assert truncated is False
+    by_id = {h["entity_id"]: h for h in hits}
+    assert by_id["bp-0"]["scored"] is True
+    assert by_id["bp-0"]["risk_score"] == 40.0
+    assert by_id["bp-9"]["scored"] is False
+    assert by_id["bp-9"]["risk_score"] is None
