@@ -393,7 +393,7 @@ def entity_risk_sql(hop_depth: int) -> str:
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
            CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,
            CAST(CAST(community_size AS VARCHAR) AS JSON) as community_size,
-           CAST(CAST(shared_device_count AS VARCHAR) AS JSON) as shared_device_count,
+           CAST(device_id AS VARCHAR) as device_id,
            CAST(CAST(node_labels AS VARCHAR) AS JSON) as node_labels,
            CAST(CAST(edge_timestamps AS VARCHAR) AS JSON) as edge_timestamps
     FROM ag_catalog.cypher('tarka'::name, $$
@@ -413,27 +413,18 @@ def entity_risk_sql(hop_depth: int) -> str:
         WITH n, conn_count, flagged_neighbors,
              conn_count + 1 AS community_size
 
-        OPTIONAL MATCH (other)
-        WHERE other.tenant_id = $tenant_id
-          AND other.external_id <> $entity_id
-          AND other.device_id IS NOT NULL
-          AND n.device_id IS NOT NULL
-          AND other.device_id = n.device_id
-        WITH n, conn_count, flagged_neighbors, community_size,
-             count(DISTINCT other) AS shared_device_count
-
         OPTIONAL MATCH (n)-[e]-()
-        WITH n, conn_count, flagged_neighbors, community_size, shared_device_count,
+        WITH n, conn_count, flagged_neighbors, community_size,
              collect(coalesce(e.observed_at, e.created_at, e.updated_at)) AS edge_timestamps
         RETURN
           n.tags              AS tags,
           conn_count,
           flagged_neighbors,
           community_size,
-          shared_device_count,
+          n.device_id         AS device_id,
           labels(n)           AS node_labels,
           edge_timestamps
-    $$::cstring, $1::ag_catalog.agtype) as (tags ag_catalog.agtype, conn_count ag_catalog.agtype, flagged_neighbors ag_catalog.agtype, community_size ag_catalog.agtype, shared_device_count ag_catalog.agtype, node_labels ag_catalog.agtype, edge_timestamps ag_catalog.agtype);
+    $$::cstring, $1::ag_catalog.agtype) as (tags ag_catalog.agtype, conn_count ag_catalog.agtype, flagged_neighbors ag_catalog.agtype, community_size ag_catalog.agtype, device_id ag_catalog.agtype, node_labels ag_catalog.agtype, edge_timestamps ag_catalog.agtype);
     """
 
 
@@ -467,7 +458,7 @@ async def compute_entity_risk(
     conn_count: int = json.loads(row["conn_count"])
     flagged: int = json.loads(row["flagged_neighbors"])
     community_size: int = json.loads(row["community_size"])
-    shared_devices: int = json.loads(row["shared_device_count"])
+    device_id = row["device_id"] if row["device_id"] not in (None, "", "null") else None
     node_labels = (
         json.loads(row["node_labels"])
         if row["node_labels"] and row["node_labels"] != "null"
@@ -483,6 +474,10 @@ async def compute_entity_risk(
         edge_timestamps = []
     relation_growth_1h, relation_growth_24h = _relation_growth_counts(edge_timestamps)
     peer_p90 = await load_peer_p90_for_label(tenant_id, primary_label) if primary_label else None
+
+    from .device_index import count_shared_device
+
+    shared_devices = await count_shared_device(tenant_id, device_id, entity_id)
 
     return score_entity_risk(
         entity_id=entity_id,
