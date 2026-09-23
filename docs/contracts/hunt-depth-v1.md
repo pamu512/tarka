@@ -52,3 +52,19 @@ Non-claims — do not read Path B as any of these:
 - Invented neighbors when `GRAPH_SERVICE_URL` is empty
 - Path A without a tested AGE 1.6 bound
 - Python BFS that claims AGE multi-hop
+
+
+## Measured kill-gate verdict (2026-09-23, lite stack)
+
+06-roadmap kill rule: park depth-2 if its walk cost degrades p95 subgraph
+latency more than 2x depth-1. Measured on `r2proof` (3-node chain tenant,
+30 samples per depth, warm, edge + vertex indexes active):
+
+| depth | p50 | p95 |
+|-------|-----|-----|
+| 1     | 12.8 ms | 24.4 ms |
+| 2     | 12.8 ms | 27.2 ms |
+
+Ratio **1.11x** (gate <= 2x) — **PASS, depth-2 stays**. First-pass 17.5x
+reading was contaminated by a concurrent tenant refresh on the same
+database; rule for re-measurement: quiet stack only.

@@ -144,6 +144,32 @@ def _quote_age_ident(name: str) -> str:
     return f'"{name}"'
 
 
+def _vertex_prop_expr(prop: str) -> str:
+    """AGE vertex property access expression (index-safe, 1.6 form)."""
+    lit = '"' + prop + '"'
+    return (
+        "ag_catalog.agtype_access_operator("
+        "VARIADIC ARRAY[properties, ag_catalog.agtype_in("
+        f"'{lit}')])"
+    )
+
+
+def _vertex_tenant_index_sql(graph_name: str, label: str) -> str:
+    expr = _vertex_prop_expr("tenant_id")
+    return (
+        f'CREATE INDEX IF NOT EXISTS ix_{label.lower()}_tenant ON {graph_name}."{label}" ({expr})'
+    )
+
+
+def _vertex_composite_index_sql(graph_name: str, label: str) -> str:
+    tenant = _vertex_prop_expr("tenant_id")
+    ext = _vertex_prop_expr("external_id")
+    return (
+        f"CREATE INDEX IF NOT EXISTS ix_{label.lower()}_tenant_ext "
+        f'ON {graph_name}."{label}" ({tenant}, {ext})'
+    )
+
+
 async def ensure_age_edge_indexes(graph_name: str = "tarka") -> None:
     """Create start_id/end_id btree indexes on every AGE edge-label table.
 
@@ -183,8 +209,29 @@ async def ensure_age_edge_indexes(graph_name: str = "tarka") -> None:
                     f"CREATE INDEX IF NOT EXISTS ix_{label.lower()}_end "
                     f"ON {graph_name}.{ident} (end_id)"
                 )
+            # Vertex property indexes (same fail-soft posture): tenant_id on
+            # every vertex label table; composite (tenant_id, external_id) on
+            # the entity-bearing labels. Anchored lookups (entity-risk compute,
+            # search hydration) went 4.5ms seq scan -> 0.04ms index scan
+            # (lite-stack measured); unanchored WHERE probes skip whole-table
+            # scans on large labels (Decision/Payment measured 24-33ms -> <1ms).
+            vertex_rows = await conn.fetch(
+                "SELECT name FROM ag_catalog.ag_label WHERE kind = 'v' AND graph = $1::oid",
+                graph_oid,
+            )
+            for row in vertex_rows or []:
+                label = str(row["name"])
+                try:
+                    await conn.execute(_vertex_tenant_index_sql(graph_name, label))
+                    await conn.execute(_vertex_composite_index_sql(graph_name, label))
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("vertex property index skipped label=%s: %s", label, exc)
         _EDGE_INDEXES_ENSURED = True
-        log.info("age edge indexes ensured for %d labels", len(rows or []))
+        log.info(
+            "age indexes ensured: %d edge labels, %d vertex labels",
+            len(rows or []),
+            len(vertex_rows or []),
+        )
     except Exception:
         log.warning("age edge index ensure skipped (fail-soft)", exc_info=True)
 

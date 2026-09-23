@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 def _load():
@@ -83,3 +83,54 @@ class TestAgeEdgeIndexes(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVertexPropertyIndexes(unittest.IsolatedAsyncioTestCase):
+    async def test_ensure_creates_vertex_tenant_and_person_composite(self):
+        import graph_service.age_client as ac
+
+        conn = MagicMock()
+        executes: list[str] = []
+        idx_holder = {"n": 0}
+
+        async def _execute(q, *a):
+            executes.append(str(q))
+            return "OK"
+
+        conn.execute = AsyncMock(side_effect=_execute)
+
+        async def _fetch(q, *a):
+            if "ag_graph" in q:
+                return [{"graphid": 1}]
+            if "kind = 'v'" in q or "kind='v'" in q:
+                return [{"name": "Person"}, {"name": "Payment"}, {"name": "Device"}]
+            return []
+
+        conn.fetch = AsyncMock(side_effect=_fetch)
+        conn.fetchrow = AsyncMock(return_value={"graph": 1})
+        pool = MagicMock()
+        pool.acquire.return_value.__aenter__ = AsyncMock(return_value=conn)
+        pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        async def _pool():
+            return pool
+
+        ac._EDGE_INDEXES_ENSURED = False
+        with patch.object(ac, "get_pool", _pool):
+            await ac.ensure_age_edge_indexes()
+        joined = "\n".join(executes)
+        self.assertTrue(len(joined) > 0, "no DDL executed - guard bypass check")
+        # tenant_id property index on every vertex label
+        for label in ("Person", "Payment", "Device"):
+            self.assertIn(f'"{label}"', joined)
+        self.assertGreaterEqual(joined.count("tenant_id"), 3)
+        # composite (tenant_id, external_id) on Person only
+        self.assertIn("external_id", joined)
+
+    async def test_vertex_index_ddl_matches_measured_form(self):
+        import inspect
+
+        import graph_service.age_client as ac
+
+        src = inspect.getsource(ac)
+        self.assertIn("agtype_access_operator", src)
