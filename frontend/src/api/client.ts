@@ -342,6 +342,18 @@ export interface AuditRecentResponse {
   items: AuditRecentItem[];
 }
 
+/** R10 workspace read: ``GET /v1/audit/entity-timeline`` (trace-cited rows only). */
+export interface EntityTimelineRow extends AuditRecentItem {
+  entity_id: string;
+}
+
+export interface EntityTimelineResponse {
+  schema_id: string;
+  entities: Array<{ entity_id: string; count: number }>;
+  timeline: EntityTimelineRow[];
+  total: number;
+}
+
 /**
  * Keyset-paged decision audit slice for the explorer UI (`GET /v1/audit/explorer`).
  * Designed for keyset / opaque cursor semantics against ClickHouse or Postgres replicas.
@@ -1561,6 +1573,13 @@ export const decisions = {
   recentAudit(tenantId: string, limit: number = 50) {
     const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
     return request<AuditRecentResponse>(`/api/decisions/v1/audit/recent?${q}`);
+  },
+
+  /** R10 workspace read: cross-entity decision timeline (trace-cited rows only). */
+  entityTimeline(tenantId: string, entityIds: string[], limit: number = 100) {
+    const q = new URLSearchParams({ tenant_id: tenantId, limit: String(limit) });
+    for (const id of entityIds) q.append("entity_ids", id);
+    return request<EntityTimelineResponse>(`/api/decisions/v1/audit/entity-timeline?${q}`);
   },
 
   /** G4.3 query — desk glass is emit/ACK status, not a case inbox. */
