@@ -414,7 +414,7 @@ def entity_risk_sql(hop_depth: int) -> str:
              conn_count + 1 AS community_size
 
         OPTIONAL MATCH (n)-[e]-()
-        WITH n, conn_count, flagged_neighbors, community_size, shared_device_count,
+        WITH n, conn_count, flagged_neighbors, community_size,
              collect(coalesce(e.observed_at, e.created_at, e.updated_at)) AS edge_timestamps
         RETURN
           n.tags              AS tags,
