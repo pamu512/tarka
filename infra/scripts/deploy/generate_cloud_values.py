@@ -23,7 +23,7 @@ _DIGEST_KEY_ALIASES = {
 }
 SHA256_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 # G2 grade path: mutable tags alone are not enough.
-GRADE_PRESETS = frozenset({"prod-on-k8s"})
+GRADE_PRESETS = frozenset({"prod-on-k8s", "evaluate-only"})
 _TOP_KEY_RE = re.compile(r"^([A-Za-z][A-Za-z0-9]*):(?:\s|$)")
 _ENABLED_RE = re.compile(r"^  enabled:\s*(\S+)")
 _DIGEST_LINE_RE = re.compile(r"^  digest:\s*(.*)$")
@@ -243,7 +243,7 @@ def main() -> int:
     if args.preset in GRADE_PRESETS and not args.allow_empty_digest:
         if not args.digest_map:
             raise SystemExit(
-                "prod-on-k8s requires --digest-map (sha256 pins). "
+                "prod-on-k8s/evaluate-only requires --digest-map (sha256 pins). "
                 "Mutable tags alone are not the grade path. "
                 "Pass --allow-empty-digest only for non-grade CI helm template "
                 "(empty digest is a limitation, not an immutable claim)."

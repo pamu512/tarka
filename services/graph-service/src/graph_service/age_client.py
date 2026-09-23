@@ -462,8 +462,13 @@ def _node_tenant_id(node: dict[str, Any]) -> str:
 
 
 async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str, Any]:
-    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. D7.4 Path B: Hunt walk stays HUNT_DEPTH_MAX=1.
-    _ = min(HUNT_DEPTH_MAX, max(1, int(depth)))
+    # ponytail: AGE 1.6 has no age_unnest / variable-length UNWIND. D7.4 Path B:
+    # the default walk stays 1-hop. Depth-2 (opt-in via HUNT_DEPTH_2_ENABLED in
+    # hunt_depth.hunt_walk_depth, which produces depth==2 here) is an EXPLICIT
+    # second edge pattern - never a variable-length `[*1..n]`.
+    from .hunt_depth import hunt_walk_depth
+
+    walk = hunt_walk_depth(depth)
     tid = _cypher_lit(tenant_id)
     eid = _cypher_lit(entity_id)
     q_root = _cypher_sql(
@@ -477,6 +482,18 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
         "e ag_catalog.agtype, nb ag_catalog.agtype",
         "CAST(e AS VARCHAR) as e, CAST(nb AS VARCHAR) as nb",
     )
+    q_hop2 = (
+        _cypher_sql(
+            f"MATCH (root)-[e1]-(nb1)-[e2]-(nb2) WHERE root.tenant_id = {tid} "
+            f"AND root.external_id = {eid} AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
+            f"AND id(nb2) <> id(root) RETURN e1, nb1, e2, nb2",
+            "e1 ag_catalog.agtype, nb1 ag_catalog.agtype, e2 ag_catalog.agtype, nb2 ag_catalog.agtype",
+            "CAST(e1 AS VARCHAR) as e1, CAST(nb1 AS VARCHAR) as nb1, "
+            "CAST(e2 AS VARCHAR) as e2, CAST(nb2 AS VARCHAR) as nb2",
+        )
+        if walk >= 2
+        else None
+    )
     nodes_out: list[dict[str, Any]] = []
     edges_out: list[dict[str, Any]] = []
     seen_nodes: set[str] = set()
@@ -486,11 +503,16 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     async with _acquire() as conn:
         root_rows = await conn.fetch(q_root)
         hop_rows = await conn.fetch(q_hop)
+        hop2_rows = await conn.fetch(q_hop2) if q_hop2 is not None else []
     rows = []
     if root_rows:
         rows.append({"root": root_rows[0]["root"], "e": None, "nb": None})
     for hop in hop_rows or []:
         rows.append({"root": None, "e": hop["e"], "nb": hop["nb"]})
+    for hop in hop2_rows or []:
+        # second hop: carry first-hop node/edge alongside so the dedup pass links them
+        rows.append({"root": None, "e": hop["e1"], "nb": hop["nb1"]})
+        rows.append({"root": None, "e": hop["e2"], "nb": hop["nb2"]})
 
     for row in rows or []:
         for key in ("root", "nb"):
@@ -752,8 +774,7 @@ async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str],
     q = f"""
     SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id
     FROM ag_catalog.cypher('tarka'::name, $$
-        MATCH (n) WHERE n.tenant_id = $tenant_id
-        WHERE n.external_id IS NOT NULL
+        MATCH (n) WHERE n.tenant_id = $tenant_id AND n.external_id IS NOT NULL
         RETURN n.external_id
         ORDER BY n.external_id ASC
         LIMIT {fetch}

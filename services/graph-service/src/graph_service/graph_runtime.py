@@ -78,6 +78,14 @@ async def upsert_entity(
         await upsert_search_keys(tenant_id, entity_type, external_id, properties)
     except Exception:
         log.warning("search_keys_upsert_failed entity=%s", external_id, exc_info=True)
+    device_id = str((properties or {}).get("device_id") or "").strip()
+    if device_id:
+        try:
+            from .device_index import upsert_device_index
+
+            await upsert_device_index(tenant_id, device_id, external_id)
+        except Exception:
+            log.warning("device_index_upsert_failed entity=%s", external_id, exc_info=True)
     return gid
 
 

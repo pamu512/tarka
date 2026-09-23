@@ -26,7 +26,16 @@ Empty URL: plane-off / `graph:missing`. Do not emit a hop list. Do not invent `d
 
 ## Not Path A
 
-AGE-safe fixed k-hop was not proven on AGE 1.6. Do not raise `hunt_depth_max`. A later slice may ship a tested fixed bound; until then Path B holds.
+AGE-safe variable-length paths remain unproven on AGE 1.6; `hunt_depth_max` stays 1 in the schema and the default walk stays 1-hop.
+
+## Depth-2, opt-in (gated)
+
+`HUNT_DEPTH_2_ENABLED` (operator env; default unset/off) raises the **effective walk ceiling to 2** for `GET /v1/subgraph` when the caller requests depth ≥ 2:
+
+- Implementation is an **explicit second edge pattern** (`(root)-[e1]-(nb1)-[e2]-(nb2)`, tenant-scoped, root excluded), never a variable-length `[*1..n]` — the AGE 1.6 constraint stands.
+- Honesty semantics unchanged: `depth_applied` is the real walk; requesting > 2 still caps at 2 with `degrade_reason=hunt:depth_capped`. Responses additionally carry `hunt_depth_ceiling` (1 or 2) so the desk can show the effective bound.
+- `hunt_depth_max` in the schema payload stays **1** — the constant names the contract's default posture; the opt-in ceiling is reported separately rather than mutating the v1 field.
+- Depth-2 stays a Hunt (Plane C) capability: no effect on decide-time hops (Plane A) or offline jobs (Plane B).
 
 ## Degrade (D7.2–D7.4)
 
