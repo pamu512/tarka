@@ -355,7 +355,10 @@ class TestAgeRiskColumnOrder:
             "conn_count": 3,
             "flagged_neighbors": 0,
             "community_size": 1,
-            "shared_device_count": 0,
+            # R3: shared-device count no longer scans the tenant in cypher;
+            # the row carries the entity's own device_id instead and the count
+            # comes from the entity_device_index side-table.
+            "device_id": None,
             "node_labels": ["Account"],
             "edge_timestamps": [],
         }
