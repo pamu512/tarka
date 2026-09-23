@@ -11,6 +11,36 @@ import { decisions, type EntityTimelineResponse } from "@/api/client";
  */
 
 const STORAGE_KEY = "tarka.graph.entity_sets";
+
+const ENTITY_COLORS = [
+  "text-cyan-300",
+  "text-amber-300",
+  "text-violet-300",
+  "text-emerald-300",
+  "text-rose-300",
+  "text-sky-300",
+];
+
+function entityColor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return ENTITY_COLORS[h % ENTITY_COLORS.length];
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 10) return "now";
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
 const MAX_SETS = 20;
 const MAX_IDS = 10;
 
@@ -173,13 +203,31 @@ export function EntitySetPanel({
               </span>
             )}
           </div>
+          {timeline && timeline.entities.length > 0 && (
+            <div
+              className="mb-1.5 flex flex-wrap gap-x-2 gap-y-0.5"
+              data-testid="timeline-entity-counts"
+            >
+              {timeline.entities.map((e) => (
+                <span key={e.entity_id} className={`text-[10px] font-mono ${entityColor(e.entity_id)}`}>
+                  {e.entity_id}·{e.count}
+                </span>
+              ))}
+            </div>
+          )}
           {busy && <p className="text-[11px] text-gray-500">Loading…</p>}
           {timelineErr && <p className="text-[11px] text-rose-400" data-testid="entity-timeline-error">{timelineErr}</p>}
           {rows.length > 0 && (
             <ul className="max-h-56 space-y-1 overflow-y-auto pr-1">
               {rows.map((r) => (
                 <li key={r.trace_id} className="flex items-center gap-2 text-[11px]">
-                  <span className="w-32 shrink-0 truncate font-mono text-gray-400" title={r.entity_id}>{r.entity_id}</span>
+                  <span
+                    data-testid="timeline-entity-chip"
+                    className={`w-32 shrink-0 truncate font-mono ${entityColor(r.entity_id)}`}
+                    title={r.entity_id}
+                  >
+                    {r.entity_id}
+                  </span>
                   <span
                     className={
                       r.decision === "DENY"
@@ -191,7 +239,13 @@ export function EntitySetPanel({
                   >
                     {r.decision ?? "?"}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-gray-500">{r.created_at ?? ""}</span>
+                  <span
+                    className="min-w-0 flex-1 truncate text-gray-500"
+                    title={r.created_at ?? ""}
+                    data-testid="timeline-row-time"
+                  >
+                    {relativeTime(r.created_at)}
+                  </span>
                   <a
                     href={`/cases?trace_id=${encodeURIComponent(r.trace_id)}&tenant_id=${encodeURIComponent(tenantId)}`}
                     className="shrink-0 text-cyan-400 hover:text-cyan-300"
