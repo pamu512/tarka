@@ -2,7 +2,7 @@
 
 Counters no longer flow through a dedicated hop: the local AggregateStore
 (services/shared/fraud_aggregates.py) owns aggregates and they reach the
-inference context via ``features`` (source "local-fallback").
+inference context via ``features`` (source "aggregate-store": the local AggregateStore owns counters).
 """
 
 from decision_api.inference_build import build_inference_context
@@ -34,7 +34,7 @@ def test_build_inference_context_applies_service_metadata():
     assert ctx["expected_calibration_version"] == 9
     assert ctx["location_confidence"] == 0.64
     assert ctx["confidence_sources"]["calibration"] == "service"
-    assert ctx["confidence_sources"]["counter"] == "local-fallback"
+    assert ctx["confidence_sources"]["counter"] == "aggregate-store"
     assert ctx["confidence_sources"]["location"] == "service"
     assert ctx["velocity_events_5m"] == 7
     assert ctx["velocity_events_1h"] == 22

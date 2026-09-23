@@ -319,7 +319,7 @@ def build_inference_context(
             )
 
     counter_source = (
-        "local-fallback"
+        "aggregate-store"
         if any(
             k in features
             for k in ("event_count_5m", "event_count_1h", "event_count_24h")

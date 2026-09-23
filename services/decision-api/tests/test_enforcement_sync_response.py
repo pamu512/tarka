@@ -41,7 +41,7 @@ def test_evaluate_response_carries_enforcement_action():
             "location_confidence": 0.35,
             "confidence_sources": {
                 "calibration": "heuristic",
-                "counter": "local-fallback",
+                "counter": "aggregate-store",
                 "location": "heuristic",
             },
         },

@@ -130,7 +130,7 @@ class TestEvaluateResponse:
                 "location_confidence": 0.8,
                 "confidence_sources": {
                     "calibration": "heuristic",
-                    "counter": "local-fallback",
+                    "counter": "aggregate-store",
                     "location": "heuristic",
                 },
             },
