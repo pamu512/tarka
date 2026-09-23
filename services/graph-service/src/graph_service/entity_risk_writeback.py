@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -123,7 +124,12 @@ async def refresh_entity(
     return {"updated": 1, "skipped": 0, "truncated": False}
 
 
-async def refresh_tenant(tenant_id: str, limit: int = REFRESH_LIMIT_DEFAULT) -> dict[str, Any]:
+async def refresh_tenant(
+    tenant_id: str,
+    limit: int = REFRESH_LIMIT_DEFAULT,
+    *,
+    concurrency: int = 4,
+) -> dict[str, Any]:
     limit = clamp_refresh_limit(limit)
     # R3: keep the shared-device index warm so compute reads O(devices), not O(tenant).
     try:
@@ -133,24 +139,39 @@ async def refresh_tenant(tenant_id: str, limit: int = REFRESH_LIMIT_DEFAULT) -> 
     except Exception:
         log.exception("device_index backfill failed tenant=%s (continuing refresh)", tenant_id)
     ids, truncated = await scan_tenant_entity_ids(tenant_id, limit)
+    # Serial compute+SET costs 2 AGE round-trips per entity; bounded concurrency
+    # (default 4, below the pool max 10) cuts tenant wall time without changing
+    # the per-entity contract or the response shape.
+    sem = asyncio.Semaphore(max(1, min(int(concurrency or 4), 8)))
     updated = 0
     skipped = 0
     by_label: dict[str, list[int]] = {}
-    for eid in ids:
-        try:
-            payload = await compute_entity_risk(tenant_id, eid)
-        except Exception:
-            log.exception("tenant risk refresh compute failed tenant=%s entity=%s", tenant_id, eid)
-            skipped += 1
-            continue
+    lock = asyncio.Lock()
+
+    async def _one(eid: str) -> None:
+        nonlocal updated, skipped
+        async with sem:
+            try:
+                payload = await compute_entity_risk(tenant_id, eid)
+            except Exception:
+                log.exception(
+                    "tenant risk refresh compute failed tenant=%s entity=%s", tenant_id, eid
+                )
+                async with lock:
+                    skipped += 1
+                return
         if not is_found_payload(payload):
-            skipped += 1
-            continue
+            async with lock:
+                skipped += 1
+            return
         await persist_entity_risk(tenant_id, eid, payload)
-        updated += 1
-        label = str(payload.get("primary_label") or "").strip()
-        if label:
-            by_label.setdefault(label, []).append(_int_prop(payload, "relation_count"))
+        async with lock:
+            updated += 1
+            label = str(payload.get("primary_label") or "").strip()
+            if label:
+                by_label.setdefault(label, []).append(_int_prop(payload, "relation_count"))
+
+    await asyncio.gather(*[_one(eid) for eid in ids])
     p90_map: dict[str, int] = {}
     for label, values in by_label.items():
         p90 = p90_degree(values)
