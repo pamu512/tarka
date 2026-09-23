@@ -142,6 +142,13 @@ async def lifespan(_: FastAPI):
             tier["experience_tier"],
             ", ".join(tier["degraded_capabilities"]),
         )
+    if settings.graph_backend == "age":
+        try:
+            from .age_client import ensure_age_edge_indexes
+
+            await ensure_age_edge_indexes()
+        except Exception:
+            log.warning("age edge index ensure failed at startup (fail-soft)")
     yield
     await close_graph_backend()
 
