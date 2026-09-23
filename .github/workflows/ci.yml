@@ -184,6 +184,7 @@ jobs:
           python3 infra/scripts/ci/test_q2_wave4_contracts.py
           python3 infra/scripts/ci/test_postgap_contracts.py
           python3 infra/scripts/ci/test_production_install_soak_checklist.py
+          python3 infra/scripts/ci/test_soak_backup_upgrade_dry_run.py
       - name: Policy-as-code gate (make policy-check)
         run: |
           pip install pydantic sqlalchemy
@@ -1055,6 +1056,8 @@ jobs:
         run: bash scripts/oss/age_restore_drill.sh
       - name: SoR backup/restore drill contract
         run: python3 infra/scripts/ci/test_backup_restore_drill.py
+      - name: Named-pilot G9 soak start dry-run (G6 + G7 dating)
+        run: python3 infra/scripts/ci/test_soak_backup_upgrade_dry_run.py
       - name: SoR backup/restore docker smoke
         run: |
           sudo apt-get update -qq
