@@ -9,7 +9,9 @@ from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .graph_runtime import merge_stored_trace_ids
 import logging
+from datetime import UTC, datetime
 
+from .entity_risk_score import is_found_payload
 from .hunt_depth import HUNT_DEPTH_MAX
 
 log = logging.getLogger("graph_service.age_client")
@@ -501,6 +503,62 @@ async def set_entity_risk_properties(tenant_id: str, entity_id: str, props: dict
     params_json = json.dumps({"tenant_id": tenant_id, "entity_id": entity_id, **present})
     async with _acquire() as conn:
         await conn.execute(q, params_json)
+
+
+async def set_entity_risk_properties_many(tenant_id: str, batch: list[dict[str, Any]]) -> int:
+    """Batched entity-risk SET: one UNWIND round-trip for N entities.
+
+    Same write semantics as set_entity_risk_properties (only present props,
+    MATCH-scoped per entity); literals per the AGE 1.6 convention.
+    Returns the number of entities written.
+    """
+    rows: list[dict[str, Any]] = []
+    for item in batch:
+        if not item or not is_found_payload(item):
+            continue
+        props = {
+            "eid": str(item.get("entity_id") or ""),
+            "risk_score": item.get("risk_score"),
+            "risk_factors": [str(x) for x in (item.get("risk_factors") or [])],
+            "risk_computed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "relation_count": _int_or_none(item.get("relation_count")),
+            "relation_growth_1h": _int_or_none(item.get("relation_growth_1h")),
+            "relation_growth_24h": _int_or_none(item.get("relation_growth_24h")),
+        }
+        if not props["eid"]:
+            continue
+        props = {k: v for k, v in props.items() if v is not None}
+        props["eid"] = str(item.get("entity_id") or "")
+        rows.append(props)
+    if not rows:
+        return 0
+    tid = _cypher_lit(tenant_id)
+    payload = json.dumps({"rows": rows})
+    q = f"""
+    SELECT count(n) AS c
+    FROM ag_catalog.cypher('tarka'::name, $$
+        UNWIND $rows AS row
+        MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id = row.eid
+        SET n.risk_score = row.risk_score,
+            n.risk_factors = row.risk_factors,
+            n.risk_computed_at = row.risk_computed_at,
+            n.relation_count = row.relation_count,
+            n.relation_growth_1h = row.relation_growth_1h,
+            n.relation_growth_24h = row.relation_growth_24h
+        RETURN n
+    $$::cstring, $1::ag_catalog.agtype) as (n ag_catalog.agtype);
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(q, payload)
+    return len(rows)
+
+
+def _int_or_none(v: Any) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _node_to_dict(n: dict[str, Any]) -> dict[str, Any]:

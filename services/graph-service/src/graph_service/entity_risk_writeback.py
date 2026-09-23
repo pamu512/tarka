@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .algorithms import compute_entity_risk
+from .age_client import set_entity_risk_properties_many  # noqa: E402
 from .entity_risk_score import is_found_payload, p90_degree
 from .graph_runtime import (
     list_one_hop_ids,
@@ -145,6 +146,7 @@ async def refresh_tenant(
     sem = asyncio.Semaphore(max(1, min(int(concurrency or 4), 8)))
     updated = 0
     skipped = 0
+    payloads: dict[str, dict] = {}
     by_label: dict[str, list[int]] = {}
     lock = asyncio.Lock()
 
@@ -164,14 +166,31 @@ async def refresh_tenant(
             async with lock:
                 skipped += 1
             return
-        await persist_entity_risk(tenant_id, eid, payload)
         async with lock:
             updated += 1
+            payloads[eid] = payload
             label = str(payload.get("primary_label") or "").strip()
             if label:
                 by_label.setdefault(label, []).append(_int_prop(payload, "relation_count"))
 
     await asyncio.gather(*[_one(eid) for eid in ids])
+
+    # Batched writeback: one UNWIND round-trip for the whole tenant instead of
+    # a SET per entity. Same props/semantics as persist_entity_risk.
+    batch = [payloads[eid] for eid in ids if eid in payloads]
+    if batch:
+        try:
+            await set_entity_risk_properties_many(tenant_id, batch)
+        except Exception:
+            log.exception(
+                "tenant risk batched writeback failed tenant=%s (%d entities); "
+                "falling back to per-entity persist",
+                tenant_id,
+                len(batch),
+            )
+            for eid in ids:
+                if eid in payloads:
+                    await persist_entity_risk(tenant_id, eid, payloads[eid])
     p90_map: dict[str, int] = {}
     for label, values in by_label.items():
         p90 = p90_degree(values)
