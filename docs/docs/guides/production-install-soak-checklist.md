@@ -45,6 +45,21 @@ Fill this block **before** any row can count as a grade sign-off. Internal lab a
 
 Unsigned / unnamed = **not** a GitLab-grade claim.
 
+## Soak start kit (internal lab)
+
+Internal lab is a valid named pilot. Binder: [`docs/pilots/internal-lab/README.md`](../../pilots/internal-lab/README.md).
+
+Date G6 backup + G7 upgrade **before** those rows can pass:
+
+```bash
+python3 scripts/oss/soak_backup_upgrade_dry_run.py \
+  --pilot-name internal-lab \
+  --owner <operator> \
+  --date <UTC>
+```
+
+Blank owner or date on that script is **fail**. The dry-run prints evidence; it does not sign this sheet and is not a GitLab-grade claim.
+
 ## Pass / fail
 
 Every row needs **pass** or **fail**, a **date**, and an **owner**. Blank date or owner = fail. One fail = the sheet is not signed.
