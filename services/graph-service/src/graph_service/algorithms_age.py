@@ -365,6 +365,21 @@ async def detect_fraud_rings(
 # e) Entity Risk Score
 # ---------------------------------------------------------------------------
 
+
+def decode_agtype_string(raw: str | None) -> str | None:
+    """Decode a string agtype read via CAST(... AS VARCHAR).
+
+    Postgres renders a string agtype with surrounding double quotes
+    ('"d-hub-shared"'); json.loads gives the clean scalar. null/empty -> None.
+    """
+    if raw is None or raw == "" or raw == "null":
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return raw
+
+
 _HIGH_RISK_TAGS = frozenset(
     {
         "fraud",
@@ -458,7 +473,7 @@ async def compute_entity_risk(
     conn_count: int = json.loads(row["conn_count"])
     flagged: int = json.loads(row["flagged_neighbors"])
     community_size: int = json.loads(row["community_size"])
-    device_id = row["device_id"] if row["device_id"] not in (None, "", "null") else None
+    device_id = decode_agtype_string(row["device_id"])
     node_labels = (
         json.loads(row["node_labels"])
         if row["node_labels"] and row["node_labels"] != "null"

@@ -274,3 +274,15 @@ class TestRefreshTenantBackfills(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(out["updated"], 1)
         self.assertEqual(calls[0], "backfill")
         self.assertIn("scan", calls)
+
+
+class TestDeviceAgtypeDecoding(unittest.TestCase):
+    def test_quoted_agtype_string_is_decoded(self):
+        """CAST(agtype AS VARCHAR) yields '"dev"' with quotes; json.loads strips."""
+        from graph_service.algorithms_age import decode_agtype_string
+
+        self.assertEqual(decode_agtype_string('"d-hub-shared"'), "d-hub-shared")
+        self.assertEqual(decode_agtype_string("d-hub-shared"), "d-hub-shared")
+        self.assertIsNone(decode_agtype_string(None))
+        self.assertIsNone(decode_agtype_string("null"))
+        self.assertIsNone(decode_agtype_string(""))
