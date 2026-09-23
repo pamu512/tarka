@@ -128,9 +128,24 @@ class TestVertexPropertyIndexes(unittest.IsolatedAsyncioTestCase):
         self.assertIn("external_id", joined)
 
     async def test_vertex_index_ddl_matches_measured_form(self):
-        import inspect
+        from graph_service.age_client import (
+            _vertex_composite_index_sql,
+            _vertex_prop_expr,
+            _vertex_tenant_index_sql,
+        )
 
-        import graph_service.age_client as ac
-
-        src = inspect.getsource(ac)
-        self.assertIn("agtype_access_operator", src)
+        expr = _vertex_prop_expr("tenant_id")
+        expected = (
+            "ag_catalog.agtype_access_operator(VARIADIC ARRAY[properties, "
+            "ag_catalog.agtype_in('\"tenant_id\"')])"
+        )
+        self.assertEqual(expr, expected)
+        tenant_sql = _vertex_tenant_index_sql("tarka", "Person")
+        self.assertIn('ON tarka."Person"', tenant_sql)
+        self.assertIn(expr, tenant_sql)
+        self.assertIn("ix_person_tenant", tenant_sql)
+        composite = _vertex_composite_index_sql("tarka", "Person")
+        self.assertIn("external_id", composite)
+        self.assertIn("ix_person_tenant_ext", composite)
+        # both expressions in the composite, comma-joined
+        self.assertIn(f"({expr}, ", composite)
