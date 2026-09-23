@@ -774,8 +774,7 @@ async def scan_tenant_entity_ids(tenant_id: str, limit: int) -> tuple[list[str],
     q = f"""
     SELECT CAST(CAST(entity_id AS VARCHAR) AS JSON) as entity_id
     FROM ag_catalog.cypher('tarka'::name, $$
-        MATCH (n) WHERE n.tenant_id = $tenant_id
-        WHERE n.external_id IS NOT NULL
+        MATCH (n) WHERE n.tenant_id = $tenant_id AND n.external_id IS NOT NULL
         RETURN n.external_id
         ORDER BY n.external_id ASC
         LIMIT {fetch}
