@@ -162,6 +162,7 @@ Tarka sells a commercial **self-host install pack** for a GitLab-shaped VPC CE: 
 | [CLAIM_LOCK](docs/compliance/CLAIM_LOCK.md) | Allowed language; must-not-ship |
 | [production-install-v1](docs/contracts/production-install-v1.md) | Grade gates (G0–G8 + G9 checklist) |
 | [soak checklist](docs/docs/guides/production-install-soak-checklist.md) | G9 named-pilot sign-off (not the grade) |
+| [internal-lab soak start](docs/pilots/internal-lab/README.md) | Named internal lab binder + `scripts/oss/soak_backup_upgrade_dry_run.py` (G6/G7 dating; not the grade) |
 | [product Day-1](docs/docs/guides/product-day1-install.md) | `make product` vs Helm skins |
 | [pack GitOps](docs/docs/guides/pack-gitops.md) | Promote is live; git is export |
 | [pack promote export v1](docs/contracts/pack-promote-export-v1.md) | Consumer contract; git is backup, not go-live |
