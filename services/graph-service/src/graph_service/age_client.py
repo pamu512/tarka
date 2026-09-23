@@ -8,7 +8,11 @@ import asyncpg
 from .config import settings
 from .custom_schema import get_allowed_labels, get_allowed_rels
 from .graph_runtime import merge_stored_trace_ids
+import logging
+
 from .hunt_depth import HUNT_DEPTH_MAX
+
+log = logging.getLogger("graph_service.age_client")
 from .entity_risk_score import (
     decorate_subgraph_node,
     link_props_for_create,
@@ -124,6 +128,63 @@ def _cypher_lit(val: Any) -> str:
     if isinstance(val, (list, dict)):
         return json.dumps(val)
     return json.dumps(str(val))
+
+
+_EDGE_INDEXES_ENSURED = False
+
+_SAFE_AGE_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _quote_age_ident(name: str) -> str:
+    """Quote an AGE label identifier for DDL; refuse anything unexpected."""
+    if not _SAFE_AGE_IDENT.match(name or ""):
+        raise ValueError(f"unsafe AGE label identifier: {name!r}")
+    return f'"{name}"'
+
+
+async def ensure_age_edge_indexes(graph_name: str = "tarka") -> None:
+    """Create start_id/end_id btree indexes on every AGE edge-label table.
+
+    AGE builds per-label edge tables with only a primary key; without join
+    indexes every (n)-[r]-(nb) walk plans as a nested-loop cross product
+    (measured on the lite stack: 7.2M join-filter rows removed, 12-36s per
+    entity-risk compute at 7.5k nodes). Two btree indexes per label restore
+    index joins (measured: same query 15ms). Fail-soft: AGE unavailable or
+    permission denied logs and skips — reads stay correct, just slow.
+    """
+    global _EDGE_INDEXES_ENSURED
+    if _EDGE_INDEXES_ENSURED:
+        return
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            graph_oid_row = await conn.fetchrow(
+                "SELECT graphid AS graph FROM ag_catalog.ag_graph WHERE name = $1::name",
+                graph_name,
+            )
+            graph_oid = graph_oid_row["graph"] if graph_oid_row else None
+            if graph_oid is None:
+                log.warning("age graph %r not found; edge indexes skipped", graph_name)
+                return
+            rows = await conn.fetch(
+                "SELECT name FROM ag_catalog.ag_label WHERE kind = 'e' AND graph = $1::oid",
+                graph_oid,
+            )
+            for row in rows or []:
+                label = str(row["name"])
+                ident = _quote_age_ident(label)
+                await conn.execute(
+                    f"CREATE INDEX IF NOT EXISTS ix_{label.lower()}_start "
+                    f"ON {graph_name}.{ident} (start_id)"
+                )
+                await conn.execute(
+                    f"CREATE INDEX IF NOT EXISTS ix_{label.lower()}_end "
+                    f"ON {graph_name}.{ident} (end_id)"
+                )
+        _EDGE_INDEXES_ENSURED = True
+        log.info("age edge indexes ensured for %d labels", len(rows or []))
+    except Exception:
+        log.warning("age edge index ensure skipped (fail-soft)", exc_info=True)
 
 
 def _cypher_sql(body: str, columns: str, select: str = "*") -> str:
