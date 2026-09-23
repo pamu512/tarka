@@ -133,4 +133,3 @@ async def backfill_tenant_device_index(tenant_id: str) -> int:
             tenant_id,
         )
     return 0
-
