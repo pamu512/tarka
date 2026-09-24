@@ -63,6 +63,7 @@ nav:
   - Quickstart: quickstart.md
   - Architecture: architecture.md
   - Feature data flows: guides/feature-data-flows.md
+  - Proof-grade decisioning: guides/proof-grade-decisioning.md
   - Services:
       - Decision API: services/decision-api.md
       - Case API: services/case-api.md

@@ -386,6 +386,45 @@ def _join_rate_fields(
     }
 
 
+def compute_evidence_chain_completeness(
+    receipts: list[dict[str, Any]] | None,
+    *,
+    tenant_id: str,
+) -> dict[str, Any]:
+    """Per-tenant evidence-chain completeness over the loaded receipt window.
+
+    A receipt's chain is complete when the decision has a label state bound
+    (label known — not still pending/unbound). null = unknown per bake-off
+    rules: no receipts in window or no tenant scope yields ratio None, never
+    0.0 theater.
+    """
+    want = (tenant_id or "").strip()
+    if not want:
+        return {"complete": None, "total": 0, "ratio": None}
+    if not receipts:
+        return {"complete": None, "total": 0, "ratio": None}
+    seen: set[str] = set()
+    total = 0
+    complete = 0
+    for row in receipts:
+        if not isinstance(row, dict):
+            continue
+        row_tenant = str(row.get("tenant_id") or "").strip()
+        if row_tenant and row_tenant != want:
+            continue
+        trace = str(row.get("trace_id") or "").strip()
+        if trace and trace in seen:
+            continue
+        if trace:
+            seen.add(trace)
+        total += 1
+        if str(row.get("label_state") or "").strip().lower() == "bound":
+            complete += 1
+    if total == 0:
+        return {"complete": None, "total": 0, "ratio": None}
+    return {"complete": complete, "total": total, "ratio": complete / total}
+
+
 def compute_loop_metrics(
     packs: list[dict[str, Any]],
     labels: dict[str, Any],
@@ -545,6 +584,9 @@ def compute_loop_metrics(
         "action_mix": action_mix,
         "rule_hit_rate": None,
         "shadow_divergence": shadow_div,
+        "evidence_chain_completeness": compute_evidence_chain_completeness(
+            receipts, tenant_id=tenant_id
+        ),
         "pack_metrics": compute_pack_metrics(packs, observations, tenant_id=tenant_id),
     }
     join_fields = _join_rate_fields(labels, receipts, tenant_id=tenant_id)
