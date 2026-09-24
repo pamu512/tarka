@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::env;
 use std::path::PathBuf;
-use std::process::{ExitCode, exit};
+use std::process::{exit, ExitCode};
 use std::time::Duration;
 
 use clap::{Parser, Subcommand};
@@ -34,12 +34,31 @@ enum Commands {
     /// Pull a tenant-scoped manifest window from ClickHouse and emit a batch replay scorecard.
     #[command(name = "batch-replay")]
     BatchReplay(BatchReplayArgs),
+    /// Verify a signed evidence bundle (JSON) offline: bundle hash, hash chain,
+    /// HMAC signature, key id (P1 proof-grade). Exit 0 only if all checks pass.
+    Verify(VerifyArgs),
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct VerifyArgs {
+    /// Path to the evidence bundle JSON (as exported by GET /v1/compliance/evidence).
+    #[arg(long, env = "TARKA_EVIDENCE_BUNDLE")]
+    bundle: PathBuf,
+
+    /// Signing key (EVIDENCE_SIGNING_SECRET). Optional: without it, bundle hash
+    /// and hash chain still prove internal integrity; signature/key id unchecked.
+    #[arg(long, env = "TARKA_EVIDENCE_KEY", hide_env_values = true)]
+    key: Option<String>,
 }
 
 #[derive(clap::Args, Clone, Debug)]
 struct ClickHouseHttpArgs {
     /// ClickHouse HTTP endpoint (`http://host:8123`).
-    #[arg(long, env = "CLICKHOUSE_HTTP_URL", default_value = "http://127.0.0.1:8123")]
+    #[arg(
+        long,
+        env = "CLICKHOUSE_HTTP_URL",
+        default_value = "http://127.0.0.1:8123"
+    )]
     clickhouse_url: String,
 
     #[arg(long, env = "CLICKHOUSE_DATABASE", default_value = "tarka_audit")]
@@ -125,7 +144,11 @@ struct BatchReplayArgs {
     until: String,
 
     /// Tenant id filter applied to ClickHouse queries and row-level security session settings.
-    #[arg(long, required = true, help = "Tenant id filter for the manifest batch pull")]
+    #[arg(
+        long,
+        required = true,
+        help = "Tenant id filter for the manifest batch pull"
+    )]
     tenant: String,
 
     /// Parallel replay worker count (defaults to the host CPU core count).
@@ -212,7 +235,9 @@ impl PerformanceGateReport {
     }
 }
 
-fn parse_performance_thresholds(max_false_positive_rate_delta: f64) -> Result<PerformanceThresholds, CliError> {
+fn parse_performance_thresholds(
+    max_false_positive_rate_delta: f64,
+) -> Result<PerformanceThresholds, CliError> {
     if !max_false_positive_rate_delta.is_finite() {
         tarka_cli::eprint_batch_replay_field_error(
             "--max-false-positive-rate-delta",
@@ -356,6 +381,46 @@ async fn run(cli: Cli) -> Result<(), CliError> {
             print!("{report}");
             Ok(())
         }
+        Commands::Verify(args) => {
+            let raw = std::fs::read_to_string(&args.bundle).map_err(|e| {
+                CliError::EvidenceVerify(format!("read bundle {}: {e}", args.bundle.display()))
+            })?;
+            let bundle: serde_json::Value = serde_json::from_str(&raw)
+                .map_err(|e| CliError::EvidenceVerify(format!("bundle is not valid JSON: {e}")))?;
+            let report = tarka_cli::evidence_verify::verify_bundle(&bundle, args.key.as_deref())
+                .map_err(|e| CliError::EvidenceVerify(format!("bundle malformed: {e}")))?;
+            println!("evidence bundle verification");
+            println!(
+                "  bundle hash : {}",
+                if report.bundle_hash_ok { "OK" } else { "FAIL" }
+            );
+            println!(
+                "  hash chain  : {} ({} records)",
+                if report.hash_chain_ok { "OK" } else { "FAIL" },
+                report.records
+            );
+            if args.key.is_some() {
+                println!(
+                    "  signature   : {}",
+                    if report.signature_ok { "OK" } else { "FAIL" }
+                );
+                println!(
+                    "  key id      : {} ({})",
+                    if report.key_id_ok { "OK" } else { "MISMATCH" },
+                    report.key_id
+                );
+            } else {
+                println!("  signature   : SKIPPED (no key provided)");
+                println!("  key id      : {} (not checked)", report.key_id);
+            }
+            if report.ok() {
+                println!("VERIFIED");
+                Ok(())
+            } else {
+                println!("FAILED");
+                exit(1);
+            }
+        }
         Commands::BatchReplay(args) => {
             let scorecard_output = args.scorecard_output.clone();
             let thresholds = parse_performance_thresholds(args.max_false_positive_rate_delta)?;
@@ -447,9 +512,9 @@ fn write_replay_scorecard_or_fallback(
     replay: &ReplayScorecard,
     path: &PathBuf,
 ) -> Result<(), CliError> {
-    let body = replay.to_json_pretty().map_err(|e| {
-        CliError::BatchReplay(format!("encode scorecard JSON: {e}"))
-    })?;
+    let body = replay
+        .to_json_pretty()
+        .map_err(|e| CliError::BatchReplay(format!("encode scorecard JSON: {e}")))?;
 
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -547,7 +612,10 @@ mod performance_gate_tests {
             },
         );
         assert!(!report.passed());
-        assert!(report.violations.iter().any(|v| v.contains("decision_match_rate")));
+        assert!(report
+            .violations
+            .iter()
+            .any(|v| v.contains("decision_match_rate")));
     }
 
     #[test]

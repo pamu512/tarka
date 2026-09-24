@@ -3,6 +3,7 @@
 pub mod clickhouse;
 pub mod diff;
 pub mod error;
+pub mod evidence_verify;
 pub mod mock_external;
 pub mod registry;
 pub mod replay;
@@ -34,6 +35,5 @@ pub use scorecard::{
 pub use test_helpers::{
     decode_evidence_manifest_binary, encode_evidence_manifest_binary, synthesize_manifest_batch,
     synthesize_manifest_test_vector, GroundTruthLabelFixture, ManifestTestVector,
-    ManifestTestVectorBuilder, MockClickHouseHarness, TraceStepSpec,
-    DEFAULT_TEST_RULE_CONTENT_ID,
+    ManifestTestVectorBuilder, MockClickHouseHarness, TraceStepSpec, DEFAULT_TEST_RULE_CONTENT_ID,
 };

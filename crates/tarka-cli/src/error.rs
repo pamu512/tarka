@@ -72,14 +72,13 @@ pub enum CliError {
         rule_id: Option<String>,
     },
 
-    #[error("wasm modules missing for replay (provide --wasm-dir with `<hex>.wasm` artifacts): {0}")]
+    #[error(
+        "wasm modules missing for replay (provide --wasm-dir with `<hex>.wasm` artifacts): {0}"
+    )]
     WasmMissing(String),
 
     #[error("batch-replay flag {flag} invalid: {message}")]
-    BatchReplayField {
-        flag: &'static str,
-        message: String,
-    },
+    BatchReplayField { flag: &'static str, message: String },
 
     #[error("batch-replay failed: {0}")]
     BatchReplay(String),
@@ -90,4 +89,7 @@ pub enum CliError {
         #[source]
         source: std::io::Error,
     },
+
+    #[error("evidence verify: {0}")]
+    EvidenceVerify(String),
 }
