@@ -46,6 +46,7 @@ synth-loop:
 policy-check:
 	cd "$(ROOT)" && python3 infra/scripts/policy/validate_rule_packs.py
 	cd "$(ROOT)" && python3 infra/scripts/policy/validate_opa_bundle.py
+	cd "$(ROOT)" && python3 infra/scripts/ci/check_boundary_conformance.py
 
 # Golden evaluate / device_context fixtures vs JSON Schema + EvaluateRequest.
 contract-check:
