@@ -358,14 +358,16 @@ Use this to tune `score_delta` values and thresholds before going live.
 
 1. **Use descriptive rule IDs.** Rule IDs appear in `rule_hits` and audit trails. Names like `velocity_high_1h` are more useful than `rule_17`.
 
-2. **Keep score deltas moderate.** The base score is 10. Individual rules should typically add 5–30 points. Reserve 40+ for high-confidence signals like `is_bot` or `is_repackaged`.
+2. **Start from the wizard when a vertical fits.** The desk ships a vertical-pack wizard (`/rules`) that drafts a pack from a chosen vertical without hand-editing JSON, a one-click draft backtest (`DraftBacktestButton` on the Rules page), and a promote-readiness panel on `/ops/shadow` that lists what is still missing (why, backtest, kill criteria) before a draft can be promoted. The desk UI scorecard tracks these as T7/T8; see [desk-ui-scorecard](desk-ui-scorecard.md).
 
-3. **Use tag rules for compound signals.** Instead of complex multi-condition feature rules, let simple rules apply tags, then use tag rules to escalate when multiple signals combine.
+3. **Keep score deltas moderate.** The base score is 10. Individual rules should typically add 5–30 points. Reserve 40+ for high-confidence signals like `is_bot` or `is_repackaged`.
 
-4. **Version your rule packs.** Keep rule files in version control. The `version: 1` field is reserved for future schema changes.
+4. **Use tag rules for compound signals.** Instead of complex multi-condition feature rules, let simple rules apply tags, then use tag rules to escalate when multiple signals combine.
 
-5. **Test with replay before deploying.** Always backtest against real traffic to understand the impact of new rules on decision distribution.
+5. **Version your rule packs.** Keep rule files in version control. The `version: 1` field is reserved for future schema changes.
 
-6. **Separate concerns into packs.** Create separate pack files for velocity rules, device signal rules, amount rules, and geo rules. This makes it easier to toggle entire categories.
+6. **Test with replay before deploying.** Always backtest against real traffic to understand the impact of new rules on decision distribution.
 
-7. **Monitor rule_hits in audit data.** After deploying new rules, query the audit table to verify they're firing at expected rates.
+7. **Separate concerns into packs.** Create separate pack files for velocity rules, device signal rules, amount rules, and geo rules. This makes it easier to toggle entire categories.
+
+8. **Monitor rule_hits in audit data.** After deploying new rules, query the audit table to verify they're firing at expected rates.
