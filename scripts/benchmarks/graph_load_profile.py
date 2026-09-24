@@ -151,25 +151,29 @@ def main() -> int:
     print(f"volume: {PERSONS} persons, {DEVICES} devices, {PAYMENTS} payments, hub {HUB_EDGES} edges")
 
     eps = write_entities(PERSONS, "Person")
-    print(f"[write] persons     {PERSONS} in {PERSONS / eps:.1f}s  ({eps:.0f}/sec)")
+    if PERSONS:
+        print(f"[write] persons     {PERSONS} in {PERSONS / eps:.1f}s  ({eps:.0f}/sec)")
     eps = write_entities(DEVICES, "Device")
-    print(f"[write] devices     {DEVICES} in {DEVICES / eps:.1f}s  ({eps:.0f}/sec)")
+    if DEVICES:
+        print(f"[write] devices     {DEVICES} in {DEVICES / eps:.1f}s  ({eps:.0f}/sec)")
     eps = write_entities(PAYMENTS, "Payment")
-    print(f"[write] payments    {PAYMENTS} in {PAYMENTS / eps:.1f}s  ({eps:.0f}/sec)")
+    if PAYMENTS:
+        print(f"[write] payments    {PAYMENTS} in {PAYMENTS / eps:.1f}s  ({eps:.0f}/sec)")
 
     links: list[tuple[str, str, str, dict]] = []
-    for i in range(PERSONS):
+    for i in range(PERSONS if PERSONS and DEVICES and PAYMENTS else 0):
         props = {"trace_id": f"load-trace-{i}", "event_type": "load_profile"}
         links.append((f"load-person-{i}", f"load-device-{i % DEVICES}", "USED_DEVICE", props))
         links.append((f"load-person-{i}", f"load-payment-{i % PAYMENTS}", "MADE_PAYMENT", props))
     for i in range(HUB_EDGES):
         links.append((f"load-person-{i}", "load-device-0", "USED_DEVICE", {"hub": True}))
     lps = write_links(links)
-    print(f"[write] links       {len(links)} in {len(links) / lps:.1f}s  ({lps:.0f}/sec)")
+    if links:
+        print(f"[write] links       {len(links)} in {len(links) / lps:.1f}s  ({lps:.0f}/sec)")
 
     total = PERSONS + DEVICES + PAYMENTS
     print(f"[read]  at {total} entities / {len(links)} edges:")
-    read_latencies("subgraph 1-hop (hub, ~%d edges)" % (HUB_EDGES + PERSONS // DEVICES),
+    read_latencies("subgraph 1-hop (hub, ~%d edges)" % (HUB_EDGES + (PERSONS // DEVICES if DEVICES else 0)),
                    f"/v1/subgraph?tenant_id={TENANT}&entity_id=load-device-0&depth=1")
     read_latencies("subgraph 2-hop (person)",
                    f"/v1/subgraph?tenant_id={TENANT}&entity_id=load-person-3&depth=2")
