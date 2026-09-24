@@ -46,6 +46,7 @@ DEVICES = int(os.environ.get("DEVICES", "400"))
 PAYMENTS = int(os.environ.get("PAYMENTS", "500"))
 HUB_EDGES = int(os.environ.get("HUB_EDGES", "200"))
 API_KEY = (os.environ.get("API_KEY") or "").strip() or None
+PROBE_TIMEOUT = float(os.environ.get("PROBE_TIMEOUT", "120"))
 
 
 def _post(path: str, payload: dict) -> tuple[int, dict]:
@@ -56,7 +57,7 @@ def _post(path: str, payload: dict) -> tuple[int, dict]:
         BASE + path, data=json.dumps(payload).encode(), headers=headers, method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT) as r:
             return r.status, json.loads(r.read().decode() or "{}")
     except urllib.error.HTTPError as e:
         raw = e.read().decode(errors="replace") or ""
@@ -72,7 +73,7 @@ def _get(path: str) -> tuple[int, dict]:
         headers["x-api-key"] = API_KEY
     req = urllib.request.Request(BASE + path, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT) as r:
             return r.status, json.loads(r.read().decode() or "{}")
     except urllib.error.HTTPError as e:
         return e.code, {}
