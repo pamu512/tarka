@@ -60,7 +60,5 @@ async def test_create_link_retries_on_duplicate_table(monkeypatch):
         lambda tenant_id, rel: rel,
     )
 
-    await age_client.create_link(
-        "t-race", "p-1", "d-1", "USED_DEVICE", {"trace_id": "tr"}
-    )
+    await age_client.create_link("t-race", "p-1", "d-1", "USED_DEVICE", {"trace_id": "tr"})
     assert calls["n"] == 2, "create must retry exactly once after DuplicateTableError"

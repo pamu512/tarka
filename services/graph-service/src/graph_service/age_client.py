@@ -532,7 +532,6 @@ async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
     return out
 
 
-
 async def load_peer_p90_by_label(tenant_id: str, label: str) -> int | None:
     from .graph_runtime import parse_p90_degree_by_label
 

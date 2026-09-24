@@ -525,7 +525,9 @@ async def compute_entity_risk(
             fwd = await conn.fetchrow(entity_risk_neighbor_sql("fwd"), json.dumps(p2))
             rev = await conn.fetchrow(entity_risk_neighbor_sql("rev"), json.dumps(p2))
         if fwd or rev:
-            conn_count, flagged, neighbor_ids, edge_ts, tags, ok = _merge_directed_risk_rows(fwd, rev)
+            conn_count, flagged, neighbor_ids, edge_ts, tags, ok = _merge_directed_risk_rows(
+                fwd, rev
+            )
             if ok:
                 payload = _entity_risk_payload_from_parts(
                     tags=tags,
@@ -594,6 +596,7 @@ async def compute_entity_risk(
         multiplier=mult,
         primary_label=primary_label,
     )
+
 
 async def _resolve_anchor_gid(tenant_id: str, entity_id: str) -> str:
     """Resolve a vertex graphid via the (tenant_id, external_id) indexes."""
