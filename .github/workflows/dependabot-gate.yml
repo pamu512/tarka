@@ -74,6 +74,7 @@ jobs:
         if: steps.mode.outputs.action == 'enable' || steps.mode.outputs.action == 'reset'
         env:
           ACTION: ${{ steps.mode.outputs.action }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           FILE=.github/dependabot.yml
@@ -116,5 +117,15 @@ jobs:
             echo "No config change to commit."
             exit 0
           fi
+          # Master protection (required stack-smoke) blocks direct pushes from
+          # GITHUB_TOKEN, which failed every enable window since Sep 7. Open a
+          # PR instead: it runs the full CI (incl. stack-smoke) and merges
+          # through protection like any other change.
+          BRANCH="chore/dependabot-gate-${ACTION}-$(date -u +%Y%m%d)"
+          git checkout -b "$BRANCH"
           git commit -m "$MSG"
-          git push origin HEAD:master
+          git push origin "$BRANCH"
+          gh pr create --base master --head "$BRANCH" \
+            --title "$MSG" \
+            --body "Automated Dependabot limit change (action=${ACTION}). Opened as a PR so the required stack-smoke check runs before merge." \
+            --repo "$GITHUB_REPOSITORY" || echo "PR may already exist; continuing."
