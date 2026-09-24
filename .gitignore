@@ -108,3 +108,6 @@ services/decision-api/rules/rule_hit_telemetry.json
 services/decision-api/rules/tenant_benchmark_exports/
 services/decision-api/var/
 tools/shadow/
+
+# sqlite :memory: cwd accidents (G5)
+:memory:
