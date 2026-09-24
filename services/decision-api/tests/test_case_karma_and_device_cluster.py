@@ -31,20 +31,56 @@ def test_case_karma_from_metadata():
 
 
 @pytest.mark.asyncio
-async def test_case_karma_optional_case_api_mock(monkeypatch):
+async def test_case_karma_never_fetches_case_api(monkeypatch):
+    """No service serves GET /v1/entities/{id}/karma; the case-api hop is gone.
+
+    Contract: even with CASE_API_URL/CASE_API_KEY configured and an HTTP
+    client supplied, karma resolution makes zero network calls. Rates come
+    from host metadata/payload or not at all.
+    """
     monkeypatch.setenv("TARKA_CASE_API_URL", "http://case.test")
     monkeypatch.setenv("TARKA_CASE_API_KEY", "ck")
 
+    calls: list[str] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "/v1/entities/diner-1/karma" in str(request.url)
+        calls.append(str(request.url))
+        # Poison: if this hop executes and its response is merged, these
+        # values surface in features/evidence and the asserts below fail.
         return httpx.Response(
             200,
-            json={"repeat_refund_rate_30d": 0.42, "dispute_loss_rate_30d": 0.05},
+            json={"dispute_loss_rate_30d": 0.99, "seller_case_count_90d": 50},
         )
 
-    transport = httpx.MockTransport(handler)
     feats: dict = {}
-    async with httpx.AsyncClient(transport=transport) as client:
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        ev = await apply_case_karma_features(
+            feats,
+            payload=None,
+            metadata={"repeat_refund_rate_30d": 0.42},
+            http=client,
+            tenant_id="t1",
+            entity_id="diner-1",
+        )
+    assert calls == [], f"case-karma fetched: {calls}"
+    assert feats["repeat_refund_high"] is True
+    assert "dispute_loss_high" not in feats
+    assert ev is not None and ev["source"] == "metadata"
+    assert ev["live_claim_allowed"] is False
+
+
+@pytest.mark.asyncio
+async def test_case_karma_no_rates_no_fetch_no_evidence(monkeypatch):
+    monkeypatch.setenv("TARKA_CASE_API_URL", "http://case.test")
+
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, json={"repeat_refund_rate_30d": 0.9})
+
+    feats: dict = {}
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         ev = await apply_case_karma_features(
             feats,
             payload=None,
@@ -53,9 +89,9 @@ async def test_case_karma_optional_case_api_mock(monkeypatch):
             tenant_id="t1",
             entity_id="diner-1",
         )
-    assert feats["repeat_refund_high"] is True
-    assert ev is not None and ev["source"] == "case_api"
-    assert ev["live_claim_allowed"] is False
+    assert calls == [], f"case-karma fetched: {calls}"
+    assert ev is None
+    assert not any(k in feats for k in ("repeat_refund_high", "case_karma_high"))
 
 
 def test_device_cluster_writeback_host_supplied():
