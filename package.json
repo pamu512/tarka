@@ -1,7 +1,7 @@
 {
   "name": "tarka-monorepo",
   "private": true,
-  "description": "Tarka platform — workspace root for frontend and packages",
+  "description": "Tarka platform \u2014 workspace root for frontend and packages",
   "workspaces": [
     "frontend",
     "packages/*"
@@ -16,21 +16,12 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "overrides": {
-    "dompurify": "3.4.13",
-    "postcss": "8.5.23",
-    "js-yaml": "4.3.2",
-    "pdfjs-dist": "6.2.108",
-    "nanoid": "3.3.18",
-    "brace-expansion": "1.1.18",
-    "@babel/core": "7.29.6",
-    "monaco-editor": {
-      "dompurify": "3.4.13"
-    },
-    "jspdf": {
-      "dompurify": "3.4.13"
-    }
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   }
 }
