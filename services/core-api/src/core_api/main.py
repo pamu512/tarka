@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -75,6 +76,16 @@ async def lifespan(app: FastAPI):
     try:
         async with dec.lifespan(dec.app), case.lifespan(case.app):
             yield
+    except BaseException:
+        # Lifespan failures surface in logs as nothing: uvicorn re-raises the
+        # exception after the server already stopped accepting, exits 3, and
+        # container logs show only alembic noise from the boot step. Log the
+        # cause loudly before it propagates so a dead dependency (redis/nats
+        # DNS, db down) is diagnosable from `docker logs` alone.
+        logging.getLogger("core-api.lifespan").exception(
+            "startup failed: application lifespan aborted"
+        )
+        raise
     finally:
         shutdown_opentelemetry()
 
