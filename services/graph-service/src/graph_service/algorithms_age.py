@@ -512,8 +512,15 @@ async def compute_entity_risk(
         "high_risk_tags": sorted(_HIGH_RISK_TAGS),
     }
     row = None
-    if gid:
-        p2 = {**params_base, "gid": gid}
+    gid_num: int | None = None
+    try:
+        gid_num = int(gid) if gid else None
+    except ValueError:
+        gid_num = None
+    if gid_num is not None:
+        # id(n) is a numeric graphid in AGE; pass it as a JSON number so the
+        # agtype comparison matches (a string param never equals id(n)).
+        p2 = {**params_base, "gid": gid_num}
         async with _acquire() as conn:
             fwd = await conn.fetchrow(entity_risk_neighbor_sql("fwd"), json.dumps(p2))
             rev = await conn.fetchrow(entity_risk_neighbor_sql("rev"), json.dumps(p2))
