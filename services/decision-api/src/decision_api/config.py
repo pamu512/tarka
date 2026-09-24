@@ -330,6 +330,32 @@ class Settings(BaseSettings):
     circuit_external_recovery_seconds: float = float(
         os.environ.get("CIRCUIT_EXTERNAL_RECOVERY_SECONDS", "30")
     )
+    # Redis-local planes (evaluate skip on miss/timeout). Defaults match main.py /
+    # pipeline last-resort: 80ms, 1 attempt, open after 5 failures, recover in 2s.
+    anumana_signals_timeout_seconds: float = float(
+        os.environ.get("ANUMANA_SIGNALS_TIMEOUT_SECONDS", "0.08")
+    )
+    anumana_signals_max_attempts: int = int(
+        os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")
+    )
+    anumana_signals_circuit_failure_threshold: int = int(
+        os.environ.get("ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD", "5")
+    )
+    anumana_signals_circuit_recovery_seconds: float = float(
+        os.environ.get("ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS", "2.0")
+    )
+    async_osint_redis_timeout_seconds: float = float(
+        os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.08")
+    )
+    async_osint_redis_max_attempts: int = int(
+        os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")
+    )
+    async_osint_redis_circuit_failure_threshold: int = int(
+        os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")
+    )
+    async_osint_redis_circuit_recovery_seconds: float = float(
+        os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")
+    )
 
     # OSS #31: optional champion–challenger JSON rule evaluation (audit-only; production decision unchanged)
     policy_champion_challenger_enabled: bool = os.environ.get(
@@ -600,29 +626,17 @@ def dependency_resilience_policy_table() -> dict[str, dict[str, float | int | st
             "on_failure": "SKIP",
         },
         "anumana_signals": {
-            "timeout_seconds": float(
-                os.environ.get("ANUMANA_SIGNALS_TIMEOUT_SECONDS", "0.05")
-            ),
-            "max_attempts": int(os.environ.get("ANUMANA_SIGNALS_MAX_ATTEMPTS", "1")),
-            "circuit_failure_threshold": int(
-                os.environ.get("ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD", "5")
-            ),
-            "circuit_recovery_seconds": float(
-                os.environ.get("ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS", "2.0")
-            ),
+            "timeout_seconds": settings.anumana_signals_timeout_seconds,
+            "max_attempts": settings.anumana_signals_max_attempts,
+            "circuit_failure_threshold": settings.anumana_signals_circuit_failure_threshold,
+            "circuit_recovery_seconds": settings.anumana_signals_circuit_recovery_seconds,
             "on_failure": "SKIP",
         },
         "async_osint_redis": {
-            "timeout_seconds": float(
-                os.environ.get("ASYNC_OSINT_REDIS_TIMEOUT_SECONDS", "0.05")
-            ),
-            "max_attempts": int(os.environ.get("ASYNC_OSINT_REDIS_MAX_ATTEMPTS", "1")),
-            "circuit_failure_threshold": int(
-                os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD", "5")
-            ),
-            "circuit_recovery_seconds": float(
-                os.environ.get("ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS", "2.0")
-            ),
+            "timeout_seconds": settings.async_osint_redis_timeout_seconds,
+            "max_attempts": settings.async_osint_redis_max_attempts,
+            "circuit_failure_threshold": settings.async_osint_redis_circuit_failure_threshold,
+            "circuit_recovery_seconds": settings.async_osint_redis_circuit_recovery_seconds,
             "on_failure": "SKIP",
         },
         "graph_upsert": {
