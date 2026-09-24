@@ -320,7 +320,6 @@ jobs:
           --cov-report=term-missing
           --cov-fail-under=48
           --ignore=tests/test_ml_export_api.py
-          --ignore=tests/latency_injection/test_real_world_faltering.py
           --ignore=tests/contract
           tests/
         working-directory: services/decision-api

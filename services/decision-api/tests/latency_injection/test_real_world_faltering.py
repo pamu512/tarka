@@ -86,7 +86,10 @@ async def faltering_eval_client():
                         with patch(
                             "decision_api.main._fetch_ml_score",
                             new_callable=AsyncMock,
-                            return_value=(None, {}),
+                            # unscored_reason="disabled" mirrors an intentionally
+                            # off ML hop: no ml:unavailable degrade tag, so the
+                            # deterministic rule-only score stays 10 + delta.
+                            return_value=(None, {"unscored_reason": "disabled"}),
                         ):
                             with patch(
                                 "decision_api.main._fetch_graph_risk",
@@ -325,7 +328,7 @@ async def test_ml_upstream_malformed_json_rules_only_score(
     )
 
     mocker.patch(
-        "decision_api.main.EvalDAGRuntime.include_ml",
+        "decision_api.eval_dag.EvalDAGRuntime.include_ml",
         lambda self, _trace: True,
     )
 

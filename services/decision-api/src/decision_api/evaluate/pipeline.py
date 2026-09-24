@@ -12,6 +12,8 @@ from typing import Any
 from fastapi import BackgroundTasks, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import logging
+
 from decision_api.async_osint_redis import (
     merge_cached_async_osint,
     publish_async_enrichment_request,
@@ -73,6 +75,8 @@ from decision_api.typology import evaluate_typologies, summarize_typologies
 from baseline_assist import attach_count_share_from_env
 from event_time import event_time_unix_for_evaluate
 from privacy import get_profile, mask_dict
+
+log = logging.getLogger("decision-api")
 
 # Bound after main finishes loading (avoids circular import at module import time).
 _m: Any = None
@@ -1170,10 +1174,36 @@ async def run_evaluate_decision(
                     }
                 )
 
-        merged_tags = await redis_tags.merge_tags(
-            body.tenant_id, body.entity_id, all_new_tags
-        )
-        await redis_tags.set_cached_score(body.tenant_id, body.entity_id, final_score)
+        # Fail-soft tag merge: a Redis blip mid-evaluate must degrade, never 500.
+        # The score is already final at this point; the merge only persists tags,
+        # so we log, tag the response, and continue with the in-flight tags.
+        try:
+            merged_tags = await redis_tags.merge_tags(
+                body.tenant_id, body.entity_id, all_new_tags
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "redis_merge_tags_failed_soft tenant=%s entity=%s err=%s",
+                body.tenant_id,
+                body.entity_id[:8],
+                exc,
+            )
+            merged_tags = sorted(dict.fromkeys(all_new_tags))
+            if "redis:tag_merge_unavailable" not in merged_tags:
+                merged_tags.append("redis:tag_merge_unavailable")
+            if "redis:tag_merge_unavailable" not in degrade_tags:
+                degrade_tags.append("redis:tag_merge_unavailable")
+        try:
+            await redis_tags.set_cached_score(
+                body.tenant_id, body.entity_id, final_score
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "redis_set_cached_score_failed_soft tenant=%s entity=%s err=%s",
+                body.tenant_id,
+                body.entity_id[:8],
+                exc,
+            )
 
         # Sync loyalty redeem bridge so friction tags reach response + audit (C7 Loyalty card).
         loyalty_bridge_evidence: dict[str, Any] | None = None
