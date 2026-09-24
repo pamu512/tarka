@@ -25,6 +25,18 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+
+WORKERS = int(os.environ.get("WORKERS", "16"))
+
+def _retry_post(path, payload, tries=4):
+    last = None
+    for attempt in range(tries):
+        try:
+            return _post(path, payload)
+        except urllib.error.URLError as e:
+            last = e
+            time.sleep(0.25 * (attempt + 1))
+    raise last
 from datetime import datetime, timezone
 
 BASE = os.environ.get("GRAPH_API", "http://127.0.0.1:8001").rstrip("/")
@@ -69,7 +81,7 @@ def _iso_now() -> str:
 def write_entities(count: int, kind: str) -> float:
     """POST count entities; returns writes/sec."""
     def one(i: int) -> None:
-        status, body = _post(
+        status, body = _retry_post(
             "/v1/entities",
             {
                 "tenant_id": TENANT,
@@ -82,7 +94,7 @@ def write_entities(count: int, kind: str) -> float:
             raise RuntimeError(f"entity write {status}: {body}")
 
     t0 = time.monotonic()
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         list(pool.map(one, range(count)))
     return count / (time.monotonic() - t0)
 
@@ -91,7 +103,7 @@ def write_links(tasks: list[tuple[str, str, str, dict]]) -> float:
     """POST links (from, to, rel, props); returns writes/sec."""
     def one(t: tuple[str, str, str, dict]) -> None:
         src, dst, rel, props = t
-        status, body = _post(
+        status, body = _retry_post(
             "/v1/links",
             {
                 "tenant_id": TENANT,
@@ -105,7 +117,7 @@ def write_links(tasks: list[tuple[str, str, str, dict]]) -> float:
             raise RuntimeError(f"link write {status}: {body}")
 
     t0 = time.monotonic()
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         list(pool.map(one, tasks))
     return len(tasks) / (time.monotonic() - t0)
 
