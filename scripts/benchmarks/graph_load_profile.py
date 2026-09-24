@@ -59,7 +59,11 @@ def _post(path: str, payload: dict) -> tuple[int, dict]:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.status, json.loads(r.read().decode() or "{}")
     except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read().decode() or "{}")
+        raw = e.read().decode(errors="replace") or ""
+        try:
+            return e.code, json.loads(raw)
+        except json.JSONDecodeError:
+            return e.code, {"error": "non-json error body", "status": e.code, "body": raw[:200]}
 
 
 def _get(path: str) -> tuple[int, dict]:
