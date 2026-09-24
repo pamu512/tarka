@@ -125,8 +125,18 @@ jobs:
           BRANCH="chore/dependabot-gate-${ACTION}-$(date -u +%Y%m%d)"
           git checkout -b "$BRANCH"
           git commit -m "$MSG"
-          git push origin "$BRANCH"
-          gh pr create --base master --head "$BRANCH" \
+          # force-with-lease: same-day re-runs re-point the branch instead of
+          # failing non-fast-forward on the previous run's push.
+          git push --force-with-lease origin "$BRANCH"
+          # PR creation needs the repo setting "Allow GitHub Actions to create
+          # and approve pull requests". When disabled, leave the branch + URL
+          # instead of failing the gate (the config change is the payload).
+          if gh pr create --base master --head "$BRANCH" \
             --title "$MSG" \
             --body "Automated Dependabot limit change (action=${ACTION}). Opened as a PR so the required stack-smoke check runs before merge." \
-            --repo "$GITHUB_REPOSITORY" || echo "PR may already exist; continuing."
+            --repo "$GITHUB_REPOSITORY"; then
+            echo "Gate PR opened."
+          else
+            echo "::warning::PR create blocked (Actions PR-creation setting off). Merge manually:"
+            echo "https://github.com/${GITHUB_REPOSITORY}/compare/master...${BRANCH}"
+          fi
