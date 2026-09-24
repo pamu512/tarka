@@ -469,7 +469,15 @@ async def create_link(
             if q_update:
                 await conn.execute(q_update)
             return
-        await conn.execute(q_create)
+        try:
+            await conn.execute(q_create)
+        except asyncpg.DuplicateTableError:
+            # First concurrent link for a relationship label: AGE's CREATE
+            # edge-table DDL races under parallel writers (label table is
+            # created lazily on first use). The edge did not exist when we
+            # checked, another writer created the label concurrently; retry
+            # the create once — the label now exists so it cannot race again.
+            await conn.execute(q_create)
 
 
 async def delete_entity(tenant_id: str, external_id: str) -> None:
