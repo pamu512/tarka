@@ -85,5 +85,42 @@ services:
       - signal-api
       - integration-ingress
 
+  # Optional always-on calibration label snapshots + drift (G3; same pattern
+  # as the archived trend-tick loop). Enable:
+  #   docker compose -f infra/deploy/docker-compose.signals.yml --profile calibration up -d
+  calibration-tick:
+    profiles: ["calibration"]
+    image: curlimages/curl:8.12.1
+    environment:
+      DECISION_API_URL: http://core-api:8000/decisions
+      CALIBRATION_TICK_INTERVAL_S: ${CALIBRATION_TICK_INTERVAL_S:-3600}
+      CALIBRATION_TICK_TENANTS: ${CALIBRATION_TICK_TENANTS:-}
+      API_KEYS: ${API_KEYS:-}
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        INTERVAL="$${CALIBRATION_TICK_INTERVAL_S:-3600}"
+        TENANTS="$${CALIBRATION_TICK_TENANTS:-}"
+        BASE="$${DECISION_API_URL:-http://core-api:8000/decisions}"
+        echo "calibration-tick interval=$${INTERVAL}s tenants=$${TENANTS:-<unset>} base=$${BASE}"
+        AUTH=""
+        if [ -n "$${API_KEYS:-}" ]; then
+          KEY=$$(echo "$${API_KEYS}" | cut -d, -f1)
+          AUTH="-H x-api-key:$${KEY}"
+        fi
+        while true; do
+          if [ -n "$${TENANTS}" ]; then
+            for T in $$(echo "$${TENANTS}" | tr ',' ' '); do
+              curl -sS -m 55 "$${BASE}/v1/observe/loop-metrics?tenant_id=$${T}" $${AUTH} >/dev/null || true
+              curl -sS -m 30 -X POST "$${BASE}/v1/calibration/snapshots" \
+                -H "Content-Type: application/json" $${AUTH} \
+                -d "{\"tenant_id\":\"$${T}\",\"profile\":\"default\",\"sample_count\":1,\"integrity_histogram\":{},\"notes\":\"calibration_tick\"}" || true
+            done
+          fi
+          sleep "$${INTERVAL}"
+        done
+
 volumes:
   fraud_nats_lite:

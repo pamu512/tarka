@@ -1999,7 +1999,33 @@ export const decisions = {
       last_error_at?: string | null;
       last_error?: string | null;
       mode?: string;
-    }>("/api/decisions/v1/ops/queue-seam");
+    }>(`/api/decisions/v1/ops/queue-seam`);
+  },
+
+  arenaReport(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      schema_id: string;
+      tenant_id: string;
+      n: number;
+      challengers: Record<
+        string,
+        {
+          n?: number | null;
+          divergence_rate?: number | null;
+          fp_delta?: number | null;
+        }
+      >;
+    }>(`/api/decisions/v1/ops/arena/report?${q}`);
+  },
+
+  arenaConfig(tenantId: string) {
+    const q = new URLSearchParams({ tenant_id: tenantId.trim() });
+    return request<{
+      configured: boolean;
+      tenant_id?: string;
+      challengers: Record<string, unknown>;
+    }>(`/api/decisions/v1/ops/arena/config?${q}`);
   },
 
   listObserveNotify(tenantId: string) {

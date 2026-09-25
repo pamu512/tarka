@@ -2,7 +2,7 @@
 
 **Goal:** From a clean checkout, get a live evaluate response (and optional UI) in about 15 minutes using **Tarka Lite**.
 
-**Measured (2026-09-24, Apple Silicon, `scripts/oss/time_to_first_decision.sh`): clone → doctor → first receipts in 81s** — clone 2s, doctor 0s, `make demo` through first receipts 79s (image build dominates on first run; warm-cache reruns are faster). The 15-minute budget covers the manual path below, including reading this page.
+**Measured (2026-09-24/25, Apple Silicon, `scripts/oss/time_to_first_decision.sh`): clone → doctor → first receipts in 16–81s depending on image cache state.** Variance over 4 runs: cold-ish 81s and 69s, warm cache 18s and 16s (clone ~2s constant; `make demo` first-receipts 79s/67s cold, 14–15s warm). Image build dominates the cold path; the 15-minute budget covers the manual path below, including reading this page.
 
 The one-command front door is [`make demo`](./clone-demo.md). This page is the longer compose / curl / smoke path.
 

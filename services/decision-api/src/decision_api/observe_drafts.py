@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
+from auth_rbac import require_role
 from decision_api.effectiveness_tick import load_suggestions, run_effectiveness_tick
 from decision_api.gnn_loop.receipts import load_receipts
 from decision_api.loop_metrics import (
@@ -89,6 +90,67 @@ async def post_effectiveness_tick(
 @ops_router.get("/bakeoff")
 async def get_bakeoff(tenant_id: str = Query(..., min_length=1, max_length=128)):
     return await get_loop_metrics(tenant_id)
+
+
+@ops_router.get("/arena/config")
+async def get_arena_config(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    _user=Depends(require_role("analyst")),
+):
+    """Read the tenant's challenger arena config (audit surface)."""
+    from decision_api.challenger_arena import load_arena_config
+
+    cfg = load_arena_config(tenant_id)
+    if cfg is None:
+        return {"configured": False, "challengers": {}}
+    return {"configured": True, **cfg.to_store()}
+
+
+@ops_router.put("/arena/config")
+async def put_arena_config(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    body: dict = Body(...),
+    _user=Depends(require_role("admin")),
+):
+    """Replace the tenant's challenger arena config (governed write).
+
+    Admin-only: challengers run in shadow on live evaluate traffic, so wiring
+    one is a governed act. Body: {"challengers": {name: <pack>}}. Packs must
+    be dict rule-pack JSON (same schema the desk authors); shadow-only.
+    """
+    import json as _json
+    import re as _re
+
+    from decision_api.challenger_arena import _arena_rules_dir
+
+    challengers = body.get("challengers")
+    if not isinstance(challengers, dict) or not challengers:
+        raise HTTPException(
+            status_code=422, detail="body must be {'challengers': {name: pack}}"
+        )
+    safe = _re.sub(r"[^A-Za-z0-9_-]", "", tenant_id)[:64]
+    if not safe:
+        raise HTTPException(status_code=422, detail="invalid tenant_id")
+    for name, pack in challengers.items():
+        if not isinstance(name, str) or not name or len(name) > 64:
+            raise HTTPException(
+                status_code=422, detail=f"bad challenger name: {name!r}"
+            )
+        if not isinstance(pack, dict):
+            raise HTTPException(
+                status_code=422, detail=f"challenger {name}: pack must be an object"
+            )
+    arena_dir = _arena_rules_dir()
+    arena_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_id": "tarka.challenger_arena/v1",
+        "tenant_id": tenant_id,
+        "challengers": challengers,
+    }
+    (arena_dir / f"{safe}.json").write_text(
+        _json.dumps(payload, indent=2), encoding="utf-8"
+    )
+    return {"configured": True, "challengers": list(challengers)}
 
 
 @ops_router.get("/arena/report")

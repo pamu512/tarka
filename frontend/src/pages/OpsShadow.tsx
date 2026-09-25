@@ -14,6 +14,7 @@ import { decisions } from "../api/v1/decisions";
 import { validateL3ArmInput } from "../workbench/l3LedgerArm";
 import { FirstHourHint } from "../components/FirstHourHint";
 import { LoopScoreboard, type LoopMetrics } from "../components/LoopScoreboard";
+import { ArenaPanel } from "../components/ArenaPanel";
 import { ObserveEasePanel } from "../components/ObserveEasePanel";
 import { decodeJwtPayload, extractRolesFromClaims } from "../security/jwtClaims";
 import { TarkaRbacRole } from "../security/rbacConstants";
@@ -504,6 +505,7 @@ export default function OpsShadow() {
         loading={loopMetricsStatus === "loading"}
         error={loopMetricsStatus === "error"}
       />
+      <ArenaPanel tenantId={tenantId} />
       <ObserveEasePanel
         tenantId={tenantId}
         drafts={data?.shadow_drafts || []}

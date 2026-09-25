@@ -10,10 +10,10 @@ COMPOSE_FILE ?= infra/deploy/docker-compose.lite.yml
 COMPOSE_DESK ?= infra/deploy/docker-compose.fraud-desk.yml
 COMPOSE := $(COMPOSE_CMD) -f $(COMPOSE_FILE) -f $(COMPOSE_DESK)
 
-.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor sdk-walk synth-loop help
+.PHONY: build up down logs policy-check contract-check trend-tick demo product doctor sdk-walk prove synth-loop help
 
 help:
-	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk synth-loop"
+	@echo "Targets: doctor demo product build up down logs policy-check contract-check trend-tick sdk-walk prove synth-loop"
 	@echo "  doctor   preflight: Docker, day-1 ports, ~4 GB RAM"
 	@echo "  demo     clone-and-run: lite+desk up, honest evaluate walk, one printed click"
 	@echo "  product  product skin + desk_provision; Advise (investigation-agent) only when OPENAI_BASE_URL is set"
@@ -36,6 +36,11 @@ product:
 # Desk must already be up. Not a second Day-1 promise.
 sdk-walk:
 	PYTHONPATH="$(ROOT)/packages/fraud-sdk-python/src:$(ROOT)/scripts/oss" python3 "$(ROOT)/scripts/oss/sdk_walk.py"
+
+# Proof-grade demo (P1): evaluate -> evidence bundle -> `tarka verify` offline.
+# Desk must already be up. Prints PASS to stdout.
+prove:
+	bash "$(ROOT)/scripts/oss/prove_evidence_chain.sh"
 
 # Local operator loop: evaluate POSTs (+ occasional late-label). Desk must already be up.
 # Flags: make synth-loop ARGS='--max 30 --dry-run'

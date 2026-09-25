@@ -26,5 +26,5 @@ jobs:
           python-version: "3.12"
       - name: Install validators deps
         run: pip install pydantic sqlalchemy
-      - name: make policy-check
+      - name: make policy-check (rule packs, OPA bundle, C/M boundary guard)
         run: make policy-check

@@ -102,4 +102,6 @@ If every receipt is ALLOW, that is an honest pack outcome on this desk, not a fa
 
 ## Deeper path
 
+Proof-grade round-trip on a running desk: `make prove` (evaluate → signed evidence bundle → offline `tarka verify`, prints PASS).
+
 Step-by-step compose, curl, and troubleshooting: [15-minute first decision](./oss-15-minute-first-decision.md) (`python3 scripts/oss/first_decision_smoke.py`). Optional SDK path (same three cases via `DecisionClient`, desk already up): `make sdk-walk` — not a second Day-1 promise.

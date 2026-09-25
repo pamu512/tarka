@@ -13,6 +13,7 @@ drift.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from decision_api.json_rules import evaluate_adhoc_packs_json
@@ -161,3 +162,105 @@ def weekly_champion_report(
         "n": n,
         "challengers": challengers_out,
     }
+
+
+# ---------- last mile: config + ledger (doc 13 step 1) ----------
+
+_LEDGER_RING_MAX = 3_000
+
+
+def _arena_rules_dir() -> "Path":
+    """Arena configs live beside calibration data under rules/arena/."""
+    from decision_api.calibration_api import _data_dir
+
+    return _data_dir().parent / "arena"
+
+
+def _arena_ledger_path(tenant_id: str) -> "Path":
+    from decision_api.calibration_api import _data_dir
+
+    return _data_dir() / f"arena_ledger_{tenant_id}.jsonl"
+
+
+def load_arena_config(tenant_id: str) -> ArenaConfig | None:
+    """Load rules/arena/<tenant>.json; missing file = arena off (None)."""
+    import json as _json
+
+    safe = "".join(c for c in tenant_id if c.isalnum() or c in "-_")[:64]
+    if not safe:
+        return None
+    path = _arena_rules_dir() / f"{safe}.json"
+    if not path.is_file():
+        return None
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        log.warning("arena_config_unreadable tenant=%s", tenant_id)
+        return None
+    if not isinstance(data, dict):
+        return None
+    cfg = ArenaConfig.from_store(data)
+    return cfg if cfg.challengers else None
+
+
+def record_arena_row(tenant_id: str, arena_out: dict) -> bool:
+    """Append one shadow row to the tenant's jsonl ledger. Fail-soft, ring-bounded."""
+    import json as _json
+    import time
+
+    try:
+        path = _arena_ledger_path(tenant_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        row = dict(arena_out)
+        row.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(row) + "\n")
+        # ring bound: trim head beyond the row cap (cheap check, rare rewrite)
+        try:
+            lines = [
+                x for x in path.read_text(encoding="utf-8").splitlines() if x.strip()
+            ]
+            if len(lines) > _LEDGER_RING_MAX:
+                keep = lines[-_LEDGER_RING_MAX:]
+                path.write_text("\n".join(keep) + "\n", encoding="utf-8")
+        except OSError:
+            pass
+        return True
+    except Exception:
+        log.debug("arena_ledger_write_failed tenant=%s", tenant_id, exc_info=True)
+        return False
+
+
+def _maybe_arena_snapshot(
+    *,
+    tenant_id: str,
+    features: dict,
+    redis_tags: list,
+    champion_decision: str,
+    champion_score: float,
+    entity_id: str | None = None,
+    signal_tags: list | None = None,
+) -> dict | None:
+    """Pipeline seam: evaluate + record when the tenant has an arena config.
+
+    Returns the arena output when recorded, None when arena is off. Fail-soft
+    end to end: an arena problem must never break or delay evaluate.
+    """
+    try:
+        cfg = load_arena_config(tenant_id)
+        if cfg is None:
+            return None
+        out = evaluate_arena(
+            cfg,
+            features=features,
+            redis_tags=redis_tags,
+            champion_decision=champion_decision,
+            champion_score=champion_score,
+            entity_id=entity_id,
+            signal_tags=signal_tags,
+        )
+        record_arena_row(tenant_id, out)
+        return out
+    except Exception:
+        log.debug("arena_snapshot_failed tenant=%s", tenant_id, exc_info=True)
+        return None

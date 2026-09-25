@@ -185,7 +185,7 @@ jobs:
           python3 infra/scripts/ci/test_postgap_contracts.py
           python3 infra/scripts/ci/test_production_install_soak_checklist.py
           python3 infra/scripts/ci/test_soak_backup_upgrade_dry_run.py
-      - name: Policy-as-code gate (make policy-check)
+      - name: Policy + boundary conformance gate (rule packs, OPA bundle, C/M boundary guard)
         run: |
           pip install pydantic sqlalchemy
           make policy-check

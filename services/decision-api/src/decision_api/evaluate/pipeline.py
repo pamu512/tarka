@@ -1450,6 +1450,32 @@ async def run_evaluate_decision(
             snap_extra["fallback_reason"] = fb_reason
         if policy_routing is not None:
             snap_extra["policy_routing"] = policy_routing
+        try:
+            from decision_api.challenger_arena import _maybe_arena_snapshot
+
+            arena_out = _maybe_arena_snapshot(
+                tenant_id=body.tenant_id,
+                features=features if isinstance(features, dict) else {},
+                redis_tags=redis_tag_list if isinstance(redis_tag_list, list) else [],
+                champion_decision=str(decision),
+                champion_score=float(final_score if isinstance(final_score, (int, float)) else 0.0),
+                entity_id=body.entity_id,
+                signal_tags=signal_tags,
+            )
+            if arena_out is not None:
+                snap_extra["challenger_arena"] = {
+                    "mode": arena_out.get("mode"),
+                    "challengers": {
+                        k: {
+                            "decision": v.get("decision"),
+                            "score": v.get("score"),
+                            "diverges_from_champion": v.get("diverges_from_champion"),
+                        }
+                        for k, v in (arena_out.get("challengers") or {}).items()
+                    },
+                }
+        except Exception:
+            pass
         if calibration_meta is not None:
             snap_extra["calibration"] = calibration_meta
         if location_meta is not None:
