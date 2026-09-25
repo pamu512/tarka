@@ -35,6 +35,8 @@ Include these **only when the operator turned them on**. Missing path = that pla
 |----------|---------------|---------|
 | Immutable decision JSONL | `DECISION_LOG_PATH`, else `./data/decision_logs/decision-log.jsonl` if that file exists | Copy the file (or warehouse export). Hash chain is append-only. |
 | Pack GitOps export | `PACK_GITOPS_EXPORT_PATH`, else `./rules/_loop/promote_export.jsonl` if that file exists | Copy the JSONL. Git is backup of Promote events, not the live pack. |
+| Calibration snapshots | `CALIBRATION_DATA_DIR`, else `./rules/calibration_data/` (snapshots.jsonl + references) | Copy the dir. Feeds promote gates and calibration tick. |
+| Arena ledger (challenger shadow) | Same dir as calibration: `arena_ledger_<tenant>.jsonl` under `CALIBRATION_DATA_DIR` (or `rules/arena/` sibling) | Copy the JSONL. Ring-bounded (3k rows) shadow-divergence history. A restore without it silently loses arena history. |
 | Warehouse dual-write | `DECISION_LOG_WAREHOUSE_URL` | Buyer warehouse job; Tarka does not host it. |
 
 Unset env **and** missing default file = that plane off. The drill does not invent a bucket.

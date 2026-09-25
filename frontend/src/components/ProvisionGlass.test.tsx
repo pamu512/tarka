@@ -29,6 +29,8 @@ describe("ProvisionGlass", () => {
     expect(screen.getByTestId("plane-row-Graph (Hunt)")?.textContent).toMatch(/url set/i);
     expect(screen.getByTestId("plane-row-Advise (investigation agent)")?.textContent).toMatch(/not set/i);
     expect(screen.getByTestId("plane-row-Signals (feature/ML/calibration)")?.textContent).toMatch(/url set/i);
+    expect(screen.getByTestId("plane-row-Enforcement webhook")?.textContent).toMatch(/not set/i);
+    expect(screen.getByTestId("plane-row-Queue seam")?.textContent).toBeTruthy();
   });
 
   it("explains hunt-off even when graph URL is set (explicit flag)", () => {

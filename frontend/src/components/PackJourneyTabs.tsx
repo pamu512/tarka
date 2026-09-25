@@ -17,7 +17,7 @@ export function PackJourneyTabs() {
   return (
     <nav
       aria-label="Pack journey"
-      className="flex items-center gap-1 border-b border-surface-700 pb-2 mb-4 overflow-x-auto"
+      className="flex flex-wrap sm:flex-nowrap items-center gap-1 border-b border-surface-700 pb-2 mb-4 overflow-x-auto"
     >
       {STAGES.map((s, i) => (
         <NavLink

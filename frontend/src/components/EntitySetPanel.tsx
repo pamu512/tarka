@@ -79,6 +79,7 @@ export function EntitySetPanel({
   const [timeline, setTimeline] = useState<EntityTimelineResponse | null>(null);
   const [timelineErr, setTimelineErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     setSets(loadSets());
@@ -118,8 +119,15 @@ export function EntitySetPanel({
       try {
         const res = await decisions.entityTimeline(tenantId, set.entityIds, 100);
         setTimeline(res);
-      } catch {
-        setTimelineErr("Timeline unavailable (decision plane).");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setTimelineErr(
+          /401|403|auth/i.test(msg)
+            ? "Timeline unavailable - sign-in expired. Refresh and retry."
+            : /network|fetch|502|503|down/i.test(msg)
+              ? "Timeline unavailable - decision plane unreachable. Check the desk and retry."
+              : `Timeline unavailable - ${msg}`,
+        );
       } finally {
         setBusy(false);
       }
@@ -130,7 +138,7 @@ export function EntitySetPanel({
   const rows = useMemo(() => timeline?.timeline ?? [], [timeline]);
 
   return (
-    <section aria-label="Entity sets" className="rounded-lg border border-white/10 bg-slate-900/60 p-3 space-y-3" data-testid="entity-set-panel">
+    <section aria-label="Entity sets" className="rounded-lg border border-surface-700 bg-surface-900 p-3 space-y-3" data-testid="entity-set-panel">
       <header className="flex items-baseline justify-between">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Entity sets</h3>
         <span className="text-[10px] text-gray-500" data-testid="entity-set-note">
@@ -144,7 +152,7 @@ export function EntitySetPanel({
           onChange={(e) => setNameDraft(e.target.value)}
           placeholder={canvasEntityIds.length ? `Save ${Math.min(canvasEntityIds.length, MAX_IDS)} canvas ids as…` : "Load canvas first"}
           disabled={canvasEntityIds.length === 0}
-          className="min-w-0 flex-1 rounded border border-white/10 bg-slate-950/60 px-2 py-1 text-xs text-gray-200 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none"
+          className="min-w-0 flex-1 rounded border border-surface-700 bg-surface-950 px-2 py-1 text-xs text-gray-200 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none"
           aria-label="Set name"
           data-testid="entity-set-name"
         />
@@ -164,7 +172,7 @@ export function EntitySetPanel({
 
       <ul className="space-y-1.5" data-testid="entity-set-list">
         {sets.map((s) => (
-          <li key={s.name} className="flex items-center gap-2 rounded border border-white/5 bg-slate-950/40 px-2 py-1.5">
+          <li key={s.name} className="flex items-center gap-2 rounded border border-surface-700/50 bg-surface-950 px-2 py-1.5">
             <button
               onClick={() => onLoadSet(s.entityIds)}
               className="min-w-0 flex-1 text-left text-xs text-gray-200 hover:text-cyan-300"
@@ -175,24 +183,34 @@ export function EntitySetPanel({
             </button>
             <button
               onClick={() => openTimeline(s)}
-              className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-gray-300 hover:border-cyan-500/40 hover:text-cyan-300"
+              className="rounded border border-surface-700 px-1.5 py-0.5 text-[10px] text-gray-300 hover:border-cyan-500/40 hover:text-cyan-300"
               data-testid={`entity-set-timeline-${s.name}`}
             >
               Timeline
             </button>
             <button
-              onClick={() => removeSet(s.name)}
-              className="text-[10px] text-gray-600 hover:text-rose-400"
+              onClick={() => setConfirmDelete(cur => (cur === s.name ? null : s.name))}
+              className="text-[11px] text-gray-600 hover:text-rose-400"
               aria-label={`Remove set ${s.name}`}
+              title="Click again to confirm removal (local sets are unrecoverable)"
             >
-              ✕
+              {confirmDelete === s.name ? "confirm?" : "✕"}
             </button>
+            {confirmDelete === s.name && (
+              <button
+                onClick={() => { removeSet(s.name); setConfirmDelete(null); }}
+                className="text-[11px] font-medium text-rose-400 hover:text-rose-300"
+                data-testid={`entity-set-delete-confirm-${s.name}`}
+              >
+                delete
+              </button>
+            )}
           </li>
         ))}
       </ul>
 
       {activeSet && (
-        <div className="rounded border border-white/10 bg-slate-950/50 p-2" data-testid="entity-timeline">
+        <div className="rounded border border-surface-700 bg-surface-950 p-2" data-testid="entity-timeline">
           <div className="mb-1.5 flex items-baseline justify-between">
             <span className="text-[11px] font-medium text-gray-300">
               Timeline · {activeSet.name}

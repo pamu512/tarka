@@ -13,7 +13,8 @@ set -euo pipefail
 
 TENANT="${1:-provedemo}"
 BASE="${DECISION_API_URL:-http://127.0.0.1:8000/decisions}"
-CASE_BASE="${CASE_API_URL:-http://127.0.0.1:8006}"
+# Port-remap aware (X-29/R9 class): explicit URL wins, then TARKA_CASE_PORT, then default 8006.
+CASE_BASE="${CASE_API_URL:-http://127.0.0.1:${TARKA_CASE_PORT:-8006}}"
 KEY="${API_KEYS:-}"
 KEY="${KEY%%,*}"
 AUTH=()

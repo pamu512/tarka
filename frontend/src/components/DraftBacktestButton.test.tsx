@@ -103,3 +103,50 @@ describe("DraftBacktestButton", () => {
     await screen.findByRole("link", { name: /job-123/i });
   });
 });
+
+
+describe("DraftBacktestButton job status (U3)", () => {
+  it("polls until terminal and renders done inline", async () => {
+    vi.useFakeTimers();
+    try {
+      const getMock = vi.fn()
+        .mockResolvedValueOnce({ job_id: "job-123", status: "running", metrics: null, error_detail: null })
+        .mockResolvedValueOnce({ job_id: "job-123", status: "done", metrics: { precision: 0.9 }, error_detail: null });
+      vi.mocked(client.backtestJobs).get = getMock;
+      vi.mocked(client.backtestJobs.enqueue).mockResolvedValue({ job_id: "job-123" } as never);
+      render(<DraftBacktestButton pack={PACK} tenantId="t1" />);
+      fireEvent.click(screen.getByRole("button", { name: /backtest draft/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2500); // poll 1: running
+        await vi.advanceTimersByTimeAsync(2500); // poll 2: done
+      });
+      expect(screen.getByText(/done/i)).toBeTruthy();
+      expect(getMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders failure inline with error detail", async () => {
+    vi.useFakeTimers();
+    try {
+      const getMock = vi.fn().mockResolvedValue({
+        job_id: "job-9",
+        status: "failed",
+        metrics: null,
+        error_detail: "warehouse timeout",
+      });
+      vi.mocked(client.backtestJobs).get = getMock;
+      vi.mocked(client.backtestJobs.enqueue).mockResolvedValue({ job_id: "job-9" } as never);
+      render(<DraftBacktestButton pack={PACK} tenantId="t1" />);
+      fireEvent.click(screen.getByRole("button", { name: /backtest draft/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2500);
+      });
+      expect(screen.getByText(/failed/i)).toBeTruthy();
+      expect(screen.getByTitle(/warehouse timeout/i)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

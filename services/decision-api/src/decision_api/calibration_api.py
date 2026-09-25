@@ -70,6 +70,11 @@ async def _tick_auto_promote(tenant_id: str) -> None:
         logger.exception("maybe_auto_promote_shadow failed tenant=%s", tid)
 
 
+def data_dir() -> Path:
+    """Public accessor: where calibration snapshots + arena ledgers live."""
+    return _data_dir()
+
+
 def _data_dir() -> Path:
     base = os.environ.get("CALIBRATION_DATA_DIR", "").strip()
     if base:

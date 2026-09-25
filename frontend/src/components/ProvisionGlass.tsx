@@ -44,6 +44,20 @@ export function ProvisionGlass({
       on: isPlaneEnabled("signals"),
       reason: signalsUrl ? `url set (${signalsUrl})` : "off · url not set",
     },
+    {
+      name: "Enforcement webhook",
+      on: Boolean(envRaw("VITE_ENFORCEMENT_WEBHOOK_URL")),
+      reason: envRaw("VITE_ENFORCEMENT_WEBHOOK_URL")
+        ? "url set - decision outcomes delivered"
+        : "off · URL not set (empty URL = plane not deployed)",
+    },
+    {
+      name: "Queue seam",
+      on: isPlaneEnabled("signals"),
+      reason: isPlaneEnabled("signals")
+        ? "connectors only - seam status is on /ops"
+        : "off · url not set",
+    },
   ];
 
   return (

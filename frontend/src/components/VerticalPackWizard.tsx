@@ -13,14 +13,91 @@ type FullPack = {
   kill_criteria: Record<string, unknown>;
 };
 
-/** Render one rule's `when` conditions as a compact human-readable line. */
+type Cond = { field?: unknown; op?: unknown; value?: unknown };
+
+/** One condition as "field op value"; boolean ops keep the flag name alone. */
+function condText(c: Cond): string {
+  const f = String(c.field ?? "?");
+  const op = String(c.op ?? "?");
+  if (op === "is_true" || op === "is_false") return `${f} ${op}`;
+  return `${f} ${op} ${String(c.value ?? "?")}`;
+}
+
+/** Render one rule's `when` conditions as a compact human-readable line.
+ *  Shipped vertical packs use `when: [cond, cond]` arrays (AND-joined); older
+ *  packs and tag rules may use a single object form. Handle both - never "?". */
 function ruleWhenLine(rule: Record<string, unknown>): string {
-  const when = rule.when as Record<string, unknown> | undefined;
+  const when = rule.when;
+  if (Array.isArray(when)) return when.map((c) => condText(c as Cond)).join(" AND ");
+  if (when && typeof when === "object") return condText(when as Cond);
   if (!when) return "(no conditions)";
-  return String(when.field ?? "?") + " " + String(when.op ?? "?") + " " + String(when.value ?? "?");
+  return String(when);
+}
+
+/** Benchmark metrics as %, pass/fail against kill_criteria min_* thresholds. */
+function BenchVerdict({
+  bm,
+  kill,
+}: {
+  bm: { precision: number; recall: number; f1_score: number };
+  kill: Record<string, unknown> | null | undefined;
+}) {
+  const fmt = (v: number) => `${(v * 100).toFixed(1)}%`;
+  const row = (label: string, v: number, key: string) => {
+    const thrRaw = kill?.[`min_${key}`];
+    const thr = typeof thrRaw === "number" ? thrRaw : null;
+    const judged = thr != null;
+    const pass = !judged || v >= thr;
+    return (
+      <span
+        key={label}
+        className={judged ? (pass ? "text-green-400" : "text-amber-400") : "text-gray-400"}
+        title={judged ? `kill criteria: min_${key} ${fmt(thr)}` : "no threshold for this metric"}
+      >
+        {label} {fmt(v)}
+        {judged ? (pass ? " ✓" : " ✕") : ""}
+      </span>
+    );
+  };
+  const judged = (["precision", "recall", "f1_score"] as const).some(
+    (k) => typeof kill?.[`min_${k}`] === "number",
+  );
+  return (
+    <span className="text-[11px] font-mono flex flex-wrap gap-x-3" data-testid="bench-verdict">
+      {row("precision", bm.precision, "precision")}
+      {row("recall", bm.recall, "recall")}
+      {row("f1", bm.f1_score, "f1_score")}
+      {judged ? null : <span className="text-gray-600">(no kill thresholds)</span>}
+      {judged && <BenchSummary kill={kill} bm={bm} />}
+    </span>
+  );
+}
+
+function BenchSummary({
+  kill,
+  bm,
+}: {
+  kill: Record<string, unknown> | null | undefined;
+  bm: { precision: number; recall: number; f1_score: number };
+}) {
+  const passes = (["precision", "recall", "f1_score"] as const).filter((k) => {
+    const thr = kill?.[`min_${k}`];
+    return typeof thr === "number" && bm[k] >= thr;
+  });
+  const judged = (["precision", "rec all", "f1_score"] as const).filter(
+    (k) => typeof kill?.[`min_${k}`] === "number",
+  );
+  const below = judged.length > 0 && passes.length < judged.length;
+  return (
+    <span className={below ? "text-amber-400" : "text-green-400"} data-testid="bench-verdict-summary">
+      {below ? `below kill criteria (${passes.length}/${judged.length} pass)` : "meets kill criteria"}
+    </span>
+  );
 }
 
 export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void }) {
+
+/** Wrap each AND-joined condition in its own span for narrow screens. */
   const [catalog, setCatalog] = useState<Record<string, CatalogEntry>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [full, setFull] = useState<FullPack | null>(null);
@@ -141,7 +218,11 @@ export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void })
           </div>
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {full.rules.map((r, i) => (
-              <div key={i} className="text-[11px] font-mono text-gray-400 flex items-center gap-2">
+              <div
+                key={i}
+                aria-label={`rule: ${ruleWhenLine(r)}, score +${String(r.score_delta ?? "?")}`}
+                className="text-[11px] font-mono text-gray-400 flex items-center gap-2"
+              >
                 <span className="text-amber-400">+{String(r.score_delta ?? "?")}</span>
                 <span>{ruleWhenLine(r)}</span>
               </div>
@@ -165,11 +246,7 @@ export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void })
               {installing ? "Installing…" : "Install pack"}
             </button>
             {!bm && <span className="text-[10px] text-gray-500">Benchmark first — install requires kill_criteria metrics.</span>}
-            {bm && (
-              <span className="text-[10px] text-gray-400 font-mono">
-                precision {bm.precision.toFixed(2)} · recall {bm.recall.toFixed(2)} · f1 {bm.f1_score.toFixed(2)}
-              </span>
-            )}
+            {bm && <BenchVerdict bm={bm} kill={full.kill_criteria} />}
           </div>
         </div>
       )}

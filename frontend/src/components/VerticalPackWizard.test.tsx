@@ -37,6 +37,22 @@ const FULL = {
   kill_criteria: { min_precision: 0.5 },
 };
 
+// Mirrors the shipped vertical packs: `when` is an ARRAY of conditions (U6).
+const FULL_ARRAY = {
+  ...FULL,
+  rules: [
+    {
+      id: "r1",
+      when: [
+        { field: "amount", op: "gte", value: 15000 },
+        { field: "is_vpn", op: "is_true", value: true },
+      ],
+      score_delta: 30,
+    },
+  ],
+  kill_criteria: { min_precision: 0.8 },
+};
+
 describe("VerticalPackWizard", () => {
   beforeEach(() => {
     vi.mocked(client.rules.verticalPacks).mockReset();
@@ -76,9 +92,37 @@ describe("VerticalPackWizard", () => {
     fireEvent.click(await screen.findByRole("button", { name: /select.*fintech/i }));
     await screen.findByText(/amount/i);
     fireEvent.click(screen.getByRole("button", { name: /run benchmark/i }));
-    await screen.findByText(/0.82/);
+    await screen.findByText(/82.0%/);
     const install = screen.getByRole("button", { name: /install/i });
     expect(install).toBeTruthy();
+  });
+
+  it("renders multi-condition (array when) rules joined with AND - no '?' theater (U6)", async () => {
+    vi.mocked(client.rules as never as { verticalPackDefinition: unknown }).verticalPackDefinition =
+      vi.fn().mockResolvedValue(FULL_ARRAY);
+    render(<VerticalPackWizard onInstalled={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /select.*fintech/i }));
+    await screen.findByText(/rule preview/i);
+    // Both conditions visible, joined with AND - never "?" placeholders
+    expect(screen.getByText(/amount gte 15000 AND is_vpn/)).toBeTruthy();
+    expect(screen.queryByText(/\?\?\?/)).toBeNull();
+    // U18: per-row screen-reader label
+    expect(screen.getByLabelText(/rule:/i)).toBeTruthy();
+  });
+
+  it("formats benchmark as % with pass/fail vs kill criteria (U5)", async () => {
+    vi.mocked(client.rules as never as { verticalPackDefinition: unknown }).verticalPackDefinition =
+      vi.fn().mockResolvedValue(FULL_ARRAY);
+    vi.mocked(client.simulation.benchmarkVertical).mockResolvedValue({
+      metrics: { precision: 0.70, recall: 0.61, f1_score: 0.65 },
+    } as never);
+    render(<VerticalPackWizard onInstalled={() => {}} />);
+    fireEvent.click(await screen.findByRole("button", { name: /select.*fintech/i }));
+    await screen.findByText(/rule preview/i);
+    fireEvent.click(screen.getByRole("button", { name: /run benchmark/i }));
+    // 0.70 vs kill_criteria.min_precision 0.8 => below => amber "below kill criteria"
+    await screen.findByText(/70.0%/);
+    expect(screen.getByText(/below kill criteria/i)).toBeTruthy();
   });
 
   it("install requires benchmark first (honest gate copy)", async () => {

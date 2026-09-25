@@ -171,15 +171,15 @@ _LEDGER_RING_MAX = 3_000
 
 def _arena_rules_dir() -> "Path":
     """Arena configs live beside calibration data under rules/arena/."""
-    from decision_api.calibration_api import _data_dir
+    from decision_api.calibration_api import data_dir
 
-    return _data_dir().parent / "arena"
+    return data_dir().parent / "arena"
 
 
 def _arena_ledger_path(tenant_id: str) -> "Path":
-    from decision_api.calibration_api import _data_dir
+    from decision_api.calibration_api import data_dir
 
-    return _data_dir() / f"arena_ledger_{tenant_id}.jsonl"
+    return data_dir() / f"arena_ledger_{tenant_id}.jsonl"
 
 
 def load_arena_config(tenant_id: str) -> ArenaConfig | None:

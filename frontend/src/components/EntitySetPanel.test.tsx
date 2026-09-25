@@ -34,6 +34,8 @@ describe("EntitySetPanel", () => {
     render(<EntitySetPanel tenantId="t1" canvasEntityIds={[]} onLoadSet={vi.fn()} />);
     expect(screen.getByText("s1")).toBeTruthy();
     fireEvent.click(screen.getByLabelText("Remove set s1"));
+    // two-step: first click asks, second confirms (local sets are unrecoverable)
+    fireEvent.click(screen.getByTestId("entity-set-delete-confirm-s1"));
     expect(screen.queryByText("s1")).toBeNull();
     expect(JSON.parse(localStorage.getItem("tarka.graph.entity_sets") || "[]")).toHaveLength(0);
   });
