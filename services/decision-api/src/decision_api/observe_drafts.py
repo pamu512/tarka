@@ -91,6 +91,52 @@ async def get_bakeoff(tenant_id: str = Query(..., min_length=1, max_length=128))
     return await get_loop_metrics(tenant_id)
 
 
+@ops_router.get("/arena/report")
+async def get_arena_report(
+    tenant_id: str = Query(..., min_length=1, max_length=128),
+    limit: int = Query(500, ge=1, le=5000),
+):
+    """Weekly-champion report over the tenant's arena ledger (P2).
+
+    Reduces shadow challenger records to divergence/fp-delta with explicit
+    unknowns (null) when labels are absent. Challenger packs themselves are
+    configured via the arena store; this endpoint is read-only reporting.
+    """
+    from decision_api.challenger_arena import weekly_champion_report
+
+    ledger = await _load_arena_ledger(tenant_id, limit)
+    return weekly_champion_report(tenant_id, ledger)
+
+
+async def _load_arena_ledger(tenant_id: str, limit: int) -> list[dict]:
+    """Load recent arena shadow records. Records are appended by the evaluate
+    pipeline when a tenant has challengers configured; absent store = empty
+    ledger (report surfaces n=0, not an error)."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    from decision_api.calibration_api import _data_dir as _cal_dir
+
+    path = _Path(_cal_dir()) / f"arena_ledger_{tenant_id}.jsonl"
+    if not path.is_file():
+        return []
+    rows: list[dict] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = _json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(rec, dict):
+                rows.append(rec)
+    except OSError:
+        return []
+    return rows[-limit:]
+
+
 @ops_router.get("/queue-seam")
 async def get_queue_seam():
     from decision_api.queue_seam import last_queue_status
