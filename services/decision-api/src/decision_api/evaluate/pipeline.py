@@ -1458,7 +1458,9 @@ async def run_evaluate_decision(
                 features=features if isinstance(features, dict) else {},
                 redis_tags=redis_tag_list if isinstance(redis_tag_list, list) else [],
                 champion_decision=str(decision),
-                champion_score=float(final_score if isinstance(final_score, (int, float)) else 0.0),
+                champion_score=float(
+                    final_score if isinstance(final_score, (int, float)) else 0.0
+                ),
                 entity_id=body.entity_id,
                 signal_tags=signal_tags,
             )
