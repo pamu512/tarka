@@ -2,6 +2,8 @@
 
 **Goal:** From a clean checkout, get a live evaluate response (and optional UI) in about 15 minutes using **Tarka Lite**.
 
+**Measured (2026-09-24, Apple Silicon, `scripts/oss/time_to_first_decision.sh`): clone → doctor → first receipts in 81s** — clone 2s, doctor 0s, `make demo` through first receipts 79s (image build dominates on first run; warm-cache reruns are faster). The 15-minute budget covers the manual path below, including reading this page.
+
 The one-command front door is [`make demo`](./clone-demo.md). This page is the longer compose / curl / smoke path.
 
 Tarka application code is **source-available** under Elastic License 2.0 (not open-source). Self-hosting on your own metal or VPC for your own operations is allowed; providing Tarka to third parties as a hosted or managed service is not.
