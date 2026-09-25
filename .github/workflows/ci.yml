@@ -865,10 +865,16 @@ jobs:
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" > /dev/null
       - name: Unit tests (TS-parity behavior collector)
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: packages/fraud-sdk-android
-          arguments: :fraud-sdk:testDebugUnitTest
+        working-directory: packages/fraud-sdk-android
+        run: |
+          set -euo pipefail
+          GRADLE_BIN="$(ls -d "$HOME/.gradle"/dist/*/*/gradle-*/bin/gradle 2>/dev/null | head -1 || true)"
+          if [ -z "$GRADLE_BIN" ]; then
+            curl -sSL https://services.gradle.org/distributions/gradle-8.12-bin.zip -o /tmp/g.zip
+            unzip -q /tmp/g.zip -d "$HOME/.gradle/dist"
+            GRADLE_BIN="$HOME/.gradle/dist/gradle-8.12/bin/gradle"
+          fi
+          "$GRADLE_BIN" :fraud-sdk:testDebugUnitTest --no-daemon
 
   benchmark-latency-evaluate:
     needs: audit-stubs
