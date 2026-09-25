@@ -852,7 +852,18 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK ( cmdline-tools only; legacy 'tools' pkg is gone )
+        run: |
+          set -euo pipefail
+          SDK="$ANDROID_HOME"
+          if [ ! -d "$SDK/cmdline-tools/latest" ]; then
+            mkdir -p "$SDK/cmdline-tools"
+            curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/clt.zip
+            unzip -q /tmp/clt.zip -d "$SDK/cmdline-tools"
+            mv "$SDK/cmdline-tools/cmdline-tools" "$SDK/cmdline-tools/latest"
+          fi
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0" > /dev/null
       - name: Unit tests (TS-parity behavior collector)
         uses: gradle/actions/setup-gradle@v4
         with:

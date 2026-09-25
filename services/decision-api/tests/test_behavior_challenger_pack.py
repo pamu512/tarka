@@ -22,7 +22,9 @@ def test_pack_rules_consume_real_behavior_tags():
     """Every any_tag the pack matches must be a tag extract_behavior_tags can mint."""
     from decision_api.main import extract_behavior_tags
 
-    pack = json.loads((RULES_PATH / "behavior_challenger_v1.json").read_text(encoding="utf-8"))
+    pack = json.loads(
+        (RULES_PATH / "behavior_challenger_v1.json").read_text(encoding="utf-8")
+    )
     referenced: set[str] = set()
     for tr in pack.get("tag_rules", []) or []:
         referenced.update(tr.get("any_tag", []) or [])
@@ -49,7 +51,9 @@ def test_pack_rules_consume_real_behavior_tags():
     )
     mintable_set = set(mintable)
     missing = referenced - mintable_set
-    assert not missing, f"pack references tags the pipeline never mints: {sorted(missing)}"
+    assert not missing, (
+        f"pack references tags the pipeline never mints: {sorted(missing)}"
+    )
 
 
 def test_pack_is_discoverable_as_shadow_draft():
