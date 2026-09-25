@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from tarka_core.internal_monitor import InternalMonitor
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "shared"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "services", "shared"))
 from fraud_aggregates import AggregateStore, normalized_velocity_key_names  # noqa: E402
 from observability import get_metrics, setup_observability  # noqa: E402
 from osint_flatten import (  # noqa: E402
