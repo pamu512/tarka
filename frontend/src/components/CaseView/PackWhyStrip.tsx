@@ -5,7 +5,7 @@
 
 import { PACK_WHY_MISSING, type PackWhyView } from "../../utils/packWhy";
 
-export function PackWhyStrip({ packId, packName, why, hop, advise }: PackWhyView) {
+export function PackWhyStrip({ packId, packName, behaviorTags = [], why, hop, advise }: PackWhyView) {
   const packLabel = packName !== PACK_WHY_MISSING && packName !== packId ? `${packName} (${packId})` : packId;
 
   return (
@@ -31,6 +31,17 @@ export function PackWhyStrip({ packId, packName, why, hop, advise }: PackWhyView
             why
           )}
         </p>
+        {behaviorTags.length > 0 ? (
+          <div className="mt-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">Behavior signals (SDK)</p>
+            <p data-testid="pack-why-behavior" className="text-xs text-gray-300 leading-snug font-mono">
+              {behaviorTags.join(" · ")}
+              <span className="ml-2 text-gray-600 font-sans" data-testid="pack-why-behavior-source">
+                from device behavior packet (sdk → receipt → pack)
+              </span>
+            </p>
+          </div>
+        ) : null}
         {hop ? (
           <p data-testid="pack-why-hop" className="text-xs text-gray-400 leading-snug mt-1">
             <span className="font-semibold uppercase tracking-wide text-gray-500 mr-1.5">Hop</span>

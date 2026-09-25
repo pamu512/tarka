@@ -253,7 +253,7 @@ export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void })
 
       {done && (
         <div className="text-xs text-green-400">
-          Installed {done}. It lands in Observe (shadow) — Promote from the observe panel.
+          Installed {done}. It lands in Observe (shadow) — Promote from the Observe panel.
         </div>
       )}
       {error && <div className="text-xs text-red-400">{error}</div>}

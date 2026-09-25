@@ -843,6 +843,22 @@ jobs:
           flags: ml-scoring
           fail_ci_if_error: false
 
+  test-android-sdk:
+    needs: audit-stubs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Unit tests (TS-parity behavior collector)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: packages/fraud-sdk-android
+          arguments: :fraud-sdk:testDebugUnitTest
+
   benchmark-latency-evaluate:
     needs: audit-stubs
     runs-on: ubuntu-latest

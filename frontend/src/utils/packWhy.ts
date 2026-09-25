@@ -26,6 +26,8 @@ export const ADVISE_TIMEOUT_COPY =
 export type PackWhyView = {
   packId: string;
   packName: string;
+  /** SDK behavior tags on the receipt (behavior:*). Empty = none minted. */
+  behaviorTags: string[];
   why: string;
   /** Named hop from the receipt snapshot. Null = do not render a hop slot. */
   hop: string | null;
@@ -40,6 +42,8 @@ export type PackWhySource = {
   pack_reason?: string | null;
   rule_hits?: readonly string[] | null;
   reasons?: readonly string[] | null;
+  /** Signal tags on the audit row (behavior:* surfaced; others ignored here). */
+  tags?: readonly string[] | null;
   driver_explain?: ReadonlyArray<{ label?: string; reason?: string }> | null;
   evaluate_payload?: Record<string, unknown> | null;
   advise?: string | null;
@@ -118,12 +122,31 @@ function payloadAdvise(ep: Record<string, unknown> | null | undefined): {
   return { text, timedOut };
 }
 
+/** SDK behavior tags on the receipt: behavior:* only, deduped, order preserved. */
+function collectBehaviorTags(...sources: Array<readonly string[] | null | undefined>): string[] {
+  const out: string[] = [];
+  for (const src of sources) {
+    if (!src) continue;
+    for (const raw of src) {
+      if (typeof raw === "string" && raw.startsWith("behavior:") && !out.includes(raw)) out.push(raw);
+    }
+  }
+  return out;
+}
+
 /**
  * Resolve pack id/name + why from fields already on the case audit / evaluate snapshot.
  * Does not synthesize a narrative from ML summary or recommended_action.
  */
 export function resolvePackWhy(input: PackWhySource): PackWhyView {
   const ep = input.evaluate_payload && typeof input.evaluate_payload === "object" ? input.evaluate_payload : null;
+
+  const behaviorTags = collectBehaviorTags(
+    input.tags,
+    Array.isArray(ep?.signal_tags)
+      ? (ep.signal_tags as unknown[]).filter((s): s is string => typeof s === "string")
+      : null,
+  );
 
   const packId =
     firstNonEmpty(
@@ -173,7 +196,7 @@ export function resolvePackWhy(input: PackWhySource): PackWhyView {
     advise = adviseText;
   }
 
-  return { packId, packName, why, hop: hopWhyFromPayload(ep), advise };
+  return { packId, packName, behaviorTags, why, hop: hopWhyFromPayload(ep), advise };
 }
 
 function formatNamedEdge(edge: unknown): string | null {

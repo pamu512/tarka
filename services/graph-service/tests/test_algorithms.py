@@ -1,15 +1,20 @@
 """Unit tests for graph-service algorithm functions."""
 
 import re
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from graph_service import algorithms_age, algorithms_neo4j
-from graph_service.algorithms import (
-    _clamp_depth,
+
+# These tests mock ``graph_service.algorithms_neo4j.get_driver`` exclusively, so
+# they call the neo4j implementation directly - never the backend-resolved
+# symbol (which under GRAPH_BACKEND=age/janusgraph would dial a real backend).
+from graph_service.algorithms_neo4j import (
     compute_entity_risk,
     detect_fraud_rings,
 )
+from graph_service.algorithms import _clamp_depth
 
 # ---------- _clamp_depth ----------
 
@@ -459,3 +464,16 @@ class TestDetectFraudRings:
             rings = await detect_fraud_rings("tenant1")
 
         assert rings == []
+
+
+def test_algorithms_tests_call_patched_implementation_directly():
+    """Guard (source-level): this file's tests mock algorithms_neo4j.get_driver,
+    so they must import compute_entity_risk/detect_fraud_rings from
+    algorithms_neo4j directly - the backend-resolved symbol would dial a real
+    backend under GRAPH_BACKEND=age/janusgraph (the historical 5-min hang)."""
+    import inspect
+
+    src = inspect.getsource(sys.modules[__name__])
+    assert "from graph_service.algorithms_neo4j import (" in src, (
+        "tests must call the neo4j implementation they patch"
+    )

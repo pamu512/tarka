@@ -1,0 +1,32 @@
+{
+  "name": "behavior_challenger_v1",
+  "version": 1,
+  "mode": "shadow",
+  "description": "Observe-only behavior challenger: SDK behavior signals (typing/mouse/bot indicators) as shadow evidence. Demonstrates the promote-gated path - never decides until a human promotes.",
+  "source_key": "behavior_challenger_v1",
+  "rules": [],
+  "tag_rules": [
+    {
+      "id": "behavior_bot_stack",
+      "any_tag": [
+        "behavior:no_mouse",
+        "behavior:constant_typing",
+        "behavior:superhuman_typing"
+      ],
+      "tags": ["behavior:challenger_bot_stack"],
+      "score_delta": 18,
+      "description": "Bot-indicator stack (no mouse OR constant OR superhuman typing) - shadow evidence only"
+    },
+    {
+      "id": "behavior_session_disengage",
+      "any_tag": [
+        "behavior:no_scroll",
+        "behavior:heavy_paste",
+        "behavior:excessive_tab_switch"
+      ],
+      "tags": ["behavior:challenger_disengaged"],
+      "score_delta": 8,
+      "description": "Session disengagement pattern (no scroll / heavy paste / tab switching) - shadow evidence only"
+    }
+  ]
+}

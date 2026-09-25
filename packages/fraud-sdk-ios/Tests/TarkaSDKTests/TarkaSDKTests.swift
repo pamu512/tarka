@@ -52,6 +52,6 @@ final class TarkaSDKTests: XCTestCase {
         XCTAssertEqual(decoded.trace_id, "tr-1")
         XCTAssertEqual(decoded.inference_context.schema_version, "3")
         XCTAssertEqual(decoded.inference_context.driver_explain?.first?.category, "ml")
-        XCTAssertEqual(decoded.inference_context.ml_top_factors?.first?.code, "HIGH_AMOUNT")
+        XCTAssertEqual(decoded.inference_context.ml_top_factors?.first?["code"], "HIGH_AMOUNT")
     }
 }

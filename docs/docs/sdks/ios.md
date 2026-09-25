@@ -4,6 +4,7 @@
 
 - **`DecisionClient`** — async evaluate, optional **App Attest** attestation on `device_context`
 - **`DeviceSignalCollector`** — jailbreak / VPN / simulator / integrity heuristics
+- **`BehaviorCollector`** *(beta)* — typing/mouse/scroll cadence with TS-SDK parity keys (`typing`, `session`, `bot_indicators`); the server's `extract_behavior_tags` consumes it unchanged. Thinner than the web SDK (no scroll-depth or multi-touch stats yet); wire `record*` from your event handlers
 
 **README:** [`packages/fraud-sdk-ios/README.md`](../../../packages/fraud-sdk-ios/README.md)
 

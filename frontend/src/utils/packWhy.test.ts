@@ -148,3 +148,20 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBe(ADVISE_TIMEOUT_COPY);
   });
 });
+
+
+describe("behavior tag surfacing (P3.1)", () => {
+  it("collects behavior:* tags from the audit tag list", () => {
+    const v = resolvePackWhy({
+      rule_pack_file: "device_signals.json",
+      pack_reason: "vpn",
+      tags: ["behavior:no_mouse", "behavior:superhuman_typing", "velocity:high_1h"],
+    });
+    expect(v.behaviorTags).toEqual(["behavior:no_mouse", "behavior:superhuman_typing"]);
+  });
+
+  it("returns empty list (not null) when no behavior tags exist", () => {
+    const v = resolvePackWhy({ rule_pack_file: "default.json", tags: ["velocity:high_1h"] });
+    expect(v.behaviorTags).toEqual([]);
+  });
+});

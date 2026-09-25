@@ -2,9 +2,13 @@
 
 import os
 
-# graph_service.algorithms imports Neo4j vs Janus implementation at module load time.
-# Default backend is janusgraph; unit tests mock drivers where needed.
-os.environ.setdefault("GRAPH_BACKEND", "janusgraph")
+# graph_service.algorithms resolves Neo4j/Janus/AGE implementation at module load.
+# Default follows config.py (AGE is the core engine; neo4j/janusgraph are porting
+# pads). Tests that exercise a specific backend set GRAPH_BACKEND themselves or
+# import the implementation module directly. Never default to janusgraph here:
+# importing the Gremlin client leaves a worker thread that blocks interpreter
+# exit when no live Gremlin server answered (the full-suite "hang").
+os.environ.setdefault("GRAPH_BACKEND", "age")
 
 from unittest.mock import AsyncMock, MagicMock
 
