@@ -991,6 +991,8 @@ mod batch_window_tests {
             crypto_signature_hex: "aa".repeat(64),
             crypto_key_id: "local-dev".into(),
             raw_manifest_sha256: None,
+            raw_manifest_hex: None,
+            raw_manifest_sha256_hex: None,
         };
 
         let manifest = row_to_evidence_manifest(&row).expect("convert row");

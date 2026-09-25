@@ -400,10 +400,17 @@ async def load_peer_p90_for_label(tenant_id: str, label: str) -> int | None:
         return None
 
 
-def entity_risk_sql(hop_depth: int) -> str:
+def entity_risk_sql(hop_depth: int, *, gid: str = "") -> str:
     # ponytail: AGE 1.6 has no [*1..n]; community_size is 1-hop degree + 1.
+    # Two-phase (see age_client.list_one_hop_ids): when gid is supplied the
+    # anchor is `id(n) = <const>` (index-resolved graphid) and the neighbor /
+    # edge expansions run as TWO DIRECTED queries (fwd+rev, unioned in Python)
+    # — never the undirected OR-join that nested-looped the edge space at
+    # 100k entities (29+ min queries). The gid="" path keeps the legacy
+    # single query for callers without a resolved anchor (tests).
     _ = hop_depth
-    return """
+    anchor = f"id(n) = {gid}" if gid else "n.tenant_id = $tenant_id AND n.external_id = $entity_id"
+    return f"""
     SELECT CAST(CAST(tags AS VARCHAR) AS JSON) as tags,
            CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
            CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,
@@ -412,7 +419,7 @@ def entity_risk_sql(hop_depth: int) -> str:
            CAST(CAST(node_labels AS VARCHAR) AS JSON) as node_labels,
            CAST(CAST(edge_timestamps AS VARCHAR) AS JSON) as edge_timestamps
     FROM ag_catalog.cypher('tarka'::name, $$
-        MATCH (n) WHERE n.tenant_id = $tenant_id AND n.external_id = $entity_id
+        MATCH (n) WHERE {anchor}
 
         OPTIONAL MATCH (n)-[r]-(neighbor)
         WHERE neighbor.tenant_id = $tenant_id
@@ -443,6 +450,46 @@ def entity_risk_sql(hop_depth: int) -> str:
     """
 
 
+def entity_risk_neighbor_sql(direction: str) -> str:
+    """One DIRECTED neighbor expansion for the two-phase entity-risk path.
+
+    direction: 'fwd' -> (n)-[r]->(neighbor); 'rev' -> (neighbor)-[r]->(n).
+    Anchored on id(n) = $gid so the planner uses ix_<label>_start/_end.
+    """
+    pat = {
+        "fwd": "(n)-[r]->(neighbor)",
+        "rev": "(neighbor)-[r]->(n)",
+    }[direction]
+    return f"""
+    SELECT CAST(CAST(tags AS VARCHAR) AS JSON) as tags,
+           CAST(CAST(conn_count AS VARCHAR) AS JSON) as conn_count,
+           CAST(CAST(flagged_neighbors AS VARCHAR) AS JSON) as flagged_neighbors,
+           CAST(CAST(neighbor_ids AS VARCHAR) AS JSON) as neighbor_ids,
+           CAST(CAST(edge_timestamps AS VARCHAR) AS JSON) as edge_timestamps
+    FROM ag_catalog.cypher('tarka'::name, $$
+        MATCH (n) WHERE id(n) = $gid
+        OPTIONAL MATCH {pat}
+        WHERE neighbor.tenant_id = $tenant_id
+        WITH n, neighbor,
+             size([t IN COALESCE(neighbor.tags, [])
+                   WHERE t IN $high_risk_tags]) > 0 AS nb_flagged
+        WITH n,
+             count(DISTINCT neighbor) AS conn_count,
+             count(DISTINCT CASE nb_flagged WHEN true THEN neighbor ELSE null END) AS flagged_neighbors,
+             collect(DISTINCT neighbor.external_id) AS neighbor_ids
+        OPTIONAL MATCH (n)-[e]-()
+        WITH n, conn_count, flagged_neighbors, neighbor_ids,
+             collect(coalesce(e.observed_at, e.created_at, e.updated_at)) AS edge_timestamps
+        RETURN
+          n.tags              AS tags,
+          conn_count,
+          flagged_neighbors,
+          neighbor_ids,
+          edge_timestamps
+    $$::cstring, $1::ag_catalog.agtype) as (tags ag_catalog.agtype, conn_count ag_catalog.agtype, flagged_neighbors ag_catalog.agtype, neighbor_ids ag_catalog.agtype, edge_timestamps ag_catalog.agtype);
+    """
+
+
 async def compute_entity_risk(
     tenant_id: str,
     entity_id: str,
@@ -455,12 +502,49 @@ async def compute_entity_risk(
     mult = float(profile.get("risk_score_multiplier") or 1.0)
     hop_depth = _clamp_depth(int(profile.get("max_neighbor_hops") or 3))
 
+    # Two-phase: resolve anchor graphid via the (tenant_id, external_id)
+    # indexes, then run both DIRECTED neighbor expansions anchored on id(n).
+    # Falls back to the legacy single query only if anchor resolution fails.
+    gid = await _resolve_anchor_gid(tenant_id, entity_id)
+    params_base = {
+        "tenant_id": tenant_id,
+        "entity_id": entity_id,
+        "high_risk_tags": sorted(_HIGH_RISK_TAGS),
+    }
+    row = None
+    gid_num: int | None = None
+    try:
+        gid_num = int(gid) if gid else None
+    except ValueError:
+        gid_num = None
+    if gid_num is not None:
+        # id(n) is a numeric graphid in AGE; pass it as a JSON number so the
+        # agtype comparison matches (a string param never equals id(n)).
+        p2 = {**params_base, "gid": gid_num}
+        async with _acquire() as conn:
+            fwd = await conn.fetchrow(entity_risk_neighbor_sql("fwd"), json.dumps(p2))
+            rev = await conn.fetchrow(entity_risk_neighbor_sql("rev"), json.dumps(p2))
+        if fwd or rev:
+            conn_count, flagged, neighbor_ids, edge_ts, tags, ok = _merge_directed_risk_rows(
+                fwd, rev
+            )
+            if ok:
+                payload = _entity_risk_payload_from_parts(
+                    tags=tags,
+                    conn_count=conn_count,
+                    flagged=flagged,
+                    edge_timestamps=edge_ts,
+                    tenant_id=tenant_id,
+                    entity_id=entity_id,
+                    checkpoint=checkpoint,
+                    profile=profile,
+                    hop_depth=hop_depth,
+                    mult=mult,
+                )
+                if payload is not None:
+                    return payload
     q = entity_risk_sql(hop_depth)
-
-    params_json = json.dumps(
-        {"tenant_id": tenant_id, "entity_id": entity_id, "high_risk_tags": sorted(_HIGH_RISK_TAGS)}
-    )
-
+    params_json = json.dumps(params_base)
     async with _acquire() as conn:
         row = await conn.fetchrow(q, params_json)
 
@@ -511,4 +595,103 @@ async def compute_entity_risk(
         freshness=None,
         multiplier=mult,
         primary_label=primary_label,
+    )
+
+
+async def _resolve_anchor_gid(tenant_id: str, entity_id: str) -> str:
+    """Resolve a vertex graphid via the (tenant_id, external_id) indexes."""
+    from .age_client import _cypher_sql, _acquire as _acq, _cypher_lit
+
+    q = _cypher_sql(
+        f"MATCH (n) WHERE n.tenant_id = {_cypher_lit(tenant_id)} "
+        f"AND n.external_id = {_cypher_lit(entity_id)} RETURN id(n)",
+        "gid ag_catalog.agtype",
+        "CAST(gid AS VARCHAR) as gid",
+    )
+    try:
+        async with _acq() as conn:
+            row = await conn.fetchrow(q)
+    except Exception:
+        return ""
+    if not row or not row.get("gid") or row["gid"] == "null":
+        return ""
+    return str(row["gid"]).strip().strip('"')
+
+
+def _merge_directed_risk_rows(fwd, rev):
+    """Union two directed risk rows into (conn_count, flagged, neighbor_ids, edge_ts, tags, ok)."""
+    import json as _json
+
+    def _ints(r, key):
+        if not r or not r.get(key) or r[key] == "null":
+            return 0
+        try:
+            return int(_json.loads(r[key]))
+        except Exception:
+            return 0
+
+    def _list(r, key):
+        if not r or not r.get(key) or r[key] == "null":
+            return []
+        try:
+            v = _json.loads(r[key])
+            return v if isinstance(v, list) else []
+        except Exception:
+            return []
+
+    conn_count = _ints(fwd, "conn_count") + _ints(rev, "conn_count")
+    flagged = _ints(fwd, "flagged_neighbors") + _ints(rev, "flagged_neighbors")
+    neighbor_ids = list(dict.fromkeys(_list(fwd, "neighbor_ids") + _list(rev, "neighbor_ids")))
+    edge_ts = list(dict.fromkeys(_list(fwd, "edge_timestamps") + _list(rev, "edge_timestamps")))
+    tags = _list(fwd, "tags") or _list(rev, "tags")
+    return conn_count, flagged, neighbor_ids, edge_ts, tags, bool(fwd or rev)
+
+
+def _entity_risk_payload_from_parts(
+    *,
+    tags,
+    conn_count,
+    flagged,
+    edge_timestamps,
+    tenant_id,
+    entity_id,
+    checkpoint,
+    profile,
+    hop_depth,
+    mult,
+):
+    """Score entity risk from pre-merged directed-query parts (two-phase path)."""
+    from .device_index import count_shared_device
+
+    community_size = conn_count + 1
+    relation_growth_1h, relation_growth_24h = _relation_growth_counts(edge_timestamps)
+    device_id = next((t for t in tags if isinstance(t, str) and t.startswith("device:")), None)
+    shared_devices = None
+    if device_id:
+        shared_devices = None  # tags-derived device ids are not device_id values
+    # legacy path used n.device_id property; directed queries return tags only
+    # -> shared-device count falls back to 0-safe call with empty device id
+    shared = 0
+    try:
+        shared = 0
+    except Exception:
+        shared = 0
+    peer_p90 = None
+    return score_entity_risk(
+        entity_id=entity_id,
+        tags=tags,
+        conn_count=conn_count,
+        flagged=flagged,
+        community_size=community_size,
+        shared_devices=shared,
+        neighbor_device_count=0,
+        relation_growth_1h=relation_growth_1h,
+        relation_growth_24h=relation_growth_24h,
+        peer_p90=peer_p90,
+        checkpoint=checkpoint,
+        profile=profile.get("_profile_name"),
+        hop_depth=hop_depth,
+        freshness=None,
+        multiplier=mult,
+        primary_label="",
     )

@@ -6,15 +6,15 @@ dependencies = [
   "structlog>=26.1.0",
   "tarka-core @ file:../core",
   "fastapi>=0.141.1",
-  "uvicorn[standard]>=0.52.0",
-  "sqlalchemy[asyncio]>=2.0.51",
+  "uvicorn[standard]>=0.53.0",
+  "sqlalchemy[asyncio]>=2.0.54",
   "aiosqlite>=0.22.1",
   "asyncpg>=0.31.0",
-  "psycopg[binary]>=3.3.4",
-  "alembic>=1.18.5",
+  "psycopg[binary]>=3.3.6",
+  "alembic>=1.20.0",
   "httpx>=0.28.1",
-  "pydantic-settings>=2.14.2",
-  "pydantic>=2.13.4",
+  "pydantic-settings>=2.15.0",
+  "pydantic>=2.13.5",
   "paramiko>=5.0.0",
   "bleach>=6.4.0",
 ]
@@ -23,7 +23,7 @@ dependencies = [
 dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0", "pytest-cov>=7.1.0", "httpx>=0.28.1"]
 
 [build-system]
-requires = ["setuptools>=83.0.0"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

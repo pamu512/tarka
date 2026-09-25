@@ -25,6 +25,18 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+
+WORKERS = int(os.environ.get("WORKERS", "16"))
+
+def _retry_post(path, payload, tries=4):
+    last = None
+    for attempt in range(tries):
+        try:
+            return _post(path, payload)
+        except urllib.error.URLError as e:
+            last = e
+            time.sleep(0.25 * (attempt + 1))
+    raise last
 from datetime import datetime, timezone
 
 BASE = os.environ.get("GRAPH_API", "http://127.0.0.1:8001").rstrip("/")
@@ -34,6 +46,7 @@ DEVICES = int(os.environ.get("DEVICES", "400"))
 PAYMENTS = int(os.environ.get("PAYMENTS", "500"))
 HUB_EDGES = int(os.environ.get("HUB_EDGES", "200"))
 API_KEY = (os.environ.get("API_KEY") or "").strip() or None
+PROBE_TIMEOUT = float(os.environ.get("PROBE_TIMEOUT", "120"))
 
 
 def _post(path: str, payload: dict) -> tuple[int, dict]:
@@ -44,10 +57,14 @@ def _post(path: str, payload: dict) -> tuple[int, dict]:
         BASE + path, data=json.dumps(payload).encode(), headers=headers, method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT) as r:
             return r.status, json.loads(r.read().decode() or "{}")
     except urllib.error.HTTPError as e:
-        return e.code, json.loads(e.read().decode() or "{}")
+        raw = e.read().decode(errors="replace") or ""
+        try:
+            return e.code, json.loads(raw)
+        except json.JSONDecodeError:
+            return e.code, {"error": "non-json error body", "status": e.code, "body": raw[:200]}
 
 
 def _get(path: str) -> tuple[int, dict]:
@@ -56,7 +73,7 @@ def _get(path: str) -> tuple[int, dict]:
         headers["x-api-key"] = API_KEY
     req = urllib.request.Request(BASE + path, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT) as r:
             return r.status, json.loads(r.read().decode() or "{}")
     except urllib.error.HTTPError as e:
         return e.code, {}
@@ -69,7 +86,7 @@ def _iso_now() -> str:
 def write_entities(count: int, kind: str) -> float:
     """POST count entities; returns writes/sec."""
     def one(i: int) -> None:
-        status, body = _post(
+        status, body = _retry_post(
             "/v1/entities",
             {
                 "tenant_id": TENANT,
@@ -82,7 +99,7 @@ def write_entities(count: int, kind: str) -> float:
             raise RuntimeError(f"entity write {status}: {body}")
 
     t0 = time.monotonic()
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         list(pool.map(one, range(count)))
     return count / (time.monotonic() - t0)
 
@@ -91,7 +108,7 @@ def write_links(tasks: list[tuple[str, str, str, dict]]) -> float:
     """POST links (from, to, rel, props); returns writes/sec."""
     def one(t: tuple[str, str, str, dict]) -> None:
         src, dst, rel, props = t
-        status, body = _post(
+        status, body = _retry_post(
             "/v1/links",
             {
                 "tenant_id": TENANT,
@@ -105,7 +122,7 @@ def write_links(tasks: list[tuple[str, str, str, dict]]) -> float:
             raise RuntimeError(f"link write {status}: {body}")
 
     t0 = time.monotonic()
-    with ThreadPoolExecutor(max_workers=16) as pool:
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         list(pool.map(one, tasks))
     return len(tasks) / (time.monotonic() - t0)
 
@@ -134,25 +151,29 @@ def main() -> int:
     print(f"volume: {PERSONS} persons, {DEVICES} devices, {PAYMENTS} payments, hub {HUB_EDGES} edges")
 
     eps = write_entities(PERSONS, "Person")
-    print(f"[write] persons     {PERSONS} in {PERSONS / eps:.1f}s  ({eps:.0f}/sec)")
+    if PERSONS:
+        print(f"[write] persons     {PERSONS} in {PERSONS / eps:.1f}s  ({eps:.0f}/sec)")
     eps = write_entities(DEVICES, "Device")
-    print(f"[write] devices     {DEVICES} in {DEVICES / eps:.1f}s  ({eps:.0f}/sec)")
+    if DEVICES:
+        print(f"[write] devices     {DEVICES} in {DEVICES / eps:.1f}s  ({eps:.0f}/sec)")
     eps = write_entities(PAYMENTS, "Payment")
-    print(f"[write] payments    {PAYMENTS} in {PAYMENTS / eps:.1f}s  ({eps:.0f}/sec)")
+    if PAYMENTS:
+        print(f"[write] payments    {PAYMENTS} in {PAYMENTS / eps:.1f}s  ({eps:.0f}/sec)")
 
     links: list[tuple[str, str, str, dict]] = []
-    for i in range(PERSONS):
+    for i in range(PERSONS if PERSONS and DEVICES and PAYMENTS else 0):
         props = {"trace_id": f"load-trace-{i}", "event_type": "load_profile"}
         links.append((f"load-person-{i}", f"load-device-{i % DEVICES}", "USED_DEVICE", props))
         links.append((f"load-person-{i}", f"load-payment-{i % PAYMENTS}", "MADE_PAYMENT", props))
     for i in range(HUB_EDGES):
         links.append((f"load-person-{i}", "load-device-0", "USED_DEVICE", {"hub": True}))
     lps = write_links(links)
-    print(f"[write] links       {len(links)} in {len(links) / lps:.1f}s  ({lps:.0f}/sec)")
+    if links:
+        print(f"[write] links       {len(links)} in {len(links) / lps:.1f}s  ({lps:.0f}/sec)")
 
     total = PERSONS + DEVICES + PAYMENTS
     print(f"[read]  at {total} entities / {len(links)} edges:")
-    read_latencies("subgraph 1-hop (hub, ~%d edges)" % (HUB_EDGES + PERSONS // DEVICES),
+    read_latencies("subgraph 1-hop (hub, ~%d edges)" % (HUB_EDGES + (PERSONS // DEVICES if DEVICES else 0)),
                    f"/v1/subgraph?tenant_id={TENANT}&entity_id=load-device-0&depth=1")
     read_latencies("subgraph 2-hop (person)",
                    f"/v1/subgraph?tenant_id={TENANT}&entity_id=load-person-3&depth=2")

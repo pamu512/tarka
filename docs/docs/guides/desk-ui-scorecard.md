@@ -1,4 +1,4 @@
-# Desk UI scorecard (T1–T6)
+# Desk UI scorecard (T1–T8)
 
 UX0 stream exit gate. Professional evaluate desk — leftovers, receipts, Observe→Promote. Not a consumer app. Not a case CRM.
 
@@ -46,6 +46,8 @@ Start each walk from the start state. Success criteria are all-or-nothing.
 | **T4** | Find which pack fired | Receipt / Decisions row that references ≥1 pack | Analyst names the firing pack from the UI without a memorized UUID | **0 / 0** on the Decisions list (pack name on the row). Else **1 / 1** — Open receipt → `PackWhyStrip` | `src/desk-ui-scorecard.test.tsx` (T4). Also `src/pages/Decisions.test.tsx` (UX0.6 path) |
 | **T5** | Late-label bind | Event that needs a late label | Label bound to the receipt; bound state visible; no orphan / ambiguous label. FP may mint an Observe soften draft | Webhook path, not a desk CRM form | **Owner:** `services/decision-api/tests/test_late_label_hop.py` (`test_fp_binds_receipt_and_opens_observe_soften`). No frontend late-label page — do not invent one |
 | **T6** | Empty-URL honesty (PlaneOff) | Plane URL empty / missing (or clear it) | UI does **not** claim connected / success; shows plane off / not configured; no blank crash; empty URL = plane off | **0** extra clicks — deep link renders PlaneOff | **Owner:** `src/pages/PlaneOff.test.tsx` (graph + Advise). Also `src/config/leanNav.test.ts` |
+| **T7** | Draft → promote-ready in ≤2 clicks | Draft pack on `/ops/shadow` | `PromoteReadinessPanel` shows what is still missing (why, backtest, kill criteria); a ready draft can reach the promote path in ≤2 intentional clicks | **2 / 0** — read readiness panel, act on the one blocking item | **Owner:** `src/components/PromoteReadinessPanel.test.tsx`. One-click backtest via `src/components/DraftBacktestButton.tsx` (wired on Rules, `pages/Rules.tsx:20`) removes the backtest detour |
+| **T8** | Vertical-pack wizard completes | `/rules` wizard entry | Wizard produces a valid draft pack for a chosen vertical without hand-editing JSON; journey tabs (`PackJourneyTabs`) keep stage context one click apart; provision glass (`ProvisionGlass` on `/settings`) shows the report card after provision | **≤3 steps** wizard (vertical → fields → review); **0** JSON edits | **Owner:** `src/components/VerticalPackWizard.test.tsx`, `src/components/PackJourneyTabs.test.tsx`, `src/components/ProvisionGlass.test.tsx`. Entity sets + timeline: `src/components/EntitySetPanel.test.tsx` (`/graph` investigation) |
 
 `PackWhyStrip` has no dedicated test file; T1 / T4 mount it through Leftovers and Decisions.
 
@@ -78,7 +80,9 @@ Copy per session. Score Good / OK / Bad on dimension 1 first.
 | T3 Promote Observe | | | | 2 | | | | | | — | |
 | T4 Which pack fired | | | | 0 | | | | | | — | |
 | T5 Late-label bind | | | | — | | | | | | — | |
-| T6 Empty-URL honesty | | | | 0 | | | | | | Y/N | |
+| T6 Empty-URL honesty | | | | 0 | | | | | | | Y/N | |
+| T7 Draft → promote-ready | | | | 2 | | | | | | — | |
+| T8 Wizard completes | | | | ≤3 steps | | | | | | — | |
 
 **Primary bar:** Pass only if every walked core task is Good or OK on clicks/steps.
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as client from "@/api/client";
@@ -69,6 +69,10 @@ describe("DraftBacktestButton", () => {
         new Date(body.start_time as string).getTime()) /
       86_400_000;
     expect(days).toBeLessThanOrEqual(7.1);
+    // Let the pending enqueue continuation (setJobId/setBusy) land inside
+    // this test — otherwise its setState can fire after jsdom teardown on
+    // slow runners (React 19 scheduler + window-less dispatch).
+    await screen.findByRole("link", { name: /job-123/i });
   });
 
   it("surfaces an honest error, no link, when enqueue rejects", async () => {
@@ -93,7 +97,9 @@ describe("DraftBacktestButton", () => {
     const btn = screen.getByRole("button", { name: /backtest draft/i });
     fireEvent.click(btn);
     expect(screen.getByRole("button", { name: /backtesting…/i })).toBeDisabled();
-    resolveEnqueue(enqueueResponse());
+    await act(async () => {
+      resolveEnqueue(enqueueResponse());
+    });
     await screen.findByRole("link", { name: /job-123/i });
   });
 });

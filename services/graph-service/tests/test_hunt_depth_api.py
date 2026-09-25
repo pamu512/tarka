@@ -183,7 +183,13 @@ async def test_age_query_subgraph_cypher_is_tenant_scoped(monkeypatch):
     class _Conn:
         async def fetch(self, stmt, *_a):
             stmts.append(stmt)
+            if "RETURN root, id(root)" in stmt:
+                return [{"root": "{}", "gid": "10"}]
             return []
+
+        async def fetchrow(self, stmt, *_a):
+            stmts.append(stmt)
+            return None
 
     class _Pool:
         def acquire(self):
@@ -202,7 +208,8 @@ async def test_age_query_subgraph_cypher_is_tenant_scoped(monkeypatch):
     joined = "\n".join(stmts)
     assert _TENANT_A in joined
     assert _TENANT_B not in joined
-    assert "nb.tenant_id" in joined
+    assert "nb.tenant_id" in joined  # directed hops keep neighbor tenant scoping
+    assert "RETURN root, id(root)" in joined  # anchor resolved in one indexed lookup
 
 
 @pytest.mark.asyncio
@@ -214,7 +221,13 @@ async def test_age_query_subgraph_walk_is_one_hop_for_any_requested_depth(monkey
     class _Conn:
         async def fetch(self, stmt, *_a):
             stmts.append(stmt)
+            if "RETURN root, id(root)" in stmt:
+                return [{"root": "{}", "gid": "10"}]
             return []
+
+        async def fetchrow(self, stmt, *_a):
+            stmts.append(stmt)
+            return None
 
     class _Pool:
         def acquire(self):
@@ -235,7 +248,7 @@ async def test_age_query_subgraph_walk_is_one_hop_for_any_requested_depth(monkey
     assert hop_1 and hop_5
     assert hop_1 == hop_5
     joined = hop_5[0]
-    assert "MATCH (root)-[e]-(nb)" in joined
+    assert "MATCH (root)-[e]->(nb)" in joined or "MATCH (nb)-[e]->(root)" in joined
     assert "[*" not in joined
     assert "age_unnest" not in joined
 
@@ -264,9 +277,12 @@ async def test_age_query_subgraph_drops_foreign_tenant_neighbor(monkeypatch):
 
     class _Conn:
         async def fetch(self, stmt, *_a):
-            if "RETURN root" in stmt and "RETURN e, nb" not in stmt:
-                return [{"root": json.dumps(root)}]
+            if "RETURN root, id(root)" in stmt:
+                return [{"root": json.dumps(root), "gid": "10"}]
             return [{"e": json.dumps(edge), "nb": json.dumps(leak)}]
+
+        async def fetchrow(self, stmt, *_a):
+            return None
 
     class _Pool:
         def acquire(self):

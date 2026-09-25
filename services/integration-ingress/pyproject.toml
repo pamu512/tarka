@@ -6,21 +6,21 @@ dependencies = [
   "structlog>=26.1.0",
   "tarka-core @ file:../core",
   "fastapi>=0.141.1",
-  "uvicorn[standard]>=0.52.0",
+  "uvicorn[standard]>=0.53.0",
   "httpx>=0.28.1",
-  "nats-py>=2.15.0",
+  "nats-py>=2.16.0",
   "redis[hiredis]>=8.1.0",
-  "boto3>=1.43.62",
-  "google-cloud-kms>=3.16.0",
+  "boto3>=1.43.98",
+  "google-cloud-kms>=3.17.0",
   "azure-identity>=1.25.3",
-  "azure-keyvault-keys>=4.11.1",
-  "pydantic>=2.13.4",
-  "pydantic-settings>=2.14.2",
-  "sqlalchemy[asyncio]>=2.0.51",
+  "azure-keyvault-keys>=4.11.2",
+  "pydantic>=2.13.5",
+  "pydantic-settings>=2.15.0",
+  "sqlalchemy[asyncio]>=2.0.54",
   "aiosqlite>=0.22.1",
   "asyncpg>=0.31.0",
-  "alembic>=1.18.5",
-  "psycopg[binary]>=3.3.4",
+  "alembic>=1.20.0",
+  "psycopg[binary]>=3.3.6",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +31,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=83.0.0"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

@@ -27,7 +27,9 @@ def _sqlite_database_path() -> Path | None:
         return None
     u = make_url(str(engine.url))
     db = (u.database or "").strip()
-    if not db:
+    if not db or db == ":memory:":
+        # ':memory:' is an in-memory database, not a file; probing it as a
+        # path would touch() a literal ':memory:' file in CWD.
         return None
     p = Path(db)
     return p.resolve() if p.is_absolute() else (Path.cwd() / p).resolve()

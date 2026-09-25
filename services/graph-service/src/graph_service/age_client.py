@@ -469,7 +469,15 @@ async def create_link(
             if q_update:
                 await conn.execute(q_update)
             return
-        await conn.execute(q_create)
+        try:
+            await conn.execute(q_create)
+        except asyncpg.DuplicateTableError:
+            # First concurrent link for a relationship label: AGE's CREATE
+            # edge-table DDL races under parallel writers (label table is
+            # created lazily on first use). The edge did not exist when we
+            # checked, another writer created the label concurrently; retry
+            # the create once — the label now exists so it cannot race again.
+            await conn.execute(q_create)
 
 
 async def delete_entity(tenant_id: str, external_id: str) -> None:
@@ -485,20 +493,42 @@ async def delete_entity(tenant_id: str, external_id: str) -> None:
 
 
 async def list_one_hop_ids(tenant_id: str, entity_id: str) -> list[str]:
-    q = _cypher_sql(
-        f"MATCH (n)-[r]-(m) WHERE n.tenant_id = {_cypher_lit(tenant_id)} "
-        f"AND n.external_id = {_cypher_lit(entity_id)} AND m.tenant_id = {_cypher_lit(tenant_id)} "
-        "RETURN DISTINCT m.external_id",
-        "id ag_catalog.agtype",
-        "CAST(id AS VARCHAR) as id",
+    # Two-phase directed walk. Phase 1 resolves the anchor's graphid via the
+    # per-label (tenant_id, external_id) indexes; phase 2 runs two DIRECTED
+    # edge lookups anchored on id(n) = <const> using ix_<label>_start/_end.
+    # The old single undirected query — (e.start=n AND e.end=m) OR
+    # (e.end=n AND e.start=m) with property filters on both endpoints —
+    # forced a nested-loop cross product over the edge space (planner cost
+    # ~8.9e8 at 100k entities). See tests/test_subgraph_plan_shape.py.
+    tid = _cypher_lit(tenant_id)
+    eid = _cypher_lit(entity_id)
+    q_gid = _cypher_sql(
+        f"MATCH (n) WHERE n.tenant_id = {tid} AND n.external_id = {eid} RETURN id(n)",
+        "gid ag_catalog.agtype",
+        "CAST(gid AS VARCHAR) as gid",
     )
     async with _acquire() as conn:
-        rows = await conn.fetch(q)
+        grow = await conn.fetchrow(q_gid)
+    if not grow or not grow.get("gid") or grow["gid"] == "null":
+        return []
+    gid = grow["gid"].strip().strip('"')
     out: list[str] = []
-    for row in rows or []:
-        eid = _parse_age_graph_value(row["id"])
-        if eid:
-            out.append(str(eid))
+    for anchor_col in ("start_id", "end_id"):
+        q = _cypher_sql(
+            f"MATCH (n)-[r]->(m) WHERE id(n) = {gid} AND m.tenant_id = {tid} "
+            "RETURN DISTINCT m.external_id"
+            if anchor_col == "start_id"
+            else f"MATCH (m)-[r]->(n) WHERE id(n) = {gid} AND m.tenant_id = {tid} "
+            "RETURN DISTINCT m.external_id",
+            "id ag_catalog.agtype",
+            "CAST(id AS VARCHAR) as id",
+        )
+        async with _acquire() as conn:
+            rows = await conn.fetch(q)
+        for row in rows or []:
+            ext = _parse_age_graph_value(row["id"])
+            if ext:
+                out.append(str(ext))
     return out
 
 
@@ -637,21 +667,50 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     walk = hunt_walk_depth(depth)
     tid = _cypher_lit(tenant_id)
     eid = _cypher_lit(entity_id)
+    # Two-phase directed walk (see list_one_hop_ids): resolve anchor graphid,
+    # then DIRECTED per-direction edge lookups anchored on id() = const.
+    # The previous single undirected OR-join nested-looped the edge space
+    # (cost ~8.9e8 at 100k entities) — tests/test_subgraph_plan_shape.py.
     q_root = _cypher_sql(
-        f"MATCH (root) WHERE root.tenant_id = {tid} AND root.external_id = {eid} RETURN root",
-        "root ag_catalog.agtype",
-        "CAST(root AS VARCHAR) as root",
+        f"MATCH (root) WHERE root.tenant_id = {tid} AND root.external_id = {eid} "
+        "RETURN root, id(root)",
+        "root ag_catalog.agtype, gid ag_catalog.agtype",
+        "CAST(root AS VARCHAR) as root, CAST(gid AS VARCHAR) as gid",
     )
-    q_hop = _cypher_sql(
-        f"MATCH (root)-[e]-(nb) WHERE root.tenant_id = {tid} AND root.external_id = {eid} "
-        f"AND nb.tenant_id = {tid} RETURN e, nb",
+    async with _acquire() as conn:
+        root_rows = await conn.fetch(q_root)
+    if not root_rows:
+        return {"nodes": [], "edges": []}
+    gid_raw = root_rows[0].get("gid")
+    if not gid_raw or gid_raw == "null":
+        return {"nodes": [], "edges": []}
+    gid = gid_raw.strip().strip('"')
+    q_hop_fwd = _cypher_sql(
+        f"MATCH (root)-[e]->(nb) WHERE id(root) = {gid} AND nb.tenant_id = {tid} RETURN e, nb",
         "e ag_catalog.agtype, nb ag_catalog.agtype",
         "CAST(e AS VARCHAR) as e, CAST(nb AS VARCHAR) as nb",
     )
-    q_hop2 = (
+    q_hop_rev = _cypher_sql(
+        f"MATCH (nb)-[e]->(root) WHERE id(root) = {gid} AND nb.tenant_id = {tid} RETURN e, nb",
+        "e ag_catalog.agtype, nb ag_catalog.agtype",
+        "CAST(e AS VARCHAR) as e, CAST(nb AS VARCHAR) as nb",
+    )
+    q_hop2_fwd = (
         _cypher_sql(
-            f"MATCH (root)-[e1]-(nb1)-[e2]-(nb2) WHERE root.tenant_id = {tid} "
-            f"AND root.external_id = {eid} AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
+            f"MATCH (root)-[e1]->(nb1)-[e2]->(nb2) WHERE id(root) = {gid} "
+            f"AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
+            f"AND id(nb2) <> id(root) RETURN e1, nb1, e2, nb2",
+            "e1 ag_catalog.agtype, nb1 ag_catalog.agtype, e2 ag_catalog.agtype, nb2 ag_catalog.agtype",
+            "CAST(e1 AS VARCHAR) as e1, CAST(nb1 AS VARCHAR) as nb1, "
+            "CAST(e2 AS VARCHAR) as e2, CAST(nb2 AS VARCHAR) as nb2",
+        )
+        if walk >= 2
+        else None
+    )
+    q_hop2_rev = (
+        _cypher_sql(
+            f"MATCH (nb2)-[e2]->(nb1)-[e1]->(root) WHERE id(root) = {gid} "
+            f"AND nb1.tenant_id = {tid} AND nb2.tenant_id = {tid} "
             f"AND id(nb2) <> id(root) RETURN e1, nb1, e2, nb2",
             "e1 ag_catalog.agtype, nb1 ag_catalog.agtype, e2 ag_catalog.agtype, nb2 ag_catalog.agtype",
             "CAST(e1 AS VARCHAR) as e1, CAST(nb1 AS VARCHAR) as nb1, "
@@ -667,9 +726,12 @@ async def query_subgraph(tenant_id: str, entity_id: str, depth: int) -> dict[str
     graph_to_ext: dict[str, str] = {}
 
     async with _acquire() as conn:
-        root_rows = await conn.fetch(q_root)
-        hop_rows = await conn.fetch(q_hop)
-        hop2_rows = await conn.fetch(q_hop2) if q_hop2 is not None else []
+        hop_rows = await conn.fetch(q_hop_fwd)
+        hop_rows += await conn.fetch(q_hop_rev)
+        hop2_rows = []
+        if q_hop2_fwd is not None:
+            hop2_rows += await conn.fetch(q_hop2_fwd)
+            hop2_rows += await conn.fetch(q_hop2_rev)
     rows = []
     if root_rows:
         rows.append({"root": root_rows[0]["root"], "e": None, "nb": None})

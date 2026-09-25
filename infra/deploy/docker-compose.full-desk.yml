@@ -11,3 +11,14 @@ include:
   - path: docker-compose.fraud-desk.yml
   - path: docker-compose.signals.yml
   - path: docker-compose.investigation.yml
+
+services:
+  # include: merges each file as its own model, so signals.yml's
+  # `profiles: !reset` on nats/integration-ingress does not strip lite.yml's
+  # `profiles: [ingest]` — the union keeps them gated and validation fails
+  # with "core-api depends on undefined service nats". The including file has
+  # the final say: reset here so the full desk always starts them.
+  nats:
+    profiles: !reset
+  integration-ingress:
+    profiles: !reset

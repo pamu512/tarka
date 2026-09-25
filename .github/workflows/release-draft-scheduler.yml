@@ -18,7 +18,7 @@ jobs:
   draft-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Sync v1.3.0-beta draft from release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

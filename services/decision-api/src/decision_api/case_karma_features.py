@@ -1,16 +1,16 @@
-"""Case karma features — metadata-first, optional case-api fetch (fail-soft).
+"""Case karma features — host-supplied metadata/payload only.
 
-No LIVE dispute network required. Host may inject rates; optional CASE_API_URL
-returns the same field shape for offline mocks.
+No LIVE dispute network required. The historical optional case-api karma
+fetch (GET /v1/entities/{id}/karma) targeted a route no service ever
+served — it failed soft to None in every real deployment while tests
+mocked the transport green. The hop is removed: rates come from host
+metadata/payload or not at all.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
-
-import httpx
 
 log = logging.getLogger("decision-api.case_karma_features")
 
@@ -77,62 +77,20 @@ def apply_case_karma_from_sources(
         features["case_karma_high"] = True
 
 
-def case_api_config() -> dict[str, Any]:
-    url = (
-        os.environ.get("CASE_API_URL") or os.environ.get("TARKA_CASE_API_URL") or ""
-    ).strip()
-    key = (
-        os.environ.get("CASE_API_KEY") or os.environ.get("TARKA_CASE_API_KEY") or ""
-    ).strip()
-    return {
-        "url": url,
-        "api_key": key,
-        "configured": bool(url),
-        "live_claim_allowed": False,  # karma fetch ≠ LIVE card/dispute network
-    }
-
-
-async def maybe_fetch_case_karma(
-    *,
-    http: httpx.AsyncClient | None,
-    tenant_id: str,
-    entity_id: str,
-    timeout_seconds: float = 1.5,
-) -> dict[str, Any] | None:
-    """Optional case-api karma JSON; fail-soft → None."""
-    cfg = case_api_config()
-    if not cfg["url"] or http is None:
-        return None
-    url = f"{cfg['url'].rstrip('/')}/v1/entities/{entity_id}/karma"
-    headers: dict[str, str] = {}
-    if cfg["api_key"]:
-        headers["Authorization"] = f"Bearer {cfg['api_key']}"
-    try:
-        r = await http.get(
-            url,
-            headers=headers,
-            params={"tenant_id": tenant_id},
-            timeout=timeout_seconds,
-        )
-        if r.status_code >= 400:
-            return None
-        data = r.json() if r.content else {}
-        return data if isinstance(data, dict) else None
-    except Exception:
-        log.debug("case_karma_fetch_failed", exc_info=True)
-        return None
-
-
 async def apply_case_karma_features(
     features: dict[str, Any],
     *,
     payload: dict[str, Any] | None,
     metadata: dict[str, Any] | None,
-    http: httpx.AsyncClient | None = None,
+    http: Any = None,  # retained for call-site compat; no network hops
     tenant_id: str = "",
     entity_id: str = "",
 ) -> dict[str, Any] | None:
-    """Metadata-first karma; optional case-api fill for missing rates."""
+    """Metadata/payload karma only; no network hops.
+
+    ``http``/``tenant_id``/``entity_id`` are accepted for call-site
+    compatibility and intentionally unused.
+    """
     pl = payload if isinstance(payload, dict) else {}
     meta = metadata if isinstance(metadata, dict) else {}
     karma_block = (
@@ -140,27 +98,11 @@ async def apply_case_karma_features(
     )
     apply_case_karma_from_sources(features, karma_block, meta, pl)
 
-    need_fetch = any(
-        k not in features for k in ("repeat_refund_rate_30d", "dispute_loss_rate_30d")
-    )
-    evidence: dict[str, Any] | None = None
-    if need_fetch and tenant_id and entity_id:
-        remote = await maybe_fetch_case_karma(
-            http=http, tenant_id=tenant_id, entity_id=entity_id
-        )
-        if remote:
-            apply_case_karma_from_sources(features, remote)
-            evidence = {
-                "schema_id": "tarka.case_karma/v1",
-                "source": "case_api",
-                "live_claim_allowed": False,
-                "fields": [k for k in _RATE_KEYS + _COUNT_KEYS if k in features],
-            }
-    if any(k in features for k in _RATE_KEYS + _COUNT_KEYS) and evidence is None:
-        evidence = {
+    if any(k in features for k in _RATE_KEYS + _COUNT_KEYS):
+        return {
             "schema_id": "tarka.case_karma/v1",
             "source": "metadata",
             "live_claim_allowed": False,
             "fields": [k for k in _RATE_KEYS + _COUNT_KEYS if k in features],
         }
-    return evidence
+    return None
