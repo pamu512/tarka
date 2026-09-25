@@ -39,7 +39,7 @@ fi
 echo "--- C-4: feature-service day60 tests ---"
 (
   cd "$ROOT/services/feature-service"
-  PYTHONPATH="$ROOT/services/shared/src:$ROOT/services/decision-api/tests:$ROOT/services/feature-service/src" \
+  PYTHONPATH="$ROOT/services/shared/src:$ROOT/services/decision-api/tests:$ROOT/packages/feature-service/src" \
     python3 -m pytest tests/test_velocity_day60_parity.py tests/test_shared_velocity.py -q --tb=short
 )
 

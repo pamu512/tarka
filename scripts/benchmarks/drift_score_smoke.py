@@ -39,7 +39,7 @@ def _load_batch(path: Path) -> list[dict[str, Any]]:
 
 def _scores_local(features_list: list[dict[str, Any]]) -> list[float]:
     root = _repo_root()
-    ms = root / "services" / "ml-scoring" / "src"
+    ms = root / "packages" / "ml-scoring" / "src"
     sh = root / "services" / "shared"
     for p in (ms, sh):
         s = str(p)

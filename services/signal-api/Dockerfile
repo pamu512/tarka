@@ -11,8 +11,8 @@ COPY services/core /app/core
 RUN pip install -c /tmp/constraints.txt --no-cache-dir -e /app/core
 COPY services/signal-api/main.py /app/main.py
 COPY services/signal-api/pyproject.toml /app/
-COPY services/feature-service/src/feature_service /app/feature_service
-COPY services/ml-scoring/src/ml_scoring /app/ml_scoring
+COPY packages/feature-service/src/feature_service /app/feature_service
+COPY packages/ml-scoring/src/ml_scoring /app/ml_scoring
 COPY services/calibration-service/src/calibration_service /app/calibration_service
 COPY services/location-service/src/location_service /app/location_service
 COPY services/signal-api/src/signal_api /app/signal_api
