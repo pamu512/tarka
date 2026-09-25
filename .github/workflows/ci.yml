@@ -870,10 +870,12 @@ jobs:
           set -euo pipefail
           GRADLE_BIN="$(ls -d "$HOME/.gradle"/dist/*/*/gradle-*/bin/gradle 2>/dev/null | head -1 || true)"
           if [ -z "$GRADLE_BIN" ]; then
+            mkdir -p "$HOME/.gradle/dist"
             curl -sSL https://services.gradle.org/distributions/gradle-8.12-bin.zip -o /tmp/g.zip
             unzip -q /tmp/g.zip -d "$HOME/.gradle/dist"
             GRADLE_BIN="$HOME/.gradle/dist/gradle-8.12/bin/gradle"
           fi
+          "$GRADLE_BIN" --version | head -3
           "$GRADLE_BIN" :fraud-sdk:testDebugUnitTest --no-daemon
 
   benchmark-latency-evaluate:
