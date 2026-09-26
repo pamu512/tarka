@@ -876,7 +876,11 @@ jobs:
             GRADLE_BIN="$HOME/.gradle/dist/gradle-8.12/bin/gradle"
           fi
           "$GRADLE_BIN" --version | head -3
-          "$GRADLE_BIN" :fraud-sdk:testDebugUnitTest --no-daemon
+          "$GRADLE_BIN" :fraud-sdk:testDebugUnitTest --no-daemon || {
+            echo '--- test results (expected/actual) ---'
+            find packages/fraud-sdk-android/fraud-sdk/build -name 'TEST-*.xml' -print -exec cat {} \;
+            exit 1
+          }
 
   benchmark-latency-evaluate:
     needs: audit-stubs
