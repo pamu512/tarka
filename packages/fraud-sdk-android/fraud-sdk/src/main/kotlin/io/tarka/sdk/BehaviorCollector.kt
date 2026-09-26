@@ -27,6 +27,7 @@ class BehaviorCollector {
     fun recordKeyDown(t: Double) {
         // TS parity: interval = keyDown -> next keyDown.
         lastKeyDownStart?.let { prev -> interKeyIntervals.add(t - prev) }
+        lastKeyDownStart = t
         keyDownTimes.add(t)
     }
 
