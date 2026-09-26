@@ -24,19 +24,19 @@ class BehaviorCollector {
     private val scrollTimes = mutableListOf<Double>()
     private val touchTimes = mutableListOf<Double>()
 
-    fun recordKeyDown(at t: Double) {
+    fun recordKeyDown(t: Double) {
         // TS parity: interval = keyDown -> next keyDown.
         lastKeyDownStart?.let { prev -> interKeyIntervals.add(t - prev) }
         keyDownTimes.add(t)
     }
 
-    fun recordKeyUp(at t: Double) {
+    fun recordKeyUp(t: Double) {
         keyUpTimes.add(t)
     }
 
-    fun recordClick(at t: Double) { clickTimes.add(t) }
-    fun recordScroll(at t: Double) { scrollTimes.add(t) }
-    fun recordTouch(at t: Double) { touchTimes.add(t) }
+    fun recordClick(t: Double) { clickTimes.add(t) }
+    fun recordScroll(t: Double) { scrollTimes.add(t) }
+    fun recordTouch(t: Double) { touchTimes.add(t) }
 
     fun summary(): BehaviorSummary {
         val intervals = interKeyIntervals.toList()

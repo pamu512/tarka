@@ -3,12 +3,13 @@ package io.tarka.sdk
 import org.json.JSONArray
 import org.json.JSONObject
 
+@Suppress("UNCHECKED_CAST")
 internal fun jsonObjectFromMap(map: Map<String, Any?>): JSONObject {
     val o = JSONObject()
     for ((k, v) in map) {
         when (v) {
             null -> o.put(k, JSONObject.NULL)
-            is Map<*, *> @Suppress("UNCHECKED_CAST") -> o.put(k, jsonObjectFromMap(v as Map<String, Any?>))
+            is Map<*, *> -> o.put(k, jsonObjectFromMap(v as Map<String, Any?>))
             is List<*> -> o.put(k, jsonArrayFromList(v))
             is Boolean -> o.put(k, v)
             is Number -> o.put(k, v)
@@ -19,12 +20,13 @@ internal fun jsonObjectFromMap(map: Map<String, Any?>): JSONObject {
     return o
 }
 
+@Suppress("UNCHECKED_CAST")
 private fun jsonArrayFromList(list: List<*>): JSONArray {
     val a = JSONArray()
     for (v in list) {
         when (v) {
             null -> a.put(JSONObject.NULL)
-            is Map<*, *> @Suppress("UNCHECKED_CAST") -> a.put(jsonObjectFromMap(v as Map<String, Any?>))
+            is Map<*, *> -> a.put(jsonObjectFromMap(v as Map<String, Any?>))
             is List<*> -> a.put(jsonArrayFromList(v))
             is Boolean -> a.put(v)
             is Number -> a.put(v)
