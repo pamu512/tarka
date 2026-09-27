@@ -56,13 +56,21 @@ export interface RuleDraft {
   when: ConditionRow[];
   score_delta?: number;
   tags?: string[];
+  description?: string;
+  /** Whole-rule RawBlock carrier: draft fields unused on compile. */
   rawBlocks: RawBlock[];
 }
 
 export interface PackDraft {
   codecVersion: CodecVersion;
   file?: string;
+  name?: string;
+  version?: number;
   mode?: string;
+  description?: string;
+  canary_percent?: number | null;
+  effective_at?: string | null;
+  approved_by?: string | null;
   rules: RuleDraft[];
   tag_rules?: unknown[];
   rawTopLevel: RawBlock[];
