@@ -33,9 +33,7 @@ RequestFn = Callable[..., tuple[int, Any]]
 SleepFn = Callable[[float], None]
 
 # Mirror walk cases, then add shipped-pack field variants. No expected_decision.
-SYNTH_CASES: list[dict[str, Any]] = [
-    copy.deepcopy(case) for case in WALK_CASES
-] + [
+SYNTH_CASES: list[dict[str, Any]] = [copy.deepcopy(case) for case in WALK_CASES] + [
     {
         "label": "high_amount",
         "note": "default.json high_amount_payment is amount>=10000",
@@ -92,6 +90,54 @@ SYNTH_CASES: list[dict[str, Any]] = [
         },
     },
 ]
+
+
+# SDK-shaped behavior packet (TS BehaviorCollector summary keys). Fires the
+# observe-only behavior challenger pack (rules/behavior_challenger_v1.json).
+def _behavior_packet() -> dict:
+    return {
+        "typing": {
+            "avg_inter_key_ms": 12.0,
+            "std_inter_key_ms": 0.4,
+            "median_inter_key_ms": 12.0,
+            "avg_hold_ms": 40.0,
+            "key_count": 48,
+            "hesitation_events_gt_500ms": 0,
+        },
+        "session": {"click_count": 0, "scroll_count": 0, "paste_count": 9, "tab_switches": 22},
+        "bot_indicators": {
+            "zero_mouse_movement": True,
+            "constant_typing_speed": True,
+            "no_scroll": True,
+            "suspiciously_fast": True,
+        },
+    }
+
+
+SYNTH_CASES.insert(
+    0,
+    {
+        "label": "behavior_bot",
+        "note": "SDK behavior packet (bot stack) - observe-only challenger fires in shadow",
+        "body": {
+            "tenant_id": "demo",
+            "entity_id": "synth-behavior",
+            "event_type": "payment",
+            "role": "member",
+            "payload": {
+                "amount": 120.0,
+                "currency": "USD",
+                "channel": "card_not_present",
+            },
+            "device_context": {
+                "device_id": "synth-behavior-device",
+                "platform": "web",
+                "signals": {},
+                "behavior": _behavior_packet(),
+            },
+        },
+    },
+)
 
 EVENT_TYPES = ("payment", "login")
 AMOUNTS = (25.0, 80.0, 150.0, 10000.0)
@@ -304,8 +350,7 @@ def _run_loop(
             )
             if st != 200 or not isinstance(out, dict):
                 print(
-                    f"[warn] evaluate tick={tick} entity_id={entity_id} "
-                    f"status={st} body={out!r}",
+                    f"[warn] evaluate tick={tick} entity_id={entity_id} status={st} body={out!r}",
                     file=sys.stderr,
                 )
             else:
@@ -324,9 +369,7 @@ def _run_loop(
                 if label_every and successes % label_every == 0:
                     kind = LABEL_KINDS[(successes - 1) % len(LABEL_KINDS)]
                     label_body = build_label_payload(out, tenant=tenant, label_kind=kind)
-                    if not (
-                        label_body.get("evaluation_token") or label_body.get("trace_id")
-                    ):
+                    if not (label_body.get("evaluation_token") or label_body.get("trace_id")):
                         print(
                             f"[warn] late-label skip tick={tick}: no evaluation_token "
                             "or trace_id on evaluate response",
