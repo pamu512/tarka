@@ -54,7 +54,7 @@ export function PackFormEditor({ fields }: Props) {
               <h3 className="text-sm font-medium text-gray-300 font-mono">{rule.id}</h3>
               {advanced && (
                 <span className="text-[10px] uppercase tracking-wide bg-amber-900/40 text-amber-300 border border-amber-700/50 rounded px-2 py-0.5">
-                  Advanced rule — edit via JSON tab
+                  Advanced rule - edit via JSON tab
                 </span>
               )}
             </div>

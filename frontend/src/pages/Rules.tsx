@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useSearchParams } from 'react-router';
 import { catalogFieldNames, rulesPickerGroups, type AuthorCatalog } from "../domain/authorCatalog";
 import { fallbackAuthorCatalog } from "../domain/authorCatalogFallback";
@@ -30,6 +30,8 @@ import {
   type VerticalBenchmarkHistoryEntry,
 } from "../lib/verticalBenchmarkHistory";
 import { PackJourneyTabs } from "../components/PackJourneyTabs";
+
+const PackStudioTab = lazy(() => import("../features/rule-studio/PackStudioTab"));
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -178,7 +180,7 @@ function packFile(p: RulePack): string {
   return p._file ?? ((p as unknown as Record<string, unknown>).file as string | undefined) ?? p.name;
 }
 
-type RulesWorkspaceTab = "builder" | "telemetry" | "changes";
+type RulesWorkspaceTab = "builder" | "studio" | "telemetry" | "changes";
 
 function compactChangeHint(ts: string): string {
   const d = new Date(ts);
@@ -990,6 +992,12 @@ export default function Rules() {
                 onSelect={() => setWorkspaceTab("builder")}
               />
               <RulesWorkspaceTabButton
+                id="rules-tab-studio"
+                label="Studio"
+                selected={workspaceTab === "studio"}
+                onSelect={() => setWorkspaceTab("studio")}
+              />
+              <RulesWorkspaceTabButton
                 id="rules-tab-telemetry"
                 label="Hit telemetry"
                 hint={telemetryMeta ? `${telemetryMeta.total_hits} hits` : undefined}
@@ -1005,7 +1013,18 @@ export default function Rules() {
               />
             </div>
           </div>
-          {workspaceTab === "telemetry" ? (
+          {workspaceTab === "studio" ? (
+            <div
+              id="rules-tab-studio-panel"
+              role="tabpanel"
+              aria-labelledby="rules-tab-studio"
+              className="flex-1 overflow-y-auto"
+            >
+              <Suspense fallback={<p className="p-6 text-xs text-gray-500">Loading Studio…</p>}>
+                <PackStudioTab />
+              </Suspense>
+            </div>
+          ) : workspaceTab === "telemetry" ? (
             <div
               id="rules-tab-telemetry-panel"
               role="tabpanel"

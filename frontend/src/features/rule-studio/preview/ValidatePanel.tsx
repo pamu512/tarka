@@ -1,22 +1,19 @@
 import { validatePackJson } from "../compiler/validatePack";
+import { compilePack } from "../compiler/compilePack";
 import { usePackDraftStore } from "../store/packDraftStore";
 
 export function ValidatePanel() {
   const draft = usePackDraftStore((s) => s.draft);
-  const compiled = usePackDraftStore((s) => s.compileForSave)();
-  const result = validatePackJson(compiled);
+  const result = validatePackJson(compilePack(draft));
 
   const bothSetErrors = draft.rules
     .filter((r) => r.rawBlocks.some((b) => b.kind === "both_set_rule"))
     .map(
       (r) =>
-        `Rule ${r.id}: can never fire (when and when_ast both set) — resolve in JSON tab`,
+        `Rule ${r.id}: can never fire (when and when_ast both set) - resolve in JSON tab`,
     );
 
-  const errors = [
-    ...(result.ok ? [] : result.errors),
-    ...bothSetErrors,
-  ];
+  const errors = [...(result.ok ? [] : result.errors), ...bothSetErrors];
 
   if (errors.length === 0) {
     return (

@@ -17,7 +17,7 @@ export type WidgetOp = (typeof WIDGET_OPS)[number];
 
 /**
  * Full evaluator set (16) from json_rules.py.
- * Ops outside WIDGET_OPS (and any unknown) stay editable generic rows — never RawBlock.
+ * Ops outside WIDGET_OPS (and any unknown) stay editable generic rows - never RawBlock.
  */
 export const EVALUATOR_OPS: readonly string[] = [
   "eq",
