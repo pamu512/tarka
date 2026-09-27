@@ -244,7 +244,7 @@ export default function PackStudioTab() {
 
       {subTab === "form" && <PackFormEditor fields={fields} />}
       {subTab === "json" && (
-        <Suspense fallback={<p className="text-xs text-gray-500">Loading JSON editor…</p>}>
+        <Suspense fallback={<p className="text-xs text-gray-500">Loading JSON editor...</p>}>
           <JsonTab />
         </Suspense>
       )}

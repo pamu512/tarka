@@ -1020,7 +1020,7 @@ export default function Rules() {
               aria-labelledby="rules-tab-studio"
               className="flex-1 overflow-y-auto"
             >
-              <Suspense fallback={<p className="p-6 text-xs text-gray-500">Loading Studio…</p>}>
+              <Suspense fallback={<p className="p-6 text-xs text-gray-500">Loading Studio...</p>}>
                 <PackStudioTab />
               </Suspense>
             </div>
