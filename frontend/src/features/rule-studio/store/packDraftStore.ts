@@ -13,6 +13,7 @@ type PackDraftState = {
   setCondition: (ruleId: string, conditionId: string, patch: Partial<ConditionRow>) => void;
   addCondition: (ruleId: string, row?: Partial<ConditionRow>) => void;
   removeCondition: (ruleId: string, conditionId: string) => void;
+  moveCondition: (ruleId: string, conditionId: string, dir: -1 | 1) => void;
   setScoreDelta: (ruleId: string, score_delta: number) => void;
   setTags: (ruleId: string, tags: string[]) => void;
   addRule: () => void;
@@ -78,6 +79,19 @@ export const usePackDraftStore = create<PackDraftState>((set, get) => ({
     const rule = draft.rules.find((r) => r.id === ruleId);
     if (!rule) return;
     rule.when = rule.when.filter((c) => c.id !== conditionId);
+    set({ draft, dirty: true, jsonText: draftToJsonText(draft) });
+  },
+
+  moveCondition: (ruleId, conditionId, dir) => {
+    const draft = structuredClone(get().draft);
+    const rule = draft.rules.find((r) => r.id === ruleId);
+    if (!rule) return;
+    const idx = rule.when.findIndex((c) => c.id === conditionId);
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= rule.when.length) return;
+    const tmp = rule.when[idx];
+    rule.when[idx] = rule.when[j];
+    rule.when[j] = tmp;
     set({ draft, dirty: true, jsonText: draftToJsonText(draft) });
   },
 
