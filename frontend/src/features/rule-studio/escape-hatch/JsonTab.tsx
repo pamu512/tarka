@@ -43,7 +43,7 @@ export default function JsonTab() {
           Apply JSON
         </button>
       </div>
-      <Suspense fallback={<p className="text-xs text-gray-500">Loading editor…</p>}>
+      <Suspense fallback={<p className="text-xs text-gray-500">Loading editor...</p>}>
         <MonacoEditor {...editorProps} />
       </Suspense>
       {err && (
