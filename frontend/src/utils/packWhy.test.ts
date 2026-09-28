@@ -103,6 +103,31 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBeNull();
   });
 
+  it("leftover audit with pack id but no why → PACK_WHY_MISSING (never invent from ml_summary)", () => {
+    const view = resolvePackWhy({
+      pack_id: "device_signals",
+      rule_pack_file: "device_signals.json",
+      evaluate_payload: {
+        pack_id: "device_signals",
+        ml_summary: "Bot-like session — escalate",
+        recommended_action: "deny",
+      },
+    });
+    expect(view.packId).toBe("device_signals");
+    expect(view.why).toBe(PACK_WHY_MISSING);
+    expect(view.why).not.toMatch(/Bot-like|escalate|deny/i);
+  });
+
+  it("empty string pack_reason is missing, not a soft-success why", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "fintech.json",
+      pack_reason: "   ",
+      evaluate_payload: { pack_reason: "", ml_summary: "should not surface" },
+    });
+    expect(view.packId).toBe("fintech");
+    expect(view.why).toBe(PACK_WHY_MISSING);
+  });
+
   it("still returns a strip model when pack id is also absent", () => {
     const view = resolvePackWhy({});
     expect(view.packId).toBe(PACK_WHY_MISSING);

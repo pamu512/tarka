@@ -665,7 +665,7 @@ export function GraphContextPanel({
                             {!primary ? (
                               <span className="text-gray-500 truncate">
                                 {why.packId === PACK_WHY_MISSING ? PACK_WHY_MISSING : why.packId}
-                                {why.why !== PACK_WHY_MISSING ? ` · ${why.why}` : ""}
+                                {` · ${why.why === PACK_WHY_MISSING ? PACK_WHY_MISSING : why.why}`}
                               </span>
                             ) : null}
                           </p>
