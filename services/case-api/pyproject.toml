@@ -7,7 +7,7 @@ dependencies = [
   "tarka-core @ file:../core",
   "fastapi>=0.141.1",
   "uvicorn[standard]>=0.53.0",
-  "sqlalchemy[asyncio]>=2.0.54",
+  "sqlalchemy[asyncio]>=2.1.0",
   "aiosqlite>=0.22.1",
   "asyncpg>=0.31.0",
   "psycopg[binary]>=3.3.6",
