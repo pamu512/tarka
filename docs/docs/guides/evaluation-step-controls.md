@@ -37,6 +37,27 @@ All optional; defaults are tenant-safe fail-open.
 | `CIRCUIT_EXTERNAL_FAILURE_THRESHOLD` | `5` |
 | `CIRCUIT_EXTERNAL_RECOVERY_SECONDS` | `30` |
 
+### Settings-owned optional planes (`anumana_signals` / `async_osint_redis`)
+
+decision-api **Settings** is SoT for these eight knobs (defaults unchanged). Helm
+`coreApi.circuitSettings.*` mirrors them onto the core-api pod env for operator
+honesty; CI `helm template` asserts all eight appear with these defaults.
+
+Both planes use **`on_failure=SKIP`** (soft-fail / optional). They are **not**
+required HA. Empty upstream URL = plane off. Do not treat chart Redis or an
+emptyDir Redis “for OSINT” as production for these planes.
+
+| Variable | Default |
+|----------|---------|
+| `ANUMANA_SIGNALS_TIMEOUT_SECONDS` | `0.08` |
+| `ANUMANA_SIGNALS_MAX_ATTEMPTS` | `1` |
+| `ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD` | `5` |
+| `ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS` | `2.0` |
+| `ASYNC_OSINT_REDIS_TIMEOUT_SECONDS` | `0.08` |
+| `ASYNC_OSINT_REDIS_MAX_ATTEMPTS` | `1` |
+| `ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD` | `5` |
+| `ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS` | `2.0` |
+
 ## Metrics (`GET /metrics`)
 
 Counters (in-process, via shared observability):
