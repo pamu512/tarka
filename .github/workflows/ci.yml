@@ -1080,6 +1080,8 @@ jobs:
         run: python3 infra/scripts/ci/test_helm_upgrade_dry_run.py
       - name: Helm data-plane orchestrator wiring (B3 compose parity)
         run: python3 infra/scripts/ci/test_helm_ingest_orchestrator.py
+      - name: Helm circuit settings honesty (Settings SoT eight keys on core-api)
+        run: python3 infra/scripts/ci/test_helm_circuit_settings_honesty.py
       - name: Shadow investigate worker deployed (D5-4 compose guard)
         run: python3 infra/scripts/ci/test_compose_shadow_worker.py
       - name: Dockerfile pip constraints guard

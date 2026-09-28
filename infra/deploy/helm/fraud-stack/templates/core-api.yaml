@@ -91,6 +91,27 @@ spec:
               value: {{ .Values.coreApi.edgeSecurity.botScoreBlockThreshold | default 25 | quote }}
             - name: EDGE_BOT_SCORE_REVIEW_THRESHOLD
               value: {{ .Values.coreApi.edgeSecurity.botScoreReviewThreshold | default 50 | quote }}
+            {{- /* Settings SoT: operator-visible defaults matching decision-api Settings.
+                 Planes are SKIP/soft-fail optional — not required HA; empty URL = plane off. */ -}}
+            {{- $cs := ((.Values.coreApi).circuitSettings | default dict) }}
+            {{- $as := ($cs.anumanaSignals | default dict) }}
+            {{- $ao := ($cs.asyncOsintRedis | default dict) }}
+            - name: ANUMANA_SIGNALS_TIMEOUT_SECONDS
+              value: {{ $as.timeoutSeconds | default "0.08" | quote }}
+            - name: ANUMANA_SIGNALS_MAX_ATTEMPTS
+              value: {{ $as.maxAttempts | default "1" | quote }}
+            - name: ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD
+              value: {{ $as.circuitFailureThreshold | default "5" | quote }}
+            - name: ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS
+              value: {{ $as.circuitRecoverySeconds | default "2.0" | quote }}
+            - name: ASYNC_OSINT_REDIS_TIMEOUT_SECONDS
+              value: {{ $ao.timeoutSeconds | default "0.08" | quote }}
+            - name: ASYNC_OSINT_REDIS_MAX_ATTEMPTS
+              value: {{ $ao.maxAttempts | default "1" | quote }}
+            - name: ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD
+              value: {{ $ao.circuitFailureThreshold | default "5" | quote }}
+            - name: ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS
+              value: {{ $ao.circuitRecoverySeconds | default "2.0" | quote }}
             {{- $oidcIssuer := trim (toString (((.Values.coreApi).oidc).issuer | default "")) }}
             {{- if $oidcIssuer }}
             - name: OIDC_ISSUER
@@ -111,8 +132,9 @@ spec:
               value: /etc/tarka/desk_provision.json
             {{- end }}
             {{- range $k, $v := .Values.coreApi.extraEnv }}
-            {{- /* coreApi.oidc.* is SoT; extraEnv OIDC_* is leftover fallback when issuer is empty. */ -}}
+            {{- /* coreApi.oidc.* / circuitSettings.* are SoT; skip colliding extraEnv keys. */ -}}
             {{- if and $oidcIssuer (has $k (list "OIDC_ISSUER" "OIDC_AUDIENCE" "OIDC_JWKS_URL" "OIDC_ROLES_CLAIM")) }}
+            {{- else if has $k (list "ANUMANA_SIGNALS_TIMEOUT_SECONDS" "ANUMANA_SIGNALS_MAX_ATTEMPTS" "ANUMANA_SIGNALS_CIRCUIT_FAILURE_THRESHOLD" "ANUMANA_SIGNALS_CIRCUIT_RECOVERY_SECONDS" "ASYNC_OSINT_REDIS_TIMEOUT_SECONDS" "ASYNC_OSINT_REDIS_MAX_ATTEMPTS" "ASYNC_OSINT_REDIS_CIRCUIT_FAILURE_THRESHOLD" "ASYNC_OSINT_REDIS_CIRCUIT_RECOVERY_SECONDS") }}
             {{- else }}
             - name: {{ $k }}
               value: {{ $v | quote }}

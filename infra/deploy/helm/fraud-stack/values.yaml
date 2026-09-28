@@ -121,6 +121,21 @@ coreApi:
     botScoreHeader: x-bot-score
     botScoreBlockThreshold: 25
     botScoreReviewThreshold: 50
+  # Settings-owned optional circuit knobs (decision-api in this pod). Settings remains SoT;
+  # these mirror Settings defaults for operator-visible Helm honesty (defaults unchanged).
+  # Both planes: on_failure=SKIP (soft-fail / optional). Not required HA. Empty URL = plane off.
+  # Do not put these only in comments or extraEnv — templates emit them into core-api env.
+  circuitSettings:
+    anumanaSignals:
+      timeoutSeconds: "0.08"
+      maxAttempts: "1"
+      circuitFailureThreshold: "5"
+      circuitRecoverySeconds: "2.0"
+    asyncOsintRedis:
+      timeoutSeconds: "0.08"
+      maxAttempts: "1"
+      circuitFailureThreshold: "5"
+      circuitRecoverySeconds: "2.0"
   extraEnv: {}
 
 # Tarka-shipped Apache AGE for Hunt only (SoR stays on buyer Postgres / chart postgres).
