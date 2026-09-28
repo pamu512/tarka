@@ -141,7 +141,7 @@ Work **arrives** on `GET /v1/leftovers` (desk `/leftovers`). Work **happens** on
 
 A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint on deny/review by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 
-Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. Human **Propose Demote** parks (live stays on) with actor + reason; **Confirm demote** is a separate human action that flips to Observe. Scout / BYO LLM get 403. One leftover cannot Promote. L2 leftover / HIL override mints an Observe draft (`mode=shadow`); an AI-authored draft needs a backtest pass first (`409 backtest_required`). Beachhead Observe seeds (promo / COD / payout) stay Observe — seed ≠ live.
+Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. Human **Propose Demote** parks (live stays on) with actor + reason; **Confirm demote** is a separate human action that flips to Observe. Scout / BYO LLM get 403. One leftover cannot Promote. L2 leftover / HIL override mints an Observe draft (`mode=shadow`); an AI-authored draft needs a backtest pass first (`409 backtest_required`). Beachhead Observe seeds (promo / COD / payout / claims) stay Observe — seed ≠ live.
 
 ```mermaid
 flowchart TD
