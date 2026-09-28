@@ -72,7 +72,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | L2 leftover/override → Observe draft; AI backtest **required** before Observe | Case CRM |
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Optional consume of joined warehouse labels since T → Observe drafts (`authored_by=seed`). Promote only via existing gates / human. Never auto Active. | Case CRM / dispute inbox; auto Active from labels |
-| Beachhead Observe seeds (promo / COD / payout) seed ≠ live. Not banks | Users / LOI / ARR as traction |
+| Beachhead Observe seeds (promo / COD / payout / claims) seed ≠ live. Not banks | Users / LOI / ARR as traction |
 | Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../../SUPPORT.md)) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade from SUPPORT.md |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
 | G2.4 CI: compose/Lite keep `GRAPH_GNN_BETA_URL` unset (no live GNN score; evaluate stays heuristic_v1, `gnn_claim_allowed` false). Shadow hop + ring Observe drafts never emit live FLAG/DENY (no auto Active). No identity-as-SKU product copy. | GNN live by default; auto live FLAG from hop/ring; identity product SKU |

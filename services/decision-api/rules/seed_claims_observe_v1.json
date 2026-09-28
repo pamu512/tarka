@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "seed_claims_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_claims_pod_join",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "amount", "op": "gte", "value": 100 },
+        { "field": "pod_integrity_fail", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Post-purchase claim x delivery/POD/refund join seed. Observe only — first-party claim amount joins native POD integrity fail (not chargeback CRM). Fail-closed when claim/amount/POD join fields missing. Human Promote required."
+    }
+  ],
+  "tag_rules": []
+}

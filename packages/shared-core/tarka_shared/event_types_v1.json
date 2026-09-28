@@ -10,5 +10,6 @@
   "payout",
   "order",
   "delivery",
-  "refund"
+  "refund",
+  "claim"
 ]

@@ -155,6 +155,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "pod_integrity_fail",
+    "explanation": "Native POD integrity fail flag (first-party host); missing means absent — fail-closed",
+    "source": "tarka_core"
+  },
+  {
     "name": "screen_resolution",
     "explanation": "Screen resolution string",
     "source": "tarka_core"

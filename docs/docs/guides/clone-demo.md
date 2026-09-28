@@ -95,7 +95,7 @@ Env: `DECISION_API` (default `http://127.0.0.1:8000/decisions`), optional `API_K
 - Receipt why is `rule_hits` + `reasons` on the evaluate response and on desk `/decisions`.
 - Observe on `/ops/shadow` is pack canary + leftover promote + live-rule slip — not live production traffic and not a model.
 - Empty `GRAPH_SERVICE_URL` turns hops off (evaluate-only fallback) — **not sibling identity**. Lite compose sets the AGE graph URL. Hunt chrome is the same path: empty `VITE_GRAPH_SERVICE_URL` **or** `VITE_HUNT_ENABLED=0` (`TARKA_HUNT_ENABLED=0` / `hunt.enabled: false` on `make product`). File-only Hunt-off does not hide the baked desk until rebuild.
-- Hop packs (`USES_DEVICE` …) stay `mode=shadow`. Beachhead Observe seeds (promo / COD / payout) stay Observe. Live FLAG only after human Promote.
+- Hop packs (`USES_DEVICE` …) stay `mode=shadow`. Beachhead Observe seeds (promo / COD / payout / claims) stay Observe. Live FLAG only after human Promote.
 - An edge is real only when the receipt wrote it. This walk does not mock a hop SKU. Not GNN live.
 
 If every receipt is ALLOW, that is an honest pack outcome on this desk, not a failed demo. The receipt why and Hunt person (`entity_id`) still stand.
