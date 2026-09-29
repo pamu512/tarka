@@ -51,7 +51,7 @@ This playbook is for **changing** the version in production without silently spl
 - [ ] **`GET /v1/internal/counters/manifest`** shows expected **`redis_key_version`**.
 - [ ] Spot-check **`ZCARD`** on a known **`fraud:agg:...:events`** key for a test tenant after traffic.
 - [ ] **`POST /v1/velocity/query`** (feature-service) matches decision-api counts for the same tenant/entity when sharing Redis.
-- [ ] Weekly **`counter-parity-smoke`** workflow green (or manual runbook in **`counter-replay-parity.md`** § gate **C-3a**).
+- [ ] **`counter-parity-smoke`** workflow dispatched and green at the migration SHA (release gate **C-3b**; manual-runbook alternative in **`counter-replay-parity.md`** § gates **C-3a/C-3b**).
 - [ ] Staging cutover log attached for v1.2.0 RC (gate **C-2**).
 
 ## Related

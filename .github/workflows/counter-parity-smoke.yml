@@ -1,5 +1,5 @@
-# Weekly smoke superseded by counter-parity-nightly.yml (same replay + artifact report).
-# Keep this file for manual workflow_dispatch only — no schedule.
+# Counter parity smoke: dispatch-only RC release gate C-3b (docs/docs/guides/counter-replay-parity.md).
+# Scheduled replay lives in counter-parity-nightly.yml (same replay + artifact report).
 name: Counter parity smoke
 
 on:
