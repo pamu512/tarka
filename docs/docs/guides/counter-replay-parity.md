@@ -72,7 +72,7 @@ Production-style cutover evidence is **mandatory**. The release **must not** shi
 
 | Field | Value |
 |-------|--------|
-| **Verification command** | From GitHub Actions: **Actions → Counter parity smoke → Run workflow**, select branch/tag at **RC SHA** (or push RC to branch and let weekly schedule run). Alternatively reproduce the job locally: same steps as [`.github/workflows/counter-parity-smoke.yml`](../../../.github/workflows/counter-parity-smoke.yml) with `AGG_KEY_VERSION=ci_parity_v1` (or RC value if validating production key shape). |
+| **Verification command** | From GitHub Actions: **Actions → Counter parity smoke → Run workflow**, select branch/tag at **RC SHA** (dispatch-only; the nightly carries the scheduled parity replay). Alternatively reproduce the job locally: same steps as [`.github/workflows/counter-parity-smoke.yml`](../../../.github/workflows/counter-parity-smoke.yml) with `AGG_KEY_VERSION=ci_parity_v1` (or RC value if validating production key shape). |
 | **Expected evidence** | **Workflow run URL** (or local log) showing job **replay-and-diff** succeeded on the RC commit; include commit SHA in run summary. Archive the “Diff aggregate ZSETs” step log (exit 0). |
 | **Sign-off owner** | **Release Manager** |
 

@@ -106,7 +106,7 @@ Converter unit tests: `pytest scripts/replay/test_audit_snapshot_to_replay.py -q
 
 ## CI parity gate (threshold)
 
-The weekly **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift** — the diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
+The **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift** — the diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). The job is dispatch-only (scheduled replay moved to **Counter parity nightly**); dispatch it at the RC SHA as release gate **C-3b**. For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
 
 ## Changing Redis key prefix (`AGG_KEY_VERSION`)
 
