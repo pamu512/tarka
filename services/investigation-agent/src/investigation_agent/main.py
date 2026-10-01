@@ -127,6 +127,7 @@ if not _shared_inserted:
     sys.path.insert(0, str(fallback))
 from observability import get_metrics, setup_observability  # noqa: E402
 from tarka_shared.tracing import setup_tracing  # noqa: E402
+from investigation_agent.jev_gate import abstain_reply, run_residual_confidence_gate  # noqa: E402
 
 _TARKA_CLAIMS_MARKER = "\nTARKA_CLAIMS_JSON="
 _MAX_PARSED_CLAIMS = 40
@@ -816,6 +817,136 @@ def _degraded_reasons_for_mode(
     if assurance_refused:
         out.append("strict_assurance_refused")
     return out
+
+
+def _attach_jev_receipt(
+    out: dict[str, Any],
+    receipt: dict[str, Any] | None,
+    *,
+    llm_invoked: bool,
+) -> None:
+    if not receipt:
+        return
+    stamped = dict(receipt)
+    stamped["llm_invoked"] = llm_invoked
+    secret = (settings.jev_api_key or "").strip()
+    if secret:
+        raw = json.dumps(stamped)
+        if secret in raw:
+            stamped = json.loads(raw.replace(secret, "[redacted]"))
+    out["jev"] = stamped
+
+
+def _finish_residual_abstain(
+    *,
+    body: ChatRequest,
+    reply: str,
+    receipt: dict[str, Any] | None,
+    active_playbook: str | None,
+    active_workflow: str | None,
+    workflow_params_norm: dict[str, Any],
+    injection_detected: bool,
+    tool_defs_count: int,
+) -> dict[str, Any]:
+    """Desk copy when the confidence gate skips the generative Advise round."""
+    claims = [{"text": reply, "source": "unknown"}]
+    tool_calls: list[dict[str, Any]] = []
+    turn_id = str(uuid.uuid4())
+    answer_sections = parse_structured_sections(reply)
+    det_support = deterministic_claim_support(claims, tool_calls)
+    citations, verifier_summary = build_standard_citations(
+        claims=claims,
+        deterministic_support=det_support,
+        case_id=body.case_id,
+    )
+    llm_available = bool(settings.openai_api_key)
+    degraded = _degraded_reasons_for_mode(
+        llm_available=llm_available,
+        deterministic_fallback=False,
+        tool_defs_count=tool_defs_count,
+        plain_chat_enabled=bool(settings.copilot_plain_chat),
+    )
+    degraded.append("jev_confidence_gate")
+    out: dict[str, Any] = {
+        "reply": reply,
+        "tool_calls": tool_calls,
+        "claims": claims,
+        "source_refs": [],
+        "turn_id": turn_id,
+        "persona": body.persona,
+        "prompt_version": settings.copilot_prompt_version,
+        "copilot_mode": _chat_mode(
+            llm_available=llm_available,
+            deterministic_fallback=False,
+            tool_defs_count=tool_defs_count,
+        ),
+        "degraded_reasons": degraded,
+        "answer_sections": answer_sections,
+        "claims_deterministic_support": det_support,
+        "citations": citations,
+        "citation_verifier": verifier_summary.model_dump(mode="json"),
+        "turn_metrics": {
+            "model": _effective_chat_model(),
+            "llm_completion_rounds": 0,
+            "tool_surface": "plain" if tool_defs_count == 0 else "tools",
+            "usage": {},
+        },
+        "evidence_bundle_draft": build_evidence_bundle_draft(
+            reply=reply,
+            claims=claims,
+            source_refs=[],
+            answer_sections=answer_sections,
+            claims_analysis=det_support,
+            tool_calls=tool_calls,
+            prompt_version=settings.copilot_prompt_version,
+            playbook_id=active_playbook,
+            turn_id=turn_id,
+            bundle_format=settings.copilot_evidence_bundle_format,
+            contract_version=INTEGRATION_CONTRACT_VERSION,
+            agent_build=(settings.agent_build_id or "").strip(),
+            redaction_level=settings.copilot_evidence_redaction_level,
+        ),
+    }
+    if active_playbook:
+        out["playbook_id"] = active_playbook
+    if active_workflow:
+        out["workflow_id"] = active_workflow
+        out["workflow_params"] = workflow_params_norm
+    if injection_detected and settings.copilot_injection_policy == "sanitize":
+        out["injection_sanitized"] = True
+    _attach_jev_receipt(out, receipt, llm_invoked=False)
+    copilot_analytics.schedule_turn_completed(
+        settings,
+        tenant_id=body.tenant_id,
+        analyst_id=body.analyst_id,
+        turn_id=turn_id,
+        tool_invocation_count=0,
+        assurance_mode=settings.copilot_assurance_mode,
+        had_tool_error=False,
+        assurance_refused=False,
+        persona=body.persona,
+    )
+    feedback_store.record_turn(
+        turn_id=turn_id,
+        tenant_id=body.tenant_id,
+        analyst_id=body.analyst_id,
+        case_id=body.case_id,
+        playbook_id=active_playbook,
+        prompt_version=settings.copilot_prompt_version,
+        reply_preview=reply[:1800],
+        tool_count=0,
+        persona=body.persona,
+        workflow_id=active_workflow,
+    )
+    return _persist_and_attach_agent_run(
+        out,
+        turn_id=turn_id,
+        tenant_id=body.tenant_id,
+        analyst_id=body.analyst_id,
+        case_id=body.case_id,
+        tool_calls=tool_calls,
+        claims=claims,
+    )
 
 
 async def _deterministic_tools_only_fallback(
@@ -1684,11 +1815,47 @@ async def setup_diagnostics():
             "detail": "Optional: CASE_API_URL, DECISION_API_URL, GRAPH_SERVICE_URL for live investigation tools.",
         },
     ]
+    jev_url = (settings.jev_system_one_url or "").strip()
+    jev_key = bool((settings.jev_api_key or "").strip())
+    jev_required = bool(settings.jev_api_key_required)
+    if not jev_url:
+        jev_ok = True
+        jev_detail = (
+            "Leave JEV_SYSTEM_ONE_URL empty to keep Advise unchanged. "
+            "If you set a URL, set JEV_API_KEY when the endpoint requires a bearer. "
+            "URL without auth only if the endpoint allows anonymous; otherwise set both or leave URL empty. "
+            "Mode starts shadow; flip to gate only after soak. Keys never appear on receipts or as VITE_*."
+        )
+    elif jev_key:
+        jev_ok = True
+        jev_detail = (
+            "System One URL and bearer are paired. Mode starts shadow; flip to gate only after soak. "
+            "Keys never appear on receipts or as VITE_*."
+        )
+    elif jev_required:
+        jev_ok = False
+        jev_detail = (
+            "JEV_SYSTEM_ONE_URL is set and JEV_API_KEY_REQUIRED=true, but JEV_API_KEY is empty. "
+            "Set the bearer, or leave URL empty to keep Advise unchanged."
+        )
+    else:
+        jev_ok = True
+        jev_detail = (
+            "JEV_SYSTEM_ONE_URL is set with an empty key: only valid if the endpoint allows anonymous. "
+            "401/403 map to jev_auth. Set JEV_API_KEY when a bearer is required, or leave URL empty."
+        )
+    checklist.append({"id": "jev_url_key_pairing", "ok": jev_ok, "detail": jev_detail})
     return {
         "schema": "saarthi_setup_v1",
         "reference_mode": settings.copilot_reference_mode,
         "plain_chat": settings.copilot_plain_chat,
         "plain_prefetch_rag": settings.copilot_plain_prefetch_rag,
+        "jev": {
+            "system_one_url_configured": bool(jev_url),
+            "api_key_configured": jev_key,
+            "api_key_required": jev_required,
+            "mode": (settings.jev_mode or "shadow"),
+        },
         "llm": {
             "chat_base_url": settings.openai_base_url,
             "chat_model": _effective_chat_model(),
@@ -2729,6 +2896,7 @@ async def chat_stream(body: ChatRequest, request: Request):
                 "degraded_reasons",
                 "citations",
                 "citation_verifier",
+                "jev",
             )
             if k in out
         }
@@ -2969,6 +3137,24 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
     if settings.copilot_plain_chat:
         active_tool_defs = []
 
+    jev_decision = await run_residual_confidence_gate(
+        http=http,
+        tenant_id=body.tenant_id,
+        analyst_id=body.analyst_id,
+        case_id=body.case_id,
+    )
+    if not jev_decision.call_llm:
+        return _finish_residual_abstain(
+            body=body,
+            reply=abstain_reply(jev_decision.gate),
+            receipt=jev_decision.receipt,
+            active_playbook=active_playbook,
+            active_workflow=active_workflow,
+            workflow_params_norm=workflow_params_norm,
+            injection_detected=injection_detected,
+            tool_defs_count=len(active_tool_defs),
+        )
+
     if not settings.openai_api_key:
         reply, tool_calls, claims = await _deterministic_tools_only_fallback(
             http=http,
@@ -3040,6 +3226,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
             out["workflow_params"] = workflow_params_norm
         if injection_detected and settings.copilot_injection_policy == "sanitize":
             out["injection_sanitized"] = True
+        _attach_jev_receipt(out, jev_decision.receipt, llm_invoked=False)
         copilot_analytics.schedule_citation_verifier_outcome(
             settings,
             tenant_id=body.tenant_id,
@@ -3269,6 +3456,7 @@ async def _build_chat_response(body: ChatRequest, request: Request) -> dict[str,
         out["judge_error"] = judge_error
     if injection_detected and settings.copilot_injection_policy == "sanitize":
         out["injection_sanitized"] = True
+    _attach_jev_receipt(out, jev_decision.receipt, llm_invoked=True)
     if derived_facts:
         out["derived_facts"] = derived_facts
     if settings.copilot_assurance_mode == "strict":
