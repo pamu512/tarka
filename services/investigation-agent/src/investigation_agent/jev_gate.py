@@ -22,6 +22,7 @@ _ABSTAIN_COPY = {
         "Residual review note withheld: the confidence gate would skip a generative note on this pack."
     ),
     "jev_error": "Residual review note withheld: the confidence check failed closed.",
+    "jev_auth": "Residual review note withheld: the confidence check failed authentication.",
     "skip_llm": "Residual review note withheld: the confidence check failed closed.",
 }
 
@@ -88,10 +89,28 @@ async def run_residual_confidence_gate(
     """
     url = (config.settings.jev_system_one_url or "").strip()
     mode = (config.settings.jev_mode or "").strip()
+    api_key = (config.settings.jev_api_key or "").strip()
+    api_key_required = bool(config.settings.jev_api_key_required)
     if not (case_id or "").strip() or not url or mode == "off":
         return _pass_through()
     if mode not in ("shadow", "gate"):
-        blocked = preflight_advise(url=url, mode=mode, pack=None)
+        blocked = preflight_advise(
+            url=url,
+            mode=mode,
+            pack=None,
+            api_key=api_key,
+            api_key_required=api_key_required,
+        )
+        return blocked if blocked is not None else _pass_through()
+
+    if api_key_required and not api_key:
+        blocked = preflight_advise(
+            url=url,
+            mode=mode,
+            pack={"leftover": {"case_id": case_id}},
+            api_key=api_key,
+            api_key_required=True,
+        )
         return blocked if blocked is not None else _pass_through()
 
     question_pack = (config.settings.jev_question_pack or PACK_ID).strip() or PACK_ID
@@ -101,6 +120,8 @@ async def run_residual_confidence_gate(
             mode=mode,
             pack={"leftover": {"case_id": case_id}},
             question_pack=question_pack,
+            api_key=api_key,
+            api_key_required=api_key_required,
         )
         return blocked if blocked is not None else _pass_through()
 
@@ -118,13 +139,20 @@ async def run_residual_confidence_gate(
         audit=audit,
         graph=graph,
     )
-    pre = preflight_advise(url=url, mode=mode, pack=pack, question_pack=question_pack)
+    pre = preflight_advise(
+        url=url,
+        mode=mode,
+        pack=pack,
+        question_pack=question_pack,
+        api_key=api_key,
+        api_key_required=api_key_required,
+    )
     if pre is not None:
         return pre
 
     client = SystemOneClient(
         base_url=url,
-        api_key=config.settings.jev_api_key or "",
+        api_key=api_key,
         timeout_ms=int(config.settings.jev_timeout_ms),
     )
     judgment = await client.judge(build_systemone_request(pack))

@@ -140,6 +140,8 @@ class SystemOneClient:
                 error="transport",
             )
         latency_ms = _elapsed_ms(started)
+        if response.status_code in (401, 403):
+            return SystemOneJudgment(answers=None, latency_ms=latency_ms, error="auth")
         if response.status_code != 200:
             return SystemOneJudgment(answers=None, latency_ms=latency_ms, error="http")
         try:

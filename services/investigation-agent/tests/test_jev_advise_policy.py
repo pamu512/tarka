@@ -86,6 +86,56 @@ def test_error_matrix_fail_closed_per_mode() -> None:
             assert decision.call_jev is False
 
 
+def test_auth_error_is_jev_auth_per_mode() -> None:
+    for mode in ("shadow", "gate"):
+        decision = decide_advise(
+            mode=mode,
+            min_confidence=0.55,
+            judgment=SystemOneJudgment(answers=None, latency_ms=12, error="auth"),
+        )
+        assert decision.gate == "jev_auth"
+        assert decision.receipt is not None
+        assert decision.receipt["gate"] == "jev_auth"
+        assert decision.receipt["answers"] is None
+        assert decision.call_llm is (mode == "shadow")
+        assert decision.receipt["llm_invoked"] is decision.call_llm
+        assert decision.call_jev is False
+        raw = json.dumps(decision.receipt)
+        assert "Bearer" not in raw
+        assert "jev-secret" not in raw
+
+
+def test_required_key_missing_is_preflight_jev_auth() -> None:
+    thick = {"leftover": {"case_id": "c1"}, "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"}}
+    for mode, call_llm in (("shadow", True), ("gate", False)):
+        decision = preflight_advise(
+            url="http://jev.test",
+            mode=mode,
+            pack=thick,
+            api_key="",
+            api_key_required=True,
+        )
+        assert decision is not None
+        assert decision.gate == "jev_auth"
+        assert decision.call_jev is False
+        assert decision.call_llm is call_llm
+        assert decision.receipt is not None
+        assert decision.receipt["answers"] is None
+        assert decision.receipt["llm_invoked"] is call_llm
+
+
+def test_blank_key_is_anonymous_when_not_required() -> None:
+    thick = {"leftover": {"case_id": "c1"}, "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"}}
+    decision = preflight_advise(
+        url="http://jev.test",
+        mode="shadow",
+        pack=thick,
+        api_key="",
+        api_key_required=False,
+    )
+    assert decision is None
+
+
 def test_empty_url_and_mode_off_are_todays_path_even_when_thin() -> None:
     for url, mode in (("", "shadow"), ("http://jev.test", "off")):
         decision = preflight_advise(url=url, mode=mode, pack=None)

@@ -9,7 +9,7 @@ from jev_system_one.client import SystemOneJudgment
 from jev_system_one.pack import is_thin_evidence
 from jev_system_one.questions import HAS_ENOUGH_SIGNAL, PACK_ID, REVIEW_PRIORITY
 
-Gate = Literal["pass", "abstain", "skip_llm", "jev_error", "thin_evidence", "off"]
+Gate = Literal["pass", "abstain", "skip_llm", "jev_error", "jev_auth", "thin_evidence", "off"]
 
 
 @dataclass(frozen=True)
@@ -68,21 +68,26 @@ def _active_mode(mode: str) -> Literal["shadow", "gate"] | None:
     return None
 
 
-def _fail_closed(mode: Literal["shadow", "gate"], latency_ms: int) -> AdviseDecision:
-    # Desk gate mode skips the LLM. Shadow still calls it and records jev_error.
-    # Receipt gate stays jev_error (cause). llm_invoked is false only in gate mode,
+def _fail_closed(
+    mode: Literal["shadow", "gate"],
+    latency_ms: int,
+    *,
+    gate: Gate = "jev_error",
+) -> AdviseDecision:
+    # Desk gate mode skips the LLM. Shadow still calls it and records the cause.
+    # Receipt gate stays jev_error / jev_auth. llm_invoked is false only in gate mode,
     # which is the desk skip. ``skip_llm`` remains a valid gate literal for that skip
     # when a caller already stopped before a judgment; this function records the cause.
     call_llm = mode == "shadow"
     return AdviseDecision(
         call_jev=False,
         call_llm=call_llm,
-        gate="jev_error",
+        gate=gate,
         receipt=_receipt(
             mode=mode,
             latency_ms=latency_ms,
             answers=None,
-            gate="jev_error",
+            gate=gate,
             llm_invoked=call_llm,
         ),
     )
@@ -94,11 +99,15 @@ def preflight_advise(
     mode: str,
     pack: dict[str, Any] | None,
     question_pack: str = PACK_ID,
+    api_key: str = "",
+    api_key_required: bool = False,
 ) -> AdviseDecision | None:
     """Terminal decision, or None when the caller must invoke System One.
 
     Empty URL and ``mode=off`` do not build a receipt: today's Advise path.
     Unknown mode fails closed (no LLM) so a typo cannot silently judge-and-call.
+    URL + required-but-empty key is ``jev_auth`` before any HTTP. Blank key with
+    ``api_key_required=false`` means the endpoint allows anonymous.
     """
     if not (url or "").strip() or mode == "off":
         return AdviseDecision(call_jev=False, call_llm=True, gate="off", receipt=None)
@@ -116,6 +125,8 @@ def preflight_advise(
                 llm_invoked=False,
             ),
         )
+    if api_key_required and not (api_key or "").strip():
+        return _fail_closed(active, 0, gate="jev_auth")
     if question_pack != PACK_ID:
         return _fail_closed(active, 0)
     if pack is None or is_thin_evidence(pack):
@@ -143,7 +154,8 @@ def decide_advise(
     """Policy after a System One attempt. Does not invent answers on error."""
     active = _active_mode(mode) or "gate"
     if judgment.error or not judgment.answers:
-        return _fail_closed(active, judgment.latency_ms)
+        gate: Gate = "jev_auth" if judgment.error == "auth" else "jev_error"
+        return _fail_closed(active, judgment.latency_ms, gate=gate)
     if judgment_abstains(judgment.answers, min_confidence):
         call_llm = active == "shadow"
         return AdviseDecision(

@@ -115,6 +115,24 @@ async def test_http_5xx_is_error_without_retry_or_key_leak() -> None:
 
 
 @respx.mock
+async def test_http_401_is_auth_not_generic_http() -> None:
+    judgment, calls = await _judge_once(httpx.Response(401, json={"error": "unauthorized", "key": _SECRET}))
+    assert judgment.error == "auth"  # type: ignore[attr-defined]
+    assert judgment.answers is None  # type: ignore[attr-defined]
+    assert calls == 1
+    assert _SECRET not in repr(judgment)
+
+
+@respx.mock
+async def test_http_403_is_auth_not_generic_http() -> None:
+    judgment, calls = await _judge_once(httpx.Response(403, json={"error": "forbidden"}))
+    assert judgment.error == "auth"  # type: ignore[attr-defined]
+    assert judgment.answers is None  # type: ignore[attr-defined]
+    assert calls == 1
+    assert _SECRET not in repr(judgment)
+
+
+@respx.mock
 async def test_malformed_json_is_schema_failure() -> None:
     judgment, calls = await _judge_once(httpx.Response(200, content=b"not-json"))
     assert judgment.error == "schema"  # type: ignore[attr-defined]

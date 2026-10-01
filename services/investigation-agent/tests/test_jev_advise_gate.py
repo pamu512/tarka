@@ -60,12 +60,20 @@ def _chat(**extra: object) -> dict:
     return body
 
 
-def _enable_jev(monkeypatch, *, mode: str, url: str = "http://jev.test") -> None:
+def _enable_jev(
+    monkeypatch,
+    *,
+    mode: str,
+    url: str = "http://jev.test",
+    api_key: str = _SECRET,
+    api_key_required: bool = False,
+) -> None:
     monkeypatch.setattr(config.settings, "openai_api_key", "test-key")
     monkeypatch.setattr(config.settings, "copilot_plain_chat", True)
     monkeypatch.setattr(config.settings, "jev_system_one_url", url)
     monkeypatch.setattr(config.settings, "jev_mode", mode)
-    monkeypatch.setattr(config.settings, "jev_api_key", _SECRET)
+    monkeypatch.setattr(config.settings, "jev_api_key", api_key)
+    monkeypatch.setattr(config.settings, "jev_api_key_required", api_key_required)
     monkeypatch.setattr(config.settings, "jev_min_confidence", 0.55)
     monkeypatch.setattr(config.settings, "jev_timeout_ms", 400)
     monkeypatch.setattr(config.settings, "jev_question_pack", "advise_sufficiency_v1")
@@ -211,3 +219,69 @@ def test_timeout_and_malformed_follow_mode(monkeypatch) -> None:
             if not expect_llm:
                 assert "failed closed" in body["reply"]
             assert _SECRET not in response.text
+
+
+def test_auth_401_follows_mode_and_does_not_leak_key(monkeypatch) -> None:
+    for mode, expect_llm in (("shadow", True), ("gate", False)):
+        _enable_jev(monkeypatch, mode=mode)
+        _RecordingClient.result = SystemOneJudgment(answers=None, latency_ms=8, error="auth")
+        response, llm_called = _post(_chat(case_id="case-1"), case_found=True)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["jev"]["gate"] == "jev_auth"
+        assert body["jev"]["answers"] is None
+        assert body["jev"]["llm_invoked"] is expect_llm
+        assert llm_called is expect_llm
+        if not expect_llm:
+            assert "authentication" in body["reply"]
+        assert _SECRET not in response.text
+        assert "Bearer" not in response.text
+
+
+def test_required_missing_key_is_preflight_jev_auth(monkeypatch) -> None:
+    for mode, expect_llm in (("shadow", True), ("gate", False)):
+        _enable_jev(monkeypatch, mode=mode, api_key="", api_key_required=True)
+        fetches: list[str] = []
+        response, llm_called = _post(_chat(case_id="case-1"), case_found=True, fetches=fetches)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["jev"]["gate"] == "jev_auth"
+        assert body["jev"]["answers"] is None
+        assert body["jev"]["llm_invoked"] is expect_llm
+        assert llm_called is expect_llm
+        assert _RecordingClient.constructed == 0
+        assert fetches == []
+        if not expect_llm:
+            assert "authentication" in body["reply"]
+
+
+def test_setup_pairing_is_honest_and_never_echoes_key(monkeypatch) -> None:
+    _enable_jev(monkeypatch, mode="shadow", url="", api_key="")
+    with TestClient(app) as client:
+        empty = client.get("/v1/setup").json()
+    ids = {row["id"]: row for row in empty["checklist"]}
+    assert ids["jev_url_key_pairing"]["ok"] is True
+    assert "leave" in ids["jev_url_key_pairing"]["detail"].lower() or "empty" in ids["jev_url_key_pairing"]["detail"].lower()
+    assert empty["jev"]["system_one_url_configured"] is False
+    assert empty["jev"]["api_key_configured"] is False
+    assert empty["jev"]["mode"] == "shadow"
+    assert _SECRET not in json.dumps(empty)
+
+    _enable_jev(monkeypatch, mode="shadow", url="http://jev.test", api_key="", api_key_required=True)
+    with TestClient(app) as client:
+        missing = client.get("/v1/setup").json()
+    ids = {row["id"]: row for row in missing["checklist"]}
+    assert ids["jev_url_key_pairing"]["ok"] is False
+    assert "JEV_API_KEY" in ids["jev_url_key_pairing"]["detail"]
+    assert missing["jev"]["system_one_url_configured"] is True
+    assert missing["jev"]["api_key_configured"] is False
+    assert _SECRET not in json.dumps(missing)
+
+    _enable_jev(monkeypatch, mode="shadow", url="http://jev.test", api_key=_SECRET, api_key_required=True)
+    with TestClient(app) as client:
+        paired = client.get("/v1/setup").json()
+    ids = {row["id"]: row for row in paired["checklist"]}
+    assert ids["jev_url_key_pairing"]["ok"] is True
+    assert paired["jev"]["api_key_configured"] is True
+    raw = json.dumps(paired)
+    assert _SECRET not in raw

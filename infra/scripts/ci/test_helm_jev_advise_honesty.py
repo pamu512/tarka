@@ -21,6 +21,7 @@ _KEYS = {
     "JEV_MIN_CONFIDENCE": "0.55",
     "JEV_MODE": "shadow",
     "JEV_QUESTION_PACK": "advise_sufficiency_v1",
+    "JEV_API_KEY_REQUIRED": "false",
 }
 
 
@@ -48,6 +49,10 @@ def _deployment(rendered: str, name_suffix: str) -> str:
     raise AssertionError(f"{name_suffix} Deployment missing from render")
 
 
+def _env_name_count(doc: str, name: str) -> int:
+    return sum(1 for line in doc.splitlines() if line.strip() == f"- name: {name}")
+
+
 def _env_value(doc: str, name: str) -> str:
     lines = doc.splitlines()
     for i, line in enumerate(lines):
@@ -66,6 +71,13 @@ def _env_value(doc: str, name: str) -> str:
 
 
 class TestHelmJevAdviseHonesty(unittest.TestCase):
+    def test_values_comments_state_url_key_pairing(self) -> None:
+        text = (_CHART / "values.yaml").read_text(encoding="utf-8")
+        self.assertIn("Leave systemOneUrl empty to keep Advise unchanged", text)
+        self.assertIn("anonymous", text)
+        self.assertIn("never VITE_*", text)
+        self.assertIn("apiKeyRequired=false", text)
+
     def test_default_render_does_not_put_jev_on_evaluate(self) -> None:
         rendered = _helm("-f", str(_CHART / "values.yaml"))
         self.assertNotIn("JEV_SYSTEM_ONE_URL", rendered)
@@ -84,8 +96,9 @@ class TestHelmJevAdviseHonesty(unittest.TestCase):
             self.assertEqual(_env_value(agent, key), expected)
         core = _deployment(rendered, "core-api")
         self.assertNotIn("JEV_", core)
-        self.assertEqual(rendered.count("name: JEV_SYSTEM_ONE_URL"), 1)
-        self.assertNotIn("name: JEV_API_KEY", rendered)
+        self.assertEqual(_env_name_count(rendered, "JEV_SYSTEM_ONE_URL"), 1)
+        self.assertEqual(_env_name_count(rendered, "JEV_API_KEY"), 0)
+        self.assertEqual(_env_name_count(agent, "JEV_API_KEY_REQUIRED"), 1)
 
     def test_first_class_wins_over_extra_env(self) -> None:
         rendered = _helm(
@@ -100,16 +113,20 @@ class TestHelmJevAdviseHonesty(unittest.TestCase):
             "--set-string",
             "investigationAgent.extraEnv.JEV_API_KEY=super-secret",
             "--set-string",
+            "investigationAgent.extraEnv.JEV_API_KEY_REQUIRED=true",
+            "--set-string",
             "global.appSecretsName=tarka-app-secrets",
         )
         agent = _deployment(rendered, "investigation-agent")
         self.assertEqual(_env_value(agent, "JEV_MODE"), "shadow")
         self.assertEqual(_env_value(agent, "JEV_SYSTEM_ONE_URL"), "")
-        self.assertEqual(agent.count("name: JEV_MODE"), 1)
-        self.assertEqual(agent.count("name: JEV_SYSTEM_ONE_URL"), 1)
+        self.assertEqual(_env_value(agent, "JEV_API_KEY_REQUIRED"), "false")
+        self.assertEqual(_env_name_count(agent, "JEV_MODE"), 1)
+        self.assertEqual(_env_name_count(agent, "JEV_SYSTEM_ONE_URL"), 1)
+        self.assertEqual(_env_name_count(agent, "JEV_API_KEY_REQUIRED"), 1)
         self.assertNotIn("super-secret", rendered)
         self.assertIn("key: JEV_API_KEY", agent)
-        self.assertEqual(agent.count("name: JEV_API_KEY"), 1)
+        self.assertEqual(_env_name_count(agent, "JEV_API_KEY"), 1)
 
     def test_bad_mode_fails_render(self) -> None:
         helm = shutil.which("helm")

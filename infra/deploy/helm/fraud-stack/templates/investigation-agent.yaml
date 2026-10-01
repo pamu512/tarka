@@ -68,6 +68,8 @@ spec:
               value: {{ $jevMode | quote }}
             - name: JEV_QUESTION_PACK
               value: {{ $jev.questionPack | default "advise_sufficiency_v1" | quote }}
+            - name: JEV_API_KEY_REQUIRED
+              value: {{ $jev.apiKeyRequired | default false | quote }}
             - name: OKF_SHARED_ROOT
               value: "/app/knowledge/shared"
             - name: OKF_TENANT_ROOT
@@ -97,7 +99,7 @@ spec:
             - name: BATCH_TTL_SECONDS
               value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
             {{- end }}
-            {{- $jevLocked := list "JEV_SYSTEM_ONE_URL" "JEV_TIMEOUT_MS" "JEV_MIN_CONFIDENCE" "JEV_MODE" "JEV_QUESTION_PACK" "JEV_API_KEY" }}
+            {{- $jevLocked := list "JEV_SYSTEM_ONE_URL" "JEV_TIMEOUT_MS" "JEV_MIN_CONFIDENCE" "JEV_MODE" "JEV_QUESTION_PACK" "JEV_API_KEY" "JEV_API_KEY_REQUIRED" }}
             {{- range $k, $v := .Values.investigationAgent.extraEnv }}
             {{- if not (has $k $jevLocked) }}
             - name: {{ $k }}
