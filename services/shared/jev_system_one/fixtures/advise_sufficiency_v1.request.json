@@ -1,0 +1,45 @@
+{
+  "pack_id": "advise_sufficiency_v1",
+  "evidence": {
+    "leftover": {
+      "case_id": "case-1",
+      "tenant_id": "tenant-a",
+      "entity_id": "ent-1",
+      "trace_id": "trace-1",
+      "amount": 120.5,
+      "event_type": "card_payment"
+    },
+    "receipt": {
+      "pack_id": "fintech",
+      "rule_hits": ["velocity_burst"],
+      "why": "velocity_burst"
+    },
+    "flags": {
+      "override": false,
+      "late_label": false
+    },
+    "hops": [
+      {"id": "ent-1->dev-9", "type": "USES_DEVICE"}
+    ],
+    "okf_chunk_ids": ["sop-high-amount"]
+  },
+  "questions": [
+    {
+      "id": "has_enough_signal",
+      "type": "noul",
+      "prompt": "Does this evidence pack contain enough signal for a useful residual fraud review note?"
+    },
+    {
+      "id": "review_priority",
+      "type": "choice",
+      "prompt": "Which residual review priority fits this pack?",
+      "options": ["skip_noise", "routine", "urgent"]
+    },
+    {
+      "id": "pattern_hint",
+      "type": "choice",
+      "prompt": "Closest pattern family (or none).",
+      "options": ["none", "velocity", "identity", "network", "claims_pod", "other"]
+    }
+  ]
+}

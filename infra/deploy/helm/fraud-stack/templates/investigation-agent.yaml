@@ -9,6 +9,11 @@
 {{- if not (or (eq $persistMode "local-sqlite") (eq $persistMode "postgres")) }}
 {{- fail "investigation-agent dataPersistence.mode must be local-sqlite or postgres" }}
 {{- end }}
+{{- $jev := .Values.investigationAgent.jev | default dict }}
+{{- $jevMode := $jev.mode | default "shadow" }}
+{{- if not (or (eq $jevMode "off") (eq $jevMode "shadow") (eq $jevMode "gate")) }}
+{{- fail "investigationAgent.jev.mode must be off, shadow, or gate" }}
+{{- end }}
 {{- if eq $persistMode "postgres" }}
 {{- $extPg := (((((.Values.global).externalServices).postgres) | default dict)) }}
 {{- if and $extPg.enabled (or (eq (default "" $extPg.databaseUrl) "") (contains "__" (default "" $extPg.databaseUrl))) }}
@@ -53,6 +58,16 @@ spec:
             {{- end }}
             - name: AI_GOVERNANCE_PROFILE
               value: {{ .Values.investigationAgent.aiGovernanceProfile | default "global" | quote }}
+            - name: JEV_SYSTEM_ONE_URL
+              value: {{ $jev.systemOneUrl | default "" | quote }}
+            - name: JEV_TIMEOUT_MS
+              value: {{ $jev.timeoutMs | default 400 | quote }}
+            - name: JEV_MIN_CONFIDENCE
+              value: {{ $jev.minConfidence | default "0.55" | quote }}
+            - name: JEV_MODE
+              value: {{ $jevMode | quote }}
+            - name: JEV_QUESTION_PACK
+              value: {{ $jev.questionPack | default "advise_sufficiency_v1" | quote }}
             - name: OKF_SHARED_ROOT
               value: "/app/knowledge/shared"
             - name: OKF_TENANT_ROOT
@@ -82,9 +97,12 @@ spec:
             - name: BATCH_TTL_SECONDS
               value: {{ .Values.investigationAgent.batchTtlSeconds | quote }}
             {{- end }}
+            {{- $jevLocked := list "JEV_SYSTEM_ONE_URL" "JEV_TIMEOUT_MS" "JEV_MIN_CONFIDENCE" "JEV_MODE" "JEV_QUESTION_PACK" "JEV_API_KEY" }}
             {{- range $k, $v := .Values.investigationAgent.extraEnv }}
+            {{- if not (has $k $jevLocked) }}
             - name: {{ $k }}
               value: {{ $v | quote }}
+            {{- end }}
             {{- end }}
             {{- if .Values.global.appSecretsName }}
             - name: API_KEYS
@@ -98,6 +116,12 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.global.appSecretsName | quote }}
                   key: OPENAI_API_KEY
+                  optional: true
+            - name: JEV_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.appSecretsName | quote }}
+                  key: JEV_API_KEY
                   optional: true
             {{- end }}
           readinessProbe:

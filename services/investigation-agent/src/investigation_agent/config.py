@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
+    # Desk Advise confidence gate. Empty URL = today's path (no System One call).
+    # Not an evaluate/Promote control. Default shadow still calls the generative LLM.
+    jev_system_one_url: str = ""
+    jev_api_key: str = ""
+    jev_timeout_ms: int = Field(default=400, ge=1, le=30_000)
+    jev_min_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
+    jev_mode: Literal["off", "shadow", "gate"] = "shadow"
+    jev_question_pack: str = "advise_sufficiency_v1"
     copilot_chat_model: str = Field(
         default="",
         description=(
