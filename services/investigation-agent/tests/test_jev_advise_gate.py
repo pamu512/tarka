@@ -261,13 +261,18 @@ def test_setup_pairing_is_honest_and_never_echoes_key(monkeypatch) -> None:
         empty = client.get("/v1/setup").json()
     ids = {row["id"]: row for row in empty["checklist"]}
     assert ids["jev_url_key_pairing"]["ok"] is True
-    assert "leave" in ids["jev_url_key_pairing"]["detail"].lower() or "empty" in ids["jev_url_key_pairing"]["detail"].lower()
+    assert (
+        "leave" in ids["jev_url_key_pairing"]["detail"].lower()
+        or "empty" in ids["jev_url_key_pairing"]["detail"].lower()
+    )
     assert empty["jev"]["system_one_url_configured"] is False
     assert empty["jev"]["api_key_configured"] is False
     assert empty["jev"]["mode"] == "shadow"
     assert _SECRET not in json.dumps(empty)
 
-    _enable_jev(monkeypatch, mode="shadow", url="http://jev.test", api_key="", api_key_required=True)
+    _enable_jev(
+        monkeypatch, mode="shadow", url="http://jev.test", api_key="", api_key_required=True
+    )
     with TestClient(app) as client:
         missing = client.get("/v1/setup").json()
     ids = {row["id"]: row for row in missing["checklist"]}
@@ -277,7 +282,9 @@ def test_setup_pairing_is_honest_and_never_echoes_key(monkeypatch) -> None:
     assert missing["jev"]["api_key_configured"] is False
     assert _SECRET not in json.dumps(missing)
 
-    _enable_jev(monkeypatch, mode="shadow", url="http://jev.test", api_key=_SECRET, api_key_required=True)
+    _enable_jev(
+        monkeypatch, mode="shadow", url="http://jev.test", api_key=_SECRET, api_key_required=True
+    )
     with TestClient(app) as client:
         paired = client.get("/v1/setup").json()
     ids = {row["id"]: row for row in paired["checklist"]}

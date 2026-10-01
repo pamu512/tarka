@@ -45,8 +45,12 @@ def test_pattern_hint_confidence_does_not_gate() -> None:
 
 
 def test_boundary_confidence_is_strict_less_than() -> None:
-    assert judgment_abstains(_answers(signal=True, confidence=0.55, priority="routine"), 0.55) is False
-    assert judgment_abstains(_answers(signal=True, confidence=0.549, priority="routine"), 0.55) is True
+    assert (
+        judgment_abstains(_answers(signal=True, confidence=0.55, priority="routine"), 0.55) is False
+    )
+    assert (
+        judgment_abstains(_answers(signal=True, confidence=0.549, priority="routine"), 0.55) is True
+    )
 
 
 def test_policy_matrix_matches_spec() -> None:
@@ -62,7 +66,9 @@ def test_policy_matrix_matches_spec() -> None:
                         min_confidence=min_confidence,
                         judgment=_judgment(answers),
                     )
-                    abstain = (not signal) or confidence < min_confidence or priority == "skip_noise"
+                    abstain = (
+                        (not signal) or confidence < min_confidence or priority == "skip_noise"
+                    )
                     assert decision.gate == ("abstain" if abstain else "pass")
                     assert decision.call_llm is (mode == "shadow" or not abstain)
                     assert decision.receipt is not None
@@ -112,7 +118,10 @@ def test_auth_error_is_jev_auth_per_mode() -> None:
 
 
 def test_required_key_missing_is_preflight_jev_auth() -> None:
-    thick = {"leftover": {"case_id": "c1"}, "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"}}
+    thick = {
+        "leftover": {"case_id": "c1"},
+        "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"},
+    }
     for mode, call_llm in (("shadow", True), ("gate", False)):
         decision = preflight_advise(
             url="http://jev.test",
@@ -131,7 +140,10 @@ def test_required_key_missing_is_preflight_jev_auth() -> None:
 
 
 def test_blank_key_is_anonymous_when_not_required() -> None:
-    thick = {"leftover": {"case_id": "c1"}, "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"}}
+    thick = {
+        "leftover": {"case_id": "c1"},
+        "receipt": {"pack_id": "fintech", "rule_hits": ["v"], "why": "v"},
+    }
     decision = preflight_advise(
         url="http://jev.test",
         mode="shadow",
@@ -170,7 +182,10 @@ def test_unknown_mode_and_unknown_pack_do_not_invent_answers() -> None:
     assert unknown_mode.call_llm is False
     assert unknown_mode.receipt is not None
     assert unknown_mode.receipt["answers"] is None
-    thick = {"leftover": {"case_id": "c1"}, "receipt": {"pack_id": MISSING, "rule_hits": [], "why": MISSING}}
+    thick = {
+        "leftover": {"case_id": "c1"},
+        "receipt": {"pack_id": MISSING, "rule_hits": [], "why": MISSING},
+    }
     for mode, call_llm in (("shadow", True), ("gate", False)):
         bad_pack = preflight_advise(
             url="http://jev.test",
@@ -269,7 +284,11 @@ def test_no_case_and_no_receipt_is_thin() -> None:
 
 def test_pack_char_cap_drops_hops_before_receipt_ids() -> None:
     hops = [
-        {"from_id": f"entity-{i:04d}", "to_id": f"device-{i:04d}-" + ("x" * 80), "type": "USES_DEVICE"}
+        {
+            "from_id": f"entity-{i:04d}",
+            "to_id": f"device-{i:04d}-" + ("x" * 80),
+            "type": "USES_DEVICE",
+        }
         for i in range(40)
     ]
     pack = build_evidence_pack(
