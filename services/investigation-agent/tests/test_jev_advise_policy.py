@@ -11,7 +11,13 @@ if str(_SHARED) not in sys.path:
     sys.path.insert(0, str(_SHARED))
 
 from jev_system_one.client import SystemOneJudgment  # noqa: E402
-from jev_system_one.pack import MISSING, build_evidence_pack, is_thin_evidence, pack_contains_bait
+from jev_system_one.pack import (  # noqa: E402
+    MISSING,
+    _text,
+    build_evidence_pack,
+    is_thin_evidence,
+    pack_contains_bait,
+)
 from jev_system_one.policy import decide_advise, judgment_abstains, preflight_advise
 from jev_system_one.questions import PACK_ID
 
@@ -177,6 +183,22 @@ def test_unknown_mode_and_unknown_pack_do_not_invent_answers() -> None:
         assert bad_pack.call_llm is call_llm
         assert bad_pack.receipt is not None
         assert bad_pack.receipt["answers"] is None
+
+
+def test_pii_scan_is_linear_on_percent_soup() -> None:
+    """CodeQL 398: no backtracking email regex on unbounded case/audit text."""
+    soup = "%" * 20_000
+    assert _text(soup) == soup[:128]
+    assert _text("person@example.com") == ""
+    assert _text("4111 1111 1111 1111") == ""
+    pack = build_evidence_pack(
+        tenant_id="tenant-a",
+        case={"id": soup, "email": "person@example.com"},
+        audit={"pack_id": "fintech", "rule_hits": ["velocity_burst"]},
+    )
+    assert pack["leftover"]["case_id"] == soup[:128]
+    assert "person@example.com" not in json.dumps(pack)
+    assert "@" not in json.dumps(pack)
 
 
 def test_why_strip_invent_guard_and_pii_allowlist() -> None:
