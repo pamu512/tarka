@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "studio_flat_extended_op",
+  "mode": "shadow",
+  "rules": [
+    {
+      "id": "email_domain_prefix",
+      "when": [{ "field": "email", "op": "starts_with", "value": "temp_" }],
+      "tags": ["email:temp_prefix"],
+      "score_delta": 10,
+      "description": "Email local-part starts with temp_"
+    }
+  ],
+  "tag_rules": [],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null
+}

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "integrity_tamper_policy_v1",
+  "mode": "shadow",
+  "rules": [],
+  "tag_rules": [
+    {
+      "id": "policy_escalate_ingress_replay",
+      "any_tag": ["ingress:replay_payload"],
+      "tags": ["policy:replay_payload_escalation"],
+      "score_delta": 15,
+      "description": "Duplicate evaluate payload within the replay signature window"
+    },
+    {
+      "id": "policy_device_integrity_markers",
+      "any_tag": ["sdk:emulator", "sdk:repackaged"],
+      "tags": ["policy:device_integrity_concern"],
+      "score_delta": 20,
+      "description": "Device integrity markers from SDK signals"
+    }
+  ],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null
+}
