@@ -5,10 +5,10 @@ requires-python = ">=3.11"
 dependencies = [
   "PyYAML==6.0.3",
   "structlog>=26.1.0",
-  "fastapi>=0.141.1",
-  "fpdf2>=2.8.8",
+  "fastapi>=0.142.2",
+  "fpdf2>=2.8.9",
   "python-multipart>=0.0.32",
-  "uvicorn[standard]>=0.53.0",
+  "uvicorn[standard]>=0.54.0",
   "httpx>=0.28.1",
   "openpyxl>=3.1.5",
   "pydantic>=2.13.5",
@@ -22,7 +22,7 @@ dev = [
   "pytest>=9.1.1",
   "pytest-asyncio>=1.4.0",
   "pytest-cov>=7.1.0",
-  "respx>=0.22.0",
+  "respx>=0.23.1",
 ]
 
 [build-system]
