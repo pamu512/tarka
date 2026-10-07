@@ -33,7 +33,7 @@
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^6.4.1",
     "monaco-editor": "0.57.0",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-force-graph-2d": "^1.29.0",
@@ -58,8 +58,8 @@
     }
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.2.11",
-    "@rollup/rollup-linux-x64-gnu": "4.63.5",
+    "@rolldown/binding-linux-x64-gnu": "1.2.12",
+    "@rollup/rollup-linux-x64-gnu": "4.64.0",
     "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
     "lightningcss-linux-x64-gnu": "1.33.0"
   },
