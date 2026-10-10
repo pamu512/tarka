@@ -6,7 +6,7 @@ Tarka uses JSON rule packs for fraud detection. Rules are evaluated on every dec
 
 ## Rule Pack Format
 
-Rules are organized into **packs** — JSON files stored in the `rules/` directory of the Decision API. Each pack contains two types of rules: **feature rules** (evaluated against event features) and **tag rules** (evaluated against existing entity tags).
+Rules are organized into **packs:** JSON files stored in the `rules/` directory of the Decision API. Each pack contains two types of rules: **feature rules** (evaluated against event features) and **tag rules** (evaluated against existing entity tags).
 
 ```json
 {
@@ -62,7 +62,7 @@ Feature rules evaluate conditions against the event's feature dict (payload fiel
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | string | Yes | Unique rule identifier (used in `rule_hits`) |
-| `when` | array | Yes | Array of conditions — ALL must match (AND logic) |
+| `when` | array | Yes | Array of conditions. ALL must match (AND logic) |
 | `tags` | string[] | No | Tags to apply when the rule fires |
 | `score_delta` | float | No | Points to add to the base score (default 0) |
 | `description` | string | No | Human-readable description |
@@ -102,7 +102,7 @@ Each condition in the `when` array:
 
 ## Tag Rules
 
-Tag rules fire based on tags that already exist on the entity (from Redis) or tags applied by other rules in the current evaluation. They use `any_tag` instead of `when` — if **any** of the listed tags are present, the rule fires.
+Tag rules fire based on tags that already exist on the entity (from Redis) or tags applied by other rules in the current evaluation. They use `any_tag` instead of `when`, if **any** of the listed tags are present, the rule fires.
 
 ```json
 {
@@ -263,20 +263,20 @@ Instead of editing JSON files directly, you can manage rules via the REST API.
 
 On the **local desk** (default `ALLOW_INSECURE_NO_AUTH=true`, no `API_KEYS`), anonymous
 requests authenticate as a viewer-plus-desk user: reads work, and the desk's analyst
-actions — create pack, add rule, promote — work through the `require_role_or_insecure_desk`
+actions (create pack, add rule, promote) work through the `require_role_or_insecure_desk`
 grant. The curl examples below run as-is.
 
 In **production** (`API_KEYS` set, or any authenticated deployment):
 
 - Reads (list packs, list rules, telemetry) require a key with `viewer` or above.
 - Writes (create/delete pack, add/delete rule, promote, shadow endpoints) require a key
-  with role `analyst` or higher — send `X-API-Key`.
+  with role `analyst` or higher, send `X-API-Key`.
 - Pack CRUD additionally honors `RULE_GOVERNANCE_SECRET`: when set on the server, mutating
   pack APIs also require `X-Rule-Governance-Secret`. This is the production pack-governance
   gate; leave it unset on the local desk.
 
 A 403 on these endpoints means the key's role is below `analyst` (or the governance secret
-is missing) — not that the endpoint is down.
+is missing), not that the endpoint is down.
 
 ### Create a Rule Pack
 
@@ -348,7 +348,7 @@ The response shows a side-by-side comparison for each historical event:
 
 - `original_decision` vs `new_decision`
 - `original_score` vs `new_score`
-- `decisions_changed` — total count of events where the decision would flip
+- `decisions_changed`: total count of events where the decision would flip
 
 Use this to tune `score_delta` values and thresholds before going live.
 

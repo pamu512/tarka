@@ -19,14 +19,14 @@ See [CLAIM_LOCK](../compliance/CLAIM_LOCK.md). Rotation: [production-secrets-rot
 - No Vault / External Secrets Operator as a hard dependency. Kubernetes Secret + `global.appSecretsName` is enough. Vault/ESO are optional operator tooling.
 - No named fraud / risk product incumbents as reference points.
 
-## Pass / fail — beachhead VPC CE-shaped
+## Pass / fail: beachhead VPC CE-shaped
 
 Applies when an operator labels a cluster **production** (`TARKA_DEPLOYMENT_PROFILE=production` and/or Helm `global.environment=prod` with the `prod-on-k8s` HA knobs).
 
 | Gate | Pass | Fail |
 |------|------|------|
 | Data stores | External Postgres + Redis. In-cluster PG/Redis **off** on `prod-on-k8s`. Resolved `databaseUrl` / `redisUrl` (no `__PLACEHOLDER__`). | In-cluster PG/Redis; sqlite; `emptyDir` for decisions / audit / labels / packs; leftover `postgres.auth.password=fraud`. |
-| Image pins | Production **publishes** pin `sha256:<64-hex>` on enabled images (`coreApi` / `signalApi` / `investigationAgent` as enabled). Tag is ignored when digest is set. | `:latest`. Mutable `1.3.0-beta` **without** digest on a grade-claiming apply. Empty digest is allowed only so CI `helm template` of placeholders still works — that is **not** a grade. G2 CI-enforces pins; this row is the claim rule. |
+| Image pins | Production **publishes** pin `sha256:<64-hex>` on enabled images (`coreApi` / `signalApi` / `investigationAgent` as enabled). Tag is ignored when digest is set. | `:latest`. Mutable `1.3.0-beta` **without** digest on a grade-claiming apply. Empty digest is allowed only so CI `helm template` of placeholders still works, that is **not** a grade. G2 CI-enforces pins; this row is the claim rule. |
 | Secrets | Operator-supplied keys in `global.appSecretsName`. No default passwords in prod examples. | Chart default `fraud`; `tarka-evidence-dev-secret`; committed real keys. |
 | Auth | `API_KEYS` set (machine path). `allowInsecureNoAuth=false`. | Empty keys + empty OIDC + insecure off treated as open; `ALLOW_INSECURE_NO_AUTH=true`. |
 | OIDC | Optional for desk humans. Empty issuer = local / API-key mode. Non-empty issuer requires resolved Redis (no in-process OIDC state fallback). | OIDC required to boot evaluate; issuer set without Redis. |

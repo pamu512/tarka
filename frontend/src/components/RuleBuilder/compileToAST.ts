@@ -168,7 +168,7 @@ function flattenAnd(andId: string, nodes: Node[], edges: Edge[]): VisualAstLeaf[
       leaves.push(...flattenAnd(inc.id, nodes, edges));
     } else if (inc.type === NODE_TYPES.logicOr) {
       throw new CompileToAstError(
-        "Nested OR under AND is not supported for JSON export — pull OR above the AND.",
+        "Nested OR under AND is not supported for JSON export, pull OR above the AND.",
         inc.id,
       );
     } else {

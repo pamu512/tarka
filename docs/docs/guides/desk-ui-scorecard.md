@@ -1,6 +1,6 @@
 # Desk UI scorecard (T1–T8)
 
-UX0 stream exit gate. Professional evaluate desk — leftovers, receipts, Observe→Promote. Not a consumer app. Not a case CRM.
+UX0 stream exit gate. Professional evaluate desk: leftovers, receipts, Observe→Promote. Not a consumer app. Not a case CRM.
 
 **Primary metric:** clicks and steps to complete a core task (minimum expert path, MEP). Task success, time, and errors support the click bar. They do not replace it.
 
@@ -40,13 +40,13 @@ Start each walk from the start state. Success criteria are all-or-nothing.
 
 | # | Task | Start | Success (all must be true) | MEP (clicks / steps) | Automated owner |
 |---|------|-------|----------------------------|----------------------|-----------------|
-| **T1** | Open leftover **REVIEW** + see receipt-why | `/leftovers` shows ≥1 leftover REVIEW evaluate item | Item open; decision = REVIEW visible; **why / receipt** readable in evaluate context (or one labeled Open receipt) | **1 / 1** — Open receipt → Decisions receipt + `PackWhyStrip` | `src/desk-ui-scorecard.test.tsx` (T1). Also `src/pages/Leftovers.test.tsx` (`opening leftover receipt reaches the receipt-why path`) |
-| **T2** | Override with why | Leftover REVIEW row | Observe draft created; **why required** (≥8 chars) and saved; status visible; leftover brief is not the why | **2 / 0** — type why + Create draft. Fail if why optional or silent | `src/desk-ui-scorecard.test.tsx` (T2). Also `src/components/L2DraftButtons.test.tsx`, `src/pages/Leftovers.test.tsx` |
-| **T3** | Promote Observe pack | Pack in Observe (`/ops/shadow`, not live) | Promote found; **confirm** (pack name, becomes live); Cancel leaves Observe; no silent Promote | **2 / 1** — Promote draft → Confirm. Cancel = 0 Promote calls | `src/desk-ui-scorecard.test.tsx` (T3). Also `src/components/ObserveEasePanel.test.tsx` |
-| **T4** | Find which pack fired | Receipt / Decisions row that references ≥1 pack | Analyst names the firing pack from the UI without a memorized UUID | **0 / 0** on the Decisions list (pack name on the row). Else **1 / 1** — Open receipt → `PackWhyStrip` | `src/desk-ui-scorecard.test.tsx` (T4). Also `src/pages/Decisions.test.tsx` (UX0.6 path) |
-| **T5** | Late-label bind | Event that needs a late label | Label bound to the receipt; bound state visible; no orphan / ambiguous label. FP may mint an Observe soften draft | Webhook path, not a desk CRM form | **Owner:** `services/decision-api/tests/test_late_label_hop.py` (`test_fp_binds_receipt_and_opens_observe_soften`). No frontend late-label page — do not invent one |
-| **T6** | Empty-URL honesty (PlaneOff) | Plane URL empty / missing (or clear it) | UI does **not** claim connected / success; shows plane off / not configured; no blank crash; empty URL = plane off | **0** extra clicks — deep link renders PlaneOff | **Owner:** `src/pages/PlaneOff.test.tsx` (graph + Advise). Also `src/config/leanNav.test.ts` |
-| **T7** | Draft → promote-ready in ≤2 clicks | Draft pack on `/ops/shadow` | `PromoteReadinessPanel` shows what is still missing (why, backtest, kill criteria); a ready draft can reach the promote path in ≤2 intentional clicks | **2 / 0** — read readiness panel, act on the one blocking item | **Owner:** `src/components/PromoteReadinessPanel.test.tsx`. One-click backtest via `src/components/DraftBacktestButton.tsx` (wired on Rules, `pages/Rules.tsx:20`) removes the backtest detour |
+| **T1** | Open leftover **REVIEW** + see receipt-why | `/leftovers` shows ≥1 leftover REVIEW evaluate item | Item open; decision = REVIEW visible; **why / receipt** readable in evaluate context (or one labeled Open receipt) | **1 / 1:** Open receipt → Decisions receipt + `PackWhyStrip` | `src/desk-ui-scorecard.test.tsx` (T1). Also `src/pages/Leftovers.test.tsx` (`opening leftover receipt reaches the receipt-why path`) |
+| **T2** | Override with why | Leftover REVIEW row | Observe draft created; **why required** (≥8 chars) and saved; status visible; leftover brief is not the why | **2 / 0:** type why + Create draft. Fail if why optional or silent | `src/desk-ui-scorecard.test.tsx` (T2). Also `src/components/L2DraftButtons.test.tsx`, `src/pages/Leftovers.test.tsx` |
+| **T3** | Promote Observe pack | Pack in Observe (`/ops/shadow`, not live) | Promote found; **confirm** (pack name, becomes live); Cancel leaves Observe; no silent Promote | **2 / 1:** Promote draft → Confirm. Cancel = 0 Promote calls | `src/desk-ui-scorecard.test.tsx` (T3). Also `src/components/ObserveEasePanel.test.tsx` |
+| **T4** | Find which pack fired | Receipt / Decisions row that references ≥1 pack | Analyst names the firing pack from the UI without a memorized UUID | **0 / 0** on the Decisions list (pack name on the row). Else **1 / 1:** Open receipt → `PackWhyStrip` | `src/desk-ui-scorecard.test.tsx` (T4). Also `src/pages/Decisions.test.tsx` (UX0.6 path) |
+| **T5** | Late-label bind | Event that needs a late label | Label bound to the receipt; bound state visible; no orphan / ambiguous label. FP may mint an Observe soften draft | Webhook path, not a desk CRM form | **Owner:** `services/decision-api/tests/test_late_label_hop.py` (`test_fp_binds_receipt_and_opens_observe_soften`). No frontend late-label page. Do not invent one |
+| **T6** | Empty-URL honesty (PlaneOff) | Plane URL empty / missing (or clear it) | UI does **not** claim connected / success; shows plane off / not configured; no blank crash; empty URL = plane off | **0** extra clicks, deep link renders PlaneOff | **Owner:** `src/pages/PlaneOff.test.tsx` (graph + Advise). Also `src/config/leanNav.test.ts` |
+| **T7** | Draft → promote-ready in ≤2 clicks | Draft pack on `/ops/shadow` | `PromoteReadinessPanel` shows what is still missing (why, backtest, kill criteria); a ready draft can reach the promote path in ≤2 intentional clicks | **2 / 0:** read readiness panel, act on the one blocking item | **Owner:** `src/components/PromoteReadinessPanel.test.tsx`. One-click backtest via `src/components/DraftBacktestButton.tsx` (wired on Rules, `pages/Rules.tsx:20`) removes the backtest detour |
 | **T8** | Vertical-pack wizard completes | `/rules` wizard entry | Wizard produces a valid draft pack for a chosen vertical without hand-editing JSON; journey tabs (`PackJourneyTabs`) keep stage context one click apart; provision glass (`ProvisionGlass` on `/settings`) shows the report card after provision | **≤3 steps** wizard (vertical → fields → review); **0** JSON edits | **Owner:** `src/components/VerticalPackWizard.test.tsx`, `src/components/PackJourneyTabs.test.tsx`, `src/components/ProvisionGlass.test.tsx`. Entity sets + timeline: `src/components/EntitySetPanel.test.tsx` (`/graph` investigation) |
 
 `PackWhyStrip` has no dedicated test file; T1 / T4 mount it through Leftovers and Decisions.
@@ -60,7 +60,7 @@ Start each walk from the start state. Success criteria are all-or-nothing.
 | T5 API | `pytest services/decision-api/tests/test_late_label_hop.py` | Yes for late-label bind; not a frontend click walk |
 | Full browser | `E2E_SCORECARD=1 npx playwright test e2e/desk-ui-scorecard.spec.ts` from `frontend/` | **No.** Manual / nightly. Spec **skips when the desk is down** or when `E2E_SCORECARD` is unset. Do not add it as a required PR check |
 
-Default Playwright `global-setup` still waits on evaluate health. If the desk is down, do not treat that as a scorecard fail — leave `E2E_SCORECARD` unset or skip.
+Default Playwright `global-setup` still waits on evaluate health. If the desk is down, do not treat that as a scorecard fail. Leave `E2E_SCORECARD` unset or skip.
 
 ## Live-walk sheet
 
@@ -75,18 +75,18 @@ Copy per session. Score Good / OK / Bad on dimension 1 first.
 
 | Task | Success Y/N | Clicks | Steps | MEP clicks | Ratio | Time (s) | EB (s) | Errors (R/C) | Status 0–2 | Honesty | Evidence |
 |------|-------------|--------|-------|------------|-------|----------|--------|--------------|------------|---------|----------|
-| T1 leftover REVIEW + receipt-why | | | | 1 | | | | | | — | |
-| T2 Override + why | | | | 2 | | | | | | — | |
-| T3 Promote Observe | | | | 2 | | | | | | — | |
-| T4 Which pack fired | | | | 0 | | | | | | — | |
-| T5 Late-label bind | | | | — | | | | | | — | |
+| T1 leftover REVIEW + receipt-why | | | | 1 | | | | | | n/a | |
+| T2 Override + why | | | | 2 | | | | | | n/a | |
+| T3 Promote Observe | | | | 2 | | | | | | n/a | |
+| T4 Which pack fired | | | | 0 | | | | | | n/a | |
+| T5 Late-label bind | | | | n/a | | | | | | n/a | |
 | T6 Empty-URL honesty | | | | 0 | | | | | | | Y/N | |
-| T7 Draft → promote-ready | | | | 2 | | | | | | — | |
-| T8 Wizard completes | | | | ≤3 steps | | | | | | — | |
+| T7 Draft → promote-ready | | | | 2 | | | | | | n/a | |
+| T8 Wizard completes | | | | ≤3 steps | | | | | | n/a | |
 
 **Primary bar:** Pass only if every walked core task is Good or OK on clicks/steps.
 
-**Ship desk?** Yes / Yes with fixes / No — click bar first. Not SUS.
+**Ship desk?** Yes / Yes with fixes / No, click bar first. Not SUS.
 
 ## Out of scope
 

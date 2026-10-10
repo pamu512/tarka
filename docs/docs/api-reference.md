@@ -4,11 +4,11 @@ Complete endpoint reference for all Tarka services. All services use JSON reques
 
 **Authentication:** Set `API_KEYS` environment variable on any service. Clients must send `X-API-Key: <key>` header. Leave `API_KEYS` empty to disable authentication (development mode).
 
-**URL prefixes (default Docker / Helm):** **core-api** serves the decision app under **`/decisions`** and the case app under **`/cases`** on port **8000** (e.g. `GET /decisions/v1/health`). **signal-api** serves **`/features`**, **`/ml`**, **`/calibration`**, **`/counters`**, **`/location`** on **8004**. **data-plane** uses **8007** for ingest + analytics routes. OpenAPI files describe the sub-apps as standalone; prepend the mount when calling a macroservice. The bundled **frontend** nginx may expose **`/api/decisions/…`** and **`/api/cases/…`** rewrites—see `frontend/nginx.conf`.
+**URL prefixes (default Docker / Helm):** **core-api** serves the decision app under **`/decisions`** and the case app under **`/cases`** on port **8000** (e.g. `GET /decisions/v1/health`). **signal-api** serves **`/features`**, **`/ml`**, **`/calibration`**, **`/counters`**, **`/location`** on **8004**. **data-plane** uses **8007** for ingest + analytics routes. OpenAPI files describe the sub-apps as standalone; prepend the mount when calling a macroservice. The bundled **frontend** nginx may expose **`/api/decisions/…`** and **`/api/cases/…`** rewrites. See `frontend/nginx.conf`.
 
 ---
 
-## Decision API — `:8000` {#decision-api}
+## Decision API: `:8000` {#decision-api}
 
 OpenAPI: `contracts/openapi/decision-api.yaml`
 
@@ -19,7 +19,7 @@ OpenAPI: `contracts/openapi/decision-api.yaml`
 | `GET` | `/v1/health` | Health check |
 | `GET` | `/v1/slo` | Service SLO snapshot (availability, dependency checks, optional Redis/NATS signals) |
 | `GET` | `/v1/ops/evaluation-posture` | Evaluation mode, deployment tier hint, `tenant_reliability_profile` (`TARKA_TENANT_RELIABILITY_PROFILE`), compliance prerequisites, predicate registry pin |
-| `POST` | `/v1/decisions/evaluate` | Evaluate a fraud decision; optional header **`Idempotency-Key`** (or `idempotency-key`) — **required** when **`TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true`** (R3.2) |
+| `POST` | `/v1/decisions/evaluate` | Evaluate a fraud decision; optional header **`Idempotency-Key`** (or `idempotency-key`): **required** when **`TARKA_EVALUATE_REQUIRE_IDEMPOTENCY_KEY=true`** (R3.2) |
 | `GET` | `/v1/audit/{trace_id}` | Get audit record by trace ID. Required query: `tenant_id` (must match the stored row; omit → HTTP 422). Includes `counter_version`, `rule_pack_file`, `ml_model`, optional `etl_batch_id` from stored `payload_snapshot` / metadata |
 | `WebSocket` | `/v1/decisions/ws` | Live decision stream |
 
@@ -54,11 +54,11 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 |---|---|---|
 | `POST` | `/v1/rules/visual/compile` | Compile a visual-rule AST JSON payload into a deployable JSON rule pack |
 | `POST` | `/v1/rules/visual/evaluate-dry-run` | Compile to JSON `when` rules, then evaluate the pack in **simulation** against caller-supplied features (no warehouse side effects) |
-| `POST` | `/v1/rules/rego/compile` | **Deprecated** — returns **410 Gone**; Rego/OPA export was removed. Use `/v1/rules/visual/compile` and the native Rust `tarka_rule_engine` evaluation path |
+| `POST` | `/v1/rules/rego/compile` | **Deprecated:** returns **410 Gone**; Rego/OPA export was removed. Use `/v1/rules/visual/compile` and the native Rust `tarka_rule_engine` evaluation path |
 | `POST` | `/v1/rules/gitops/approve` | Persist maker/checker approval (`rule_approvals`) and return `audit_token` |
 | `POST` | `/v1/rules/backtest/preview-sql` | Return bounded ClickHouse SQL for a 90-day window with point-in-time guidance in the response body |
 | `POST` | `/v1/rules/backtest/jobs` | Enqueue streaming warehouse backtest; poll `GET /v1/rules/backtest/jobs/{job_id}` |
-| `POST` | `/v1/rules/backtest/run` | **410 Gone** — stub route removed; use `/jobs` |
+| `POST` | `/v1/rules/backtest/run` | **410 Gone:** stub route removed; use `/jobs` |
 | `POST` | `/v1/reporting/nl-to-sql` | Natural language → bounded SQL (LLM when configured; template fallback otherwise) |
 | `POST` | `/v1/feature-store/definitions` | Upsert durable feature definitions and execute ClickHouse MV DDL |
 | `GET` | `/v1/analytics/dashboards/kpis` | Live KPI counts from analytics engine (**503** when offline; Redis cache when healthy) |
@@ -71,7 +71,7 @@ Related: [feature data flows](guides/feature-data-flows.md) · [architecture](ar
 
 #### Visual rules: native engine (no Rego transpilation)
 
-Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy bundle” for JSON rules. **Authoritative evaluation** uses the **`tarka_rule_engine`** Rust implementation so GitOps-approved packs, runtime scoring, and audit payloads stay aligned—avoiding **logic drift** between a generated policy artifact and what actually executed. That posture supports **brutally honest** audit logs: the engine and rule shape in the record are what operators deployed. Optional **OPA** (when `OPA_URL` is set) may still run as a **separate** HTTP policy step during `/v1/decisions/evaluate`; it is not a replacement for native JSON rule evaluation and is unrelated to visual-rule compile.
+Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy bundle” for JSON rules. **Authoritative evaluation** uses the **`tarka_rule_engine`** Rust implementation so GitOps-approved packs, runtime scoring, and audit payloads stay aligned: avoiding **logic drift** between a generated policy artifact and what actually executed. That posture supports **brutally honest** audit logs: the engine and rule shape in the record are what operators deployed. Optional **OPA** (when `OPA_URL` is set) may still run as a **separate** HTTP policy step during `/v1/decisions/evaluate`; it is not a replacement for native JSON rule evaluation and is unrelated to visual-rule compile.
 
 ### Replay
 
@@ -244,7 +244,7 @@ Tarka **does not** transpile canvas rules to Rego or ship a parallel “policy b
 
 ---
 
-## Graph Service — `:8001` {#graph-service}
+## Graph Service: `:8001` {#graph-service}
 
 ### Entities & Links
 
@@ -493,7 +493,7 @@ Unscored nodes (`risk_computed_at` absent) are excluded. Order: `risk_score` DES
 
 ---
 
-## Case API — `:8002` {#case-api}
+## Case API: `:8002` {#case-api}
 
 **Queue routing:** When **`CASE_QUEUE_ROUTING_RULES_JSON`** is set, **`POST /v1/cases`** evaluates JSON v1 rules against the create payload and may set **`assigned_team`** (e.g. route **`priority: critical`** to **`Tier3`**). See [case-api](services/case-api.md).
 
@@ -623,7 +623,7 @@ Omit **`playbook_id`** when starting from a blank open case; use **`GET /v1/case
 
 ---
 
-## Integration Ingress — `:8003` {#integration-ingress}
+## Integration Ingress: `:8003` {#integration-ingress}
 
 Provider catalog, installs, connectivity tests, and **integration reliability scorecards** (per installed connection).
 
@@ -634,7 +634,7 @@ Provider catalog, installs, connectivity tests, and **integration reliability sc
 | `GET` | `/v1/integrations/installed` | List tenant connections (`tenant_id` query) |
 | `GET` | `/v1/integrations/readiness` | Category coverage score (`tenant_id`) |
 | `GET` | `/v1/integrations/health-matrix` | Latest connectivity probe summary (`tenant_id`) |
-| `GET` | `/v1/integrations/scorecards` | **Per-provider scores + connector quality** (`tenant_id`) — used by the Integrations UI |
+| `GET` | `/v1/integrations/scorecards` | **Per-provider scores + connector quality** (`tenant_id`), used by the Integrations UI |
 | `POST` | `/v1/integrations/install` | Install / enable a provider |
 | `POST` | `/v1/integrations/test-connectivity` | Run connectivity check |
 
@@ -642,7 +642,7 @@ OpenAPI: `contracts/openapi/integration-ingress.yaml`.
 
 ---
 
-## Analytics Sink — `:8008` {#analytics-sink}
+## Analytics Sink: `:8008` {#analytics-sink}
 
 ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the service is configured with `API_KEYS` (same pattern as other services).
 
@@ -652,7 +652,7 @@ ClickHouse-backed analytics over decision events. Requires `X-API-Key` when the 
 | `GET` | `/v1/analytics/decisions` | Recent decision rows (`tenant_id`, optional filters) |
 | `GET` | `/v1/analytics/hourly` | Hourly aggregates (`tenant_id`, `days`) |
 | `GET` | `/v1/analytics/top-entities` | Top entities by decision (`tenant_id`, `decision`, `days`) |
-| `GET` | `/v1/analytics/scorecard` | **Decision scorecard JSON** — totals, per-decision mix, top rule hits (`tenant_id`, `days`) — used by Analytics UI and weekly export scripts |
+| `GET` | `/v1/analytics/scorecard` | **Decision scorecard JSON:** totals, per-decision mix, top rule hits (`tenant_id`, `days`), used by Analytics UI and weekly export scripts |
 
 OpenAPI: _not published under `contracts/openapi/` yet_ (this HTTP table is authoritative).
 
@@ -660,7 +660,7 @@ Weekly JSON export: `scripts/analytics/export_weekly_scorecard_json.py`.
 
 ---
 
-## ML Scoring — `:8005` {#ml-scoring}
+## ML Scoring: `:8005` {#ml-scoring}
 
 | Method | Path | Description |
 |---|---|---|
@@ -723,7 +723,7 @@ OpenAPI: `contracts/openapi/ml-scoring.yaml`. Policy files: `services/ml-scoring
 
 ---
 
-## Event Ingest — `:8007` {#event-ingest}
+## Event Ingest: `:8007` {#event-ingest}
 
 | Method | Path | Description |
 |---|---|---|
@@ -809,7 +809,7 @@ JetStream stream **`FRAUD_INGEST_MISC`** carries subjects such as `fraud.ingest.
 
 ---
 
-## Feature Service — `:8004` {#feature-service}
+## Feature Service: `:8004` {#feature-service}
 
 Velocity reads and feature snapshots over the same Redis aggregate keyspace as decision-api (when `REDIS_URL` / `FEATURE_SERVICE_REDIS_URL` is set).
 
@@ -825,7 +825,7 @@ OpenAPI: `contracts/openapi/feature-service.yaml`
 
 ---
 
-## Investigation Agent — `:8006` {#investigation-agent}
+## Investigation Agent: `:8006` {#investigation-agent}
 
 Investigation copilot (tools + structured claims) and deterministic evidence surfaces.
 
@@ -856,7 +856,7 @@ OpenAPI: `contracts/openapi/investigation-agent.yaml`
 
 ---
 
-## Collaboration chat (embedded) — investigation-agent `:8006` {#collaboration-chat-bridge}
+## Collaboration chat (embedded): investigation-agent `:8006` {#collaboration-chat-bridge}
 
 **Implementation:** Slack, Teams, Lark, and plugin-proxy routes are implemented by **`investigation_agent.chat_bridge`**, mounted on the **investigation-agent** process (default **port 8006**). A separate **collaboration-chat-bridge** container on **:8009** is **not** shipped in this repository.
 

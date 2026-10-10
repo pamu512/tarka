@@ -243,7 +243,7 @@ export function jsonAstToReactFlow(ast: JsonAstNode, meta: RuleRootMeta): { node
 /** Convert legacy flat `when` rows to a JSON AST (AND). */
 export function legacyWhenToJsonAst(when: Array<{ field: string; op: string; value?: unknown }>): JsonAstNode {
   if (!when.length) {
-    throw new CompileToAstError("Rule has empty when[] — nothing to visualize.");
+    throw new CompileToAstError("Rule has empty when[], nothing to visualize.");
   }
   const leaves: JsonAstNode[] = when.map((w) => ({
     type: "condition",
@@ -275,5 +275,5 @@ export function packRuleRecordToFlow(rule: Record<string, unknown>): { nodes: No
     return jsonAstToReactFlow(ast, meta);
   }
 
-  throw new CompileToAstError("This rule has no when_ast or non-empty when[] — open it in the YAML editor instead.");
+  throw new CompileToAstError("This rule has no when_ast or non-empty when[], open it in the YAML editor instead.");
 }

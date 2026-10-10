@@ -8,7 +8,7 @@ Tarka application code is **source-available** under Elastic License 2.0 (not op
 
 ## What is source of truth
 
-Buyer `DATABASE_URL` (Helm `global.externalServices.postgres.databaseUrl`) is the SoR for **decisions, audit, packs, and labels** on `prod-on-k8s` / `enterprise-desk-on-k8s`. Dump the tables that exist. Skip names that are absent on an evaluate-only install. Other desk tables (SAR, disputes, comments, `entity_signature_state`, investigation-agent schema) are not in this G6 set — add them to your own dump list if you run those planes.
+Buyer `DATABASE_URL` (Helm `global.externalServices.postgres.databaseUrl`) is the SoR for **decisions, audit, packs, and labels** on `prod-on-k8s` / `enterprise-desk-on-k8s`. Dump the tables that exist. Skip names that are absent on an evaluate-only install. Other desk tables (SAR, disputes, comments, `entity_signature_state`, investigation-agent schema) are not in this G6 set. Add them to your own dump list if you run those planes.
 
 | Family | Tables (if present) | Why |
 |--------|---------------------|-----|
@@ -29,7 +29,7 @@ Redis holds **velocity** (`fraud:agg:…` / `fraud:aggval:…`) and OIDC desk st
 
 ## Object export (if present)
 
-Include these **only when the operator turned them on**. Missing path = that plane off — do not invent a bucket.
+Include these **only when the operator turned them on**. Missing path = that plane off. Do not invent a bucket.
 
 | Artifact | Env / default | Restore |
 |----------|---------------|---------|
@@ -45,7 +45,7 @@ See [immutable-decision-records](./immutable-decision-records.md) and [pack-gito
 
 ## Tenant policy examples (not SLAs)
 
-Tarka does not publish an RPO/RTO. Write numbers in **your** tenant policy. These are examples for a last-mile / food / q-comm / gig / retail beachhead — not commitments.
+Tarka does not publish an RPO/RTO. Write numbers in **your** tenant policy. These are examples for a last-mile / food / q-comm / gig / retail beachhead, not commitments.
 
 | Example policy | RPO (example) | RTO (example) | How you get it |
 |----------------|---------------|---------------|----------------|
@@ -67,7 +67,7 @@ Do not mix AGE data into the SoR dump. Restore SoR first, then Hunt volume, then
 ## Drill
 
 ```bash
-# CI / laptop — no destroy. Prints inventory + checks tools.
+# CI / laptop: no destroy. Prints inventory + checks tools.
 bash infra/scripts/deploy/backup_restore_drill.sh --dry-run
 
 # Isolated Postgres in Docker (safe). Proves dump → restore → row identity.
@@ -104,7 +104,7 @@ TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
 
 ## Related
 
-- [Production install contract](../../contracts/production-install-v1.md) — G6 is a grade gate, not the grade
-- [Deployment](./deployment.md) — external PG/Redis, `prod-on-k8s`
-- [SRE Compose profiles](../operations/sre-compose-profiles.md) — Lite AGE on the same laptop PG is **not** this drill
-- Governance checklist item `stateful-backup-restore` — this guide + the script cover **SoR Postgres** (and point at the existing AGE volume drill). Analytics / ClickHouse is not in this dump.
+- [Production install contract](../../contracts/production-install-v1.md): G6 is a grade gate, not the grade
+- [Deployment](./deployment.md): external PG/Redis, `prod-on-k8s`
+- [SRE Compose profiles](../operations/sre-compose-profiles.md): Lite AGE on the same laptop PG is **not** this drill
+- Governance checklist item `stateful-backup-restore`: this guide + the script cover **SoR Postgres** (and point at the existing AGE volume drill). Analytics / ClickHouse is not in this dump.

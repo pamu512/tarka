@@ -20,7 +20,7 @@ const caps = describeSdkCapabilities();
 // caps.has_rtc_peer_connection, has_geolocation, has_audio_context, ...
 
 const timeouts = resolveCollectorTimeouts(caps);
-// Per-source caps: VPN WebRTC, audio fingerprint, browser geo — zero means “skip that collector”
+// Per-source caps: VPN WebRTC, audio fingerprint, browser geo. Zero means “skip that collector”
 ```
 
 `DeviceSignalCollector` applies **per-collector timeouts** (VPN WebRTC, audio FP, optional geo). On timeout or rejection the collector returns a **safe default** (e.g. `is_vpn: false`, `audio_fp_hash: null`) so checkout flows are not wedged.
@@ -165,7 +165,7 @@ The SDK automatically performs browser attestation when `autoCollectSignals` is 
 2. Signs `HMAC-SHA256(device_id, nonce + device_id)` using the Web Crypto API
 3. Attaches `{ nonce, token, provider: "browser_challenge" }` to the device context
 
-Attestation is **best-effort** — if the challenge request fails, the evaluation proceeds without it.
+Attestation is **best-effort**, if the challenge request fails, the evaluation proceeds without it.
 
 ### Manual Attestation
 
@@ -397,4 +397,4 @@ interface DeviceContext {
 
 ## Scorecard vs typical SDKs
 
-Directional comparison (scores anchored near **3**): **[SDK scorecard — calibrated mid-scale](typescript.md)**.
+Directional comparison (scores anchored near **3**): **[SDK scorecard: calibrated mid-scale](typescript.md)**.

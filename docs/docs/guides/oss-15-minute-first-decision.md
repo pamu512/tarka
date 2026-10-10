@@ -14,7 +14,7 @@ Evaluate is Rust packs + receipts. Observe ≠ live. Empty `GRAPH_SERVICE_URL` t
 
 - Docker + Docker Compose v2
 - ~4 GB RAM free for lite images (evaluate + AGE + graph-service; see [SRE Compose profiles](../operations/sre-compose-profiles.md))
-- Ports free: `8000`, `8001`, `3000`, `5432`, `6379`. Host Postgres/Redis often own `5432`/`6379`. A listener on `8000` without `GET /decisions/v1/health` is a stale or foreign process — see [clone-demo failure modes](./clone-demo.md#failure-modes).
+- Ports free: `8000`, `8001`, `3000`, `5432`, `6379`. Host Postgres/Redis often own `5432`/`6379`. A listener on `8000` without `GET /decisions/v1/health` is a stale or foreign process, see [clone-demo failure modes](./clone-demo.md#failure-modes).
 
 ## Steps
 
@@ -68,13 +68,13 @@ curl -sS -X POST 'http://127.0.0.1:8000/decisions/v1/decisions/evaluate' \
     "payload": {"amount": 42.0, "currency": "USD", "channel": "card_not_present"}
   }' | jq '{trace_id, decision, score}'
 
-# Receipt lookup — tenant_id is required (422 without it)
+# Receipt lookup: tenant_id is required (422 without it)
 curl -sS "http://127.0.0.1:8000/decisions/v1/audit/<trace_id>?tenant_id=demo" | jq '{trace_id, decision, score}'
 ```
 
 ### 3. UI (optional)
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — first paint is `/graph` (Hunt) when graph is on. Receipts stay at `/decisions`. Residual cases are not the home. The Person evaluate wrote should be on Hunt.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). First paint is `/graph` (Hunt) when graph is on. Receipts stay at `/decisions`. Residual cases are not the home. The Person evaluate wrote should be on Hunt.
 
 ## Next after first decision
 
@@ -86,12 +86,12 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) — first paint is `/graph` 
 | Production hardening | `infra/deploy/docker-compose.production-hardening.yml` + [tls-pinning-and-signed-requests.md](./tls-pinning-and-signed-requests.md) |
 | Counter replay parity | [counter-replay-parity.md](./counter-replay-parity.md) |
 | Demo vertical (evaluate + case + ingest) | `infra/scripts/ci/demo_vertical_smoke.py` |
-| Optional SDK path (same three cases; desk already up) | `make sdk-walk` — not a second Day-1 promise |
+| Optional SDK path (same three cases; desk already up) | `make sdk-walk`, not a second Day-1 promise |
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
 | `401` / auth on evaluate | Ensure `ALLOW_INSECURE_NO_AUTH=true` in `infra/deploy/.env` and recreate `core-api` |
-| Health not ready | `docker compose -f infra/deploy/docker-compose.lite.yml ps` — wait for postgres/redis/core-api healthy |
+| Health not ready | `docker compose -f infra/deploy/docker-compose.lite.yml ps`: wait for postgres/redis/core-api healthy |
 | Port conflict | Stop local postgres/redis or change published ports in compose |

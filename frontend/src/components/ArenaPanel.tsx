@@ -64,7 +64,7 @@ export function ArenaPanel({ tenantId }: { tenantId: string }) {
 
       {report && report.n === 0 && (
         <p className="text-xs text-gray-500">
-          No shadow records yet — the ledger fills as evaluate traffic runs with a challenger wired.
+          No shadow records yet, the ledger fills as evaluate traffic runs with a challenger wired.
         </p>
       )}
 
@@ -93,7 +93,7 @@ export function ArenaPanel({ tenantId }: { tenantId: string }) {
 
       {report && report.n > 0 && (
         <p className="mt-2 text-[11px] text-gray-600">
-          n = shadow records in ledger window ({report.n}). FP delta null = labels unknown — never zero.
+          n = shadow records in ledger window ({report.n}). FP delta null = labels unknown, never zero.
           Challengers never decide, never Promote.
         </p>
       )}

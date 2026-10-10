@@ -22,7 +22,7 @@
 - **No parallel path:** cite the existing file first.
 - Prefer [ARCHITECTURE.md](../../../ARCHITECTURE.md), [graph_hop_contract.py](../../../services/decision-api/src/decision_api/graph_hop_contract.py), [graph_pack_atoms.py](../../../services/shared/graph_pack_atoms.py), [PACK_AUTHOR.md](../../../services/shadow_agent/PACK_AUTHOR.md), leftover-hunt spec, [feature-data-flows.md](../../docs/guides/feature-data-flows.md), [clone-demo.md](../../docs/guides/clone-demo.md).
 - Hand authoring: fill-in-the-blank sentences on `/rules` **only emit the same pack JSON** evaluate already runs. JSON stays the contract. Not a second policy language.
-- AI does not mint keys or etypes. Scout / pack-author is allow-listed. Unknown fields dropped. AI contract is flat `when` only — no `graph_v1` / etype emit. Human sentence dropdowns and the AI allow-list read the **same** catalog (canonical counter keys + signed hop etypes for humans). An AI draft never adds a catalog row.
+- AI does not mint keys or etypes. Scout / pack-author is allow-listed. Unknown fields dropped. AI contract is flat `when` only, no `graph_v1` / etype emit. Human sentence dropdowns and the AI allow-list read the **same** catalog (canonical counter keys + signed hop etypes for humans). An AI draft never adds a catalog row.
 - Velocity: map count / sum / unique_count to existing keys. No `rate` / `baseline_ratio` runtime. No new Rust atom node unless the form cannot emit flat `when` (it can).
 - TDD where feasible. CI green. List regression commands in the PR body.
 
@@ -30,11 +30,11 @@
 
 ---
 
-## Outcome 1 — One person clone-and-run
+## Outcome 1: One person clone-and-run
 
 **Issue:** `#376` is one command, but it still fails silently on ports/health and does not print “click this.”
 
-### Prompt P-day1a — `make doctor` then a louder `make demo`
+### Prompt P-day1a: `make doctor` then a louder `make demo`
 
 Extend [scripts/oss/up_desk.sh](../../../scripts/oss/up_desk.sh) and [walk_receipts.py](../../../scripts/oss/walk_receipts.py). Do not rewrite walk payloads.
 
@@ -46,7 +46,7 @@ Extend [scripts/oss/up_desk.sh](../../../scripts/oss/up_desk.sh) and [walk_recei
 
 **Regressions:** `PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_walk_receipts.py`, `python3 scripts/oss/first_decision_smoke.py` (when the desk is up), `make policy-check`, `make contract-check`. Doctor is host-side and CI-skippable (`infra/scripts/ci/test_doctor.py`).
 
-### Prompt P-day1b — Optional LLM at setup (writes `.env` only)
+### Prompt P-day1b: Optional LLM at setup (writes `.env` only)
 
 After doctor, TTY prompt: URL, API key, model. Enter skips. Writes `SHADOW_LLM_BACKEND=vllm` (or `self-hosted`), `SHADOW_LLM_BASE_URL`, `SHADOW_LLM_API_KEY`, `SHADOW_LLM_MODEL` into `infra/deploy/.env`. Non-interactive / CI = skip. Do not use `azure` as a backend name. Keys never go in the browser.
 
@@ -56,22 +56,22 @@ If no thin `shadow_agent` overlay exists, do **not** pull v2-ingest / Ollama / l
 
 ---
 
-## Outcome 2 — First hour for someone who is not a fraud native
+## Outcome 2: First hour for someone who is not a fraud native
 
 **Issue:** after the desk is up, a non-fraud person cannot narrate a receipt, leftover, Hunt, pack, or pack performance.
 
 Do this on existing routes. No Command Center. No brochure home.
 
-### Prompt P-hour — Guided jobs (demo / local tenant only)
+### Prompt P-hour: Guided jobs (demo / local tenant only)
 
 On each lean page, ≤5 lines, env/flag gated (`FirstHourHint` for `demo`/`local` or `import.meta.env.DEV`):
 
-- `/decisions` — ALLOW means continue (no leftover). REVIEW / DENY means a human should look. Receipt why is the pack, not a model.
-- `/leftovers` — work arrives here; work happens on Hunt. Row shows pack id / rule hits from the snapshot. Fail-close if `GET /v1/leftovers` is down. Empty state: REVIEW/DENY mint; ALLOW never.
-- `/graph` — Hunt is “who is connected to this person.” Surface `pack_why.graph` / `graph:missing` on the existing [packWhy.ts](../../../frontend/src/utils/packWhy.ts) strip. Do not invent edges.
-- `/rules` — sentences **and** form/JSON emit the same Observe pack. FIELD_CATALOG uses canonical keys (`event_count_1h`, `sum_amount_24h`, …). Save = Observe draft. Invalid emit is dropped, not live. Promote stays on `/ops/shadow`.
-- `/analytics/rule-performance` — English: which packs fired, which look noisy. Link open pack → `/rules`, Promote → `/ops/shadow`.
-- `/ops/shadow` — Observe is a canary. Live packs still decide. A model never ALLOW/DENY. If `is_ai_authored`: model drafted — you own live.
+- `/decisions`: ALLOW means continue (no leftover). REVIEW / DENY means a human should look. Receipt why is the pack, not a model.
+- `/leftovers`: work arrives here; work happens on Hunt. Row shows pack id / rule hits from the snapshot. Fail-close if `GET /v1/leftovers` is down. Empty state: REVIEW/DENY mint; ALLOW never.
+- `/graph`: Hunt is “who is connected to this person.” Surface `pack_why.graph` / `graph:missing` on the existing [packWhy.ts](../../../frontend/src/utils/packWhy.ts) strip. Do not invent edges.
+- `/rules`: sentences **and** form/JSON emit the same Observe pack. FIELD_CATALOG uses canonical keys (`event_count_1h`, `sum_amount_24h`, …). Save = Observe draft. Invalid emit is dropped, not live. Promote stays on `/ops/shadow`.
+- `/analytics/rule-performance`: English: which packs fired, which look noisy. Link open pack → `/rules`, Promote → `/ops/shadow`.
+- `/ops/shadow`: Observe is a canary. Live packs still decide. A model never ALLOW/DENY. If `is_ai_authored`: model drafted. You own live.
 
 **Supporting:** [velocity-atoms.md](../../docs/guides/velocity-atoms.md), [hop-pack-authoring.md](../../docs/guides/hop-pack-authoring.md). No fourth hop pack. No `rate` / `baseline_ratio`.
 
@@ -79,9 +79,9 @@ On each lean page, ≤5 lines, env/flag gated (`FirstHourHint` for `demo`/`local
 
 ---
 
-## Outcome 3 — BYO-LLM is a setup step, not a second project
+## Outcome 3: BYO-LLM is a setup step, not a second project
 
-**Issue:** pointing a model at Tarka is a README paragraph. Demo viewers never reach `publish_scout_pack`. The host loop already exists — tell it on the desk.
+**Issue:** pointing a model at Tarka is a README paragraph. Demo viewers never reach `publish_scout_pack`. The host loop already exists. Tell it on the desk.
 
 ### How it already works (do not rebuild)
 
@@ -90,17 +90,17 @@ On each lean page, ≤5 lines, env/flag gated (`FirstHourHint` for `demo`/`local
 3. Live-rule drift is the host **live-rule slip** critic, not the BYO LLM. Advise/LLM off still pings.
 4. H1 park retire draft / H2 park successor draft. Live stays `active`. Promote of a slip draft **adds** a file; it does **not** strip the live rule. Demote live is a human `PUT`. Scout that would clobber a slip draft → `409 slip_draft_exists`.
 
-### Prompt P-byom — Connect at setup, make the loop obvious on `/ops/shadow`
+### Prompt P-byom: Connect at setup, make the loop obvious on `/ops/shadow`
 
 - Setup: P-day1b. Skip = plane off.
 - Later: same four vars in `.env` / compose; restart `shadow_agent`. One recipe in clone-demo. Do not conflate Advise `OPENAI_BASE_URL`.
 - Desk (no secrets): LLM **connected / off**. **Test** = backend ping. **Draft Observe pack** = existing `POST /v1/rules/scout-pack`.
 - Three English cards from `GET /v1/calibration/shadow-promote-gate`:
-  - **Ready to Promote** — drafts whose gates pass; one sentence why.
-  - **Not yet** — drafts blocked; name the blocker.
-  - **Live rule slipped** — H1 “consider taking this live rule back to Observe” / H2 “consider this successor in Observe.” Buttons: open draft, human Promote, human demote (existing PUT). Copy: the model did not turn live off.
+  - **Ready to Promote**: drafts whose gates pass; one sentence why.
+  - **Not yet**: drafts blocked; name the blocker.
+  - **Live rule slipped**: H1 “consider taking this live rule back to Observe” / H2 “consider this successor in Observe.” Buttons: open draft, human Promote, human demote (existing PUT). Copy: the model did not turn live off.
 
-### Prompt P-notify — one event list, two sinks
+### Prompt P-notify: one event list, two sinks
 
 Same events, English body, no second drift engine.
 
@@ -112,7 +112,7 @@ Same events, English body, no second drift engine.
 
 - Store: append-only notify rows on decision-api (tenant, type, English `title`/`body`, `href` to `/ops/shadow` or draft id, created_at, read_at). Dedupe `(tenant, type, draft_id or rule_id)`.
 - Desk: `/notifications` is a lean-nav list + unread mark. Same English as `/ops/shadow`. Click opens the draft. Not a leftover queue.
-- Webhook: `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` + optional secret — same pattern as `TARKA_ENFORCEMENT_WEBHOOK_URL`. Envelope `tarka.observe_notify/v1`. Empty URL = desk-only. Fail-soft: webhook 5xx does not block evaluate or Promote. GET `shadow-promote-gate` and Observe evaluate must **not** write notify rows.
+- Webhook: `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` + optional secret, same pattern as `TARKA_ENFORCEMENT_WEBHOOK_URL`. Envelope `tarka.observe_notify/v1`. Empty URL = desk-only. Fail-soft: webhook 5xx does not block evaluate or Promote. GET `shadow-promote-gate` and Observe evaluate must **not** write notify rows.
 
 **Tests:** empty LLM URL = zero remote scout calls; slip still works with LLM off; empty notify URL = no POST; promote-ready only when gates pass; invalid pack dropped; no live publish; Promote does not strip live `rule_id`; `409 slip_draft_exists` unchanged; no auto-Promote/demote from a notify click.
 
@@ -123,7 +123,7 @@ Same events, English body, no second drift engine.
 ## Definition of done
 
 - One person with Docker Desktop: `make doctor && make demo` → PASS or a named fix → one printed click.
-- A non-fraud viewer can use evaluate output, leftovers, Hunt, create an Observe pack from `/rules` (sentence or JSON — same pack), and read pack performance in English.
+- A non-fraud viewer can use evaluate output, leftovers, Hunt, create an Observe pack from `/rules` (sentence or JSON, same pack), and read pack performance in English.
 - BYO-LLM: asked at setup, skippable, addable later via backend; desk shows connected/off + Test + Draft; keys never in the browser; Promote still human.
 - Ready-to-Promote and live-rule slip emit English notify rows: desk `/notifications` plus optional webhook. Model still never Promotes or demotes.
 - Master CI green. ELv2 unchanged.

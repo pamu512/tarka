@@ -114,7 +114,7 @@ export default function OpsSarTransportBoard() {
           <PageTitle module="compliance">SAR worker monitoring</PageTitle>
           <p className="text-sm text-gray-500 max-w-2xl">
             Kanban view backed by <span className="font-mono text-gray-400">sar_filing_intents</span> (case-api).{" "}
-            <span className="font-mono text-gray-400">Claimed</span> maps to <span className="font-mono">SFTP_QUEUED</span> — the
+            <span className="font-mono text-gray-400">Claimed</span> maps to <span className="font-mono">SFTP_QUEUED</span>, the
             worker does not persist a separate &quot;claimed&quot; row state.
           </p>
         </div>
@@ -179,13 +179,13 @@ export default function OpsSarTransportBoard() {
         <div className="grid gap-4 md:grid-cols-3">
           <KanbanColumn
             title="Pending"
-            subtitle="DB: FILED or APPROVED — analyst-cleared, not yet on the SFTP queue."
+            subtitle="DB: FILED or APPROVED, analyst-cleared, not yet on the SFTP queue."
             accentClass="bg-violet-500/10 border-violet-500/20"
             column={board.columns.pending}
           />
           <KanbanColumn
             title="Claimed"
-            subtitle="DB: SFTP_QUEUED — worker pipeline / SFTP upload queue."
+            subtitle="DB: SFTP_QUEUED, worker pipeline / SFTP upload queue."
             accentClass="bg-sky-500/10 border-sky-500/20"
             column={board.columns.claimed}
           />

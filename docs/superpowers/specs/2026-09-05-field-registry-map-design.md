@@ -1,7 +1,7 @@
 # Field registry + onboarding map (P-reg1)
 
 **Date:** 2026-09-05  
-**Status:** Design — approved in chat; not implemented.  
+**Status:** Design: approved in chat; not implemented.  
 **Branch:** `honesty/field-registry-v1` from `#377` / `feat/desk-demo-vs-product`  
 **Related:** [leftover Hunt visual Observe](./2026-09-05-leftover-hunt-visual-observe-design.md), `services/shared/author_catalog.py`, `services/decision-api/src/decision_api/data/counter_manifest_v1.json`
 
@@ -63,7 +63,7 @@ Tenant rows **overlay** the seed. List = seed ∪ tenant rows (tenant wins on sa
 `(tenant_id, buyer_key)` → `registry_name`.
 
 - `buyer_key` is the ingest/payload key as received (preserve buyer spelling; do not slug it).
-- `registry_name` must already exist (seed or tenant row). Mapping to an unknown name is 400 — create the registry row first (usually `source: new_feature` or `mapped_buyer`).
+- `registry_name` must already exist (seed or tenant row). Mapping to an unknown name is 400. Create the registry row first (usually `source: new_feature` or `mapped_buyer`).
 - One buyer key → one name. Last upsert wins.
 - Two buyer keys may map to the same name.
 
@@ -99,9 +99,9 @@ Same router family as `/v1/rules` (desk-auth, not the internal counters token).
 }
 ```
 
-- `already_named` — payload key equals a registry name.
-- `mapped` — payload key has a map.
-- `candidates` — payload key is neither. Do not auto-insert rows.
+- `already_named`: payload key equals a registry name.
+- `mapped`: payload key has a map.
+- `candidates`: payload key is neither. Do not auto-insert rows.
 
 Route order: register `/v1/fields/maps` and `/v1/fields/discover` **above** `/v1/fields/{name}` (same lesson as `author-catalog` vs `{filename}`).
 

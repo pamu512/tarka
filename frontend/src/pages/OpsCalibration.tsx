@@ -124,7 +124,7 @@ export default function OpsCalibration() {
         <p className="text-sm text-gray-500">
           Same data as{" "}
           <span className="font-mono text-xs text-gray-400">GET /v1/ops/calibration-status</span> and{" "}
-          <span className="font-mono text-xs text-gray-400">/v1/calibration/*</span> — file-backed snapshots for ops.
+          <span className="font-mono text-xs text-gray-400">/v1/calibration/*</span>, file-backed snapshots for ops.
         </p>
       </div>
 
@@ -155,7 +155,7 @@ export default function OpsCalibration() {
 
       {status?.healthy === false || bins?.posture?.healthy === false ? (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-          Calibration posture unhealthy — join dispositions into{" "}
+          Calibration posture unhealthy, join dispositions into{" "}
           <span className="font-mono text-xs">y_label</span> (proxy-only is not enough for promote).{" "}
           {String(bins?.posture?.hint ?? status?.hint ?? "")}
         </div>
@@ -312,7 +312,7 @@ export default function OpsCalibration() {
         <p className="text-xs text-gray-500">
           Holdout reliability bins from{" "}
           <span className="font-mono text-gray-400">GET /v1/ops/vertical-calibration</span>. Synthetic
-          labels only — promote stays fixture-gated; never claim tenant-calibrated risk.
+          labels only, promote stays fixture-gated; never claim tenant-calibrated risk.
         </p>
         {fixtureErr ? (
           <p className="text-xs text-red-300">{fixtureErr}</p>

@@ -33,7 +33,7 @@ export function MicroDevFirstRunWizard() {
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-surface-950 text-gray-100">
       <header className="border-b border-surface-800 px-8 py-6">
-        <h1 className="text-xl font-semibold tracking-tight text-white">First run — local infrastructure</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-white">First run: local infrastructure</h1>
         <p className="mt-2 max-w-3xl text-sm text-gray-400 leading-relaxed">
           Micro tier requires a writable SQLite audit file and a working DuckDB analytics binding when{" "}
           <code className="text-gray-300">TARKA_ANALYTICS_STORE</code> targets DuckDB. The main dashboard stays

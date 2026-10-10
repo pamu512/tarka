@@ -110,7 +110,7 @@ export default function WorkloadBalancer() {
             </section>
 
             <section aria-label="Time to resolve by case type">
-              <h2 className="text-sm font-semibold text-gray-300 mb-3">Time to resolve — by case type</h2>
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">Time to resolve: by case type</h2>
               <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
                 Resolved = status <code className="text-gray-400">resolved</code> or{" "}
                 <code className="text-gray-400">closed</code>. Optional field{" "}
@@ -119,7 +119,7 @@ export default function WorkloadBalancer() {
               </p>
               {byType.length === 0 ? (
                 <p className="text-sm text-gray-500 border border-dashed border-surface-600 rounded-xl px-4 py-8 text-center">
-                  No resolved cases in this tenant yet — resolve or close cases to populate medians.
+                  No resolved cases in this tenant yet, resolve or close cases to populate medians.
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -188,7 +188,7 @@ export default function WorkloadBalancer() {
                 </table>
               </div>
               {teamTypeRows.length === 0 ? (
-                <p className="text-xs text-gray-600 mt-2">No rows — import cases or adjust tenant filter.</p>
+                <p className="text-xs text-gray-600 mt-2">No rows, import cases or adjust tenant filter.</p>
               ) : null}
             </section>
 
@@ -201,7 +201,7 @@ export default function WorkloadBalancer() {
                   </li>
                   <li>Otherwise titles (e.g. ATO, chargeback, scam) and the first label categorize the row.</li>
                   <li>
-                    Tune buckets by setting labels or titles consistently — see{" "}
+                    Tune buckets by setting labels or titles consistently, see{" "}
                     <Link className="text-brand-400 hover:text-brand-300" to="/cases">
                       Cases
                     </Link>

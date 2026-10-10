@@ -1,4 +1,4 @@
-# Calibration package — deploy via signal-api (canonical)
+# Calibration package: deploy via signal-api (canonical)
 
 **Runtime owner:** `signal-api` mount at `/calibration`  
 (`http://signal-api:8000/calibration` or `:8004` depending on compose port map).
@@ -14,7 +14,7 @@ embedded sub-app in `services/signal-api` (Dockerfile copies this package).
 
 `infra/deploy/helm/fraud-stack` template `calibration-service.yaml` stays
 **disabled** (`calibrationService.enabled: false`). Enabling it alone does
-**not** retarget `CALIBRATION_SERVICE_URL` — you would get an unwired pod
+**not** retarget `CALIBRATION_SERVICE_URL`. You would get an unwired pod
 (Helm port historically 8013 vs Dockerfile 8011).
 
 Use standalone only for split-scale experiments, and set

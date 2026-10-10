@@ -2,7 +2,7 @@
 
 Runnable checklist for the next agent. SUPPORT tone. Path B is shipped (D7.4). Do not raise `hunt_depth_max`. Do not implement Path A in this pack.
 
-Contract: [hunt-depth-v1](../contracts/hunt-depth-v1.md). Operator day-1: [graph-analysis — Day-1 Hunt depth](../docs/guides/graph-analysis.md#day-1-hunt-depth). Honesty lock: [CLAIM_LOCK](../compliance/CLAIM_LOCK.md). Leftovers + Hunt residual: [SUPPORT.md](../../SUPPORT.md).
+Contract: [hunt-depth-v1](../contracts/hunt-depth-v1.md). Operator day-1: [graph-analysis: Day-1 Hunt depth](../docs/guides/graph-analysis.md#day-1-hunt-depth). Honesty lock: [CLAIM_LOCK](../compliance/CLAIM_LOCK.md). Leftovers + Hunt residual: [SUPPORT.md](../../SUPPORT.md).
 
 Empty `GRAPH_SERVICE_URL` = Hunt/hops off (UX0 `PlaneOff`). `depth=5` must cap to `depth_applied=1` with `degrade_reason=hunt:depth_capped`. Leftovers / queue are not a CRM.
 

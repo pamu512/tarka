@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Allow-listed string `event_type` (seed six ∪ env ∪ tenant overlay) and omitted SDK bools stay missing — no invented `false`.
+**Goal:** Allow-listed string `event_type` (seed six ∪ env ∪ tenant overlay) and omitted SDK bools stay missing, no invented `false`.
 
 **Architecture:** Shared-core validates shape + allow-list. Decision-api stores tenant extras and checks them on evaluate. Event-ingest uses seed ∪ env (no Postgres overlay this PR). Feature snapshot already copies payload as-is; goldens/demo stop shipping invented `false`. `device_signals` stays `is_true`.
 
@@ -42,7 +42,7 @@
 - Modify: `packages/shared-core/tests/test_ingest_contract_v1.py`
 
 **Interfaces:**
-- Produces: `SEED_EVENT_TYPES` (alias `VALID_EVENT_TYPES` kept as the same frozenset literal for `schema_registry_compat.py` AST); `EVENT_TYPE_RE`; `validate_event_type_shape(name) -> str`; `parse_env_event_types(raw) -> frozenset[str]`; `allowed_event_types(overlay, env) -> frozenset[str]`; `validate_required_envelope_fields(raw, allowed=None)` — `allowed` default `SEED_EVENT_TYPES`
+- Produces: `SEED_EVENT_TYPES` (alias `VALID_EVENT_TYPES` kept as the same frozenset literal for `schema_registry_compat.py` AST); `EVENT_TYPE_RE`; `validate_event_type_shape(name) -> str`; `parse_env_event_types(raw) -> frozenset[str]`; `allowed_event_types(overlay, env) -> frozenset[str]`; `validate_required_envelope_fields(raw, allowed=None)`: `allowed` default `SEED_EVENT_TYPES`
 
 - [ ] **Step 1: Failing tests** in `test_ingest_contract_v1.py`:
 
@@ -86,7 +86,7 @@ def test_envelope_rejects_wire_without_allow():
     assert exc.value.reason_codes == ["ingest_event_type_invalid"]
 ```
 
-- [ ] **Step 2:** Run `cd packages/shared-core && PYTHONPATH=. python3 -m pytest tests/test_ingest_contract_v1.py -q` — expect FAIL
+- [ ] **Step 2:** Run `cd packages/shared-core && PYTHONPATH=. python3 -m pytest tests/test_ingest_contract_v1.py -q`: expect FAIL
 - [ ] **Step 3:** Implement helpers. Keep `VALID_EVENT_TYPES = frozenset({...six...})` as a **literal** (CI AST). `SEED_EVENT_TYPES = VALID_EVENT_TYPES`.
 - [ ] **Step 4:** Tests PASS
 - [ ] **Step 5:** Commit `feat: allow-list event_type in ingest contract`
@@ -96,9 +96,9 @@ def test_envelope_rejects_wire_without_allow():
 ### Task 2: Evaluate + ingest accept allow-listed strings
 
 **Files:**
-- Modify: `services/decision-api/src/decision_api/schemas.py` — `event_type: str` + shape validator (accept `EventType` enum instances)
-- Modify: pipeline / enrichment / main — `body.event_type.value` → `body.event_type` (str)
-- Modify: `services/event-ingest/src/event_ingest/ingest_contract.py` and `dynamic.py` — seed ∪ `TARKA_EVENT_TYPES`
+- Modify: `services/decision-api/src/decision_api/schemas.py`: `event_type: str` + shape validator (accept `EventType` enum instances)
+- Modify: pipeline / enrichment / main: `body.event_type.value` → `body.event_type` (str)
+- Modify: `services/event-ingest/src/event_ingest/ingest_contract.py` and `dynamic.py`: seed ∪ `TARKA_EVENT_TYPES`
 - Test: schemas + a small evaluate/ingest 422 test
 
 **Interfaces:**
@@ -131,8 +131,8 @@ def test_envelope_rejects_wire_without_allow():
 ### Task 4: Missing ≠ false + docs
 
 **Files:**
-- Modify: `contracts/golden/evaluate-request-minimal.v1.json`, `device-context-web.v1.json` — omit invented false SDK bools
-- Modify: `services/decision-api/tests/test_device_signals_bind.py` — `is_bot` omitted / false / true
+- Modify: `contracts/golden/evaluate-request-minimal.v1.json`, `device-context-web.v1.json`: omit invented false SDK bools
+- Modify: `services/decision-api/tests/test_device_signals_bind.py`: `is_bot` omitted / false / true
 - Modify: `docs/docs/guides/ingest-contract-v1.md`
 - Grep demo/golden for `"is_bot": false` and omit unless the fixture is “SDK sent false”
 - `merge_device_context_into_features`: skip non-bool for `_SIGNAL_TAG_MAP` keys (same as integrity)

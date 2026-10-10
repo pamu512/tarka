@@ -10,9 +10,9 @@
 
 When **`REDIS_URL`** is configured, the Decision API:
 
-1. **Fingerprints** — `services/decision-api/src/decision_api/fingerprint_store.py` records a **derived fp_hash** from `device_id` + `platform` + sorted scalar signals → **`sdk:shared_device`** if multiple **entity_id** values share a fingerprint.
-2. **Entity links** — `services/decision-api/src/decision_api/entity_link_store.py`:
-   - **`fraud:link:device_entity:{tenant}:{device_id}`** — ZSET of **entity_id** seen with this device (recent first).
+1. **Fingerprints:** `services/decision-api/src/decision_api/fingerprint_store.py` records a **derived fp_hash** from `device_id` + `platform` + sorted scalar signals → **`sdk:shared_device`** if multiple **entity_id** values share a fingerprint.
+2. **Entity links:** `services/decision-api/src/decision_api/entity_link_store.py`:
+   - **`fraud:link:device_entity:{tenant}:{device_id}`:** ZSET of **entity_id** seen with this device (recent first).
    - Optional **vendor bridge** from **`metadata`**:
      - `vendor_visitor_id`, `vendor_device_id`, `vendor_install_id` → SET **`fraud:link:vendor:{tenant}:{type}:{id}`** = **entity_id**
    - Injected into **features** for rules: **`linked_entity_ids`**, optional **`vendor_bridge_entity_id`**, tags **`sdk:linked_entities`**, **`sdk:vendor_entity_bridge`**.
@@ -27,7 +27,7 @@ Pass vendor IDs **only** when you have consent and a mapping contract:
 }
 ```
 
-The server stores the latest **entity_id** seen with that vendor id. Use for **gradual** migration from a commercial device graph — not as strong as native attestation alone.
+The server stores the latest **entity_id** seen with that vendor id. Use for **gradual** migration from a commercial device graph, not as strong as native attestation alone.
 
 ## Related
 

@@ -22,4 +22,4 @@ On high Shadow risk or nonzero velocity indicators, ingest best-effort `POST {DE
 | `TREND_WATCH_ON_INGEST` | on when `DECISION_API_URL` set; off if `0`/`false` | Enqueue entity onto trend watchlist |
 | `DECISION_API_URL` | required for watch | decision-api base (e.g. `http://decision-api:8000`) |
 
-Tick loop is **not** in the orchestrator — use `scripts/trend_tick_loop.sh` or compose profile `trend-tick`. See [repo-productionization-runbook.md](../../docs/docs/guides/repo-productionization-runbook.md).
+Tick loop is **not** in the orchestrator. Use `scripts/trend_tick_loop.sh` or compose profile `trend-tick`. See [repo-productionization-runbook.md](../../docs/docs/guides/repo-productionization-runbook.md).

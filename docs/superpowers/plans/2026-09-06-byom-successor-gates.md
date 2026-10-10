@@ -41,7 +41,7 @@
 
 - [ ] Failing panel test for successor sentence
 - [ ] Update ObserveEasePanel
-- [ ] Commit `feat: Observe copy — human owns successor Promote`
+- [ ] Commit `feat: Observe copy: human owns successor Promote`
 
 ## Test commands
 

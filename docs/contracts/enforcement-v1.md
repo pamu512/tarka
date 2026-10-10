@@ -67,7 +67,7 @@ When `TARKA_ENFORCEMENT_WEBHOOK_SECRET` is set, POST must carry `x-tarka-signatu
 
 ACK is not Promote, Confirm, or Demote and does not change pack lifecycle. Not a case CRM.
 
-Desk `/decisions/:id` delivery-status glass (G4.4 #461, D9.4) sits next to pack-why on **one** strip. Chips: `emitted` / `retrying` / `dead_lettered` / `acked` / `not configured`. Residual `failed` only when D9.3 still returns an unclassified journal error — never both `failed` and `dead_lettered` on the same row. Empty enforcement webhook URL = **not configured** (plane off) — never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout” / “blocked by Tarka”. Delivery reliability ≠ enforcement SKU suite. Do not fork a second log product.
+Desk `/decisions/:id` delivery-status glass (G4.4 #461, D9.4) sits next to pack-why on **one** strip. Chips: `emitted` / `retrying` / `dead_lettered` / `acked` / `not configured`. Residual `failed` only when D9.3 still returns an unclassified journal error, never both `failed` and `dead_lettered` on the same row. Empty enforcement webhook URL = **not configured** (plane off), never a fake ACK. `emit_only` copy is advisory emit, not “we blocked payout” / “blocked by Tarka”. Delivery reliability ≠ enforcement SKU suite. Do not fork a second log product.
 
 ## Retry / dead-letter (D9.1)
 
@@ -78,7 +78,7 @@ Outbound enforcement POSTs use **in-process** bounded retry. Do not add Redis / 
 | `ENFORCEMENT_RETRY_ATTEMPTS` | `3` |
 | `ENFORCEMENT_RETRY_BACKOFF_S` | `0.05`, `0.15` (after failed attempts 1 and 2) |
 
-**Where the wait lives:** the first POST runs in `apply_enforcement_adapters` (the emit path). Evaluate already fire-and-forgets that function via `schedule_decision_outcomes` / FastAPI BackgroundTasks, so the decision HTTP return does not wait on the retry loop. Remaining attempts stay in the same background task with the short backoff above. Tests monkeypatch `_retry_wait` to 0. A second orphan `create_task` is not used — it can vanish when the request context ends.
+**Where the wait lives:** the first POST runs in `apply_enforcement_adapters` (the emit path). Evaluate already fire-and-forgets that function via `schedule_decision_outcomes` / FastAPI BackgroundTasks, so the decision HTTP return does not wait on the retry loop. Remaining attempts stay in the same background task with the short backoff above. Tests monkeypatch `_retry_wait` to 0. A second orphan `create_task` is not used, it can vanish when the request context ends.
 
 Retryable: HTTP 5xx, 429, and transport errors. 4xx (except 429) is terminal `non_2xx` with no retry storm.
 
@@ -98,7 +98,7 @@ Retries must not double-apply at buyer sinks. Every POST attempt for one evaluat
 | `idempotency_key` | same value as `action_id` (alias, not a second id) |
 | `action_ids` | map of each `suggested_actions[]` token → its G4.2 `action_id` |
 
-Journal rows (`tarka.enforcement_delivery/v1`) carry the same pair. In-process dedupe by `action_id` returns **one logical delivery** with `attempt_count` (max attempt across those rows) and the latest status. D9.3 GET reuses this helper — do not fork a second aggregator.
+Journal rows (`tarka.enforcement_delivery/v1`) carry the same pair. In-process dedupe by `action_id` returns **one logical delivery** with `attempt_count` (max attempt across those rows) and the latest status. D9.3 GET reuses this helper, do not fork a second aggregator.
 
 Retries still POST. Duplicate key is **not** a silent block / deny. Buyer sinks apply once; Tarka does not execute holds or payouts and does not open CRM tickets as the action sink.
 
@@ -121,7 +121,7 @@ Schema `tarka.enforcement_delivery_query/v1`: `deliveries[]` each with `attempt_
 | Inbound product ACK (`POST /v1/enforcement/acks`) | `acked` |
 | Journal `retrying` / `dead_lettered` | same |
 
-Journal `acked` is sink HTTP 2xx. It is **not** the product ACK store. Query `GET /v1/enforcement/acks` for product ACKs. Ops tail `GET /v1/ops/enforcement-journal` (`tarka.enforcement_delivery_list/v1`) stays an unfiltered tail — this GET does not replace it.
+Journal `acked` is sink HTTP 2xx. It is **not** the product ACK store. Query `GET /v1/enforcement/acks` for product ACKs. Ops tail `GET /v1/ops/enforcement-journal` (`tarka.enforcement_delivery_list/v1`) stays an unfiltered tail, this GET does not replace it.
 
 Not Promote/Demote. No assignee / SAR / ticket fields. No cross-tenant god-view.
 

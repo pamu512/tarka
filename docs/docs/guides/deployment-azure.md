@@ -89,4 +89,4 @@ Outbound calls from `investigation-agent` to `OPENAI_BASE_URL` require **control
 ## Further reading
 
 - [AKS baseline architecture](https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks-baseline)  
-- [Azure Well-Architected Framework — Security](https://learn.microsoft.com/azure/well-architected/security/)  
+- [Azure Well-Architected Framework: Security](https://learn.microsoft.com/azure/well-architected/security/)  

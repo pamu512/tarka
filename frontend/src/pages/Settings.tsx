@@ -247,7 +247,7 @@ export default function Settings() {
           ))}
         </div>
         <p className="text-[11px] text-gray-600 border-t border-surface-800 pt-2">
-          <span className="text-gray-500">Day 60 example — </span>
+          <span className="text-gray-500">Day 60 example: </span>
           <code className="text-gray-500">payments_high_value_v1</code> on allow with amount ≥ 6000 escalates to{" "}
           <code className="text-gray-500">step_up_attestation</code>. Unmatched rules use engine{" "}
           <code className="text-gray-500">recommended_action</code> (<code className="text-gray-500">default_v1</code>).

@@ -217,7 +217,7 @@
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Investigation agent — copilot",
+  "title": "Investigation agent: copilot",
   "uid": "investigation-agent-copilot",
   "version": 1
 }

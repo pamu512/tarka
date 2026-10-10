@@ -20,7 +20,7 @@ PYTHONPATH=src:../shared RULES_PATH=rules uvicorn decision_api.main:app --port 8
 
 ## Layout
 
-- `src/decision_api/` — application code
-- `docs/decision-api-graph-service-contract.md` — evaluate ↔ graph-service contract
-- `rules/` — JSON rule packs (owned by this package)
-- `alembic/` — migrations (owned by this package; no longer a symlink to legacy_v1)
+- `src/decision_api/`: application code
+- `docs/decision-api-graph-service-contract.md`: evaluate ↔ graph-service contract
+- `rules/`: JSON rule packs (owned by this package)
+- `alembic/`: migrations (owned by this package; no longer a symlink to legacy_v1)

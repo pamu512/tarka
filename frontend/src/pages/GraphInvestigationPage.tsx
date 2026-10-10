@@ -607,7 +607,7 @@ export default function GraphInvestigationPage() {
         <PageTitle module="graph">Hunt</PageTitle>
       </div>
       <FirstHourHint
-        job="Hunt is who is connected to this person. Edges come from the receipt. Empty graph URL means hops are off — missing, not invented."
+        job="Hunt is who is connected to this person. Edges come from the receipt. Empty graph URL means hops are off, missing, not invented."
         nextTo="/leftovers"
         nextLabel="Leftovers"
       />
@@ -616,7 +616,7 @@ export default function GraphInvestigationPage() {
       {graphPlaneDisabled ? (
         <div className="text-sm text-rose-100/95 bg-rose-950/40 border border-rose-500/35 rounded-lg px-3 py-2.5 space-y-1">
           <p>
-            <strong className="text-rose-200">Graph plane disabled</strong> — subgraph and graph analytics requests are
+            <strong className="text-rose-200">Graph plane disabled</strong>, subgraph and graph analytics requests are
             paused (failover toggle). Re-enable when JanusGraph / graph-service latency recovers.
           </p>
           <Link

@@ -7,7 +7,7 @@ The Case API provides persistence, leftover list, audit trail, workflow hooks, W
 **Day-1 URL:** `http://localhost:8000/cases` (in-process on core-api). Standalone `:8002` is `tools/tarka.py dev case-api` only.  
 **Framework:** Python / FastAPI
 
-Canonical HTTP tables: **[API Reference — Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
+Canonical HTTP tables: **[API Reference: Case API](../api-reference.md#case-api)** · OpenAPI: `contracts/openapi/case-api.yaml`
 
 ---
 
@@ -152,7 +152,7 @@ POST /v1/cases/{case_id}/comments
 ```json
 {
   "author": "analyst@company.com",
-  "body": "Confirmed fraudulent — linked to known device ring."
+  "body": "Confirmed fraudulent, linked to known device ring."
 }
 ```
 
@@ -199,7 +199,7 @@ Fetch the entity graph centered on the case's entity (proxied to Graph Service).
 GET /v1/cases/{case_id}/graph?depth=2
 ```
 
-**Response:** Same format as Graph Service `/v1/subgraph` — `{ nodes, edges }` plus `tarka.hunt_depth/v1` honesty fields when the graph plane is on.
+**Response:** Same format as Graph Service `/v1/subgraph`, `{ nodes, edges }` plus `tarka.hunt_depth/v1` honesty fields when the graph plane is on.
 
 ---
 
@@ -360,7 +360,7 @@ Each workflow JSON file has this structure:
 | `assign_team` | Route case to a team | `team: string` |
 | `set_priority` | Override case priority | `priority: string` |
 | `add_label` | Add labels to the case | `labels: string[]` |
-| `escalate` | Set status to `escalated`, priority to `critical` | — |
+| `escalate` | Set status to `escalated`, priority to `critical` | n/a |
 | `add_comment` | Add an automated comment | `message: string` |
 | `send_webhook` | Fire an HTTP POST to a URL | `url: string` |
 

@@ -17,7 +17,7 @@ Ports: Decision **8000** (`/decisions`), Graph **8001**, Case **8000/cases**, In
 
 ## 1. OSINT on an IOC
 
-IP (Shodan / GreyNoise / AbuseIPDB / etc. — keys optional, see `.env.example`):
+IP (Shodan / GreyNoise / AbuseIPDB / etc., keys optional, see `.env.example`):
 
 ```bash
 curl -s -X POST http://localhost:8003/v1/osint \

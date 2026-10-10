@@ -153,7 +153,7 @@ export function TriageHeader({
           {sightLine?.trim() ? (
             sightLine.trim()
           ) : (
-            <span className="text-gray-500 italic">No narrative attached — open Scan tabs for evidence.</span>
+            <span className="text-gray-500 italic">No narrative attached, open Scan tabs for evidence.</span>
           )}
         </p>
       </div>
