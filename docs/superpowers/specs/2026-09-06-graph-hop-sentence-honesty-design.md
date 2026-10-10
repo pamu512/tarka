@@ -1,7 +1,7 @@
 # Graph hop sentence honesty (P-graph1)
 
 **Date:** 2026-09-06  
-**Status:** Design — cut locked in chat (`go`).  
+**Status:** Design: cut locked in chat (`go`).  
 **Branch:** `honesty/graph-hop-sentence-honesty` stacked on P-reg1 (`#378` / `feat/desk-demo-vs-product`)  
 **Related:** `frontend/src/utils/sentencePack.ts`, `services/decision-api/rules/graph_v1_uses_device_v1.json`, `docs/docs/guides/hop-pack-authoring.md`
 
@@ -17,8 +17,8 @@ Evaluate already has `has_etype` and `sibling_prior_flag`. Desk sentences and th
 - Demo ≠ product. Visual builder stays RiskArchitect.
 - No named third-party desks in published copy. Do not call Tarka OSS.
 - **Two sentences** (not one AND-only, not copy-only):
-  - **Share-edge** — `has_etype` only. No `FLAG` tag. Copy does not say sibling / trust FLAG.
-  - **Trust FLAG** — same `when_ast` as shipped packs: `has_etype` AND (`has_multi_id` OR `sibling_prior_flag`). `FLAG` tag. Copy names sibling prior FLAG.
+  - **Share-edge**: `has_etype` only. No `FLAG` tag. Copy does not say sibling / trust FLAG.
+  - **Trust FLAG**: same `when_ast` as shipped packs: `has_etype` AND (`has_multi_id` OR `sibling_prior_flag`). `FLAG` tag. Copy names sibling prior FLAG.
 - Hop catalog / sentence consts stay the signed five: `USES_DEVICE`, `HAS_EMAIL`, `HAS_PHONE`, `HAS_CARD`, `HAS_LIST`.
 - Graph = identity hop (AGE / `GRAPH_SERVICE_URL`). Decision-context SQLite is not the Graph SKU.
 

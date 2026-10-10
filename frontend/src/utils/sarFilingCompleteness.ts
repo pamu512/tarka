@@ -102,7 +102,7 @@ export function evaluateSarFilingReadinessFromDetail(
       remediation: !digestApplicable
         ? null
         : digestMissing
-          ? "Uploaded lock is on but no SHA-256 digest is present—verify batch build and FinCEN packaging."
+          ? "Uploaded lock is on but no SHA-256 digest is present, verify batch build and FinCEN packaging."
           : null,
     },
   ];

@@ -134,7 +134,7 @@ export function MarketplaceSdkApiKeyPanel(): ReactElement {
 
       {issuedSecret ? (
         <div className="rounded-lg border border-emerald-500/35 bg-emerald-950/25 px-3 py-3 space-y-2">
-          <p className="text-xs font-semibold text-emerald-200">New key — copy now</p>
+          <p className="text-xs font-semibold text-emerald-200">New key, copy now</p>
           <code className="block text-[11px] font-mono text-emerald-100 break-all">{issuedSecret}</code>
           <button
             type="button"

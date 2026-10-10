@@ -1,6 +1,6 @@
 # Order Lifecycle Risk + Multi-Party Ring Depth Design
 
-> **Status:** Approved direction (Approach A) — 2026-08-11  
+> **Status:** Approved direction (Approach A): 2026-08-11  
 > **Goal:** Best OSS multi-sided fraud core; LIVE feeds upgrade the same interfaces to premium (A+++ ops), not a rewrite.
 
 ## Problem
@@ -35,7 +35,7 @@ Host event trail + party graph (or graph-service edges)
 
 ---
 
-## Engine 1 — Order lifecycle risk
+## Engine 1: Order lifecycle risk
 
 ### Input schema (`metadata.lifecycle` or `payload.lifecycle`)
 
@@ -58,11 +58,11 @@ Canonical stages (ordered):
 
 ### Computations (deterministic)
 
-1. **Illegal / suspicious transitions** — e.g. `refund_requested` before `delivered`/`picked_up`; `payout` before `delivered`; `chargeback` within minutes of `delivered`; `cancelled` after `delivered` without return stage.
-2. **Time compression** — stage deltas below physical floors (checkout→delivered &lt; 2m food / &lt; 30m goods default; configurable per vertical profile).
-3. **Amount path** — refund/chargeback amount ≥ paid; payout &gt; delivered value; discount stack where `paid << list`.
-4. **Signal attachment** — `pod_hash_ok=false`, `intake_ok=false`, `gps_spoof=true` on stage events multiply stage weight.
-5. **Role inconsistency** — same `actor_id` on buyer+seller or buyer+courier within one order trail.
+1. **Illegal / suspicious transitions**: e.g. `refund_requested` before `delivered`/`picked_up`; `payout` before `delivered`; `chargeback` within minutes of `delivered`; `cancelled` after `delivered` without return stage.
+2. **Time compression**: stage deltas below physical floors (checkout→delivered &lt; 2m food / &lt; 30m goods default; configurable per vertical profile).
+3. **Amount path**: refund/chargeback amount ≥ paid; payout &gt; delivered value; discount stack where `paid << list`.
+4. **Signal attachment**: `pod_hash_ok=false`, `intake_ok=false`, `gps_spoof=true` on stage events multiply stage weight.
+5. **Role inconsistency**: same `actor_id` on buyer+seller or buyer+courier within one order trail.
 
 ### Output
 
@@ -82,7 +82,7 @@ Score feeds `features.lifecycle_risk_score` and tags merge into evaluate.
 
 ---
 
-## Engine 2 — Multi-party ring score
+## Engine 2: Multi-party ring score
 
 ### Input schema (`metadata.party_graph` or `payload.party_graph`)
 
@@ -143,7 +143,7 @@ Roles: `buyer|seller|courier|driver|rider|device|place|promo`.
 | `marketplace_goods` | checkout→delivered 30m | refund_before_delivery, FTID signals, seller-buyer device |
 | `food_delivery` | checkout→delivered 2m | cancel_after_pickup, courier-buyer device, promo |
 | `e_hailing` | request→complete 1m | driver-rider device, pair trip velocity |
-| `last_mile` | — | COD refusal after accept, intake mismatch on refund |
+| `last_mile` | n/a | COD refusal after accept, intake mismatch on refund |
 
 ## LIVE → A+++ mapping (same engines)
 
@@ -165,4 +165,4 @@ Roles: `buyer|seller|courier|driver|rider|device|place|promo`.
 
 ## Out of scope (next depth tracks)
 
-Seller trajectory changepoints, FTID FSM taxonomy expansion, promo economics fuse, dispute representment strength — built on these two primitives.
+Seller trajectory changepoints, FTID FSM taxonomy expansion, promo economics fuse, dispute representment strength, built on these two primitives.

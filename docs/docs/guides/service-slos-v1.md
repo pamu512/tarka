@@ -1,4 +1,4 @@
-# Service SLOs (v1) — reference
+# Service SLOs (v1): reference
 
 **Purpose:** Single place for **aspirational** availability and latency targets for core Tarka services. **Actual** SLO attainment comes from your metrics stack (Prometheus + Grafana, Datadog, etc.). Many HTTP services expose **`GET /v1/slo`** with **targets** plus **current** in-process HTTP counters where that route is implemented; compose **host ports** below match [Service ports](service-ports.md).
 
@@ -17,11 +17,11 @@
 
 ## Runtime surface
 
-- **`GET /v1/slo`** — JSON: `availability_target_pct` or `availability_target`, `latency_target_ms_p95`, `error_budget_window_days`, `current` (service-specific + `http_requests_total_observed` from in-process middleware when available).
+- **`GET /v1/slo`:** JSON: `availability_target_pct` or `availability_target`, `latency_target_ms_p95`, `error_budget_window_days`, `current` (service-specific + `http_requests_total_observed` from in-process middleware when available).
 
 ## HTTP metrics (R1.4)
 
-Shared **`observability`** middleware exposes **`/metrics`** with **`http_requests_total`** labeled by **`method`**, normalized **`path`**, **`status`**, and **`tenant_query`** (`present` \| `absent`). **`tenant_query=present`** means the request carried a non-empty **`tenant_id` query parameter** (safe cardinality — not the tenant value). JSON bodies are not inspected. **`http_client_errors_total`** counts **4xx** and **`http_server_errors_total`** counts **5xx** with the same **`path`** and **`tenant_query`** labels. Latency histograms remain **`method` + `path`** only to limit series growth.
+Shared **`observability`** middleware exposes **`/metrics`** with **`http_requests_total`** labeled by **`method`**, normalized **`path`**, **`status`**, and **`tenant_query`** (`present` \| `absent`). **`tenant_query=present`** means the request carried a non-empty **`tenant_id` query parameter** (safe cardinality, not the tenant value). JSON bodies are not inspected. **`http_client_errors_total`** counts **4xx** and **`http_server_errors_total`** counts **5xx** with the same **`path`** and **`tenant_query`** labels. Latency histograms remain **`method` + `path`** only to limit series growth.
 
 ## Burn-rate alerts (operator pattern)
 
@@ -59,7 +59,7 @@ Legacy standalone example: **[slo-burn-recording-rules.example.yml](../../../inf
 
 **decision-api** wraps list / graph / feature-service / ml-scoring / OPA outbound calls with **async circuit breakers** (env `CIRCUIT_*`). When open, evaluate **fail-opens** with fallbacks and adds signal tags: `lists:unavailable`, `graph:unavailable`, `enrichment:unavailable`, `ml:unavailable`, `opa:unavailable`. Prometheus: `tarka_circuit_open_total_*` counters on **decision-api** `/metrics`.
 
-Optional **Settings-owned** planes `ANUMANA_SIGNALS_*` / `ASYNC_OSINT_REDIS_*` (defaults `0.08` / `1` / `5` / `2.0`) also fail-open with **`on_failure=SKIP`** — soft-fail, not required HA; empty URL = plane off. Helm exposes the same defaults via `coreApi.circuitSettings` on core-api (see [evaluation-step-controls](./evaluation-step-controls.md)).
+Optional **Settings-owned** planes `ANUMANA_SIGNALS_*` / `ASYNC_OSINT_REDIS_*` (defaults `0.08` / `1` / `5` / `2.0`) also fail-open with **`on_failure=SKIP`**, soft-fail, not required HA; empty URL = plane off. Helm exposes the same defaults via `coreApi.circuitSettings` on core-api (see [evaluation-step-controls](./evaluation-step-controls.md)).
 
 **Per-tenant kill switches (R2.3):** Redis key `fraud:tenant_flags:{tenant_id}` (JSON). Flags: `disable_graph`, `disable_feature_service`, `disable_ml`, `disable_opa`, `disable_entity_lists`. **GET/PATCH** `/v1/admin/tenants/{tenant_id}/flags` (requires Redis). Evaluate adds tags like `ml:disabled_by_tenant` and **`fallback_reason`** on response + audit when degraded.
 

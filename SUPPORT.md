@@ -30,7 +30,7 @@ Include:
 - Compose files or Helm preset (`fraud-desk`, `prod-on-k8s`, …)
 - Branch or commit SHA (development is on `master`)
 
-Do not file undisclosed security vulnerabilities as public issues — see [SECURITY.md](SECURITY.md).
+Do not file undisclosed security vulnerabilities as public issues. See [SECURITY.md](SECURITY.md).
 
 ## GitLab-grade install (not claimed here)
 
@@ -44,7 +44,7 @@ Beta, no GA, no SOC 2 from us, beachhead CE (not banks), Elastic License 2.0 sou
 
 ## Commercial install pack (GitLab-shaped self-host)
 
-What a buyer **purchases**. This is not a SaaS desk, not a hosted tenant, and not GitLab-grade by itself. Beachhead is CE-shaped VPC evaluate-HA on last-mile / food / q-comm / gig / retail — not banks as P0.
+What a buyer **purchases**. This is not a SaaS desk, not a hosted tenant, and not GitLab-grade by itself. Beachhead is CE-shaped VPC evaluate-HA on last-mile / food / q-comm / gig / retail, not banks as P0.
 
 We help **you** install. We do not operate your cluster.
 
@@ -62,7 +62,7 @@ OIDC is optional. API keys stay the machine / evaluate path. `coreApi.oidc.*` is
 
 ### Pack GitOps export assist
 
-Sev-3 how-to for the purchased pack — not a new SKU. Help the buyer consume `tarka.pack_promote_export/v1` as backup and audit after desk Promote. Desk Promote stays the live source of truth. Git is backup, not go-live.
+Sev-3 how-to for the purchased pack, not a new SKU. Help the buyer consume `tarka.pack_promote_export/v1` as backup and audit after desk Promote. Desk Promote stays the live source of truth. Git is backup, not go-live.
 
 Contract: [pack promote export v1](docs/contracts/pack-promote-export-v1.md). Sample sink: [pack promote export consumer](docs/examples/pack-promote-export-consumer.md). Posture: [pack GitOps](docs/docs/guides/pack-gitops.md).
 
@@ -77,7 +77,7 @@ Do not use the export as Promote authority. Do not tell the buyer to wait for a 
 #### Verify desk Promote is the source of truth
 
 1. On the desk, the pack is Active after Promote confirm. That is go-live.
-2. Durable pack identity is the buyer’s desk / Postgres pack rows — not whether a branch merged.
+2. Durable pack identity is the buyer’s desk / Postgres pack rows, not whether a branch merged.
 3. A line in the export file is a copy of the Promote event. A missing or late line is not a demote.
 4. CI `policy-check` still gates pack schema. It does not replace desk Promote.
 
@@ -110,7 +110,7 @@ Replay is safe: same `pack_id` + `pack_hash` + `emitted_at` writes the same stub
 
 ### Severity response intent
 
-Intent, not a contract. No response-time hours and no availability nines live in this file — those would be fake SLAs. The purchased window (hours the pack engineer is on) is set at purchase, not here.
+Intent, not a contract. No response-time hours and no availability nines live in this file. Those would be fake SLAs. The purchased window (hours the pack engineer is on) is set at purchase, not here.
 
 | Class | Meaning | Intent |
 |-------|---------|--------|
@@ -135,7 +135,7 @@ Named-pilot buyers get a private channel **at purchase**. Until a pack is purcha
 | **Buyer owns warehouse / queue** | Postgres, Redis, object store, NATS/queue, and warehouse are buyer-operated. Empty plane URL = that plane off. We do not sell those as a Tarka Cloud. |
 | **Advise is optional / BYO** | Desk Advise is investigation-agent. Enable Helm `investigationAgent` only with a buyer OpenAI-compat URL + key. Empty URL = hide chrome (PlaneOff). Ingest Advise is `SHADOW_LLM_*`. No Tarka-branded model. |
 | **No hosted Tarka Cloud** | ELv2 forbids providing Tarka as a hosted or managed service to third parties. `infra/deploy/hosted/` is one-tenant pilot scaffolding, not a resale SKU. |
-| **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**) — not the product desk. |
+| **Beachhead CE** | last-mile / food / q-comm / gig / retail. Not banks as P0. `prod-on-k8s` is core-api HA (frontend **OFF**, Shadow **OFF**), not the product desk. |
 | **Grade not claimed here** | GitLab-grade only after G0–G8 land **and** a **named** beachhead pilot signs the [G9 soak checklist](docs/docs/guides/production-install-soak-checklist.md). This file is G8 (support pack). It is not G9 and not the grade. |
 
 Do not read this page as users, LOI volume, or ARR.

@@ -350,7 +350,7 @@ async def velocity_query(body: VelocityQueryRequest, request: Request):
     if not store:
         raise HTTPException(
             status_code=503,
-            detail="Redis not configured — set REDIS_URL or FEATURE_SERVICE_REDIS_URL to enable velocity reads",
+            detail="Redis not configured. Set REDIS_URL or FEATURE_SERVICE_REDIS_URL to enable velocity reads",
         )
     vel = await store.compute_features(body.tenant_id, body.entity_id, body.payload)
     return {
@@ -371,7 +371,7 @@ async def parity_verify(body: ParityVerifyRequest, request: Request):
     if not store:
         raise HTTPException(
             status_code=503,
-            detail="Redis not configured — cannot verify parity",
+            detail="Redis not configured. Cannot verify parity",
         )
     live = await store.compute_features(body.tenant_id, body.entity_id, body.payload)
     drift: dict[str, Any] = {}

@@ -182,7 +182,7 @@ function CaseQaPanel({ tenantId }: { tenantId: string }) {
 
       <p className="text-sm text-gray-500">
         Second-review queue from{" "}
-        <span className="font-mono text-xs text-gray-400">GET /v1/cases/ops/qa-*</span> — sample
+        <span className="font-mono text-xs text-gray-400">GET /v1/cases/ops/qa-*</span>, sample
         closed cases, record agree/disagree.
       </p>
 
@@ -362,7 +362,7 @@ function EventQaPanel({ tenantId }: { tenantId: string }) {
 
       <p className="text-sm text-gray-500">
         Blind review of evaluate events from{" "}
-        <span className="font-mono text-xs text-gray-400">decision_audit</span> — confirm
+        <span className="font-mono text-xs text-gray-400">decision_audit</span>, confirm
         whether the engine decision was correct without seeing it first.
       </p>
 
@@ -423,7 +423,7 @@ function EventQaPanel({ tenantId }: { tenantId: string }) {
           }`}
         >
           <span className="font-mono text-xs">{lastReview.trace_id.slice(0, 8)}</span>
-          {" — "}
+          {": "}
           {lastReview.agree ? "Agreed" : "Disagreed"} with engine decision:{" "}
           <span className="font-mono">{lastReview.original_decision}</span>
           {lastReview.original_score != null && (

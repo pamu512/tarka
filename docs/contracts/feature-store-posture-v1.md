@@ -15,7 +15,7 @@ Product field-registry overlays persist in Postgres. Demo PUTs may 403 / stay fi
 
 ## L1 ownership split (2026-09)
 
-Two distinct L1 Redis populations; neither is a shared "counter service" (that was deleted — write-only hop):
+Two distinct L1 Redis populations; neither is a shared "counter service" (that was deleted, write-only hop):
 
 | Keys | Writer | Reader | Notes |
 |------|--------|--------|-------|

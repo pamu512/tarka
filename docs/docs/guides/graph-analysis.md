@@ -16,11 +16,11 @@ When the URL is set, evaluate *may* upsert identity hops (fail-soft). When it is
 
 ## Day-1 Hunt depth
 
-Path B (D7.4). `hunt_depth_max=1`. AGE Hunt is `MATCH (root)-[e]-(nb)` — one hop from the seed. Desk `depth` 1–5 is a request hint. `GET /v1/subgraph` emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Contract: [hunt-depth-v1](../../contracts/hunt-depth-v1.md).
+Path B (D7.4). `hunt_depth_max=1`. AGE Hunt is `MATCH (root)-[e]-(nb)`, one hop from the seed. Desk `depth` 1–5 is a request hint. `GET /v1/subgraph` emits `tarka.hunt_depth/v1` (`depth_requested` / `depth_applied` / `degrade_reason`). Contract: [hunt-depth-v1](../../contracts/hunt-depth-v1.md).
 
 **Degrade.** `depth_requested` > `depth_applied` means the walk was capped. Path B token: `degrade_reason=hunt:depth_capped` and `depth_applied=1`. Desk glass must show both numbers. A capped response is not a full multi-hop neighborhood.
 
-**Plane off.** Empty `GRAPH_SERVICE_URL` turns Hunt and hops off (same plane as decide-time hops). Desk `/graph` renders UX0 `PlaneOff` — `GRAPH_SERVICE_URL` is empty; Hunt and sibling-identity hops are off; evaluate still runs; neighbors are not invented; this is not an outage. See [graph-planes-v1](../../contracts/graph-planes-v1.md).
+**Plane off.** Empty `GRAPH_SERVICE_URL` turns Hunt and hops off (same plane as decide-time hops). Desk `/graph` renders UX0 `PlaneOff`. `GRAPH_SERVICE_URL` is empty; Hunt and sibling-identity hops are off; evaluate still runs; neighbors are not invented; this is not an outage. See [graph-planes-v1](../../contracts/graph-planes-v1.md).
 
 **Not a CRM.** Leftovers and the queue seam are residual. Work arrives on `/leftovers` and happens on Hunt. See [analyst-control-loop](analyst-control-loop.md) and [queue-seam-sop](queue-seam-sop.md).
 
@@ -44,9 +44,9 @@ POST /v1/decisions/evaluate
 
 Over time, the graph reveals hidden connections:
 
-- **Shared devices** — Two accounts using the same `device_id` are connected through the Device node.
-- **Session chains** — Repeated sessions from the same account create temporal activity links.
-- **Cross-entity links** — KYC verification, referral relationships, and payment links can be added by the Integration Ingress service.
+- **Shared devices:** Two accounts using the same `device_id` are connected through the Device node.
+- **Session chains:** Repeated sessions from the same account create temporal activity links.
+- **Cross-entity links:** KYC verification, referral relationships, and payment links can be added by the Integration Ingress service.
 
 ### Default Entity Types
 
@@ -74,7 +74,7 @@ Over time, the graph reveals hidden connections:
 
 ## Community Detection
 
-Communities are connected components in the graph — groups of entities that are all reachable from each other. A single legitimate user typically forms a small community (1 account + 1–2 devices). Large communities often indicate coordinated fraud.
+Communities are connected components in the graph, groups of entities that are all reachable from each other. A single legitimate user typically forms a small community (1 account + 1–2 devices). Large communities often indicate coordinated fraud.
 
 ### API Call
 
@@ -145,9 +145,9 @@ tenant_id=acme&entity_id=user-42&depth=3&decay=0.5" \
 | `depth=1` | Only immediate neighbors |
 | `depth=3` (default) | Typical investigation radius |
 | `depth=5` (max) | Deep investigation, may include distant false positives |
-| `decay=0.3` | Aggressive drop-off — only very close entities get high scores |
+| `decay=0.3` | Aggressive drop-off, only very close entities get high scores |
 | `decay=0.5` (default) | Balanced propagation |
-| `decay=0.8` | Slow decay — risk spreads far into the network |
+| `decay=0.8` | Slow decay. Risk spreads far into the network |
 
 ### When to Use
 
@@ -161,9 +161,9 @@ tenant_id=acme&entity_id=user-42&depth=3&decay=0.5" \
 
 Find entities that share a specific property value. This is useful for detecting:
 
-- **Device sharing** — Multiple accounts using the same device fingerprint
-- **IP clustering** — Multiple accounts originating from the same IP
-- **Card reuse** — Same payment card hash across different accounts
+- **Device sharing:** Multiple accounts using the same device fingerprint
+- **IP clustering:** Multiple accounts originating from the same IP
+- **Card reuse:** Same payment card hash across different accounts
 
 ### API Call
 
@@ -189,7 +189,7 @@ Any property stored on a graph node can be queried. Common attributes:
 
 ## Fraud Ring Detection
 
-Fraud rings are cyclic patterns — a group of entities connected in a loop (A → B → C → A). These indicate coordinated schemes where multiple fake accounts are used together.
+Fraud rings are cyclic patterns, a group of entities connected in a loop (A → B → C → A). These indicate coordinated schemes where multiple fake accounts are used together.
 
 ### API Call
 
@@ -261,7 +261,7 @@ curl -s "http://localhost:8001/v1/subgraph?\
 entity_id=user-suspicious&tenant_id=acme&depth=2" | python -m json.tool
 ```
 
-`depth=2` is a hint. Day-1 AGE applies 1 hop and returns `depth_applied=1` with `degrade_reason=hunt:depth_capped`. Map the 1-hop neighborhood — devices, sessions, other accounts.
+`depth=2` is a hint. Day-1 AGE applies 1 hop and returns `depth_applied=1` with `degrade_reason=hunt:depth_capped`. Map the 1-hop neighborhood: devices, sessions, other accounts.
 
 ### Step 3: Check for Shared Devices
 
@@ -299,7 +299,7 @@ curl -s "http://localhost:8001/v1/analytics/risk-propagation?\
 tenant_id=acme&entity_id=user-suspicious&depth=3&decay=0.5" | python -m json.tool
 ```
 
-### Step 7: Tag (leftover / Hunt — not a CRM)
+### Step 7: Tag (leftover / Hunt, not a CRM)
 
 For each entity with a high propagated risk score, update tags. Work stays on leftovers + Hunt. Do not mint a case CRM ticket from this walk:
 
@@ -313,7 +313,7 @@ curl -X POST http://localhost:8001/v1/entities/user-connected/tags \
 
 ## Direct Cypher Queries
 
-For ad-hoc investigation, use Hunt (`/graph`) or graph-service HTTP on `:8001` (`GET /v1/subgraph`). Lite is Apache AGE on the same Postgres — Hunt-off is empty `GRAPH_SERVICE_URL`. The Cypher below is overlay-only (Janus / Bolt), not the lite path.
+For ad-hoc investigation, use Hunt (`/graph`) or graph-service HTTP on `:8001` (`GET /v1/subgraph`). Lite is Apache AGE on the same Postgres. Hunt-off is empty `GRAPH_SERVICE_URL`. The Cypher below is overlay-only (Janus / Bolt), not the lite path.
 
 ### Find the shortest path between two entities
 
@@ -362,4 +362,4 @@ ORDER BY connections DESC
 
 ## Decision API rule pack (shadow)
 
-The optional shadow pack `graph_shared_device_v1.json` targets graph/device relatedness tags (`sdk:shared_device`, `ring_shared_device`) — not geo co-presence. It is separate from `location_copresence_v1.json`, which handles session co-location and impossible-travel enrichment. Shared-device linkage answers **who is related via device graph**; location packs answer **optional geo enrichment**. Packs stay `mode=shadow` until a human Promotes on `/ops/shadow`.
+The optional shadow pack `graph_shared_device_v1.json` targets graph/device relatedness tags (`sdk:shared_device`, `ring_shared_device`), not geo co-presence. It is separate from `location_copresence_v1.json`, which handles session co-location and impossible-travel enrichment. Shared-device linkage answers **who is related via device graph**; location packs answer **optional geo enrichment**. Packs stay `mode=shadow` until a human Promotes on `/ops/shadow`.

@@ -273,7 +273,7 @@ export default function Cases() {
         return next;
       });
       await fetchCases();
-      toast("Rejected — case closed.", "success");
+      toast("Rejected, case closed.", "success");
     } catch (e) {
       setError(toUserFacingApiError(e, { subject: "Case status", action: "close case" }));
     }
@@ -447,7 +447,7 @@ export default function Cases() {
         <div className="rounded-xl border border-surface-700 bg-surface-900/40 px-4 py-3 text-sm text-gray-300 space-y-1">
           <div className="font-medium text-gray-200">Cohort volume + mix (7d vs prior)</div>
           <p className="text-xs text-gray-500 leading-relaxed">
-            From <span className="font-mono">/v1/cases/analytics/cohort-compare</span> —{" "}
+            From <span className="font-mono">/v1/cases/analytics/cohort-compare</span>:{" "}
             <span className="text-gray-300 font-mono">{cohort.cases_created_recent}</span> cases this window vs{" "}
             <span className="text-gray-300 font-mono">{cohort.cases_created_prior}</span> prior
             {cohort.delta_percent_vs_prior != null
@@ -484,7 +484,7 @@ export default function Cases() {
           <p className="text-xs text-gray-500 leading-relaxed">
             Open cases appear here for triage. Use{" "}
             <span className="text-gray-300 font-medium">Approve</span> to accept a case into investigation without
-            opening the detail view — the row disappears immediately while the update runs in the background. If the
+            opening the detail view, the row disappears immediately while the update runs in the background. If the
             request fails, the case is restored and an error toast explains why.
           </p>
         </div>
@@ -494,7 +494,7 @@ export default function Cases() {
         <div className="rounded-xl border border-surface-700 bg-surface-900/40 p-4 space-y-3">
           <div className="text-sm font-medium text-gray-300">Case desk activity (audit)</div>
           <p className="text-xs text-gray-500">
-            From <span className="font-mono">/v1/cases/ops/desk-activity</span> — analyst touches (comments, status, labels)
+            From <span className="font-mono">/v1/cases/ops/desk-activity</span>, analyst touches (comments, status, labels)
             in the last {deskActivity.period_days}d.
           </p>
           <div className="flex flex-wrap gap-2 text-xs">

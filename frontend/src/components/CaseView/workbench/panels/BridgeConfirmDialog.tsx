@@ -176,7 +176,7 @@ export function BridgeConfirmDialog({ onConfirm, onCancel }: BridgeConfirmDialog
           ) : schemaOk === true ? (
             <span className="text-emerald-400/90">✓ tarka.bridge.case_state_change/v1 fixture accepted</span>
           ) : schemaOk === false ? (
-            <span className="text-amber-300/90">Schema validation skipped or unavailable — proceed with audited case-api update.</span>
+            <span className="text-amber-300/90">Schema validation skipped or unavailable, proceed with audited case-api update.</span>
           ) : null}
         </div>
         <div className="flex justify-end gap-2">

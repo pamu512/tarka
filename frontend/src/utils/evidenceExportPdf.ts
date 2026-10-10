@@ -149,7 +149,7 @@ export function buildCaseWorkspaceEvidencePdfBlob(snapshot: CaseWorkspaceEvidenc
     doc,
     y,
     [
-      `${snapshot.productName} — case workspace snapshot for legal / compliance review.`,
+      `${snapshot.productName}: case workspace snapshot for legal / compliance review.`,
       `Generated (UTC): ${snapshot.generatedAtIso}`,
       "Internal URLs, raw JSON envelopes, and full opaque identifiers are omitted or abbreviated.",
     ],
@@ -237,7 +237,7 @@ export function buildCaseWorkspaceEvidencePdfBlob(snapshot: CaseWorkspaceEvidenc
     y = addLines(doc, y, ["No comments recorded on this case."], pageInnerWidth, pageHeight);
   } else {
     for (const c of snapshot.comments) {
-      const block = `${c.timestamp} — ${sanitizeEvidenceText(c.author, 120)}:\n${sanitizeEvidenceText(c.text, 2000)}`;
+      const block = `${c.timestamp}: ${sanitizeEvidenceText(c.author, 120)}:\n${sanitizeEvidenceText(c.text, 2000)}`;
       y = addLines(doc, y, [block], pageInnerWidth, pageHeight);
       y += 4;
     }

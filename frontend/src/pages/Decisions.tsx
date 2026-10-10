@@ -284,12 +284,12 @@ export default function Decisions() {
       <div className="space-y-1">
         <PageTitle module="dashboard">Decisions</PageTitle>
         <FirstHourHint
-          job="Each row is a receipt: what the pack decided and which pack fired. Open the row for why. ALLOW means continue — no leftover. REVIEW or DENY: Open receipt, then Create Observe draft on Leftovers."
+          job="Each row is a receipt: what the pack decided and which pack fired. Open the row for why. ALLOW means continue, no leftover. REVIEW or DENY: Open receipt, then Create Observe draft on Leftovers."
           nextTo="/leftovers"
           nextLabel="Leftovers"
         />
         <p className="text-sm text-gray-500">
-          Journey decision stream — progressive friction from signup through login, payment, and
+          Journey decision stream: progressive friction from signup through login, payment, and
           beyond. Filter by event type to isolate any step. Empty until audit/recent returns live
           rows; Tarka does not invent fixtures.
         </p>
@@ -403,7 +403,7 @@ export default function Decisions() {
         ) : filtered.length === 0 ? (
           <p className="p-6 text-sm text-gray-500" data-testid="decisions-empty">
             {items.length === 0
-              ? "No recent decisions for this tenant. Empty means none came back — not an outage. Tarka does not invent receipts."
+              ? "No recent decisions for this tenant. Empty means none came back, not an outage. Tarka does not invent receipts."
               : "No decisions match the current filters."}
           </p>
         ) : (

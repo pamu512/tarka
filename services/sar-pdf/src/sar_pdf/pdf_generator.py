@@ -46,7 +46,7 @@ def sar_shadow_json_to_formal_pdf_bytes(
         leftMargin=inch * 0.75,
         topMargin=inch * 0.75,
         bottomMargin=inch * 0.75,
-        title="Suspicious Activity Report (SAR) — Draft",
+        title="Suspicious Activity Report (SAR): Draft",
     )
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle("SARH1", parent=styles["Heading1"], fontSize=16, spaceAfter=14)

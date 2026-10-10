@@ -42,8 +42,8 @@ Script path: [`scripts/oss/soak_backup_upgrade_dry_run.py`](../../../scripts/oss
 
 The script:
 
-1. **G6** — calls [`infra/scripts/deploy/backup_restore_drill.sh --dry-run`](../../../infra/scripts/deploy/backup_restore_drill.sh). Runbook: [production-backup-restore](../../docs/guides/production-backup-restore.md).
-2. **G7** — prints dated evidence and docs-links [production-upgrade](../../docs/guides/production-upgrade.md) (digest-to-digest `helm template` on the cluster host). No cluster Helm apply in CI.
+1. **G6**: calls [`infra/scripts/deploy/backup_restore_drill.sh --dry-run`](../../../infra/scripts/deploy/backup_restore_drill.sh). Runbook: [production-backup-restore](../../docs/guides/production-backup-restore.md).
+2. **G7**: prints dated evidence and docs-links [production-upgrade](../../docs/guides/production-upgrade.md) (digest-to-digest `helm template` on the cluster host). No cluster Helm apply in CI.
 3. Prints dated evidence. It does **not** sign the soak checklist.
 
 ## Related

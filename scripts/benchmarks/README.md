@@ -29,7 +29,7 @@ TPS ≈ `requests / wall_clock_seconds` (use `/usr/bin/time` or PowerShell `Meas
 
 ## Simulation metrics (precision / recall / F1)
 
-For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run`** and **`/v1/simulation/ab-test`** — see [shadow-and-ab-testing.md](../../docs/docs/guides/shadow-and-ab-testing.md). These are **not** substitutes for production holdouts unless you align distributions.
+For **labeled synthetic** scenarios, use Decision API **`POST /v1/simulation/run`** and **`/v1/simulation/ab-test`**. See [shadow-and-ab-testing.md](../../docs/docs/guides/shadow-and-ab-testing.md). These are **not** substitutes for production holdouts unless you align distributions.
 
 ### Vertical pack baseline-vs-pack smoke (`vertical_benchmark_smoke.py`)
 
@@ -61,7 +61,7 @@ CI: `test_api_endpoints.py::test_benchmark_vertical_pack_reproducible_with_seed`
 
 ## Throughput tools
 
-- **`load-hey-evaluate.sh`** — optional **[hey](https://github.com/rakyll/hey)** wrapper for `POST /v1/decisions/evaluate` (install `hey` via Go toolchain). Falls back to a single `curl` if `hey` is missing.
+- **`load-hey-evaluate.sh`**: optional **[hey](https://github.com/rakyll/hey)** wrapper for `POST /v1/decisions/evaluate` (install `hey` via Go toolchain). Falls back to a single `curl` if `hey` is missing.
 
 For heavier HTTP loads, add **k6** in CI or a separate workflow; keep **`latency_evaluate.py`** **dependency-free** for quick sanity checks.
 
@@ -102,7 +102,7 @@ These jobs sanity-check scripts and scoring behavior; they are not publishable l
 
 ## Hypothetical enterprise projections (non-SLO)
 
-The following are **capacity-planning thought experiments** only — not shipped guarantees. Do not paste into root README or release notes as product metrics.
+The following are **capacity-planning thought experiments** only, not shipped guarantees. Do not paste into root README or release notes as product metrics.
 
 | Metric | Local Dev Baseline (illustrative) | Enterprise Cloud (Hypothetical Projection) |
 |--------|----------------------------------:|-------------------------------------------:|

@@ -14,7 +14,7 @@ Volume: 50,000 Person + 20,000 Device + 30,000 Payment = 100,000 vertices,
 | persons | 762/sec |
 | devices | 836/sec |
 | payments | 772/sec |
-| links (100,200) | completed fully — no 502s after the DDL-race retry (58d368c5) |
+| links (100,200) | completed fully, no 502s after the DDL-race retry (58d368c5) |
 
 ## Reads (p50 over probe runs, post directed-walk fix)
 

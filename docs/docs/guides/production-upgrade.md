@@ -2,7 +2,7 @@
 
 Helm upgrade playbook between two **beta** tags or **sha256 digests** on a single-cluster `prod-on-k8s` beachhead. Practice rollback on the named pilot before a grade claim.
 
-Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** This page does not claim GitLab-grade. Grade still requires G0–G8 plus the G9 checklist on a **named** last-mile / food / q-comm / gig / retail pilot — see [production-install-v1](../../contracts/production-install-v1.md). Chart catalog and `helm upgrade --install` first-apply: [deployment.md](deployment.md).
+Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** This page does not claim GitLab-grade. Grade still requires G0–G8 plus the G9 checklist on a **named** last-mile / food / q-comm / gig / retail pilot, see [production-install-v1](../../contracts/production-install-v1.md). Chart catalog and `helm upgrade --install` first-apply: [deployment.md](deployment.md).
 
 **Digests preferred for prod.** A mutable `1.3.0-beta` tag is not a pin. Tag is ignored when `coreApi.digest` / `signalApi.digest` / `investigationAgent.digest` is set.
 
@@ -32,7 +32,7 @@ Run the backup drill in [production-backup-restore.md](production-backup-restore
 
 3. **Schema.** Diff `alembic heads` against the running revision. This image may only ship **expand** revisions. Production Postgres runs `alembic upgrade head` on core-api / case-api **start** (before evaluate is ready). Helm rollback does **not** undo that. Do not ship an `upgrade()` / UP that `DROP TABLE` / `DROP COLUMN` / `TRUNCATE`s durable names (`decision_audit`, `audit_logs`, `investigation_cases`, packs, labels).
 
-4. **Packs.** Every live file under `RULES_PATH` is pack `version` **1** (field optional; default 1). Unknown versions are **not** loaded — fail closed, logged, not silent.
+4. **Packs.** Every live file under `RULES_PATH` is pack `version` **1** (field optional; default 1). Unknown versions are **not** loaded, fail closed, logged, not silent.
 
 5. **Enforcement.** `GET /decisions/v1/ops/enforcement-mode` returns `emit_only`. If it is `handoff`, force emit-only first (kill switches) or postpone.
 
@@ -108,9 +108,9 @@ curl -fsS -X POST "$CORE/decisions/v1/decisions/evaluate" \
 curl -fsS -H "X-API-Key: $API_KEY" "$CORE/decisions/v1/ops/governance"
 ```
 
-`role` is required. Empty role registry accepts a safe token (e.g. `member`); a locked registry must use a registered pilot role — unsigned / missing role is **422**, not a reason to rollback the image.
+`role` is required. Empty role registry accepts a safe token (e.g. `member`); a locked registry must use a registered pilot role. Unsigned / missing role is **422**, not a reason to rollback the image.
 
-Pass: HTTP 200, pack-why / receipt present, `enforcement_mode` is `emit_only`, `rule_packs.active_pack_count` matches preflight, no 5xx burst on `/metrics`. Fail: 503 fail-closed (empty `API_KEYS`), missing idempotency, unknown pack version emptying live rules, or ready probe red — **rollback**.
+Pass: HTTP 200, pack-why / receipt present, `enforcement_mode` is `emit_only`, `rule_packs.active_pack_count` matches preflight, no 5xx burst on `/metrics`. Fail: 503 fail-closed (empty `API_KEYS`), missing idempotency, unknown pack version emptying live rules, or ready probe red. **Rollback**.
 
 ## Rollback
 
@@ -157,7 +157,7 @@ Live packs are JSON `version` **1** ([rules.md](rules.md)). Desk Promote is the 
 | `mode: disabled` | Not evaluated. Visible on Observe disabled list. |
 | Unreadable JSON | Warning log; file skipped. |
 
-After upgrade, `GET /decisions/v1/ops/governance` pack count must not silently drop versus preflight. If a pack disappeared, treat it as fail-closed and rollback or restore the file — do not invent rules.
+After upgrade, `GET /decisions/v1/ops/governance` pack count must not silently drop versus preflight. If a pack disappeared, treat it as fail-closed and rollback or restore the file. Do not invent rules.
 
 ## Kill switches
 
@@ -166,7 +166,7 @@ Product-side: Tarka evaluate is **advisory** unless the buyer has contracted `ha
 | Switch | How | Product-side |
 |--------|-----|----------------|
 | **Disable pack** | `PUT /decisions/v1/rules/{filename}/mode` body `{"mode":"disabled"}` with `X-Rule-Governance-Secret`. Or set `"mode": "disabled"` on the JSON and reload. | That pack stops scoring. Other live packs still evaluate. Not a CRM “Kill” button. Live → Observe demote is propose→confirm; disable is the incident switch. |
-| **Force `emit_only`** | `TARKA_ENFORCEMENT_MODE=emit_only` on core-api (`coreApi.extraEnv` or `kubectl set env deploy/tarka-tarka-core-api`). Env is read at process start — rollout the pod. Confirm `GET /decisions/v1/ops/enforcement-mode`. | HTTP `action` is advisory. `decision.enforced` webhooks stop. Product copy must not say Tarka blocked. Contract: [enforcement-v1](../../contracts/enforcement-v1.md). |
+| **Force `emit_only`** | `TARKA_ENFORCEMENT_MODE=emit_only` on core-api (`coreApi.extraEnv` or `kubectl set env deploy/tarka-tarka-core-api`). Env is read at process start. Rollout the pod. Confirm `GET /decisions/v1/ops/enforcement-mode`. | HTTP `action` is advisory. `decision.enforced` webhooks stop. Product copy must not say Tarka blocked. Contract: [enforcement-v1](../../contracts/enforcement-v1.md). |
 | **Drain to previous decisioning** | 1) Force `emit_only`. 2) Disable the new/bad pack if the pin is otherwise fine. 3) `helm rollback` to the from-pin. 4) Buyer systems ignore Tarka `action` until verify is green. | Drain is **buyer-owned**. Tarka does not host the payment/promo/courier path. Empty enforcement webhook URL = that sink off. |
 
 Dependency kill-switches (`disable_graph`, `rules_only` blend) stay in [fallback-emergency-runbook.md](fallback-emergency-runbook.md). They do not replace pack disable or helm rollback.

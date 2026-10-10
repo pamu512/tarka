@@ -534,7 +534,7 @@ export default function Investigation() {
               {aiLatencyMsP95 != null ? (
                 <>
                   {" "}
-                  — last probe p95 <span className="font-mono tabular-nums">{Math.round(aiLatencyMsP95)} ms</span>
+                  , last probe p95 <span className="font-mono tabular-nums">{Math.round(aiLatencyMsP95)} ms</span>
                 </>
               ) : null}
               . Copilot sends are blocked until you re-enable the plane.
@@ -559,7 +559,7 @@ export default function Investigation() {
               disabled={batchUploadBusy || sending || aiPlaneDisabled}
               onClick={() => batchFileRef.current?.click()}
               className="text-[11px] px-2.5 py-1 rounded-md bg-surface-800/90 hover:bg-surface-700 text-gray-300 border border-surface-700/70 disabled:opacity-50"
-              title="CSV, JSON, Excel — attaches batch_id to messages"
+              title="CSV, JSON, Excel, attaches batch_id to messages"
             >
               {batchUploadBusy ? "Uploading…" : "Batch file"}
             </button>
@@ -696,7 +696,7 @@ export default function Investigation() {
                 <div className="space-y-1.5">
                   {feedbackSummary.total === 0 ? (
                     <p className="text-[10px] text-gray-600">
-                      No ratings yet — use Helpful / Not helpful on replies.
+                      No ratings yet, use Helpful / Not helpful on replies.
                     </p>
                   ) : (
                     <>
@@ -893,7 +893,7 @@ export default function Investigation() {
       <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
         {!contextCaseId && (
           <div className="max-w-3xl mx-auto border-l-2 border-amber-500/40 pl-3 py-1 text-[13px] text-gray-400">
-            <span className="text-amber-200/80 font-medium">No case</span> —{" "}
+            <span className="text-amber-200/80 font-medium">No case</span>:{" "}
             <Link to={`/cases?tenant_id=${encodeURIComponent(contextTenantId)}`} className="text-brand-400/90 hover:underline">
               Open a case
             </Link>{" "}
@@ -1200,7 +1200,7 @@ function SkillChip({
       type="button"
       disabled={disabled}
       onClick={onTrigger}
-      title={title ?? (instant ? "Runs immediately" : "Fills the message box — edit then Send")}
+      title={title ?? (instant ? "Runs immediately" : "Fills the message box, edit then Send")}
       className={`text-left rounded-md border transition-colors disabled:opacity-40 ${
         instant
           ? "border-brand-500/20 bg-brand-600/[0.06] text-brand-200/90 hover:bg-brand-600/12"

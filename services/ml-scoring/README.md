@@ -1,6 +1,6 @@
 # ml-scoring (source library)
 
-Deploy surface: **signal-api** (`/ml` endpoints) — see
+Deploy surface: **signal-api** (`/ml` endpoints). See
 [service-ports](../../docs/docs/guides/service-ports.md). This directory is the
 source library signal-api mounts; it has no standalone compose service and no
 Dockerfile. Source lives in `packages/ml-scoring/src` (library); this

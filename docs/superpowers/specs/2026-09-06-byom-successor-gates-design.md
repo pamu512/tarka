@@ -21,7 +21,7 @@ Host slip still parks `slip_critic` drafts and pings Observe. BYO may suggest a 
 
 ## Gate
 
-`TARKA_BYO_SUCCESSOR_SUGGEST` — default off. Truthy: `1` / `true` / `yes` / `on`.
+`TARKA_BYO_SUCCESSOR_SUGGEST`: default off. Truthy: `1` / `true` / `yes` / `on`.
 
 Successor-shaped scout body (after the 409 check): `evidence.slip_kind` is `successor` or `retire`. Env off → **403** `byo_successor_suggest_off`. Env on → shadow only (existing `mode=shadow` rule).
 
@@ -31,7 +31,7 @@ Host `maybe_park_live_rule_slip` + `observe_notify` pings unchanged.
 
 ## Desk copy
 
-Successor lines: model suggested successor — human owns Promote. AI drafts stay distinct from `slip_critic`.
+Successor lines: model suggested successor. Human owns Promote. AI drafts stay distinct from `slip_critic`.
 
 ## Testing
 

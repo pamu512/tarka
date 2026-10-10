@@ -1,13 +1,13 @@
 # JanusGraph backend (same HTTP API as Neo4j)
 
-The graph service exposes a **single** REST contract (`/v1/entities`, `/v1/links`, `/v1/subgraph`, `/v1/analytics/*`). Callers (Decision API, Case UI, investigation / AI copilot) **do not change** when you switch backends—only **environment variables** and the deployed graph change.
+The graph service exposes a **single** REST contract (`/v1/entities`, `/v1/links`, `/v1/subgraph`, `/v1/analytics/*`). Callers (Decision API, Case UI, investigation / AI copilot) **do not change** when you switch backends. Only **environment variables** and the deployed graph change.
 
 ## Switching backends
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `GRAPH_BACKEND` | `janusgraph` | `neo4j` (Bolt + Cypher), `janusgraph` (Gremlin Server), or `age`. |
-| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | — | Used when `GRAPH_BACKEND=neo4j`. |
+| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` | n/a | Used when `GRAPH_BACKEND=neo4j`. |
 | `JANUSGRAPH_GREMLIN_URL` | `ws://localhost:8182/gremlin` | WebSocket URL to Gremlin Server when `GRAPH_BACKEND=janusgraph`. |
 | `JANUSGRAPH_TRAVERSAL_SOURCE` | `g` | Traversal source name on the server. |
 | `JANUSGRAPH_ANALYTICS_VERTEX_CAP` | `8000` | Upper bound on vertices loaded into memory for Janus-side analytics **and** search fallback when mixed index `vertexSearch` is not ENABLED (100–500000). |
@@ -16,7 +16,7 @@ No code changes are required in downstream services: keep `GRAPH_SERVICE_URL` po
 
 ## Ontology (contract v1.2)
 
-Identity is `(tenant_id, vtype, id)`. Vertex `user` is one id. `user:abc` and `device:abc` are different vertices — never unique-across-labels merge.
+Identity is `(tenant_id, vtype, id)`. Vertex `user` is one id. `user:abc` and `device:abc` are different vertices, never unique-across-labels merge.
 
 Core vtypes: `user` plus bridges `device`, `ip`, `phone`, `payment`, `place`, `promo`, `order`. Tenants may register more. `role` is a registered string property on user (`roles[]`). Unsigned vtype/etype/role is refused (HTTP 422), not rewritten to `RELATED` or `Custom`.
 
@@ -29,7 +29,7 @@ Entity upserts return `graph_id`: Neo4j returns `elementId`; JanusGraph returns 
 1. Run **Gremlin Server** reachable at `JANUSGRAPH_GREMLIN_URL` (WebSocket).
 2. Bind a **global traversal source** (typically `g`) matching `JANUSGRAPH_TRAVERSAL_SOURCE`.
 3. **Indexes (created on first graph-service connect, and the same Groovy is mounted in the Cassandra demo):**
-   - Composite identity on `(tenant_id, label, external_id)` — lookups are `hasLabel(vtype).has("tenant_id").has("external_id")`. A leftover unique index on `(tenant_id, external_id)` only is incorrect and must not be used.
+   - Composite identity on `(tenant_id, label, external_id)`: lookups are `hasLabel(vtype).has("tenant_id").has("external_id")`. A leftover unique index on `(tenant_id, external_id)` only is incorrect and must not be used.
    - Mixed index `vertexSearch` on backend `search` (demo Lucene: `index.search.backend = lucene`): `tenant_id` STRING, allowlisted search keys TEXTSTRING (`external_id`, `email`, `device_id`, `address`, `line1`, `phone`, `ip`, `user_id`, `card_id`).
 4. **Search:** JanusGraph is case-insensitive **prefix** (`textContainsPrefix` + Python `startswith` re-check). Neo4j/AGE remain CONTAINS. If `vertexSearch` is not ENABLED, search scans at most `JANUSGRAPH_ANALYTICS_VERTEX_CAP` vertices and sets `truncated: true` when that cap is hit.
 5. **GRAPH_INGEST** stamps `tenant_id` from `metadata.tenant_id` and `external_id` equal to the native key (`device_id`, `email`, …). Missing tenant → no Gremlin write (`reason=no_tenant`). Vertices that still lack `tenant_id`/`external_id` miss typeahead and cannot seed subgraph.

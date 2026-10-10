@@ -18,8 +18,8 @@ export function PayoutDelayHoldBadge({
     <span
       title={
         typeof muleScore === "number"
-          ? `Funds held — JanusGraph mule_score ${muleScore}`
-          : "Funds held — payout delay automation"
+          ? `Funds held: JanusGraph mule_score ${muleScore}`
+          : "Funds held: payout delay automation"
       }
       className={`inline-flex items-center gap-1 rounded border border-violet-500/50 bg-violet-950/35 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-200 ${className}`}
     >

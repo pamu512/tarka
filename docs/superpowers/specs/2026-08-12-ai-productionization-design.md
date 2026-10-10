@@ -16,7 +16,7 @@ Make force-multiplier AI claims true on a **product path**:
 
 - Decision-api / rules remain sole allow/deny authority.  
 - Never invent velocity baselines.  
-- Drafts stay `PENDING_VALIDATION` (`wasm_ready=false`); tick/auto promote stays `409 never_auto_promote`. Human + `backtest_job_id` + graph may set `gitops_ready` (not live Wasm) — [2026-08-13 agent-run spine](./2026-08-13-agent-run-spine-design.md).  
+- Drafts stay `PENDING_VALIDATION` (`wasm_ready=false`); tick/auto promote stays `409 never_auto_promote`. Human + `backtest_job_id` + graph may set `gitops_ready` (not live Wasm): [2026-08-13 agent-run spine](./2026-08-13-agent-run-spine-design.md).  
 - Tick defaults to `skip_llm` (policy escalate).  
 
 ## Loop
@@ -44,7 +44,7 @@ cron | Ops “Run tick”
 
 ### Baselines
 
-Per `(tenant_id, entity_id, metric_key)` EWMA mean/std. Minimum sample count (default 3) before evaluate. First observations only seed the baseline — never evaluate from a single point.
+Per `(tenant_id, entity_id, metric_key)` EWMA mean/std. Minimum sample count (default 3) before evaluate. First observations only seed the baseline, never evaluate from a single point.
 
 ## Surfaces
 
@@ -59,7 +59,7 @@ Per `(tenant_id, entity_id, metric_key)` EWMA mean/std. Minimum sample count (de
 | `TREND_TICK_SKIP_LLM` | `1` | Tick uses policy path without LLM |
 | `TREND_WATCH_ON_INGEST` | `1` (prod-like) | Orchestrator enqueues watch |
 | `TREND_BASELINE_MIN_N` | `3` | Min EWMA samples before evaluate |
-| `DECISION_API_URL` | — | Orchestrator watch target |
+| `DECISION_API_URL` | n/a | Orchestrator watch target |
 
 ## Non-goals
 

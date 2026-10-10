@@ -268,7 +268,7 @@ export default function BulkTriage() {
             value={resolutionComment}
             onChange={(e) => setResolutionComment(e.target.value)}
             rows={4}
-            placeholder="e.g. Confirmed template phishing — aligned with fraud ops playbook 2026-Q2; no SAR threshold."
+            placeholder="e.g. Confirmed template phishing, aligned with fraud ops playbook 2026-Q2; no SAR threshold."
             className="w-full bg-surface-950 border border-surface-600 text-gray-200 text-sm rounded-lg px-3 py-2 font-sans"
           />
           <div className="flex flex-wrap gap-2">

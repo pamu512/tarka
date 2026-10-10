@@ -106,7 +106,7 @@ export function TuneRuleModal({
               Tune rule
             </h2>
             <p className="text-xs text-gray-500 mt-1">
-              Legacy canvas pre-loaded from the fired rule — not a product SKU. Prefer SentencePackPanel on
+              Legacy canvas pre-loaded from the fired rule, not a product SKU. Prefer SentencePackPanel on
               ObserveEasePanel. Save still updates the pack on the decision API (governance secret may be required).
             </p>
           </div>
@@ -155,7 +155,7 @@ export function TuneRuleModal({
               persistTarget={persist}
             />
           ) : !err && ruleHits.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No rule hits on this audit — nothing to tune.</p>
+            <p className="text-sm text-gray-500 py-8 text-center">No rule hits on this audit, nothing to tune.</p>
           ) : !err ? (
             <p className="text-sm text-gray-500 py-8 text-center">Could not load the rule graph.</p>
           ) : null}

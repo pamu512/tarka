@@ -435,7 +435,7 @@ export default function OsintEnrichment() {
           </Link>
           <span className="text-gray-600"> · </span>
           <Link to="/integrations#secure-osint-plugin-hub" className="text-sky-400/90 hover:underline">
-            Secure OSINT plugin hub — configure vendor API keys
+            Secure OSINT plugin hub: configure vendor API keys
           </Link>{" "}
           (password fields, TLS in production, masked after save).
         </p>

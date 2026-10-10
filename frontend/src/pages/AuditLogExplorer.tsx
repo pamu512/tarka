@@ -115,7 +115,7 @@ export default function AuditLogExplorer(): ReactElement {
         <PageTitle module="analytics">Audit Log Explorer</PageTitle>
         <p className="text-sm text-gray-500 max-w-4xl leading-relaxed">
           Keyset-paged decision audit feed with <span className="text-gray-400">windowed virtual scrolling</span> (TanStack
-          Virtual + Table). Only visible rows touch the DOM — suitable when the warehouse holds millions of evaluations.
+          Virtual + Table). Only visible rows touch the DOM, suitable when the warehouse holds millions of evaluations.
           Wire <code className="text-gray-400">GET /v1/audit/explorer</code> to ClickHouse / Postgres replicas with keyset
           pagination (avoid large OFFSET).
         </p>
@@ -155,7 +155,7 @@ export default function AuditLogExplorer(): ReactElement {
 
         {atBufferCap ? (
           <p className="text-[11px] text-amber-400/90 shrink-0 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/5">
-            Buffered row cap ({MAX_BUFFERED_ROWS.toLocaleString()}) reached — narrow search or reload to explore other
+            Buffered row cap ({MAX_BUFFERED_ROWS.toLocaleString()}) reached, narrow search or reload to explore other
             windows.
           </p>
         ) : null}
@@ -170,7 +170,7 @@ export default function AuditLogExplorer(): ReactElement {
 
         {searchActive && !loadingInitial ? (
           <p className="text-[11px] text-gray-600 shrink-0">
-            Search scans forward in mock mode with a bounded step budget — production should push filtering into the
+            Search scans forward in mock mode with a bounded step budget. Production should push filtering into the
             warehouse.
           </p>
         ) : null}

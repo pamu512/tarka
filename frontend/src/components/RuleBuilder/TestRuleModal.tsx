@@ -146,7 +146,7 @@ export function TestRuleModal({ open, onClose, visualPack }: Props) {
           ) : (
             <>
               <p className="text-xs text-slate-500">
-                POSTs a full <code className="text-slate-400">EvaluateRequest</code> to production evaluate — your canvas rule is{" "}
+                POSTs a full <code className="text-slate-400">EvaluateRequest</code> to production evaluate, your canvas rule is{" "}
                 <strong>not</strong> injected unless the server supports it. Use for payload sanity checks.
               </p>
               <textarea

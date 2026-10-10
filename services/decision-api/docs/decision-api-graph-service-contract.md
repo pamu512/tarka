@@ -102,7 +102,7 @@ Use **`graph_data_as_of`** for ingestion lag. Decision API warns when this times
 
 ## Graph answers on evaluate (contract v1.2)
 
-Evaluate still keeps `entity_id` as the user id. The hop must also consume **named edges**, `multi_id_user_ids`, and `roles[]` onto `inference_context`, `pack_why.graph`, and the audit receipt. Empty `GRAPH_SERVICE_URL` is `graph:missing` / `graph:unconfigured` — do not stub neighbors. Timeout degrades; do not invent edges.
+Evaluate still keeps `entity_id` as the user id. The hop must also consume **named edges**, `multi_id_user_ids`, and `roles[]` onto `inference_context`, `pack_why.graph`, and the audit receipt. Empty `GRAPH_SERVICE_URL` is `graph:missing` / `graph:unconfigured`. Do not stub neighbors. Timeout degrades; do not invent edges.
 
 Rules still match tags and score deltas. Topology is not a second rule language.
 
@@ -142,7 +142,7 @@ warn_if_graph_risk_stale(
 | Metric `tarka_graph_risk_stale_total` | Same condition |
 | Log `graph_risk_freshness_unparseable` | `graph_data_as_of` present but not ISO-8601 |
 
-The check is **warn-only** — stale graph data still flows to the Rule Engine so operators can detect lag without fail-closing evaluate. Tune the threshold per deployment (batch ingest vs real-time orchestrator writes).
+The check is **warn-only**. Stale graph data still flows to the Rule Engine so operators can detect lag without fail-closing evaluate. Tune the threshold per deployment (batch ingest vs real-time orchestrator writes).
 
 Graph-service sets `graph_data_as_of` from vertex properties; `POST /v1/entities` upserts set `updated_at = datetime()` on Neo4j.
 
