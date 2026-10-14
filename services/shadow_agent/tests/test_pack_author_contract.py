@@ -7,7 +7,9 @@ scout suggested_shadow_rule template validation.
 
 from __future__ import annotations
 
+import asyncio
 import copy
+import json
 
 import pytest
 
@@ -21,7 +23,11 @@ from pack_author_contract import (
     validate_suggested_shadow_rule_template,
     ai_authored_pack_json_schema,
     build_llm_directive,
+    classify_sop_chunks,
+    evidence_is_thin,
+    sop_draft_errors,
 )
+from pack_author_llm import author_pack_from_hypothesis
 
 
 def _valid_pack() -> dict:
@@ -387,3 +393,170 @@ def test_version_2_rejected():
     pack["version"] = 2
     result = validate_ai_authored_pack(pack)
     assert result["ok"] is False
+
+
+# --- SOP / OKF allowlist ---
+
+_SOP = "Refunds above four hundred require a duty supervisor on the desk."
+_OFF = "Unlisted desk rule: always deny new device logins from this tenant."
+
+
+def _rich_report() -> dict:
+    return {
+        "report_id": "rpt-sop-1",
+        "fingerprint_value": "abc123",
+        "distinct_account_count": 4,
+    }
+
+
+def _allowlisted_chunk() -> dict:
+    return {"id": "okf-1", "text": _SOP, "allowlisted": True}
+
+
+class _RecordingLLM:
+    def __init__(self, response):
+        self._response = response
+        self.calls = 0
+        self.messages = None
+
+    async def chat_json_validated(self, messages, *, model=None):
+        self.calls += 1
+        self.messages = messages
+        return self._response
+
+
+def test_unallowlisted_sop_text_is_rejected():
+    pack = _valid_pack()
+    pack["description"] = _OFF
+    errors = sop_draft_errors(
+        pack,
+        [_allowlisted_chunk(), {"id": "x", "text": _OFF, "allowlisted": False}],
+    )
+    assert any("unallowlisted" in err for err in errors)
+
+
+def test_sop_text_is_not_a_feature_or_score():
+    pack = _valid_pack()
+    pack["rules"][0]["when"] = [{"field": "canvas_hash", "op": "eq", "value": _SOP}]
+    errors = sop_draft_errors(pack, [_allowlisted_chunk()])
+    assert any("not a feature" in err for err in errors)
+    pack["rules"][0]["when"] = [{"field": "canvas_hash", "op": "eq", "value": "abc123"}]
+    pack["rules"][0]["score_delta"] = _SOP
+    errors = sop_draft_errors(pack, [_allowlisted_chunk()])
+    assert any("not a score" in err for err in errors)
+
+
+def test_empty_and_thin_sop_do_not_draft():
+    client = _RecordingLLM(_valid_pack())
+    empty = asyncio.run(author_pack_from_hypothesis(_rich_report(), client, sop_chunks=[]))
+    assert empty["ok"] is False
+    assert empty["abstained"] is True
+    assert "pack" not in empty
+    assert "sop_missing" in empty["errors"]
+    assert client.calls == 0
+
+    thin = asyncio.run(
+        author_pack_from_hypothesis(
+            _rich_report(),
+            client,
+            sop_chunks=[{"id": "okf-1", "text": "too short", "allowlisted": True}],
+        )
+    )
+    assert thin["ok"] is False
+    assert "pack" not in thin
+    assert client.calls == 0
+
+
+def test_thin_evidence_abstains_before_model():
+    client = _RecordingLLM(_valid_pack())
+    result = asyncio.run(author_pack_from_hypothesis({}, client, sop_chunks=[_allowlisted_chunk()]))
+    assert result["ok"] is False
+    assert result["errors"] == ["thin_evidence"]
+    assert "pack" not in result
+    assert client.calls == 0
+    assert evidence_is_thin({}) is True
+    assert evidence_is_thin(_rich_report()) is False
+
+
+def test_unallowlisted_text_is_not_sent_and_not_accepted():
+    drafted = _valid_pack()
+    drafted["description"] = _OFF
+    client = _RecordingLLM(drafted)
+    result = asyncio.run(
+        author_pack_from_hypothesis(
+            _rich_report(),
+            client,
+            sop_chunks=[
+                _allowlisted_chunk(),
+                {"id": "secret", "text": _OFF, "allowlisted": False},
+            ],
+        )
+    )
+    assert result["ok"] is False
+    assert any("unallowlisted" in err for err in result["errors"])
+    assert "pack" not in result
+    blob = json.dumps(client.messages)
+    assert _SOP in blob
+    assert _OFF not in blob
+
+
+def test_allowlisted_observe_draft_cites_ids_only():
+    drafted = _valid_pack()
+    drafted["evidence"] = {"sop_chunk_ids": ["okf-1"], "report_id": "rpt-sop-1"}
+    client = _RecordingLLM(drafted)
+    result = asyncio.run(
+        author_pack_from_hypothesis(
+            _rich_report(),
+            client,
+            sop_chunks=[_allowlisted_chunk()],
+        )
+    )
+    assert result["ok"] is True
+    assert result["pack"]["mode"] == "shadow"
+    assert "promote" not in result["pack"]
+    assert classify_sop_chunks(None)["state"] == "absent"
+
+
+def test_missing_sop_stays_missing_on_the_same_in_vpc_call():
+    drafted = _valid_pack()
+    client = _RecordingLLM(drafted)
+    result = asyncio.run(author_pack_from_hypothesis(_rich_report(), client))
+    assert result["ok"] is True
+    assert result["pack"]["mode"] == "shadow"
+    assert "promote" not in result["pack"]
+    assert client.calls == 1
+    blob = json.dumps(client.messages)
+    assert "Allowlisted tenant SOP" not in blob
+    assert classify_sop_chunks(None)["state"] == "absent"
+    assert classify_sop_chunks([])["state"] == "missing"
+    contract = load_contract_text()
+    assert "existing in-VPC" in contract
+    assert "Empty or missing SOP stays missing" in contract
+    assert "Do not Promote" in contract
+    assert "ALLOW" in contract and "DENY" in contract
+
+
+def test_llm_failure_does_not_echo_sop_text():
+    class _Boom:
+        async def chat_json_validated(self, messages, *, model=None):
+            raise RuntimeError("upstream " + _SOP)
+
+    result = asyncio.run(
+        author_pack_from_hypothesis(
+            _rich_report(),
+            _Boom(),
+            sop_chunks=[_allowlisted_chunk()],
+        )
+    )
+    assert result["ok"] is False
+    assert result["errors"] == ["llm_call_failed"]
+    assert _SOP not in json.dumps(result)
+
+
+def test_promote_and_allow_are_rejected():
+    pack = _valid_pack()
+    pack["promote"] = True
+    assert any("forbidden field promote" in err for err in sop_draft_errors(pack, None))
+    pack.pop("promote")
+    pack["rules"][0]["decision"] = "ALLOW"
+    assert any("forbidden" in err for err in sop_draft_errors(pack, None))
