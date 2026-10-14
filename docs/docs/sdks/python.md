@@ -77,6 +77,12 @@ ack = ingest.send_event(
 print(ack["ingest_id"])
 ```
 
+### Agent mandate
+
+Pass `actor_kind="agent"` with `mandate_caps` and `mandate_expires_at` on `DecisionClient.evaluate` / `evaluate_async` and on `EventIngestClient.send_event` / `send_batch`. Omit `actor_kind` and that key stays off the JSON body. Neither client adds a score or a decision, and neither defaults a missing actor to human.
+
+Empty caps are omitted. A timestamp at or before the current time, or an unparseable timestamp, sets `mandate_expired` to true. Numbers below 1e12 are Unix seconds; numbers at or above 1e12 are epoch milliseconds. `AGENT` is normalized to `agent`. Missing caps or a past expiry stay out of mandate. The ingest ack (`ingest_id`) is the receipt. `EventIngestClient` does not call evaluate.
+
 See **[Ingest, idempotency & replay](../guides/ingest-replay-onboarding.md)** for ports, metrics, and the offline replay script.
 
 ### Asynchronous

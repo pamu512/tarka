@@ -115,6 +115,61 @@ def test_evaluate_with_signing_secret_adds_hmac_headers():
         assert "X-Tarka-Signature" in hdrs
 
 
+def test_evaluate_omits_actor_kind_when_absent_and_adds_no_score():
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = _eval_response()
+    client = DecisionClient("http://api:8000", api_key="k")
+    with patch("httpx.Client") as MockClient:
+        inst = MockClient.return_value.__enter__.return_value
+        inst.post.return_value = mock_resp
+        client.evaluate("t1", "login", "e1", payload={"a": 1})
+        body = json.loads(inst.post.call_args.kwargs["content"].decode())
+    assert "actor_kind" not in body
+    assert "mandate_caps" not in body
+    assert "mandate_expired" not in body
+    assert "score" not in body
+    assert "decision" not in body
+    assert body.get("actor_kind") is None
+
+
+def test_evaluate_emits_agent_mandate_without_a_client_score():
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = _eval_response()
+    client = DecisionClient("http://api:8000", api_key="k")
+    with patch("httpx.Client") as MockClient:
+        inst = MockClient.return_value.__enter__.return_value
+        inst.post.return_value = mock_resp
+        client.evaluate(
+            "t1",
+            "login",
+            "e1",
+            actor_kind="agent",
+            mandate_caps={},
+            mandate_expires_at="2020-01-01T00:00:00Z",
+        )
+        past = json.loads(inst.post.call_args.kwargs["content"].decode())
+        inst.post.reset_mock()
+        client.evaluate(
+            "t1",
+            "login",
+            "e1",
+            actor_kind="agent",
+            mandate_caps={"spend_limit": 10},
+            mandate_expires_at="2099-01-01T00:00:00Z",
+        )
+        future = json.loads(inst.post.call_args.kwargs["content"].decode())
+    assert past["actor_kind"] == "agent"
+    assert "mandate_caps" not in past
+    assert past["mandate_expired"] is True
+    assert "score" not in past
+    assert "decision" not in past
+    assert future["mandate_caps"] == {"spend_limit": 10}
+    assert "mandate_expired" not in future
+    assert "score" not in future
+
+
 def test_strict_client_validates_response():
     mock_resp = MagicMock()
     mock_resp.raise_for_status = MagicMock()

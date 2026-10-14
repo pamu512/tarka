@@ -153,10 +153,65 @@ export interface EvaluateRequest {
   payload?: Record<string, unknown>;
   device_context?: DeviceContext | null;
   metadata?: Record<string, unknown>;
+  /** Omit when unknown. The client does not default this to human. */
+  actor_kind?: string;
+  mandate_caps?: Record<string, unknown> | null;
+  mandate_expires_at?: string | number | null;
+  mandate_expired?: boolean;
 }
 
-/** Body for `POST /v1/events` and batch items — same shape as evaluate without requiring a sync score. */
+/** Body for `POST /v1/events` and batch items — same shape as evaluate. No client-side score. */
 export type IngestEventRequest = EvaluateRequest;
+
+export function mandateExpired(value: unknown, nowMs: number = Date.now()): boolean {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    // Unix seconds are below 1e12. Larger values are epoch milliseconds.
+    const ms = value < 1e12 ? value * 1000 : value;
+    return ms <= nowMs;
+  }
+  if (typeof value !== "string" || value.trim() === "") return true;
+  const parsed = Date.parse(value.trim());
+  if (Number.isNaN(parsed)) return true;
+  return parsed <= nowMs;
+}
+
+/** Absent actor_kind stays off the object. Agent expiry is a flag. No score is added. */
+export function applyAgentMandate<T extends Record<string, unknown>>(
+  event: T,
+  nowMs: number = Date.now(),
+): T {
+  const out: Record<string, unknown> = { ...event };
+  const kind = out.actor_kind;
+  if (kind === undefined || kind === null || (typeof kind === "string" && kind.trim() === "") || typeof kind !== "string") {
+    delete out.actor_kind;
+    delete out.mandate_caps;
+    delete out.mandate_expires_at;
+    delete out.mandate_expired;
+    return out as T;
+  }
+  const norm = kind.trim();
+  if (norm.toLowerCase() !== "agent") {
+    out.actor_kind = norm;
+    return out as T;
+  }
+  out.actor_kind = "agent";
+  const caps = out.mandate_caps;
+  const capsEmpty =
+    caps == null ||
+    Array.isArray(caps) ||
+    typeof caps !== "object" ||
+    Object.keys(caps as Record<string, unknown>).length === 0;
+  if (capsEmpty) delete out.mandate_caps;
+  const expires = out.mandate_expires_at;
+  if (expires == null || (typeof expires === "string" && expires.trim() === "")) {
+    delete out.mandate_expires_at;
+    delete out.mandate_expired;
+    return out as T;
+  }
+  if (mandateExpired(expires, nowMs)) out.mandate_expired = true;
+  else delete out.mandate_expired;
+  return out as T;
+}
 
 export interface IngestEventResponse {
   accepted: boolean;
@@ -706,12 +761,13 @@ export class DecisionClient {
       body = { ...body, device_context: ctx };
     }
 
+    const wire = applyAgentMandate({ ...body } as Record<string, unknown>);
     const r = await this.fetchWithTimeout(
       this.url("/v1/decisions/evaluate"),
       {
         method: "POST",
         headers: this.headers(),
-        body: JSON.stringify(body),
+        body: JSON.stringify(wire),
       }
     );
     return (await r.json()) as EvaluateResponse;
@@ -828,18 +884,22 @@ export class EventIngestClient {
   ): Promise<IngestEventResponse> {
     const h = this.headers();
     if (idempotencyKey) h["Idempotency-Key"] = idempotencyKey;
+    const wire = applyAgentMandate({
+      tenant_id: body.tenant_id,
+      event_type: body.event_type,
+      entity_id: body.entity_id,
+      ...(body.session_id != null ? { session_id: body.session_id } : {}),
+      payload: body.payload ?? {},
+      ...(body.device_context != null ? { device_context: body.device_context } : {}),
+      ...(body.metadata != null ? { metadata: body.metadata } : {}),
+      ...(body.actor_kind != null ? { actor_kind: body.actor_kind } : {}),
+      ...(body.mandate_caps != null ? { mandate_caps: body.mandate_caps } : {}),
+      ...(body.mandate_expires_at != null ? { mandate_expires_at: body.mandate_expires_at } : {}),
+    });
     const r = await this.fetchWithTimeout(this.url("/v1/events"), {
       method: "POST",
       headers: h,
-      body: JSON.stringify({
-        tenant_id: body.tenant_id,
-        event_type: body.event_type,
-        entity_id: body.entity_id,
-        session_id: body.session_id ?? undefined,
-        payload: body.payload ?? {},
-        device_context: body.device_context ?? undefined,
-        metadata: body.metadata ?? undefined,
-      }),
+      body: JSON.stringify(wire),
     });
     return (await r.json()) as IngestEventResponse;
   }
@@ -853,7 +913,9 @@ export class EventIngestClient {
     const r = await this.fetchWithTimeout(this.url("/v1/events/batch"), {
       method: "POST",
       headers: h,
-      body: JSON.stringify({ events }),
+      body: JSON.stringify({
+        events: events.map((event) => applyAgentMandate({ ...event })),
+      }),
     });
     return (await r.json()) as IngestBatchResponse;
   }
