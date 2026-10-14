@@ -407,6 +407,18 @@ def build_evaluate_objects(
             }
         )
 
+    counterparty = _trim(pl.get("counterparty_entity_id"))
+    if counterparty and counterparty != person_id:
+        if not any(o["external_id"] == counterparty for o in objects):
+            _obj(counterparty, "Person", {})
+        links.append(
+            {
+                "from_external_id": person_id,
+                "to_external_id": counterparty,
+                "relationship": "TRANSACTED",
+            }
+        )
+
     return objects, links
 
 
