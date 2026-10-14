@@ -59,3 +59,16 @@ def test_decision_url_default_stays_unprefixed():
     text = SEED.read_text()
     assert 'default="http://localhost:8000"' in text
     assert "--tenant" not in text
+
+
+def test_demo_cold_path_seeds_and_product_does_not():
+    desk = (ROOT / "scripts" / "oss" / "up_desk.sh").read_text()
+    product = (ROOT / "scripts" / "oss" / "up_product.sh").read_text()
+    assert "seed_demo_data.py" not in product
+    assert desk.count("seed_demo_data.py") == 1
+    seed_at = desk.index("seed_demo_data.py")
+    first_walk = desk.index("walk_receipts.py")
+    assert first_walk < seed_at
+    assert desk.index("walk_receipts.py", seed_at) > seed_at
+    assert '--decision-url "http://127.0.0.1:${CORE_PORT}/decisions"' in desk
+    assert '--graph-url "http://127.0.0.1:${GRAPH_PORT}"' in desk
