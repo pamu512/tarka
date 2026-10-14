@@ -88,6 +88,9 @@ docs/site/
 # Brainstorm visual companion sessions (local mockups)
 .superpowers/
 
+# Linked git worktrees (local checkouts, not product files)
+.worktrees/
+
 # Local buyer script — not public product copy
 buyer-demo-5min.md
 
