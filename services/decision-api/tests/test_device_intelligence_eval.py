@@ -162,3 +162,15 @@ async def test_record_biometrics_only_for_nested_groups_and_write_errors_tag():
         shadow=False,
     )
     assert tags2 == ["device_intelligence:unavailable"]
+
+
+from pathlib import Path
+
+
+def test_pipeline_and_lifespan_call_the_helper():
+    root = Path(__file__).resolve().parents[1]
+    pipeline = (root / "src/decision_api/evaluate/pipeline.py").read_text()
+    main = (root / "src/decision_api/main.py").read_text()
+    assert "apply_prior_device_reputation" in pipeline
+    assert pipeline.count("record_device_intelligence_outcome") >= 3
+    assert "device_intelligence.set_client(redis_tags._client)" in main

@@ -934,6 +934,9 @@ async def lifespan(application: FastAPI):
         agg_store.set_client(redis_tags._client)
         fingerprint_store.set_client(redis_tags._client)
         entity_link_store.set_client(redis_tags._client)
+        from decision_api.device_intelligence import device_intelligence
+
+        device_intelligence.set_client(redis_tags._client)
         from decision_api.ehailing_escalation import ehailing_challenge_store
         from decision_api.marketplace_kyb_store import kyb_store
 
