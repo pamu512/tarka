@@ -72,7 +72,7 @@ def apply_agent_mandate(event: dict[str, Any], *, now: datetime | None = None) -
     sets ``mandate_expired`` true.
     """
     out = dict(event)
-    kind = out.get("actor_kind", None)
+    kind = out.get("actor_kind")
     missing_actor = "actor_kind" not in out or not isinstance(kind, str) or not kind.strip()
     if missing_actor:
         out.pop("actor_kind", None)
@@ -87,10 +87,10 @@ def apply_agent_mandate(event: dict[str, Any], *, now: datetime | None = None) -
         out["actor_kind"] = norm
         return out
     out["actor_kind"] = "agent"
-    caps = out.get("mandate_caps", None)
+    caps = out.get("mandate_caps")
     if "mandate_caps" not in event or not isinstance(caps, dict) or len(caps) == 0:
         out.pop("mandate_caps", None)
-    expires = out.get("mandate_expires_at", None)
+    expires = out.get("mandate_expires_at")
     if "mandate_expires_at" not in event or expires is None or (
         isinstance(expires, str) and not expires.strip()
     ):
