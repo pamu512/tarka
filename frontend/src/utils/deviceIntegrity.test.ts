@@ -14,6 +14,29 @@ describe("resolveDeviceIntegrity", () => {
     expect(view.biometrics).toBe(DEVICE_INTEGRITY_MISSING);
   });
 
+  it("keeps a missing device missing for an agent and does not call it risky", () => {
+    const view = resolveDeviceIntegrity({
+      evaluate_payload: { actor_kind: "agent" },
+    });
+    expect(view.rooted).toBe(DEVICE_INTEGRITY_MISSING);
+    expect(view.jailbroken).toBe(DEVICE_INTEGRITY_MISSING);
+    expect(view.biometrics).toBe(DEVICE_INTEGRITY_MISSING);
+    for (const value of [view.rooted, view.jailbroken, view.biometrics]) {
+      expect(value.toLowerCase()).not.toMatch(/risk/);
+    }
+    const absent = resolveDeviceIntegrity({});
+    expect(absent.rooted).toBe(DEVICE_INTEGRITY_MISSING);
+  });
+
+  it("fails if a missing field is labeled as a risk score", () => {
+    const view = resolveDeviceIntegrity({});
+    for (const value of [view.rooted, view.jailbroken, view.biometrics]) {
+      expect(value).toBe(DEVICE_INTEGRITY_MISSING);
+      expect(value.toLowerCase()).not.toContain("risk score");
+      expect(Number.isNaN(Number(value))).toBe(true);
+    }
+  });
+
   it("uses booleans on device_context.signals including false", () => {
     const view = resolveDeviceIntegrity({
       device_context: {

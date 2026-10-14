@@ -146,6 +146,29 @@ def save_provision(
         return payload
 
 
+class ObserveLocked(Exception):
+    """Pack is pinned to Observe and cannot be promoted."""
+
+
+def raise_if_observe_locked(pack: dict[str, Any]) -> None:
+    if pack.get("observe_locked") is True:
+        raise ObserveLocked("observe_locked")
+
+
+def shadow_packs_eligible_for_auto_promote(packs: list[dict[str, Any]]) -> list[str]:
+    """AI-authored shadow names. Observe-locked seeds stay out of the tick."""
+    names: list[str] = []
+    for pack in packs:
+        if not pack.get("is_ai_authored"):
+            continue
+        if pack.get("observe_locked") is True:
+            continue
+        name = str(pack.get("name") or "").strip()
+        if name:
+            names.append(name)
+    return names
+
+
 def activate_shadow_pack(
     draft_id: str,
     *,
@@ -169,6 +192,7 @@ def activate_shadow_pack(
         raise KeyError("no_shadow_draft")
     fpath = Path(settings.rules_path) / fname
     pack = json.loads(fpath.read_text(encoding="utf-8"))
+    raise_if_observe_locked(pack)
     pack["mode"] = "active"
     if isinstance(pack.get("lifecycle"), dict) or pack.get("source_key"):
         from decision_api.l2_draft import mark_promoted
@@ -246,19 +270,18 @@ async def maybe_auto_promote_shadow(tenant_id: str) -> dict[str, Any]:
         }
     from decision_api.json_rules import get_shadow_packs
 
-    names = [
-        str(p.get("name") or "")
-        for p in get_shadow_packs()
-        if p.get("is_ai_authored") and str(p.get("name") or "").strip()
-    ]
+    names = shadow_packs_eligible_for_auto_promote(get_shadow_packs())
     promoted: list[str] = []
     for name in names:
-        activate_shadow_pack(
-            name,
-            actor="auto_promote",
-            reason="auto_promote_shadow_pack",
-            detail={"provision_version": provision.get("version")},
-        )
+        try:
+            activate_shadow_pack(
+                name,
+                actor="auto_promote",
+                reason="auto_promote_shadow_pack",
+                detail={"provision_version": provision.get("version")},
+            )
+        except ObserveLocked:
+            continue
         promoted.append(name)
     return {
         "auto_promote": True,
