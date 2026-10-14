@@ -110,7 +110,11 @@ def test_observe_receipt_does_not_rewrite_production_decision():
         {"decision": "review", "score": 40},
         {"shadow_decision": "review", "shadow_rule_hits": hits},
     )
-    rows = [row for row in get_observations(10000) if row.get("trace_id") == "trace-agent-mandate"]
+    rows = [
+        row
+        for row in get_observations(10000)
+        if row.get("trace_id") == "trace-agent-mandate"
+    ]
     assert rows[-1]["production_decision"] == "review"
     assert rows[-1]["production_score"] == 40
 
