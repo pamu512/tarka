@@ -2195,6 +2195,7 @@ async def _graph_upsert(
     from tarka_shared.decision_graph_payload import (
         attach_decision_object,
         build_evaluate_objects,
+        link_write_properties,
         normalize_markings,
         resolve_decision_source,
     )
@@ -2270,11 +2271,12 @@ async def _graph_upsert(
                 "from_external_id": src,
                 "to_external_id": dst,
                 "relationship": rel,
-                "properties": {
-                    "trace_id": trace_id,
-                    "event_type": body.event_type,
-                    "decision_id": f"dec:{trace_id}",
-                },
+                "properties": link_write_properties(
+                    relationship=rel,
+                    trace_id=trace_id,
+                    event_type=body.event_type,
+                    payload=body.payload if isinstance(body.payload, dict) else None,
+                ),
             },
             headers=_upstream_headers(),
         )

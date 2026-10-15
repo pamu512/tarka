@@ -10,14 +10,14 @@ import { useTenantEnvironment } from "../context/TenantEnvironmentContext";
 import { toUserFacingError } from "../utils/userFacingErrors";
 
 const PRESETS = [
-  { id: "alice_ivan", label: "Alice → Ivan → Crypto", origin: "user_alice", mule: "mule_ivan" },
-  { id: "frank_jane", label: "Frank → Jane → Wire", origin: "fraud_frank", mule: "mule_jane" },
+  { id: "frank_ivan", label: "Frank → Ivan", origin: "fraud_frank", mule: "mule_ivan" },
+  { id: "gina_jane", label: "Gina → Jane", origin: "fraud_gina", mule: "mule_jane" },
 ] as const;
 
 export default function MulePathVisualizer(): ReactElement {
   const { tenantId } = useTenantEnvironment();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [originId, setOriginId] = useState(searchParams.get("origin") ?? "user_alice");
+  const [originId, setOriginId] = useState(searchParams.get("origin") ?? "fraud_frank");
   const [muleId, setMuleId] = useState(searchParams.get("mule") ?? "mule_ivan");
   const [data, setData] = useState<MulePathResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,6 +162,10 @@ export default function MulePathVisualizer(): ReactElement {
                 </span>
               ))}
             </div>
+          ) : null}
+
+          {data.hops.length === 0 ? (
+            <p className="text-sm text-gray-500">No TRANSACTED edges from this person.</p>
           ) : null}
 
           <section className="rounded-xl border border-surface-700 bg-surface-900/50 p-4">

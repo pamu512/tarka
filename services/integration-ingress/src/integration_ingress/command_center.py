@@ -246,7 +246,7 @@ async def build_command_center_payload(
             "/graph/mule-path",
             "graph",
             "Fund flows",
-            "Demo paths",
+            "TRANSACTED",
             "normal",
         ),
         _mod(

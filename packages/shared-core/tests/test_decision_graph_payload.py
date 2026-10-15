@@ -430,6 +430,26 @@ def test_allow_decision_ids_over_cap_keeps_material_and_newest_allows():
     assert "dec:deny-1" not in drop
 
 
+def test_transacted_link_properties_keep_amount():
+    mod = _load_payload()
+    props = mod.link_write_properties(
+        relationship="TRANSACTED",
+        trace_id="tr-1",
+        event_type="payment",
+        payload={"amount": 1200, "currency": "USD"},
+    )
+    assert props["amount"] == 1200
+    assert props["currency"] == "USD"
+    assert props["trace_id"] == "tr-1"
+    other = mod.link_write_properties(
+        relationship="USED_DEVICE",
+        trace_id="tr-1",
+        event_type="payment",
+        payload={"amount": 1200, "currency": "USD"},
+    )
+    assert "amount" not in other
+
+
 def test_counterparty_entity_id_emits_transacted_edge():
     mod = _load_payload()
     objects, links = mod.build_evaluate_objects(
