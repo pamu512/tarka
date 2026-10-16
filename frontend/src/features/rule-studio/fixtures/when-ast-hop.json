@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "desk_hop_uses_device_trust",
+  "mode": "shadow",
+  "rules": [
+    {
+      "id": "desk_hop_uses_device_trust",
+      "when": [],
+      "tags": ["FLAG", "graph:has_etype:USES_DEVICE"],
+      "score_delta": 18,
+      "description": "FLAG when this person shares USES_DEVICE and a sibling already FLAGged",
+      "when_ast": {
+        "type": "and",
+        "children": [
+          { "type": "graph_v1", "atom": "has_etype", "etype": "USES_DEVICE" },
+          {
+            "type": "or",
+            "children": [
+              { "type": "graph_v1", "atom": "has_multi_id" },
+              { "type": "graph_v1", "atom": "sibling_prior_flag" }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tag_rules": [],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null
+}

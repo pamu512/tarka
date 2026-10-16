@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "studio_velocity_flat",
+  "mode": "shadow",
+  "rules": [
+    {
+      "id": "velocity_high_1h",
+      "when": [{ "field": "event_count_1h", "op": "gte", "value": 20 }],
+      "tags": ["velocity:high_1h"],
+      "score_delta": 25,
+      "description": "More than 20 events in the last hour"
+    },
+    {
+      "id": "velocity_high_24h",
+      "when": [{ "field": "event_count_24h", "op": "gte", "value": 100 }],
+      "tags": ["velocity:high_24h"],
+      "score_delta": 15,
+      "description": "More than 100 events in the last 24 hours"
+    }
+  ],
+  "tag_rules": [],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null
+}
