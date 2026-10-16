@@ -53,7 +53,7 @@ export default function ReviewRingClusters(): ReactElement {
         <div>
           <PageTitle module="analytics">Review ring clusters</PageTitle>
           <p className="text-sm text-gray-500 mt-2 max-w-2xl leading-relaxed">
-            Groups users who have <strong className="text-gray-300">all reviewed the same 5 products</strong> — a
+            Groups users who have <strong className="text-gray-300">all reviewed the same 5 products</strong>, a
             classic fake-review and astroturfing pattern. Each cluster shows the shared product set and member overlap
             signals.
           </p>

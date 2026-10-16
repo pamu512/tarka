@@ -12,7 +12,7 @@ Ojuri-style split: **auth decision must not wait on LLM / heavy graph upsert / i
 - Sync only on redeem checkpoint / redeem event type.
 - Timeout: `TARKA_LOYALTY_ABUSE_TIMEOUT_SECONDS` (default 2s).
 - Circuit: `TARKA_LOYALTY_ABUSE_CIRCUIT_FAILURE_THRESHOLD` / `_RECOVERY_SECONDS`.
-- On open/fail: tags `enrichment:loyalty_circuit_open` or `enrichment:loyalty_bridge_failed` — decision continues.
+- On open/fail: tags `enrichment:loyalty_circuit_open` or `enrichment:loyalty_bridge_failed`. Decision continues.
 
 ## Posture
 

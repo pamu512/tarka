@@ -12,13 +12,13 @@ One investigation surface at `/graph`: **search an object, know its type, work t
 
 - Decision-api / rules remain sole allow/deny. Stored `risk_score` is a feature, not a decision.
 - Do not invent graph, nodes, paths, or scores when the graph plane is down.
-- `0` is a computed clean score. Unscored nodes stay `scored: false`, `risk_score: null` — never treat null as 0 in filters or paint.
+- `0` is a computed clean score. Unscored nodes stay `scored: false`, `risk_score: null`, never treat null as 0 in filters or paint.
 - AI / Shadow do not gain a new tool this spec. They already see stored risk on `subgraph`.
 
 ## What already exists
 
-- `/graph` — Graph Explorer (vis-network, entity-id form, Analyze → communities / rings, `GraphContextPanel`).
-- `/graph/link-analysis` — force-graph, depth 1–5, prune cap **3000**, risk overlay, dossier slide-over.
+- `/graph`: Graph Explorer (vis-network, entity-id form, Analyze → communities / rings, `GraphContextPanel`).
+- `/graph/link-analysis`: force-graph, depth 1–5, prune cap **3000**, risk overlay, dossier slide-over.
 - `GET /v1/subgraph`, `deep-context`, `path-explain`, `communities`, `fraud-rings`, `schema/{tenant_id}`, `entity-risk/top`.
 - Subgraph nodes already carry `scored`, `risk_score`, `risk_factors`, `relation_count`, `relation_growth_1h`, `relation_growth_24h`.
 - Omni-search (`/v1/omni-search`) finds **case-table** entity ids, not graph nodes. Do not use it as the workspace typeahead.

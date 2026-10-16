@@ -143,7 +143,7 @@ const LIST_META: Record<ListType, { label: string; description: string }> = {
   },
   blacklist: {
     label: "Blacklist",
-    description: "Entities that always receive DENY decisions — hard stops for known fraud.",
+    description: "Entities that always receive DENY decisions, hard stops for known fraud.",
   },
   test_bypass: {
     label: "Test bypass",

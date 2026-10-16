@@ -1,6 +1,6 @@
 # tarka-shadow (library)
 
-Python package **`shadow`** — hooks, prompts, and NATS OSINT helpers used **in-process** by the orchestrator (e.g. `shadow.hooks.resolve_case`).
+Python package **`shadow`**: hooks, prompts, and NATS OSINT helpers used **in-process** by the orchestrator (e.g. `shadow.hooks.resolve_case`).
 
 **Canonical sources live under** [`../orchestrator/shadow/`](../orchestrator/shadow/). This directory is a one-release install/compat surface (`pip install -e ./services/shadow`).
 

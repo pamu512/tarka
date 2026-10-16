@@ -12,7 +12,7 @@ Tarka application code is **source-available** under the **Elastic License 2.0**
 make doctor && make demo
 ```
 
-`make doctor` names Docker / port / RAM problems (host Postgres/Redis on `5432`/`6379`; stale `:8000` without `GET /decisions/v1/health`). `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY) — the walk does not invent them.
+`make doctor` names Docker / port / RAM problems (host Postgres/Redis on `5432`/`6379`; stale `:8000` without `GET /decisions/v1/health`). `make demo` starts Lite + fraud-desk and prints one `NEXT:` URL plus `entity_id`. Receipts land on `/decisions`. Decisions are whatever the shipped packs return (ALLOW / REVIEW / DENY). The walk does not invent them.
 
 | Command | Skin | Notes |
 |---------|------|--------|
@@ -28,8 +28,8 @@ Same scripts: `bash scripts/oss/up_desk.sh` (demo) or `bash scripts/oss/up_produ
 
 Desk home is `/graph` when graph is on. Receipts stay at `/decisions`.
 
-- [Author a pack](docs/docs/guides/rules.md) — JSON rule packs (strategy analyst)
-- [First evaluate](docs/docs/guides/oss-15-minute-first-decision.md) — `POST /decisions/v1/decisions/evaluate`
+- [Author a pack](docs/docs/guides/rules.md): JSON rule packs (strategy analyst)
+- [First evaluate](docs/docs/guides/oss-15-minute-first-decision.md): `POST /decisions/v1/decisions/evaluate`
 
 ```
 Can-run
@@ -51,7 +51,7 @@ OIDC optional.
 | `make doctor && make demo`. Rust evaluate + receipts + pack-why | Model ALLOW / DENY; Tarka-branded model |
 | Observe = canary. Ungated → human Promote. Gates defined+met → may auto-Promote (default off). Human Propose Demote → Confirm. Model never Promotes or demotes. | Live unattended hops; always-on Day-1 auto-Promote; auto-demote |
 | Hop packs (`USES_DEVICE` …) `mode=shadow`. Live only after promote gates pass. | Always-on graph; “every evaluate is on the graph”; GNN live |
-| Enforcement contract-gated; default emit-only. Outbound webhooks HMAC-SHA256 (`x-tarka-signature`) when secret is set. Empty URL = plane off. Suggested-action `action_id` is hex SHA-256 of tenant + trace_id + action token + pack hash — stable across retries. Inbound product ACK binds delivery status to `trace_id` + `action_id` (queryable). ACK is not Promote/Demote. | Handoff as Day-1 default; silent block in emit-only; unsigned enforcement webhooks as the contract; random `action_id` per POST; ACK as Promote/Demote |
+| Enforcement contract-gated; default emit-only. Outbound webhooks HMAC-SHA256 (`x-tarka-signature`) when secret is set. Empty URL = plane off. Suggested-action `action_id` is hex SHA-256 of tenant + trace_id + action token + pack hash, stable across retries. Inbound product ACK binds delivery status to `trace_id` + `action_id` (queryable). ACK is not Promote/Demote. | Handoff as Day-1 default; silent block in emit-only; unsigned enforcement webhooks as the contract; random `action_id` per POST; ACK as Promote/Demote |
 | Empty `GRAPH_SERVICE_URL` = hops off, not sibling identity | Closed omniscient AI author loop; case CRM; consortium SKU |
 | L2 leftover/override → Observe draft; AI backtest required first. FP late-label → Observe soften (not CRM) | Beachhead seeds as live; banks as the beachhead |
 | Graph-risk / ring-score challenger. Beachhead Observe seeds (promo / COD / payout) stay Observe | Users / LOI / ARR as traction |
@@ -60,7 +60,7 @@ OIDC optional.
 
 **Docs:** [`docs/INDEX.md`](docs/INDEX.md) · [`SECURITY.md`](SECURITY.md) · [`SUPPORT.md`](SUPPORT.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
-Community support is GitHub issues. A paid self-host install pack is VPC assist, Helm values review, SSO wiring, pack GitOps export help, and severity response intent — not an uptime percentage. See [`SUPPORT.md`](SUPPORT.md).
+Community support is GitHub issues. A paid self-host install pack is VPC assist, Helm values review, SSO wiring, pack GitOps export help, and severity response intent, not an uptime percentage. See [`SUPPORT.md`](SUPPORT.md).
 
 Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
@@ -68,7 +68,7 @@ Operator CLI (optional): `python3 cli.py` or compose under `infra/deploy/`.
 
 ## Vision (below the fold)
 
-Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above — not a laptop triad and not an enterprise desk.
+Manifesto, evaluate-first product lock, Advise / local inference, and entity-state notes live in [`VISION.md`](VISION.md). Day-1 is the compose path above, not a laptop triad and not an enterprise desk.
 
 Graph is on Day-1 (Tarka AGE, or yours). Optional after that: investigation overlay (desk Advise, BYO `OPENAI_*` or skip), signals overlay, ingest `shadow_agent` (`SHADOW_LLM_*`). Size them from the [SRE compose runbook](docs/docs/operations/sre-compose-profiles.md).
 
@@ -93,7 +93,7 @@ Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py). Publis
 | Path | Role |
 |------|------|
 | [`frontend/`](frontend/) | React analyst app |
-| [`services/`](services/) | Microservices — `core-api` / decision-api, orchestrator, `shadow_agent`, investigation-agent (Observe vs Advise: [`services/SHADOW.md`](services/SHADOW.md)) |
+| [`services/`](services/) | Microservices: `core-api` / decision-api, orchestrator, `shadow_agent`, investigation-agent (Observe vs Advise: [`services/SHADOW.md`](services/SHADOW.md)) |
 | [`packages/`](packages/) | Internal libs (`deploy-settings`, `shared-core`, SDKs) |
 | [`infra/`](infra/) | `infra/deploy/` (Compose, Helm, OPA) + `infra/scripts/` |
 | [`docs/`](docs/) | Operator hub [`docs/INDEX.md`](docs/INDEX.md) |
@@ -106,4 +106,4 @@ Also see [`latency_evaluate.py`](scripts/benchmarks/latency_evaluate.py). Publis
 
 Tarka application code is **source-available** under the **Elastic License 2.0**. You may `git clone`, modify, and run Tarka on your own metal or VPC for your own fraud operations. You may not provide Tarka to third parties as a hosted or managed service.
 
-Third-party graph/database runtimes (Apache AGE, Postgres, optional Janus/Neo4j) keep their own licenses — see [`LICENSE-DEPENDENCIES.md`](LICENSE-DEPENDENCIES.md). See [`LICENSE`](LICENSE) for the full ELv2 text.
+Third-party graph/database runtimes (Apache AGE, Postgres, optional Janus/Neo4j) keep their own licenses. See [`LICENSE-DEPENDENCIES.md`](LICENSE-DEPENDENCIES.md). See [`LICENSE`](LICENSE) for the full ELv2 text.

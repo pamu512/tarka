@@ -150,7 +150,7 @@ export default function RulePerformance() {
         </div>
       </div>
       <FirstHourHint
-        job="Which packs fired, which look noisy. Open a pack to edit. Promote stays on Observe — a model never decides live."
+        job="Which packs fired, which look noisy. Open a pack to edit. Promote stays on Observe, a model never decides live."
         nextTo="/ops/shadow"
         nextLabel="Observe"
       />
@@ -203,7 +203,7 @@ export default function RulePerformance() {
               labeledMeta?.healthy ? "text-gray-500" : "text-amber-300"
             }`}
           >
-            {labeledMeta?.healthy ? "coverage ok" : "insufficient labels — not healthy"}
+            {labeledMeta?.healthy ? "coverage ok" : "insufficient labels, not healthy"}
           </span>
         </div>
         <p className="text-xs text-gray-500 leading-relaxed">
@@ -212,7 +212,7 @@ export default function RulePerformance() {
           {labeledMeta?.hint ? labeledMeta.hint : "Join case dispositions before trusting these numbers."}
         </p>
         {!labeledMeta || labeledMeta.labeled_rows === 0 || labeledRules.length === 0 ? (
-          <p className="text-xs text-gray-600">No labeled rule hits in window — dispose cases with reason codes first.</p>
+          <p className="text-xs text-gray-600">No labeled rule hits in window, dispose cases with reason codes first.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -282,7 +282,7 @@ export default function RulePerformance() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div className="rounded-xl border border-surface-700 bg-surface-900 p-5">
-              <h2 className="text-sm font-semibold text-gray-300 mb-1">Top rules — deny (fraud blocked)</h2>
+              <h2 className="text-sm font-semibold text-gray-300 mb-1">Top rules: deny (fraud blocked)</h2>
               <p className="text-[11px] text-gray-600 mb-4">Highest deny attribution among {rustOnly ? "Rust-style" : "all"} rules</p>
               <ResponsiveContainer width="100%" height={Math.max(280, CHART_TOP_N * 28)}>
                 <BarChart layout="vertical" data={denyChartData} margin={{ left: 8, right: 16 }}>
@@ -314,7 +314,7 @@ export default function RulePerformance() {
             </div>
 
             <div className="rounded-xl border border-surface-700 bg-surface-900 p-5">
-              <h2 className="text-sm font-semibold text-gray-300 mb-1">Top rules — review queue</h2>
+              <h2 className="text-sm font-semibold text-gray-300 mb-1">Top rules: review queue</h2>
               <p className="text-[11px] text-gray-600 mb-4">Highest review attribution (noise vs deny trade)</p>
               <ResponsiveContainer width="100%" height={Math.max(280, CHART_TOP_N * 28)}>
                 <BarChart layout="vertical" data={reviewChartData} margin={{ left: 8, right: 16 }}>

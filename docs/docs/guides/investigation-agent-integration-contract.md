@@ -1,4 +1,4 @@
-# Investigation Copilot — integration contract (reference)
+# Investigation Copilot: integration contract (reference)
 
 This document describes the **machine-readable integration surface** of `services/investigation-agent`, aligned with an **adapter-first** strategy: third parties implement **their** APIs behind a stable **logical tool surface** and declare a **`profile_id`**.
 
@@ -27,7 +27,7 @@ This document describes the **machine-readable integration surface** of `service
 | `COPILOT_DISABLED_TOOLS` | Removes tools from the enabled list (union with upstream suppression). |
 | Snapshot fields | **`tools.disabled_effective`**: env-disabled ∪ upstream-suppressed. **`tools.upstream_suppressed`**: names hidden due to missing upstream (when hide flag true). |
 
-**Maker–checker:** sensitive tools are hidden **per request** when `COPILOT_REVIEWER_SECRET` is set and the client omits `x-reviewer-secret`. The snapshot reports `maker_checker` metadata but still lists sensitive tool **names** as configured—adapters should treat exposure as **conditional**.
+**Maker–checker:** sensitive tools are hidden **per request** when `COPILOT_REVIEWER_SECRET` is set and the client omits `x-reviewer-secret`. The snapshot reports `maker_checker` metadata but still lists sensitive tool **names** as configured. Adapters should treat exposure as **conditional**.
 
 ## Tool families (logical)
 
@@ -58,11 +58,11 @@ Add `--api-key` if the deployment requires it.
 
 ## Minimal upstream mock (local dev)
 
-- **[`scripts/integration_adapter_mock/`](../../../scripts/integration_adapter_mock/)** — stdlib HTTP server with stub Case / Graph / Decision paths so the agent can run against a single port without the full stack.
+- **[`scripts/integration_adapter_mock/`](../../../scripts/integration_adapter_mock/):** stdlib HTTP server with stub Case / Graph / Decision paths so the agent can run against a single port without the full stack.
 
 ## Related
 
 - [CHANGELOG_INTEGRATION](investigation-agent-integration-contract.md)
 - [Customer API change policy](investigation-agent-integration-contract.md) (notice windows, joint certification, contract vs customer API versions)
-- [Investigation Copilot — intended use & data flows](investigation-agent-intended-use-and-data-flows.md)
+- [Investigation Copilot: intended use & data flows](investigation-agent-intended-use-and-data-flows.md)
 - [Investigation Agent Project](../services/investigation-agent.md)

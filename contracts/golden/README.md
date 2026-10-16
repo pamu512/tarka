@@ -1,4 +1,4 @@
-# Golden fixtures — inference and API parity
+# Golden fixtures: inference and API parity
 
 ## `inference-context-v2.example.json`
 

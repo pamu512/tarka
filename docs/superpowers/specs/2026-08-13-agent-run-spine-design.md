@@ -1,4 +1,4 @@
-# AgentRun spine — graph, lifecycle HIL, human trend promote
+# AgentRun spine: graph, lifecycle HIL, human trend promote
 
 **Date:** 2026-08-13  
 **Status:** Approved (spec)  
@@ -18,7 +18,7 @@ One AgentRun read model for Shadow, investigation chat, and trend tick, then two
 
 - Decision-api / rules remain sole allow/deny authority.
 - AI never auto-resolves a case and never auto-promotes Wasm.
-- Missing sources are `freshness=missing` — never invented.
+- Missing sources are `freshness=missing`, never invented.
 - Ingest must not fail because investigation-agent is down.
 
 ## Architecture
@@ -59,7 +59,7 @@ Callers of the internal POST: **orchestrator** (after Shadow returns) and **deci
 - `assemble_context_snapshot` (`tarka.context_snapshot/v1`)
 - `POST /v1/internal/case-brief` auth: `INVESTIGATION_INTERNAL_SECRET` / `x-internal-secret`
 - `maybe_enqueue_trend_watch` fire-and-forget in `transaction_ingest.py`
-- `PUT /v1/cases/{id}/status` (`case_transition_api.py`) — only the human confirm
+- `PUT /v1/cases/{id}/status` (`case_transition_api.py`): only the human confirm
 - `backtest_before_promote_gate(require_job=True)`
 - Case chat rail already displays `agent_run_id`
 
@@ -93,11 +93,11 @@ Tick must not pass actor + job to sneak through.
 
 ## Data flow
 
-1. **Chat** — assemble snapshot → persist AgentRun → 200 with `agent_run_id`, `graph_missing`, claims.
-2. **Shadow** — orchestrator already has `graph_context` from prime; after analyze, POST internal run (best-effort).
-3. **Trend tick** — after evaluation/draft persist, POST internal run (best-effort) with entity snapshot (velocity present; graph present or missing).
-4. **Lifecycle** — tool writes proposal + `agent_run_id`. Analyst confirm = PUT. Illegal transitions fail as today; proposal stays `pending`.
-5. **Human promote** — analyst supplies `backtest_job_id`; API checks graph + gate; 200 GitOps-ready only.
+1. **Chat**: assemble snapshot → persist AgentRun → 200 with `agent_run_id`, `graph_missing`, claims.
+2. **Shadow**: orchestrator already has `graph_context` from prime; after analyze, POST internal run (best-effort).
+3. **Trend tick**: after evaluation/draft persist, POST internal run (best-effort) with entity snapshot (velocity present; graph present or missing).
+4. **Lifecycle**: tool writes proposal + `agent_run_id`. Analyst confirm = PUT. Illegal transitions fail as today; proposal stays `pending`.
+5. **Human promote**: analyst supplies `backtest_job_id`; API checks graph + gate; 200 GitOps-ready only.
 
 ## Errors
 
@@ -106,7 +106,7 @@ Tick must not pass actor + job to sneak through.
 | Graph missing on chat/Shadow | 200, `graph_missing=true`, banner |
 | Graph missing on propose or human promote | `409 graph_required` |
 | Investigation-agent down at ingest/tick | Parent still 200; warning log; no `agent_run_id` |
-| Chat persist AgentRun fails | `503` — no un-audited copilot claim |
+| Chat persist AgentRun fails | `503`: no un-audited copilot claim |
 | Bad internal secret | `401 invalid_internal_secret` |
 | Tick / no actor / no job on promote | `409 never_auto_promote` |
 | Human promote, failed/missing backtest job | `409` with gate `blockers` |

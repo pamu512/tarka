@@ -273,12 +273,12 @@ def evaluate_shadow_copilot_runtime(
     # --- < 8 GiB RAM: no local LLM ------------------------------------------------
     if mem < _RAM_DISABLE_LOCAL_GIB:
         reason = (
-            f"Host RAM {mem:.2f} GiB is below {_RAM_DISABLE_LOCAL_GIB:.0f} GiB policy floor — "
+            f"Host RAM {mem:.2f} GiB is below {_RAM_DISABLE_LOCAL_GIB:.0f} GiB policy floor. "
             "local Shadow Copilot LLM execution is disabled. Use **Cloud Fallback** "
             "(managed API) for this workstation."
         )
         log.warning(
-            "shadow_copilot tier=DISABLED: system_ram_total_gib=%.2f cuda_vram_gib=%s — %s",
+            "shadow_copilot tier=DISABLED: system_ram_total_gib=%.2f cuda_vram_gib=%s: %s",
             hw.system_ram_total_gib,
             hw.cuda_total_vram_gib,
             reason,
@@ -347,10 +347,10 @@ def evaluate_shadow_copilot_runtime(
             if pick is None:
                 pull_hint = (
                     f"No small model found in local Ollama. Install one first, e.g. "
-                    f"`ollama pull {_LIGHT_MODEL_PRIORITY[0]}` — until then, local chat may fail at runtime."
+                    f"`ollama pull {_LIGHT_MODEL_PRIORITY[0]}`. Until then, local chat may fail at runtime."
                 )
                 log.warning(
-                    "shadow_copilot tier=LIGHT: ram_gib=%.2f requested=%r heavy=%s — %s installed_tags=%d",
+                    "shadow_copilot tier=LIGHT: ram_gib=%.2f requested=%r heavy=%s: %s installed_tags=%d",
                     mem,
                     requested,
                     heavy_requested,
@@ -399,7 +399,7 @@ def evaluate_shadow_copilot_runtime(
                 hardware=hw,
                 installed_ollama_tags_sample=sample,
                 selected_because=(
-                    f"RAM {mem:.2f} GiB < {_RAM_FORCE_LIGHT_GIB:.0f} GiB — heavy local models blocked; "
+                    f"RAM {mem:.2f} GiB < {_RAM_FORCE_LIGHT_GIB:.0f} GiB. Heavy local models blocked; "
                     f"ollama effective tag `{target}`"
                 ),
                 ui_warnings=warnings,
@@ -428,7 +428,7 @@ def evaluate_shadow_copilot_runtime(
     # --- >= 16 GiB: allow env default --------------------------------------------
     if _is_heavy_model_tag(requested):
         log.info(
-            "shadow_copilot tier=FULL: ram_gib=%.2f requested_heavy=%r — allowed (RAM policy satisfied)",
+            "shadow_copilot tier=FULL: ram_gib=%.2f requested_heavy=%r, allowed (RAM policy satisfied)",
             mem,
             requested,
         )
@@ -443,7 +443,7 @@ def evaluate_shadow_copilot_runtime(
         heavy_models_blocked=False,
         hardware=hw,
         installed_ollama_tags_sample=sample,
-        selected_because=f"RAM {mem:.2f} GiB ≥ {_RAM_FORCE_LIGHT_GIB:.0f} GiB — using configured model `{requested}`.",
+        selected_because=f"RAM {mem:.2f} GiB ≥ {_RAM_FORCE_LIGHT_GIB:.0f} GiB. Using configured model `{requested}`.",
         ui_warnings=warnings,
         ollama_tags_probe_error=tag_err,
     )

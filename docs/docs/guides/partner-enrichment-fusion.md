@@ -1,6 +1,6 @@
 # Partner enrichment fusion (hybrid device/location)
 
-**Posture:** Tarka does not replace Fingerprint / Incognia. **Partner enrichment quality** (device fingerprint / location signals as **optional**) means vendor signals are first-class in **evaluate → graph writeback hints → case evidence** when configured — they enrich relatedness and geo fraud signals; they do **not** link loyalty rings by themselves.
+**Posture:** Tarka does not replace Fingerprint / Incognia. **Partner enrichment quality** (device fingerprint / location signals as **optional**) means vendor signals are first-class in **evaluate → graph writeback hints → case evidence** when configured. They enrich relatedness and geo fraud signals; they do **not** link loyalty rings by themselves.
 
 ## Configure
 
@@ -16,8 +16,8 @@ Plugins register in `decision_api.vendors.bootstrap`.
 
 Pass identifiers in evaluate `metadata`:
 
-- `fingerprint_request_id` — Fingerprint Server API event id
-- `incognia_account_id` — Incognia account / installation id
+- `fingerprint_request_id`: Fingerprint Server API event id
+- `incognia_account_id`: Incognia account / installation id
 
 Pipeline (`partner_fusion.py`):
 
@@ -31,7 +31,7 @@ Use tags such as `vendor:fingerprint` / `vendor:incognia:*` in JSON rules. Examp
 
 ## Scorecards
 
-`GET /api/ingress/v1/integrations/scorecards?tenant_id=...` — fail closed when credentials incomplete.
+`GET /api/ingress/v1/integrations/scorecards?tenant_id=...`, fail closed when credentials incomplete.
 
 ## Tenant proof (evaluate → audit → case evidence)
 

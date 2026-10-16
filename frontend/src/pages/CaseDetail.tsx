@@ -110,8 +110,8 @@ const RECOMMENDED_ACTION_LABELS: Record<string, string> = {
   manual_review: "Manual review recommended",
   step_up_mfa: "Step up authentication (MFA)",
   step_up_attestation: "Request stronger device or session proof",
-  allow: "Allow — continue monitoring",
-  deny: "Deny — stop or escalate per policy",
+  allow: "Allow, continue monitoring",
+  deny: "Deny, stop or escalate per policy",
   review: "Review before proceeding",
 };
 
@@ -360,7 +360,7 @@ function CaseDetailWorkbench() {
         : `evidence-${caseId.slice(0, 8)}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast(isJson ? "ZIP unavailable — downloaded JSON" : "Evidence ZIP downloaded", "success");
+      toast(isJson ? "ZIP unavailable, downloaded JSON" : "Evidence ZIP downloaded", "success");
       const bundle = await cases.evidenceBundle(caseId, caseData.tenant_id);
       setActPack(buildEvidenceActPack(bundle, { decisionExplain }));
     } catch (e) {
@@ -427,7 +427,7 @@ function CaseDetailWorkbench() {
     if (!caseId || !caseData) return;
     const trace = caseData.trace_id?.trim();
     if (!trace) {
-      toast("Case has no trace_id — cannot open dispute from evidence", "error");
+      toast("Case has no trace_id, cannot open dispute from evidence", "error");
       return;
     }
     setActBusy("dispute");
@@ -596,7 +596,7 @@ function CaseDetailWorkbench() {
     try {
       await cases.update(caseId, caseData.tenant_id, { status: "investigating" });
       await refreshCase();
-      toast("Approved — Investigating.", "success");
+      toast("Approved: Investigating.", "success");
     } catch (e) {
       setError(toUserFacingApiError(e, { subject: "Case status", action: "approve case" }));
     } finally {
@@ -614,7 +614,7 @@ function CaseDetailWorkbench() {
     try {
       await cases.update(caseId, caseData.tenant_id, { status: "closed" });
       await refreshCase();
-      toast("Rejected — case closed.", "success");
+      toast("Rejected, case closed.", "success");
     } catch (e) {
       setError(toUserFacingApiError(e, { subject: "Case status", action: "close case" }));
     } finally {
@@ -978,7 +978,7 @@ function CaseDetailWorkbench() {
         </Link>
         <span className="text-gray-600">
           {" "}
-          — dry-run draft JSON rules against this case&apos;s stored audit payload before deploying to Rust.
+          , dry-run draft JSON rules against this case&apos;s stored audit payload before deploying to Rust.
         </span>
       </p>
           </>
@@ -1260,8 +1260,8 @@ function CaseDetailWorkbench() {
               disabled={!decisionExplain?.rule_hits?.length}
               title={
                 decisionExplain?.rule_hits?.length
-                  ? "Tune the rule that fired on this audit (legacy canvas — not a product SKU)"
-                  : "No rule hits on this trace — tune is unavailable"
+                  ? "Tune the rule that fired on this audit (legacy canvas, not a product SKU)"
+                  : "No rule hits on this trace, tune is unavailable"
               }
               onClick={() => setTuneRuleOpen(true)}
               className="w-full text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-surface-800 text-gray-200 hover:bg-surface-700 transition-colors border border-surface-600 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1613,7 +1613,7 @@ function CaseDetailWorkbench() {
                             {decisionExplain.inference_context.ml_top_factors!.map((f) => (
                               <li key={f.code}>
                                 <span className="font-mono text-brand-300">{f.code}</span>
-                                <span className="text-gray-500"> ({f.impact})</span> — {f.description}
+                                <span className="text-gray-500"> ({f.impact})</span>: {f.description}
                               </li>
                             ))}
                           </ul>
@@ -2131,7 +2131,7 @@ function GraphTab({
     />
   ) : (
     <p className="text-xs text-gray-500 border border-dashed border-surface-600 rounded-lg px-3 py-2 bg-surface-950/40 leading-snug">
-      No evidence-locker <span className="font-mono text-gray-400">graph_snapshot</span> on this case — time travel
+      No evidence-locker <span className="font-mono text-gray-400">graph_snapshot</span> on this case, time travel
       needs a persisted topology. Only the live subgraph is shown.
     </p>
   );
@@ -2222,7 +2222,7 @@ function GraphTab({
           <div className="flex flex-col gap-2">
             {!emptyGraph ? (
               <p className="text-xs text-gray-500">
-                Live subgraph — click a node for <span className="text-gray-400">graph context</span>;{" "}
+                Live subgraph, click a node for <span className="text-gray-400">graph context</span>;{" "}
                 <span className="text-amber-200/90">right-click</span> a node to add an annotation (Janus / neighborhood
                 vertex).
               </p>

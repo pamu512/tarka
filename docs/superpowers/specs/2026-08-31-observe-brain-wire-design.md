@@ -9,7 +9,7 @@
 
 ML+AI is the **author and critic**, not the hop. After leftover resolve writes `y_label`, the next shadow draft must **see** those labels. A draft whose leftover extras are false positives must not be re-published.
 
-Scout still cannot set `mode=active` and cannot call evaluate as the decider. If the user already provisioned auto-promote on leftover HIL (first review), decision-api may promote after this publish using the **current** user gates. If the user redefines gates, the next tick uses those — not scout `evidence.proposed_gates`.
+Scout still cannot set `mode=active` and cannot call evaluate as the decider. If the user already provisioned auto-promote on leftover HIL (first review), decision-api may promote after this publish using the **current** user gates. If the user redefines gates, the next tick uses those, not scout `evidence.proposed_gates`.
 
 ## Why this is a second spec
 
@@ -54,7 +54,7 @@ Required fields after leftover HIL:
 
 - `leftover_promote_gate.helpfulness`
 - `leftover_promote_gate.blockers` (at least the two helpfulness blockers)
-- `rule_precision_after_labels` (add to this GET in this slice if not already present — reuse the function, same 500-row export + `y_label` join)
+- `rule_precision_after_labels` (add to this GET in this slice if not already present, reuse the function, same 500-row export + `y_label` join)
 
 If leftover HIL is not deployed, this spec does not ship. Do not re-join extras in shadow_agent.
 
@@ -101,7 +101,7 @@ Add hard stop:
 8. **You must not ignore leftover helpfulness.** If the host injects `leftover_helpfulness` / per-rule FP into the author context and blockers fire, return no pack (empty submit). You still cannot promote. Optional `evidence.proposed_gates` is a suggestion for the user’s first review; the host never applies it.
 9. **You cannot provision auto-promote.** That PUT is human-only on leftover HIL.
 
-Host (publisher) enforces this even if the LLM ignores the prompt. After a successful scout-pack POST, the host may run leftover HIL `maybe_auto_promote_shadow` — still not the author.
+Host (publisher) enforces this even if the LLM ignores the prompt. After a successful scout-pack POST, the host may run leftover HIL `maybe_auto_promote_shadow`, still not the author.
 
 ## Desk
 

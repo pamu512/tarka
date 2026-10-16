@@ -35,9 +35,9 @@ export function CapabilityChips({ status, calibrationHint }: CapabilityChipsProp
         const state = status[key];
         const hint =
           key === "calibration" && calibrationHint && state === "ok"
-            ? ` — ${calibrationHint}`
+            ? `, ${calibrationHint}`
             : state === "down"
-              ? " — unavailable"
+              ? ", unavailable"
               : "";
         return (
           <span

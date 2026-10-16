@@ -54,7 +54,7 @@ Secrets live in env, not in the JSON file.
 
 Webhook 5xx does not block evaluate or Promote.
 
-## Limitation table 1 — product desk (`make product`)
+## Limitation table 1: product desk (`make product`)
 
 What the **product compose desk** actually runs. Aligns with VISION: graph is required for the desk.
 
@@ -73,7 +73,7 @@ What the **product compose desk** actually runs. Aligns with VISION: graph is re
 
 Hunt-off on this desk: empty `VITE_GRAPH_SERVICE_URL` **or** `TARKA_HUNT_ENABLED=0` (rebuild). `hunt.enabled: false` in the file turns the loader off; chrome matches after that bake.
 
-## Limitation table 2 — Helm (`prod-on-k8s` / `evaluate-only`)
+## Limitation table 2: Helm (`prod-on-k8s` / `evaluate-only`)
 
 Do **not** treat these as `make product`. Chart `values.yaml` defaults `graphService.enabled: false`. Presets change the shape.
 
@@ -106,12 +106,12 @@ prod-on-k8s is a separate HA overlay. It is not this evaluate-only shape and it 
 
 ### Helm desk SSO (values-first)
 
-`coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` on the chart — not extraEnv lore. Empty issuer = machines stay on `API_KEYS`. Non-empty issuer requires resolved Redis.
+`coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` on the chart, not extraEnv lore. Empty issuer = machines stay on `API_KEYS`. Non-empty issuer requires resolved Redis.
 
 | Claim value | Desk job |
 |-------------|---------|
 | `RiskArchitect` | Visual builder, field map, calibration-window override on Promote |
-| `FraudAnalyst` | Investigator — Hunt / leftovers. Does not author rules. |
+| `FraudAnalyst` | Investigator: Hunt / leftovers. Does not author rules. |
 
 Same claim name (`rolesClaim`, default `roles`). No second policy language. Optional Promote maker-checker is [install governance](./deployment.md#install-governance) only. Grade contract: [production-install-v1](../../contracts/production-install-v1.md).
 

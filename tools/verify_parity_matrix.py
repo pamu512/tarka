@@ -644,7 +644,7 @@ def print_matrix(
 ) -> None:
     width = 96
     print("=" * width)
-    print(" Tarka V2 Parity Matrix — Python POST /v1/evaluate  vs  Rust batch-replay")
+    print(" Tarka V2 Parity Matrix: Python POST /v1/evaluate  vs  Rust batch-replay")
     print("=" * width)
     print(f"Golden batch : {golden_path}")
     print(f"Tenant/window: {golden.tenant_id}  [{golden.since} .. {golden.until}]")

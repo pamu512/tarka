@@ -6,7 +6,7 @@ The ML Scoring service provides real-time model inference for fraud detection. I
 **Version:** 3.0.0
 **Framework:** Python / FastAPI
 
-Canonical HTTP tables: **[API Reference — ML Scoring](../api-reference.md#ml-scoring)** · OpenAPI: `contracts/openapi/ml-scoring.yaml`
+Canonical HTTP tables: **[API Reference: ML Scoring](../api-reference.md#ml-scoring)** · OpenAPI: `contracts/openapi/ml-scoring.yaml`
 
 ---
 
@@ -227,7 +227,7 @@ models/
 
 ## A/B Testing
 
-When multiple active versions exist for a model, the registry routes traffic probabilistically based on `traffic_weight`. Routing is **deterministic per tenant** — the same `tenant_id` always resolves to the same variant (using a SHA-256 hash seed) so results are consistent within a tenant.
+When multiple active versions exist for a model, the registry routes traffic probabilistically based on `traffic_weight`. Routing is **deterministic per tenant**, the same `tenant_id` always resolves to the same variant (using a SHA-256 hash seed) so results are consistent within a tenant.
 
 **Example configuration:**
 

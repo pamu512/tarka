@@ -9,8 +9,8 @@ export type ReviewRingBadgeProps = {
 export function ReviewRingBadge({ memberCount, className = "" }: ReviewRingBadgeProps): ReactElement {
   const title =
     memberCount != null
-      ? `Review ring — ${memberCount} users reviewed the same 5 products`
-      : "Review ring — identical 5-product review overlap";
+      ? `Review ring: ${memberCount} users reviewed the same 5 products`
+      : "Review ring: identical 5-product review overlap";
 
   return (
     <span

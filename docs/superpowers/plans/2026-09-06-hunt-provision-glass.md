@@ -1,6 +1,6 @@
 # Hunt provision glass Implementation Plan
 
-> **For agentic workers:** User said keep going — implement in this session.
+> **For agentic workers:** User said keep going. Implement in this session.
 
 **Goal:** Hunt-off via provision uses the same `isPlaneEnabled("graph")` chrome as an empty graph URL.
 

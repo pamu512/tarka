@@ -92,7 +92,7 @@ async def require_counter_replay_token(
     if not expected:
         raise HTTPException(
             status_code=503,
-            detail="counter replay disabled — set COUNTER_REPLAY_TOKEN in the environment",
+            detail="counter replay disabled. Set COUNTER_REPLAY_TOKEN in the environment",
         )
     if not token or token.strip() != expected:
         raise HTTPException(
@@ -224,7 +224,7 @@ async def get_counter_parity_status() -> dict[str, Any]:
             "present": False,
             "path": str(path),
             "dual_diff_proven": False,
-            "hint": "No counter_parity_last.json — run scripts/oss/counter_parity_dual_diff.py",
+            "hint": "No counter_parity_last.json. Run scripts/oss/counter_parity_dual_diff.py",
             "job": "scripts/oss/counter_parity_dual_diff.py",
         }
     ok = _parity_health_ok(parity)

@@ -10,7 +10,7 @@ After evaluate, Tarka exposes a **platform protect verb** so the calling stack c
 |-------|--------|---------|
 | `decision` | `allow` / `review` / `deny` | Risk decision |
 | `recommended_action` | e.g. `block`, `step_up_mfa`, `manual_review` | Policy hint |
-| `enforcement_action` | `allow` \| `step_up` \| `block` | **Act verb** — what the platform should do |
+| `enforcement_action` | `allow` \| `step_up` \| `block` | **Act verb:** what the platform should do |
 | `score` | number | The one risk score. There is no `friction_tier`. |
 
 Mapping (also used by async webhooks):
@@ -29,7 +29,7 @@ Audit `payload_snapshot` and decision-log records include the same `enforcement_
 | `TARKA_CHALLENGE_WEBHOOK_URL` (+ optional secret) | `tarka.challenge_webhook/v1` | Step-up class `recommended_action` only |
 | `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` or `hooks.observe_notify.url` | `tarka.observe_notify/v1` | Observe inbox events (not evaluate) |
 
-Empty URL = that sink off. Slack/email: point the URL at their incoming webhook — Tarka does not ship a first-party mailer.
+Empty URL = that sink off. Slack/email: point the URL at their incoming webhook. Tarka does not ship a first-party mailer.
 
 Product observe inbox (`profile=product` or `TARKA_OBSERVE_NOTIFY_STORE=postgres`) is a Postgres table. Demo keeps `observe_notify.jsonl`. Env store wins.
 
@@ -42,7 +42,7 @@ Headers: `x-tarka-enforcement-event` (`allow`/`step_up`/`block`) or `x-tarka-cha
 ## Local demo
 
 ```bash
-# Terminal A — mock tenant receiver
+# Terminal A: mock tenant receiver
 python3 scripts/oss/enforcement_webhook_mock.py --port 8765
 
 # Point decision-api at the mock (compose/.env), then:
@@ -56,4 +56,4 @@ Ops: `GET /v1/ops/governance` → `integrity_ingress.enforcement_webhook_configu
 
 ## Out of scope
 
-SMS / email / WebAuthn providers — tenant owns challenge UX; Tarka fires signed intent.
+SMS / email / WebAuthn providers. Tenant owns challenge UX; Tarka fires signed intent.

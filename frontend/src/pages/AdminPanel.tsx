@@ -179,7 +179,7 @@ export default function AdminPanel() {
         setTab("approvals");
         await reloadAll();
       } else if ("applied" in res && res.applied === true) {
-        setSaveMsg("Access updated (standard change — applied immediately).");
+        setSaveMsg("Access updated (standard change, applied immediately).");
         await reloadAll();
       } else if ("error" in res) {
         setSaveMsg(
@@ -301,7 +301,7 @@ export default function AdminPanel() {
           onApplyPreset={(id) => {
             applyAccessPreset(id);
             setTab("access");
-            setSaveMsg(`Applied “${ACCESS_POLICY_PRESETS.find((p) => p.id === id)?.label ?? id}” — review modules and save.`);
+            setSaveMsg(`Applied “${ACCESS_POLICY_PRESETS.find((p) => p.id === id)?.label ?? id}”, review modules and save.`);
           }}
         />
       )}
@@ -442,7 +442,7 @@ function PoliciesTab({
           product modules. <strong className="text-gray-400">Platform admin</strong> and{" "}
           <strong className="text-gray-400">Governance &amp; audit</strong> include the Admin Panel and permission to{" "}
           <strong className="text-gray-400">add or remove</strong> access for others (enforce in your IdP or admin-api).
-          Other roles are scoped to their function — e.g. <strong className="text-gray-400">View only</strong> is
+          Other roles are scoped to their function, e.g. <strong className="text-gray-400">View only</strong> is
           dashboards and account surfaces only. Applying a policy loads modules into{" "}
           <strong className="text-gray-400">Module access</strong>; you still <strong className="text-gray-400">Save</strong>{" "}
           to persist (subject to dual approval for core/high-risk changes).
@@ -502,7 +502,7 @@ function PoliciesTab({
                     <td className="px-3 py-3">
                       {p.canManageAccess ? (
                         <span className="text-[11px] font-medium text-violet-300/95 bg-violet-500/15 border border-violet-500/30 px-2 py-1 rounded-md">
-                          Yes — add / remove access
+                          Yes, add / remove access
                         </span>
                       ) : (
                         <span className="text-[11px] text-gray-600">No</span>
@@ -771,8 +771,8 @@ function IntegrationRequestsTab({
       }
       onMessage(
         res.already_approved
-          ? "Already approved — GitHub link is on the request record."
-          : "Approved — opened prefilled GitHub issue for developers.",
+          ? "Already approved. GitHub link is on the request record."
+          : "Approved, opened prefilled GitHub issue for developers.",
       );
       await onReload();
     } catch (e) {
@@ -1003,7 +1003,7 @@ function ApprovalsTab({
   return (
     <div className="space-y-8">
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-300">Pending — requires {">"}1 approver</h3>
+        <h3 className="text-sm font-semibold text-gray-300">Pending, requires {">"}1 approver</h3>
         {pending.length === 0 ? (
           <p className="text-sm text-gray-600">No items in queue.</p>
         ) : (

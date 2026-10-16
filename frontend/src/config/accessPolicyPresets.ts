@@ -63,7 +63,7 @@ export const ACCESS_POLICY_PRESETS: AccessPolicyPreset[] = [
     label: "Data science",
     shortLabel: "Data science",
     description:
-      "Modeling and experimentation: analytics, simulation, investigation copilot, lists, and case/dispute data for labels — without admin or production integration changes.",
+      "Modeling and experimentation: analytics, simulation, investigation copilot, lists, and case/dispute data for labels, without admin or production integration changes.",
     canManageAccess: false,
     moduleIds: [
       "dashboard",
@@ -83,7 +83,7 @@ export const ACCESS_POLICY_PRESETS: AccessPolicyPreset[] = [
     label: "Risk analyst",
     shortLabel: "Risk analyst",
     description:
-      "Day-to-day fraud operations: queues, graph, OSINT, rules read/write, lists, shadow — full investigation surface without engineering integrations plane or admin.",
+      "Day-to-day fraud operations: queues, graph, OSINT, rules read/write, lists, shadow, full investigation surface without engineering integrations plane or admin.",
     canManageAccess: false,
     moduleIds: [
       "dashboard",
@@ -106,7 +106,7 @@ export const ACCESS_POLICY_PRESETS: AccessPolicyPreset[] = [
     label: "View only",
     shortLabel: "View only",
     description:
-      "Read dashboards and personal account areas only — no case actions, rules, graph, or sensitive tooling.",
+      "Read dashboards and personal account areas only, no case actions, rules, graph, or sensitive tooling.",
     canManageAccess: false,
     moduleIds: ["dashboard", "settings"],
   },
@@ -115,7 +115,7 @@ export const ACCESS_POLICY_PRESETS: AccessPolicyPreset[] = [
     label: "Governance & audit",
     shortLabel: "Governance",
     description:
-      "Compliance, integrations oversight, admin console, and read access to operational modules for audits — typically paired with maker–checker on changes.",
+      "Compliance, integrations oversight, admin console, and read access to operational modules for audits, typically paired with maker–checker on changes.",
     canManageAccess: true,
     moduleIds: [
       "dashboard",

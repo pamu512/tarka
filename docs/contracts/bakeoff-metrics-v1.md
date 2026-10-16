@@ -30,7 +30,7 @@ Same `tarka.loop_metrics/v1` object. Do not invent extra metrics.
 | D8 GLOBAL | top-level `evaluate_count`, `action_mix`, `shadow_divergence` | filled from audit/receipts/shadow pairs when present; **null = unknown** |
 | unused top-level | `rule_hit_rate` | stays `null`; M3 owns the per-pack name only |
 
-## GLOBAL fields (D8 — tenant-level)
+## GLOBAL fields (D8: tenant-level)
 
 LoopScoreboard / bakeoff fill. Not Promote-card pack bind. Window default matches `pack_metrics[]`: `7d` (tenant policy, not Tarka morals). `as_of` optional ISO when D8.2 computes.
 
@@ -44,18 +44,18 @@ Never invent a new metric name. Evaluate stays Rust; this contract only names ag
 
 ### reason_code (optional companion)
 
-When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unknown_reasons` map (`evaluate_count` / `action_mix` / `shadow_divergence` → code). Examples: `evaluate_store_absent`, `no_shadow_live_pairs`, `empty_tenant`, `not_computed`. LoopScoreboard shows `—` plus short English for that reason (e.g. no audit in window / metrics not yet available). Missing `reason_code` still means unknown, not 0%.
+When a GLOBAL field is null, D8.2 MAY set `reason_code` (string) or a small `unknown_reasons` map (`evaluate_count` / `action_mix` / `shadow_divergence` → code). Examples: `evaluate_store_absent`, `no_shadow_live_pairs`, `empty_tenant`, `not_computed`. LoopScoreboard shows — plus short English for that reason (e.g. no audit in window / metrics not yet available). Missing `reason_code` still means unknown, not 0%.
 
 ## M3 vs D8 ownership (share-with-M3 / do-not-double-implement)
 
 - **M3 owns** `pack_metrics[]` (`tarka.pack_metrics/v1`) for Promote confirm (and M2 Suggest Propose Demote). Per-pack `rule_hit_rate` / `shadow_divergence`.
 - **D8 owns** tenant-level aggregates `evaluate_count`, `action_mix`, and top-level `shadow_divergence` for LoopScoreboard / `/ops/bakeoff`.
-- Share naming and types with M3. Do not fork a second pack_metrics schema. Do not duplicate compute modules — D8.2 reuses M3 helpers for `shadow_divergence` math when it lands.
+- Share naming and types with M3. Do not fork a second pack_metrics schema. Do not duplicate compute modules. D8.2 reuses M3 helpers for `shadow_divergence` math when it lands.
 - Top-level `rule_hit_rate` stays null. D8 does not invent a tenant-level hit-rate.
 
 ## Coexistence (D8 globals + M3 pack_metrics[])
 
-Same `tarka.loop_metrics/v1` object. Two scopes, two desks — they do not overwrite each other.
+Same `tarka.loop_metrics/v1` object. Two scopes, two desks, they do not overwrite each other.
 
 | Surface | Reads | Honesty |
 |---------|-------|---------|
@@ -84,7 +84,7 @@ See also [enforcement-v1](enforcement-v1.md) and [CLAIM_LOCK](../compliance/CLAI
 
 ## pack_metrics[] (`tarka.pack_metrics/v1`)
 
-Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote confirm (M3) and Suggest Propose Demote (M2). **null = unknown** — never fake zeros theater. Empty tenant → `pack_metrics: []`. Compute fills a row per tenant pack from Observe logs when `pack_id` is on the observation; otherwise rates stay null.
+Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote confirm (M3) and Suggest Propose Demote (M2). **null = unknown**, never fake zeros theater. Empty tenant → `pack_metrics: []`. Compute fills a row per tenant pack from Observe logs when `pack_id` is on the observation; otherwise rates stay null.
 
 | Field | Type | Empty / honesty |
 |-------|------|-----------------|
@@ -96,6 +96,6 @@ Additive array on the same `tarka.loop_metrics/v1` payload. Shared by Promote co
 
 ## Join-rate glass
 
-Additive on the same `tarka.loop_metrics/v1` payload. Compute from evaluate receipts + the existing y_label store (G5.1 join keys / `labeled_at_by_trace`) and G5.2 tenant EXAMPLE horizons (`tarka.label_horizon/v1`). **null = unknown** — never fake a 0% bar. Empty tenant / no receipts / no labels / missing store → `null` + `unknown_reasons.join_rate` (`empty_tenant`, `no_receipts`, `no_labels`, `receipt_store_absent`). Buyer owns the lake. Not a CRM. Horizons are tenant policy examples, not Tarka morals. Not a chargeback-guarantee SKU. Low join rate never auto-demotes.
+Additive on the same `tarka.loop_metrics/v1` payload. Compute from evaluate receipts + the existing y_label store (G5.1 join keys / `labeled_at_by_trace`) and G5.2 tenant EXAMPLE horizons (`tarka.label_horizon/v1`). **null = unknown**, never fake a 0% bar. Empty tenant / no receipts / no labels / missing store → `null` + `unknown_reasons.join_rate` (`empty_tenant`, `no_receipts`, `no_labels`, `receipt_store_absent`). Buyer owns the lake. Not a CRM. Horizons are tenant policy examples, not Tarka morals. Not a chargeback-guarantee SKU. Low join rate never auto-demotes.
 
 See also [enforcement-v1](enforcement-v1.md), [label-join-v1](label-join-v1.md), and [CLAIM_LOCK](../compliance/CLAIM_LOCK.md).

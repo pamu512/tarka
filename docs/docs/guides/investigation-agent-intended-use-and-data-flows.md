@@ -1,6 +1,6 @@
-# Investigation Copilot — Intended use, out of scope, and data flows
+# Investigation Copilot: Intended use, out of scope, and data flows
 
-This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the **investigation-agent** is meant to be used, what it must **not** be relied upon for, and **where data moves**—including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
+This page is for **product**, **security**, and **legal** alignment (DPIAs, vendor questionnaires, architecture reviews). It summarizes how the **investigation-agent** is meant to be used, what it must **not** be relied upon for, and **where data moves**: including prompts, logs, RAG, feedback, optional turn review, and the third-party LLM.
 
 > **Not legal advice.** Intended use and scope must be validated against your **sector**, **jurisdiction**, **contracts**, and **DPA** with qualified counsel and your DPO. Regional builds (`AI_GOVERNANCE_PROFILE`) adjust **prompt wording and deployment defaults**; they do **not** constitute certification or a legal determination of compliance.
 
@@ -10,12 +10,12 @@ The Investigation Copilot is a **human-in-the-loop assistant** that helps analys
 
 ## 2. Intended use (for documentation and procurement)
 
-**In scope — intended use**
+**In scope:** intended use
 
 - Assist **authorized analysts** (per deployment `tenant_id` / `analyst_id` and `ALLOWED_ANALYSTS` / API key policy) with **fraud and financial-crime-style investigations** using **explicit tools** that read internal APIs.
 - Summarize and explain **data returned by those tools** in natural language, with structured add-ons (`claims`, `source_refs`, optional `derived_facts`, optional `evidence_bundle_draft`) to support **transparency and review**.
 - Support **analyst-uploaded context**: tabular batches (`POST /v1/batch/ingest`) and text memos (`POST /v1/knowledge/ingest`) **scoped to tenant + analyst**, retrievable via `search_knowledge` (optional embeddings when configured).
-- Capture **quality signals** (`POST /v1/feedback`, optional analytics endpoints) and optional **human sign-off records** (`POST /v1/review/turn`) for **workflow and improvement**—not as automatic approval of model correctness.
+- Capture **quality signals** (`POST /v1/feedback`, optional analytics endpoints) and optional **human sign-off records** (`POST /v1/review/turn`) for **workflow and improvement**. Not as automatic approval of model correctness.
 
 **Operational assumptions (deployer responsibility)**
 
@@ -96,7 +96,7 @@ flowchart LR
 | **RAG → LLM** | SQLite → agent → LLM | Chunks retrieved by `search_knowledge` enter **tool results**, then may appear in LLM context | Same as tool truncation + tool allowlist |
 | **Feedback** | Client → agent → disk | `turn_id`, rating, note, optional tags; tenant/analyst resolved or supplied | `INVESTIGATION_DATA_DIR`, `COPILOT_FEEDBACK_DB_NAME` |
 | **Turn review** | Client → agent → disk | `turn_id`, tenant, analyst, approved/rejected, note | `COPILOT_REVIEW_DB_NAME` |
-| **Logs / metrics** | investigation-agent → your observability | e.g. tool counts, tenant/analyst ids, model id—**no** full prompt dump by default in doc’d design; verify your log config | Log redaction, retention, SIEM policy |
+| **Logs / metrics** | investigation-agent → your observability | e.g. tool counts, tenant/analyst ids, model id. **No** full prompt dump by default in doc’d design; verify your log config | Log redaction, retention, SIEM policy |
 
 ### 5.3 On-disk persistence (same host as agent by default)
 
@@ -106,7 +106,7 @@ flowchart LR
 | Feedback + turn metadata | `INVESTIGATION_DATA_DIR` + `COPILOT_FEEDBACK_DB_NAME` | Ratings, `record_turn` row |
 | Human sign-off | `INVESTIGATION_DATA_DIR` + `COPILOT_REVIEW_DB_NAME` | Approved/rejected records |
 
-**Encryption at rest** for these files is **environment-dependent** (disk encryption, volume policies)—not enforced by the application layer in the reference deployment.
+**Encryption at rest** for these files is **environment-dependent** (disk encryption, volume policies). Not enforced by the application layer in the reference deployment.
 
 ## 6. Third-party LLM (subprocessor)
 
@@ -116,7 +116,7 @@ Any content sent in **§5.2 Chat → LLM** may be processed by the configured pr
 - Align **retention**, **training opt-out**, and **region** with your DPA.
 - **BYOK / VPC / self-hosted** models change the diagram but not the obligation to map **what** is sent (still includes prompts + tool payloads).
 
-Detail: [Investigation Copilot — LLM data flow](investigation-agent-llm-data-flow.md).
+Detail: [Investigation Copilot: LLM data flow](investigation-agent-llm-data-flow.md).
 
 ## 7. Logging and observability
 
@@ -124,8 +124,8 @@ Structured logs may include **operational identifiers** (tenant, analyst, case i
 
 ## 8. Related documents
 
-- [Investigation Copilot — integration contract](investigation-agent-integration-contract.md) — `GET /v1/integration`, tool families, `profile_id`
-- [Investigation Agent Project](../services/investigation-agent.md) — capabilities and limitations
-- [Investigation Copilot — LLM data flow](investigation-agent-llm-data-flow.md) — subprocessor-oriented detail
-- [Investigation Copilot — assurance modes](investigation-agent-assurance-modes.md) — strict refusal, derived facts, review API
+- [Investigation Copilot: integration contract](investigation-agent-integration-contract.md): `GET /v1/integration`, tool families, `profile_id`
+- [Investigation Agent Project](../services/investigation-agent.md): capabilities and limitations
+- [Investigation Copilot: LLM data flow](investigation-agent-llm-data-flow.md): subprocessor-oriented detail
+- [Investigation Copilot: assurance modes](investigation-agent-assurance-modes.md): strict refusal, derived facts, review API
 - [Security scanning](security-scanning.md) · [SECURITY.md](../../../SECURITY.md)

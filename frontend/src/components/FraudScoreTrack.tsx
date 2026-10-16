@@ -10,11 +10,11 @@ export function FraudScoreTrack({ score, className = "" }: FraudScoreTrackProps)
   const pct = clamped;
 
   let band: string;
-  if (clamped >= 80) band = "Critical — strong fraud signals";
-  else if (clamped >= 60) band = "High — likely review or block";
-  else if (clamped >= 40) band = "Elevated — consider review";
-  else if (clamped >= 20) band = "Moderate — monitor";
-  else band = "Lower band — fewer elevated signals";
+  if (clamped >= 80) band = "Critical: strong fraud signals";
+  else if (clamped >= 60) band = "High: likely review or block";
+  else if (clamped >= 40) band = "Elevated: consider review";
+  else if (clamped >= 20) band = "Moderate: monitor";
+  else band = "Lower band: fewer elevated signals";
 
   return (
     <div className={`space-y-1.5 ${className}`}>

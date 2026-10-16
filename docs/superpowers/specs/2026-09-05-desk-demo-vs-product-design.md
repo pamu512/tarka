@@ -1,7 +1,7 @@
 # Desk skins: demo vs product (A residual + C jobs)
 
 **Date:** 2026-09-05  
-**Status:** Design — not implemented.  
+**Status:** Design: not implemented.  
 **Related:** [ease-of-use prompts](../plans/2026-09-05-ease-of-use-prompts.md), [leftover Hunt production](./2026-08-31-leftover-hunt-production-design.md), `frontend/src/config/leanNav.ts`
 
 ## Goal
@@ -57,7 +57,7 @@ Home:
 
 ## Path sets
 
-### Demo (first hour) — keep today’s lean set
+### Demo (first hour): keep today’s lean set
 
 `/decisions`, `/graph`, `/leftovers`, `/rules`, `/observe`, `/ops/shadow`, `/analytics/rule-performance`, `/notifications`, `/settings`, `/help`, plus already-lean ops: `/ops/qa`, `/ops/calibration` (signals plane), `/ops/counters` (signals), `/ops/dispute-deadlines`, `/ops/sar-transport`, `/disputes`. `/cases` list stays hidden. Leftover Hold may deep-link `/cases/:id`.
 
@@ -81,7 +81,7 @@ Command Center, `/exec-dashboards`, `/dashboard` classic, `/ops/workload`, `/gra
 
 `/shadow` stays a redirect to `/observe` on all skins (`audit_prod_desk_mocks`).
 
-## A — residual on both skins
+## A: residual on both skins
 
 ### Leftover Brief
 
@@ -124,7 +124,7 @@ Demo: TTY skip; desk says LLM off. Product: same four env vars + compose `shadow
 ## Done when
 
 - `make demo` is still a lean first hour.
-- A product image shows visual builder, backtest, lists, simulation, analytics, Hunt, leftovers, Observe, rule-performance, notifications — without Command Center or exec brochure.
+- A product image shows visual builder, backtest, lists, simulation, analytics, Hunt, leftovers, Observe, rule-performance, notifications, without Command Center or exec brochure.
 - Leftover Brief is pack-why + existing case-brief only.
 - Sentence hops include `HAS_LIST`.
 - BYO still skippable; keys never in the browser.

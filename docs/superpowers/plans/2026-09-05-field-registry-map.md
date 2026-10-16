@@ -170,7 +170,7 @@ Expected: FAIL (import error)
 
 `field_registry_v1.json` is a JSON array. Every `feature_outputs[].name`, every `PAYLOAD_FIELDS` entry, and every `IDENTITY_FIELDS` entry not already listed. `source` is always `tarka_core`. `explanation` is one short line (kind + window for redis; identity/payload restated). No growth names. No hop etypes.
 
-`field_registry.py` implements the interfaces above. `load_seed_rows` looks next to this module is wrong — the file lives in decision-api data. Resolve path:
+`field_registry.py` implements the interfaces above. `load_seed_rows` looks next to this module is wrong. The file lives in decision-api data. Resolve path:
 
 ```python
 def _seed_path() -> Path:
@@ -348,7 +348,7 @@ async def upsert_map(session, tenant_id: str, buyer_key: str, registry_name: str
 - [ ] **Step 1: Write the failing store test**
 
 ```python
-# test_field_store.py — sqlite+aiosqlite, Base.metadata.create_all
+# test_field_store.py: sqlite+aiosqlite, Base.metadata.create_all
 # upsert_overlay("order_channel") then list_overlay includes it
 # upsert_overlay("event_count_1h") raises FieldRegistrySeedLocked
 # upsert_overlay("tx_count_1h") raises ValueError
@@ -380,13 +380,13 @@ Expected: PASS
 
 **Files:**
 - Create: `services/decision-api/src/decision_api/field_api.py`
-- Modify: `services/decision-api/src/decision_api/config.py` — add `tarka_desk_profile: str = ""` (env `TARKA_DESK_PROFILE`)
-- Modify: `services/decision-api/src/decision_api/main.py` — `app.include_router(field_router)` next to `rule_router`
+- Modify: `services/decision-api/src/decision_api/config.py`: add `tarka_desk_profile: str = ""` (env `TARKA_DESK_PROFILE`)
+- Modify: `services/decision-api/src/decision_api/main.py`: `app.include_router(field_router)` next to `rule_router`
 - Create: `services/decision-api/tests/test_field_api.py`
 
 **Interfaces:**
 - Router prefix `/v1/fields`, tags `fields`
-- GET list/get: `require_role("analyst")` (same as rules reads; insecure-desk tests that skip auth still work if they construct a bare FastAPI like author-catalog — **do not** add auth middleware on the unit app; match `test_author_catalog`)
+- GET list/get: `require_role("analyst")` (same as rules reads; insecure-desk tests that skip auth still work if they construct a bare FastAPI like author-catalog. **Do not** add auth middleware on the unit app; match `test_author_catalog`)
 - PUT: if `settings.tarka_desk_profile.strip().lower() == "demo"` → 403 `{"detail": "maps persist on product Postgres"}`
 - Register `/maps` and `/discover` **before** `/{name}`
 
@@ -477,7 +477,7 @@ Expected: PASS
 
 **Files:**
 - Modify: `services/decision-api/src/decision_api/evaluate/pipeline.py`
-- Modify: `services/decision-api/src/decision_api/field_store.py` — add `async def load_maps_or_empty(session, tenant_id) -> list[tuple[str, str]]` (except → `[]` + log)
+- Modify: `services/decision-api/src/decision_api/field_store.py`: add `async def load_maps_or_empty(session, tenant_id) -> list[tuple[str, str]]` (except → `[]` + log)
 - Create: `services/decision-api/tests/test_evaluate_field_remap.py`
 
 **Interfaces:**
@@ -556,8 +556,8 @@ def when_field_errors(pack: dict, allowed: frozenset[str]) -> list[str]:
     return errors
 ```
 
-- Modify: `services/shadow_agent/pack_author_contract.py` — `validate_ai_authored_pack(doc, allowed_fields: frozenset[str] | None = None)` uses `allowed_fields or ALLOWED_FIELDS`
-- Modify: `services/shadow_agent/PACK_AUTHOR.md` — after the allowed-field list, add:
+- Modify: `services/shadow_agent/pack_author_contract.py`: `validate_ai_authored_pack(doc, allowed_fields: frozenset[str] | None = None)` uses `allowed_fields or ALLOWED_FIELDS`
+- Modify: `services/shadow_agent/PACK_AUTHOR.md`: after the allowed-field list, add:
 
 ```
 Unknown `when.field` values are rejected. Map the buyer key or add a registry
@@ -567,13 +567,13 @@ on the decision-api write path; a cold shadow_agent import only sees the seed
 allow-list (`ponytail:` no registry HTTP client in shadow_agent this slice).
 ```
 
-- Modify: `services/decision-api/tests/test_author_catalog.py` — catalog GET `?tenant_id=` includes overlay name after store upsert (or monkeypatch overlay names)
+- Modify: `services/decision-api/tests/test_author_catalog.py`: catalog GET `?tenant_id=` includes overlay name after store upsert (or monkeypatch overlay names)
 - Create: `services/decision-api/tests/test_rule_field_reject.py`
 
 **Interfaces:**
 - `_live_author_catalog(tenant_id: str | None = None)`: if tenant set, load overlay names (fail → seed-only + log); pass `registry_names=seed|overlay`, `overlay_names=overlay` into `build_author_catalog`
 - `GET /v1/rules/author-catalog?tenant_id=`
-- `create_rule_pack` / `update_rule_pack` / `_validate_ai_authored_pack`: after structural validate, `when_field_errors(pack, ai_allowed_fields(_live_author_catalog(tenant)))`. Human POST has no tenant on the pack — use seed-only catalog (`tenant_id=None`) **plus** `IDENTITY` **plus** `LEGACY_ALIASES`. That still rejects `not_a_field` and allows `tx_count_1h`. Overlay-only names on human POST require `tenant_id` query on create/update (optional). If omitted, seed+aliases only.
+- `create_rule_pack` / `update_rule_pack` / `_validate_ai_authored_pack`: after structural validate, `when_field_errors(pack, ai_allowed_fields(_live_author_catalog(tenant)))`. Human POST has no tenant on the pack. Use seed-only catalog (`tenant_id=None`) **plus** `IDENTITY` **plus** `LEGACY_ALIASES`. That still rejects `not_a_field` and allows `tx_count_1h`. Overlay-only names on human POST require `tenant_id` query on create/update (optional). If omitted, seed+aliases only.
 
 ```python
 # create_rule_pack / update_rule_pack
@@ -609,7 +609,7 @@ async def test_create_pack_allows_legacy_alias(rules_client):
         assert "tx_count_1h" not in str(r.json()).lower() or "unknown field" not in str(r.json())
 ```
 
-Governance secret may 403/401 on full app. Bare FastAPI like `test_author_catalog` has no governance — `_require_rule_governance` may no-op when secret unset. If create fails for filename collision, use a unique name.
+Governance secret may 403/401 on full app. Bare FastAPI like `test_author_catalog` has no governance. `_require_rule_governance` may no-op when secret unset. If create fails for filename collision, use a unique name.
 
 Also: `validate_ai_authored_pack({"...", "when":[{"field":"order_channel"}]}, allowed_fields=frozenset({"order_channel", ...}))` ok; without the extra set, `order_channel` fails.
 
@@ -630,12 +630,12 @@ Expected: PASS
 ### Task 7: Desk panel (product)
 
 **Files:**
-- Modify: `frontend/src/api/client.ts` — `rules.authorCatalog(tenantId?: string)`; add `fields` client
-- Modify: `frontend/src/domain/authorCatalogSession.ts` — pass tenant
+- Modify: `frontend/src/api/client.ts`: `rules.authorCatalog(tenantId?: string)`; add `fields` client
+- Modify: `frontend/src/domain/authorCatalogSession.ts`: pass tenant
 - Create: `frontend/src/components/FieldMapPanel.tsx`
 - Create: `frontend/src/components/FieldMapPanel.test.tsx`
-- Modify: `frontend/src/pages/Rules.tsx` — mount after the field-catalog toggle block
-- Modify: `frontend/src/pages/Rules.test.tsx` — mock `fields` if imported via client
+- Modify: `frontend/src/pages/Rules.tsx`: mount after the field-catalog toggle block
+- Modify: `frontend/src/pages/Rules.test.tsx`: mock `fields` if imported via client
 
 **Interfaces:**
 
@@ -670,7 +670,7 @@ authorCatalog(tenantId?: string) {
 `FieldMapPanel` (`data-testid="field-map-panel"`):
 
 - Render `null` unless `DESK_PROFILE === "product"`
-- Wrap writes in existing `RequireRole` `RiskArchitect` (list still behind the same gate — one panel)
+- Wrap writes in existing `RequireRole` `RiskArchitect` (list still behind the same gate, one panel)
 - Tenant = `searchParams tenant_id` or workspace tenant or `"demo"`
 - Load `fields.list` + `fields.maps`
 - Textarea JSON → Discover → show candidates
@@ -689,7 +689,7 @@ it("shows panel on product", async () => {
 });
 ```
 
-Second file or same with `vi.doMock` is painful — split:
+Second file or same with `vi.doMock` is painful. Split:
 
 ```tsx
 // FieldMapPanel.test.tsx default product mock
@@ -730,7 +730,7 @@ Expected: PASS
 
 **Files:**
 - Create: `docs/docs/guides/field-registry-onboarding.md`
-- Modify: `docs/docs/guides/ingest-replay-onboarding.md` — one sentence + link at the top (do not rewrite)
+- Modify: `docs/docs/guides/ingest-replay-onboarding.md`: one sentence + link at the top (do not rewrite)
 - PACK_AUTHOR paragraph is Task 6
 
 **Doc must include:** seed vs overlay; map then author; discover → row → map; demo limitation (seed file, PUT 403 when `TARKA_DESK_PROFILE=demo`; compose unchanged this slice); empty seed → catalog redis/payload empty, hops/growth unchanged; `tx_*` migrate-only; windows stay on `counter_manifest_v1.json`; growth on graph policy GET; no `desk_provision`; Elastic-2.0 / do not say OSS.

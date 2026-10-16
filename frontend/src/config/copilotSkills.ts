@@ -27,7 +27,7 @@ export const QUICK_INSTANT_SKILLS: CopilotSkill[] = [
     label: "⚡ Rule gaps from signals",
     instant: true,
     prompt:
-      "From the current case/decision context, list 3 concrete rule-base or list changes (OPA-style intent, not code) that would catch similar fraud earlier. Rank by impact vs effort. Advisory only—do not assume changes are deployed.",
+      "From the current case/decision context, list 3 concrete rule-base or list changes (OPA-style intent, not code) that would catch similar fraud earlier. Rank by impact vs effort. Advisory only, do not assume changes are deployed.",
   },
   {
     id: "q-graph",
@@ -64,7 +64,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
     id: "typology-playbooks",
     title: "Typology playbooks",
     blurb:
-      "Use the **Playbook** dropdown in Investigation or CaseDetail copilot to send `playbook_id` with each message (same catalog as `GET /v1/playbooks`). CaseDetail auto-suggests `marketplace_cod_courier_hold` from COD/courier/payout-hold tags. That appends server-side workflow hints—including scheme-style monitoring, disputes, AML escalation, collusion, coupon abuse, and fulfillment claims. Prompts below are optional user-side framings if you prefer not to use the dropdown.",
+      "Use the **Playbook** dropdown in Investigation or CaseDetail copilot to send `playbook_id` with each message (same catalog as `GET /v1/playbooks`). CaseDetail auto-suggests `marketplace_cod_courier_hold` from COD/courier/payout-hold tags. That appends server-side workflow hints, including scheme-style monitoring, disputes, AML escalation, collusion, coupon abuse, and fulfillment claims. Prompts below are optional user-side framings if you prefer not to use the dropdown.",
     skills: [
       {
         id: "pb-payments_first_party",
@@ -82,7 +82,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         id: "pb-refund_promo_abuse",
         label: "Framing: refund / promo abuse",
         prompt:
-          "Investigate refund or promo abuse: graph links and shared instruments/addresses/devices, velocity from audits, batch value_counts on refund/promo/SKU columns if a batch exists. No stereotype proxies—ground patterns in tools.",
+          "Investigate refund or promo abuse: graph links and shared instruments/addresses/devices, velocity from audits, batch value_counts on refund/promo/SKU columns if a batch exists. No stereotype proxies, ground patterns in tools.",
       },
       {
         id: "pb-marketplace_cod_courier",
@@ -100,7 +100,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         id: "pb-scheme_monitoring_merchant",
         label: "Framing: scheme-style exposure (fraud + disputes + testing)",
         prompt:
-          "Investigate merchant/acquirer-style exposure: segment fraud vs non-fraud dispute populations if data allows; look for enumeration or card-testing proxies (auth/decline bursts, shared BIN/device); graph linked entities; list KPI questions for risk owners—not a network compliance ruling.",
+          "Investigate merchant/acquirer-style exposure: segment fraud vs non-fraud dispute populations if data allows; look for enumeration or card-testing proxies (auth/decline bursts, shared BIN/device); graph linked entities; list KPI questions for risk owners, not a network compliance ruling.",
       },
       {
         id: "pb-disputes_chargebacks",
@@ -112,7 +112,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         id: "pb-aml_escalation",
         label: "Framing: AML / fincrime escalation",
         prompt:
-          "Build an AML-escalation-style view: velocity and flow patterns, counterparties via graph, sanctions/PEP only if tools expose hits. Output facts vs suspicion bullets; recommend compliance handoff when appropriate—no filing or legal conclusions.",
+          "Build an AML-escalation-style view: velocity and flow patterns, counterparties via graph, sanctions/PEP only if tools expose hits. Output facts vs suspicion bullets; recommend compliance handoff when appropriate, no filing or legal conclusions.",
       },
       {
         id: "pb-collusion_fake_accounts",
@@ -137,7 +137,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
   {
     id: "rules-cases",
     title: "Cases & rule base",
-    blurb: "Review existing work and suggest improvements to policies, lists, and thresholds—always advisory.",
+    blurb: "Review existing work and suggest improvements to policies, lists, and thresholds, always advisory.",
     skills: [
       {
         id: "rc-cohort-rules",
@@ -192,14 +192,14 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         id: "bd-sar-prep",
         label: "Batch → SAR narrative outline",
         prompt:
-          "From a hypothetical batch of linked high-risk cases, produce an outline for SAR-style narrative sections (facts, timeline, suspects, amounts, law-enforcement value). Mark every item as requiring human verification—template only.",
+          "From a hypothetical batch of linked high-risk cases, produce an outline for SAR-style narrative sections (facts, timeline, suspects, amounts, law-enforcement value). Mark every item as requiring human verification, template only.",
       },
     ],
   },
   {
     id: "experiments",
     title: "A/B tests, shadow & simulation",
-    blurb: "Read out experiments and decide what to ship—guardrails included.",
+    blurb: "Read out experiments and decide what to ship, guardrails included.",
     skills: [
       {
         id: "ex-checklist",
@@ -224,7 +224,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
   {
     id: "reporting",
     title: "Reports & monitoring periods",
-    blurb: "Recurring operational and executive views—edit dates in the composer after insert.",
+    blurb: "Recurring operational and executive views, edit dates in the composer after insert.",
     skills: [
       {
         id: "rp-weekly",
@@ -268,7 +268,7 @@ export const COPILOT_SKILL_GROUPS: CopilotSkillGroup[] = [
         id: "wf-compliance",
         label: "Compliance evidence request list",
         prompt:
-          "Produce a bullet list of artifacts an auditor might request for a sample of denied/reviewed transactions (decision audit, rule version, model lineage placeholder, access logs). No legal advice—operational checklist only.",
+          "Produce a bullet list of artifacts an auditor might request for a sample of denied/reviewed transactions (decision audit, rule version, model lineage placeholder, access logs). No legal advice, operational checklist only.",
       },
       {
         id: "wf-oncall",
@@ -307,15 +307,15 @@ export function findCopilotSkillByQuery(query: string): CopilotSkill | undefined
 
 export function buildSkillCommandHelp(): string {
   const lines: string[] = [
-    "**Copilot skills** — preset playbooks (this chat only; not sent to the model training).",
+    "**Copilot skills**: preset playbooks (this chat only; not sent to the model training).",
     "",
     "**Commands**",
-    "• `/skill` or `/skill list` — show this catalog.",
-    "• `/skill <id>` — show one skill’s full prompt (e.g. `/skill q-tldr`, `/skill rc-cohort-rules`).",
-    "• `/skill <words>` — fuzzy match on label (e.g. `/skill weekly report`).",
+    "• `/skill` or `/skill list`: show this catalog.",
+    "• `/skill <id>`: show one skill’s full prompt (e.g. `/skill q-tldr`, `/skill rc-cohort-rules`).",
+    "• `/skill <words>`: fuzzy match on label (e.g. `/skill weekly report`).",
     "",
     "**Quick run (instant ⚡)**",
-    ...QUICK_INSTANT_SKILLS.map((s) => `  • \`${s.id}\` — ${s.label}`),
+    ...QUICK_INSTANT_SKILLS.map((s) => `  • \`${s.id}\`: ${s.label}`),
     "",
   ];
   for (const g of COPILOT_SKILL_GROUPS) {
@@ -323,7 +323,7 @@ export function buildSkillCommandHelp(): string {
     if (g.blurb) lines.push(`  (${g.blurb})`);
     for (const s of g.skills) {
       const tag = s.instant ? " ⚡" : "";
-      lines.push(`  • \`${s.id}\`${tag} — ${s.label.replace(/^⚡\s*/, "")}`);
+      lines.push(`  • \`${s.id}\`${tag}: ${s.label.replace(/^⚡\s*/, "")}`);
     }
     lines.push("");
   }
@@ -336,8 +336,8 @@ export function buildSkillCommandHelp(): string {
 
 export function formatSkillDetail(skill: CopilotSkill): string {
   const instantNote = skill.instant
-    ? "**⚡ Instant skill** — you can run the same text from the preset buttons, or paste below and Send.\n\n"
-    : "**Composer skill** — paste into the box, edit placeholders (dates, tenant), then Send.\n\n";
+    ? "**⚡ Instant skill**, you can run the same text from the preset buttons, or paste below and Send.\n\n"
+    : "**Composer skill**, paste into the box, edit placeholders (dates, tenant), then Send.\n\n";
   return [
     `**${skill.label}**  (\`${skill.id}\`)`,
     "",
@@ -362,15 +362,15 @@ export function buildRepeatSkillSuggestionPrompt(lastUserMessage: string): strin
   const clip =
     lastUserMessage.length > 600 ? `${lastUserMessage.slice(0, 600)}…` : lastUserMessage;
   return [
-    "**Repeat task detected** — you’ve sent a very similar message more than once in this chat.",
+    "**Repeat task detected**, you’ve sent a very similar message more than once in this chat.",
     "",
     "**Save it as a custom skill** so the team gets one-tap or short-alias access:",
-    "1. **Name** — short verb + object (e.g. `Weekly queue risk scrub`).",
-    "2. **Prompt** — copy the text you reuse (template below). Add `[PLACEHOLDERS]` for dates, entity, or tenant.",
-    "3. **Where to store** — until in-app custom skills ship: team wiki / runbook, or ask an admin to add a **preset** next to the built-ins.",
-    "4. **Instant vs edit** — if the prompt is always the same, mark it *instant*; if analysts must edit dates/IDs, keep it *composer-first*.",
+    "1. **Name**: short verb + object (e.g. `Weekly queue risk scrub`).",
+    "2. **Prompt**: copy the text you reuse (template below). Add `[PLACEHOLDERS]` for dates, entity, or tenant.",
+    "3. **Where to store**: until in-app custom skills ship: team wiki / runbook, or ask an admin to add a **preset** next to the built-ins.",
+    "4. **Instant vs edit**: if the prompt is always the same, mark it *instant*; if analysts must edit dates/IDs, keep it *composer-first*.",
     "",
-    "**Tip** — Type `/skill` anytime to list every preset **id** and label.",
+    "**Tip**: Type `/skill` anytime to list every preset **id** and label.",
     "",
     "**Your last message (copy as skill body)**",
     "```",

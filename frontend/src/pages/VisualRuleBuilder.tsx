@@ -69,7 +69,7 @@ export default function VisualRuleBuilder() {
       <PageTitle module="rules">
         Legacy canvas
         <span className="block text-xs font-normal text-gray-500 mt-1">
-          Not a product SKU. Prefer SentencePackPanel on ObserveEasePanel — thin no-code that emits the same pack JSON
+          Not a product SKU. Prefer SentencePackPanel on ObserveEasePanel, thin no-code that emits the same pack JSON
           evaluate already runs. This canvas is leftover; authoring belongs on Observe.
         </span>
       </PageTitle>
@@ -82,7 +82,7 @@ export default function VisualRuleBuilder() {
             leftover {leftoverId} · pack {pack} · hits {hits}
           </p>
           {catalog && seeded === null ? (
-            <p>No shipped hop or catalog key on this leftover — pick from the palette.</p>
+            <p>No shipped hop or catalog key on this leftover, pick from the palette.</p>
           ) : null}
           <Link to={huntBackHref(searchParams)} className="text-brand-300 hover:underline text-xs">
             Back to Hunt

@@ -2,7 +2,7 @@
 
 Named-pilot sign-off for a **GitLab-grade / production install** claim. This page is the soak gate. It is **not** the grade.
 
-Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** There is no GA tag. There is **no SOC 2** (or PCI) from this file, from fixture CI, or from [`docs/compliance/soc2-pci/`](../../compliance/soc2-pci/). Beachhead is CE-shaped VPC evaluate-HA on last-mile / food / q-comm / gig / retail — **not banks** as P0. Do not name peer fraud / risk products.
+Tarka application code is **source-available** under Elastic License 2.0 (**ELv2**, not open-source). **Beta remains.** There is no GA tag. There is **no SOC 2** (or PCI) from this file, from fixture CI, or from [`docs/compliance/soc2-pci/`](../../compliance/soc2-pci/). Beachhead is CE-shaped VPC evaluate-HA on last-mile / food / q-comm / gig / retail, **not banks** as P0. Do not name peer fraud / risk products.
 
 **Claim lock:** “GitLab-grade install” is allowed **only** when **G0–G8 have landed** on the tip you apply **and** this checklist is **signed** for a **named** pilot (internal or buyer). A green `helm template` of `prod-on-k8s`, this file existing, or `prod-on-k8s` existing is **not** the grade. See [CLAIM_LOCK](../../compliance/CLAIM_LOCK.md).
 
@@ -18,11 +18,11 @@ This soak is **install-side**. It is **not** “primary decisioner” maturity (
 
 ## Related (G0–G8 landed on tip)
 
-Docs below are on this tip. A row still stays **fail** until the *pilot* work is dated — landing the file is not a pass.
+Docs below are on this tip. A row still stays **fail** until the *pilot* work is dated. Landing the file is not a pass.
 
 | Doc | Role |
 |-----|------|
-| [production-install-v1](../../contracts/production-install-v1.md) | G0 contract — when a grade *may* be claimed. Not the grade. |
+| [production-install-v1](../../contracts/production-install-v1.md) | G0 contract, when a grade *may* be claimed. Not the grade. |
 | [SUPPORT.md](../../../SUPPORT.md) | G8 commercial pack + community (no SLA). Not the grade. |
 | [deployment.md](deployment.md) | Helm catalog, `prod-on-k8s`, digest + NetworkPolicy |
 | [production-secrets-rotation.md](production-secrets-rotation.md) | G3 rotate `API_KEYS` / signing secrets |
@@ -75,19 +75,19 @@ Every row needs **pass** or **fail**, a **date**, and an **owner**. Blank date o
 | 7 | Evaluate SLOs on buyer TPS (placeholder metrics) | ________ | ________ | ________ |
 | 8 | ≥2 weeks Observe before handoff / enforcement mode | ________ | ________ | ________ |
 
-### 1 — Digests pinned on prod values
+### 1: Digests pinned on prod values
 
-**Pass:** The values **applied** to this pilot pin `sha256:<64-hex>` on every enabled image (`coreApi`, and `signalApi` / `investigationAgent` when those workloads are on). Tag is ignored when digest is set. Mutable `1.3.0-beta` without digest is **fail**. Empty digest is allowed only so CI `helm template` of placeholders still works — that apply is **not** this row.
+**Pass:** The values **applied** to this pilot pin `sha256:<64-hex>` on every enabled image (`coreApi`, and `signalApi` / `investigationAgent` when those workloads are on). Tag is ignored when digest is set. Mutable `1.3.0-beta` without digest is **fail**. Empty digest is allowed only so CI `helm template` of placeholders still works. That apply is **not** this row.
 
 How: [deployment.md](deployment.md) (`coreApi.digest`). G2: `generate_cloud_values.py --digest-map` is required on the `prod-on-k8s` publish helper.
 
-### 2 — Secrets rotated once
+### 2: Secrets rotated once
 
 **Pass:** After first apply, `API_KEYS` and required signing secrets (`EVIDENCE_SIGNING_SECRET`, plus `OIDC_CLIENT_SECRET` / `RULE_GOVERNANCE_SECRET` if those planes are on) were rotated **once** on this pilot and evaluate still fail-closes when keys are empty. Chart default `fraud` / `tarka-evidence-dev-secret` as the live secret is **fail**.
 
 How: Kubernetes Secret named by `global.appSecretsName`. Runbook: [production-secrets-rotation.md](production-secrets-rotation.md). Vault / ESO optional, not required.
 
-### 3 — OIDC or API-key path proven
+### 3: OIDC or API-key path proven
 
 **Pass:** At least one path works on this pilot:
 
@@ -98,27 +98,27 @@ How: Kubernetes Secret named by `global.appSecretsName`. Runbook: [production-se
 
 Either path is enough. Both empty + insecure off is **fail**. OIDC is not required to boot evaluate. G4 SoT is first-class Helm `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` ([deployment.md](deployment.md)). ExtraEnv `OIDC_*` is leftover fallback only.
 
-### 4 — Backup drill dated (G6)
+### 4: Backup drill dated (G6)
 
-**Pass:** Dated run of the G6 SoR drill (decisions + audit + packs + labels on **external** Postgres). Redis is ephemeral velocity — an empty Redis after restore is expected. AGE Hunt on `enterprise-desk` is a **volume** restore, not `pg_dump`.
+**Pass:** Dated run of the G6 SoR drill (decisions + audit + packs + labels on **external** Postgres). Redis is ephemeral velocity. An empty Redis after restore is expected. AGE Hunt on `enterprise-desk` is a **volume** restore, not `pg_dump`.
 
 How: [production-backup-restore.md](production-backup-restore.md). Undated buyer snapshot lore is **fail**.
 
-### 5 — Upgrade dry-run dated (G7)
+### 5: Upgrade dry-run dated (G7)
 
 **Pass:** Dated digest-to-digest (or recorded Helm revision) dry-run on this single-cluster beachhead: preflight, `helm upgrade` **or** `helm template` of the to-pin, verify evaluate, practiced rollback. Expand/contract only. Not multi-region.
 
 How: [production-upgrade.md](production-upgrade.md). Undated dry-run is **fail**.
 
-### 6 — NetworkPolicy on
+### 6: NetworkPolicy on
 
 **Pass:** The running `prod-on-k8s` (or `global.environment=prod`) apply emits default-deny NetworkPolicy plus the chart allow rules (kube-dns, same-namespace, evaluate ingress). `kubectl -n <ns> get networkpolicy` shows them. Opt-out (`global.networkPolicy.enabled=false`) is **fail** for this row.
 
 How: [deployment.md](deployment.md). G5: `prod-on-k8s` sets `global.networkPolicy.enabled: true`. Lite / default values emitting none is correct and is **not** this pilot.
 
-### 7 — Evaluate SLOs on buyer TPS (placeholder metrics)
+### 7: Evaluate SLOs on buyer TPS (placeholder metrics)
 
-**Pass:** This pilot wrote **buyer** numbers — not Tarka nines as an SLA. Fill the placeholders. [service-slos-v1](service-slos-v1.md) targets are aspirational / buyer-owned. [SUPPORT.md](../../../SUPPORT.md) community track has **no** availability percentage.
+**Pass:** This pilot wrote **buyer** numbers, not Tarka nines as an SLA. Fill the placeholders. [service-slos-v1](service-slos-v1.md) targets are aspirational / buyer-owned. [SUPPORT.md](../../../SUPPORT.md) community track has **no** availability percentage.
 
 | Placeholder | Buyer value | How measured |
 |-------------|-------------|--------------|
@@ -129,7 +129,7 @@ How: [deployment.md](deployment.md). G5: `prod-on-k8s` sets `global.networkPolic
 
 Blank TPS = **fail**. Citing a Tarka 99.99% (or any nines) SLA = **fail**.
 
-### 8 — ≥2 weeks Observe before handoff / enforcement mode
+### 8: ≥2 weeks Observe before handoff / enforcement mode
 
 **Pass:** This named pilot ran **≥14 days** in Observe / `emit_only` (pack canary + observe-only evaluate) **before** any `enforcement.mode=handoff`. Soak start and sign-off dates above must span 14 days. Handoff is buyer-contracted, never the compose or `prod-on-k8s` default.
 

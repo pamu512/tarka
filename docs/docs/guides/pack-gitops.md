@@ -6,4 +6,4 @@ After a successful desk Promote, Tarka appends `tarka.pack_promote_export/v1` (`
 
 CI `policy-check` still gates pack schema. Buyer git sync consumes the export event. Write failure does not undo desk Promote. Consumer failure does not undo desk Promote.
 
-Commercial Sev-3 how-to (consume the export; do not move go-live to git): [SUPPORT — Pack GitOps export assist](../../../SUPPORT.md#pack-gitops-export-assist).
+Commercial Sev-3 how-to (consume the export; do not move go-live to git): [SUPPORT: Pack GitOps export assist](../../../SUPPORT.md#pack-gitops-export-assist).

@@ -21,4 +21,4 @@ There is no desktop forensics console in this repo. Do not add a third Advise pa
 
 ## Advise context (air-gap SOP zip)
 
-SOP zip is the air-gap bootstrap (`scripts/oss/advise_sop_import.py`). Confluence / Wiki **read-only** sync into tenant OKF / RAG is later. Other knowledge connectors on request. Built-in playbooks are generic defaults only when the desk provides none — desks should bring their own SOPs. This repo does not ship a Confluence connector.
+SOP zip is the air-gap bootstrap (`scripts/oss/advise_sop_import.py`). Confluence / Wiki **read-only** sync into tenant OKF / RAG is later. Other knowledge connectors on request. Built-in playbooks are generic defaults only when the desk provides none. Desks should bring their own SOPs. This repo does not ship a Confluence connector.

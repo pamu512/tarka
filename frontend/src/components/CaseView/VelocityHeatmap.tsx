@@ -55,7 +55,7 @@ export function VelocityHeatmap({ inference, anchorIso, className = "" }: Props)
             {model.synthesized ? (
               <span className="text-gray-600">
                 {" "}
-                — shape inferred from 5m / 1h / 24h counters when hourly buckets are unavailable.
+                , shape inferred from 5m / 1h / 24h counters when hourly buckets are unavailable.
               </span>
             ) : null}
           </p>
@@ -83,7 +83,7 @@ export function VelocityHeatmap({ inference, anchorIso, className = "" }: Props)
               return (
                 <div
                   key={hour}
-                  title={`${String(hour).padStart(2, "0")}:00 UTC — ${count} events`}
+                  title={`${String(hour).padStart(2, "0")}:00 UTC: ${count} events`}
                   className={`rounded-sm min-h-[40px] flex flex-col items-center justify-center text-[10px] font-mono tabular-nums leading-none px-0.5 py-1 transition-colors ${intensityClasses(count, max, isPeak)}`}
                   aria-label={`Hour ${hour} UTC, ${count} events`}
                 >

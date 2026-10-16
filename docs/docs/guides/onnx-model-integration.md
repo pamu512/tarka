@@ -1,7 +1,7 @@
 # How to plug in your own ONNX model
 
 **Service:** `services/ml-scoring`  
-**Runtime:** `onnxruntime` (optional dependency — install with `pip install -e ".[onnx]"` from `services/ml-scoring`).
+**Runtime:** `onnxruntime` (optional dependency. Install with `pip install -e ".[onnx]"` from `services/ml-scoring`).
 
 ## Environment variables
 

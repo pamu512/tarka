@@ -20,7 +20,7 @@ Always available when events are recorded for the entity:
 |-----|---------------------|--------|
 | `distinct_device_id_24h` | `device_id` | 24h distinct device IDs |
 | `distinct_ip_address_24h` | `ip_address` | 24h distinct IPs |
-| `distinct_session_id_24h` | `session_id` | 24h distinct sessions — **omit key from rules** if you do not send `session_id` |
+| `distinct_session_id_24h` | `session_id` | 24h distinct sessions. **Omit key from rules** if you do not send `session_id` |
 
 Example evaluate payload fragment:
 
@@ -47,6 +47,6 @@ Set **`AGG_KEY_VERSION`** identically on decision-api writers, replay scripts, a
 
 ## Related
 
-- [counter-replay-parity.md](../counter-replay-parity.md) — Epic C RC gates
-- [api-bot-credential-defense.md](./api-bot-credential-defense.md) — velocity in rules
-- [quickstart.md](../../quickstart.md) — quick evaluate curl
+- [counter-replay-parity.md](../counter-replay-parity.md): Epic C RC gates
+- [api-bot-credential-defense.md](./api-bot-credential-defense.md): velocity in rules
+- [quickstart.md](../../quickstart.md): quick evaluate curl

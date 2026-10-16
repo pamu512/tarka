@@ -100,7 +100,7 @@ export function ComplianceResidencyAuditViewer() {
         <div>
           <h2 className="text-lg font-semibold text-gray-100">Immutable audit viewer</h2>
           <p className="text-sm text-gray-500 mt-1 max-w-3xl">
-            <span className="text-amber-200/90 font-medium">Read-only</span> —{" "}
+            <span className="text-amber-200/90 font-medium">Read-only</span>:{" "}
             <code className="text-xs text-gray-500">ComplianceResidencyAudit</code> rows from integration-ingress (
             server-side pagination and filters). CSV export streams from{" "}
             <code className="text-xs text-gray-500">GET /v1/compliance/residency/audit/export.csv</code>, not from the DOM.

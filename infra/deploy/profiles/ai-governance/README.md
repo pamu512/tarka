@@ -48,7 +48,7 @@ See `helm/*.yaml` in this directory.
 
 ## API
 
-- **`GET /v1/health`** — includes `ai_governance_profile` and `ai_governance_label`.
-- **`GET /v1/governance`** — profile, human-readable label, reference list, `batch_ttl_seconds`, disclaimer.
+- **`GET /v1/health`**: includes `ai_governance_profile` and `ai_governance_label`.
+- **`GET /v1/governance`**: profile, human-readable label, reference list, `batch_ttl_seconds`, disclaimer.
 
 Full narrative: **[docs/docs/guides/ai-governance-regional-builds.md](../../../docs/docs/guides/ai-governance-regional-builds.md)**.

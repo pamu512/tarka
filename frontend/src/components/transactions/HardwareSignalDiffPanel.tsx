@@ -26,7 +26,7 @@ export function HardwareSignalDiffPanel({ left, right }: Props) {
     >
       <div className="px-4 py-3 border-b border-surface-700 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-200">Visual diff — hardware signals</h2>
+          <h2 className="text-sm font-semibold text-gray-200">Visual diff: hardware signals</h2>
           <p className="text-[11px] text-gray-500 mt-1 font-mono truncate max-w-[48rem]">
             <span className="text-gray-400">{left.traceId}</span>
             <span className="mx-2 text-gray-600">vs</span>
@@ -45,11 +45,11 @@ export function HardwareSignalDiffPanel({ left, right }: Props) {
           </span>
           {strongOverlap ? (
             <span className="text-[11px] text-emerald-400/90">
-              ≥{Math.round(VISUAL_DIFF_HIGHLIGHT_THRESHOLD * 100)}% — matching fields highlighted
+              ≥{Math.round(VISUAL_DIFF_HIGHLIGHT_THRESHOLD * 100)}%, matching fields highlighted
             </span>
           ) : (
             <span className="text-[11px] text-gray-500">
-              Below {Math.round(VISUAL_DIFF_HIGHLIGHT_THRESHOLD * 100)}% — differences emphasized
+              Below {Math.round(VISUAL_DIFF_HIGHLIGHT_THRESHOLD * 100)}%, differences emphasized
             </span>
           )}
         </div>
@@ -57,7 +57,7 @@ export function HardwareSignalDiffPanel({ left, right }: Props) {
 
       {allKeys.length === 0 ? (
         <p className="px-4 py-6 text-sm text-gray-500">
-          No hardware signal maps on these rows — extend the feed payload with{" "}
+          No hardware signal maps on these rows, extend the feed payload with{" "}
           <code className="text-gray-400">device_context</code> /{" "}
           <code className="text-gray-400">hardware_signals</code> (see live grid seed).
         </p>

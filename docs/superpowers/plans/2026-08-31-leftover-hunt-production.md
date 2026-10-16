@@ -113,7 +113,7 @@ def test_not_leftover_blank_entity_or_allow_case_or_closed():
     assert is_leftover(_case(status="closed", labels=["origin:evaluate"])) is False
 ```
 
-`services/decision-api/tests/test_decision_outcome.py` — add:
+`services/decision-api/tests/test_decision_outcome.py`: add:
 
 ```python
 def test_maybe_create_case_sends_origin_evaluate_and_last_outcome():
@@ -159,7 +159,7 @@ cd services/case-api && PYTHONPATH=src:.:../shared pytest tests/test_leftovers.p
 cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_decision_outcome.py::test_maybe_create_case_sends_origin_evaluate_and_last_outcome -q
 ```
 
-Expected: FAIL — `case_api.leftover` missing; mint body has no `labels`.
+Expected: FAIL: `case_api.leftover` missing; mint body has no `labels`.
 
 - [ ] **Step 3: Minimal implementation**
 
@@ -314,9 +314,9 @@ def test_release_clears_claim_stays_leftover(case_client, monkeypatch):
     assert d["last_act"] == "released"
 ```
 
-409 body: FastAPI `detail` may be a string or object. Implement as `HTTPException(409, detail={"detail": "claimed", "claimed_by": actor})` so JSON is `{"detail": {"detail": "claimed", "claimed_by": "ana-a"}}`. Tests should accept `body["detail"]["claimed_by"]` when detail is a dict. Spec JSON `{ "detail": "claimed", "claimed_by": "…" }` — use `JSONResponse(status_code=409, content={"detail": "claimed", "claimed_by": other})` to match the spec exactly.
+409 body: FastAPI `detail` may be a string or object. Implement as `HTTPException(409, detail={"detail": "claimed", "claimed_by": actor})` so JSON is `{"detail": {"detail": "claimed", "claimed_by": "ana-a"}}`. Tests should accept `body["detail"]["claimed_by"]` when detail is a dict. Spec JSON `{ "detail": "claimed", "claimed_by": "…" }`. Use `JSONResponse(status_code=409, content={"detail": "claimed", "claimed_by": other})` to match the spec exactly.
 
-- [ ] **Step 2: Run tests — expect FAIL** (404 leftovers, act rejects release/resolve).
+- [ ] **Step 2: Run tests: expect FAIL** (404 leftovers, act rejects release/resolve).
 
 ```bash
 cd services/case-api && PYTHONPATH=src:.:../shared pytest tests/test_leftovers.py tests/test_object_act.py -q
@@ -367,7 +367,7 @@ Resolve: `normalize_reason_code`; 400 on ValueError. Status `escalate_status_for
 
 - [ ] **Step 1: Failing tests**
 
-`leanNav.test.ts` — with graph URL set, `LEAN_NAV_PATHS.has("/leftovers")`, `isNavItemVisible("/leftovers")` true, `/cases` still false. Graph URL empty: `/leftovers` not visible.
+`leanNav.test.ts`: with graph URL set, `LEAN_NAV_PATHS.has("/leftovers")`, `isNavItemVisible("/leftovers")` true, `/cases` still false. Graph URL empty: `/leftovers` not visible.
 
 `Leftovers.test.tsx`:
 
@@ -380,7 +380,7 @@ it("does not claim a row owned by someone else", async () => {
 });
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (`/leftovers` missing).
+- [ ] **Step 2: Run: expect FAIL** (`/leftovers` missing).
 
 ```bash
 cd frontend && npm test -- --run src/config/leanNav.test.ts src/pages/Leftovers.test.tsx
@@ -388,7 +388,7 @@ cd frontend && npm test -- --run src/config/leanNav.test.ts src/pages/Leftovers.
 
 - [ ] **Step 3: Thin page.** Table columns: entity, origin, last_outcome, last_act, claimed_by, sla. No KPIs, bulk, saved views, CaseDetail. Send `X-Actor-Id` from `tarka.desk_actor` || `analyst-web` on claim and act (same as PATCH).
 
-`isNavItemVisible`: if `path === "/leftovers"` and graph plane off → false (even if in `LEAN_NAV_PATHS`). `isProductionSurfacePath("/leftovers")` true. `planeForPath("/leftovers")` is not graph — leftover without Hunt is a ticket queue; hide via the explicit graph-on gate, do not register leftover as a graph route.
+`isNavItemVisible`: if `path === "/leftovers"` and graph plane off → false (even if in `LEAN_NAV_PATHS`). `isProductionSurfacePath("/leftovers")` true. `planeForPath("/leftovers")` is not graph. Leftover without Hunt is a ticket queue; hide via the explicit graph-on gate, do not register leftover as a graph route.
 
 `App.tsx`: `{ to: "/leftovers", label: "Leftovers", module: "cases" }` next to Hunt. Route `/leftovers` → page if graph on, else `PlaneOff plane="graph"` (or hide-only; PlaneOff is honest).
 
@@ -414,8 +414,8 @@ cd frontend && npm test -- --run src/config/leanNav.test.ts src/pages/Leftovers.
   - Table `search_keys`: `tenant_id`, `entity_external_id`, `key_kind` (`email|phone|external_id`), `key_norm`, `last_outcome`, `updated_at`. Unique `(tenant_id, key_kind, key_norm)`. Btree `(tenant_id, key_norm)`.
   - `normalize_search_key(raw) -> str` lower+strip
   - `outcome_rank(outcome) -> int` deny=0, review=1, flag=2, unknown/null=3, allow=4
-  - `keys_from_upsert(entity_type, external_id, properties) -> list[tuple[kind, norm]]` — Person: external_id + email + phone; Device: external_id only
-  - `search_prefix(tenant_id, q, limit=20) -> (hits, truncated)` — `key_norm LIKE lower(q)||'%'`, order rank then `entity_external_id`, dedupe entity, Person wins Device, limit 20, `truncated` if more
+  - `keys_from_upsert(entity_type, external_id, properties) -> list[tuple[kind, norm]]`: Person: external_id + email + phone; Device: external_id only
+  - `search_prefix(tenant_id, q, limit=20) -> (hits, truncated)`: `key_norm LIKE lower(q)||'%'`, order rank then `entity_external_id`, dedupe entity, Person wins Device, limit 20, `truncated` if more
   - AGE `search_entities`: SQL only. Source must not contain `MATCH (n)` on that function after the table exists.
   - HTTP: empty or `len(q)<2` → `{entities:[], truncated: false}`, store not called
   - Failed key write: log, do not raise (same fail-soft as evaluate graph write)
@@ -462,7 +462,7 @@ def test_sort_dedupe_person_wins_device():
 
 ```python
 def test_search_http_q_shorter_than_2_no_store(monkeypatch):
-    # same as empty q — store not called; body {"entities": [], "truncated": False}
+    # same as empty q: store not called; body {"entities": [], "truncated": False}
 
 def test_age_search_source_has_no_match_n_when_sql_path():
     import inspect
@@ -471,17 +471,17 @@ def test_age_search_source_has_no_match_n_when_sql_path():
     assert "MATCH (n)" not in src
 ```
 
-The AST test is the production bar for AGE. If `search_entities` delegates to `search_keys.search_prefix`, the MATCH must leave `search_entities`. Keep the old MATCH function only as `_search_entities_scan_fallback` for Neo4j/Janus empty-table fallback — **not** called from AGE `search_entities`.
+The AST test is the production bar for AGE. If `search_entities` delegates to `search_keys.search_prefix`, the MATCH must leave `search_entities`. Keep the old MATCH function only as `_search_entities_scan_fallback` for Neo4j/Janus empty-table fallback, **not** called from AGE `search_entities`.
 
 Neo4j/Janus: if `search_prefix` returns rows, use them. If the table is empty / missing, keep existing backend search and set `truncated=True` when that fallback scans. Production AGE never calls the fallback.
 
-- [ ] **Step 2: Run — expect FAIL.**
+- [ ] **Step 2: Run: expect FAIL.**
 
 ```bash
 cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_search_keys.py tests/test_entity_search.py -q
 ```
 
-- [ ] **Step 3: Implement.** Graph-service has no alembic — `CREATE TABLE IF NOT EXISTS` + indexes on first write/search (same pattern as `decision_context_store`). Use AGE `database_url` / asyncpg. `upsert_entity` in `graph_runtime` after successful store upsert: `try: await upsert_search_keys(...) except: log`.
+- [ ] **Step 3: Implement.** Graph-service has no alembic. `CREATE TABLE IF NOT EXISTS` + indexes on first write/search (same pattern as `decision_context_store`). Use AGE `database_url` / asyncpg. `upsert_entity` in `graph_runtime` after successful store upsert: `try: await upsert_search_keys(...) except: log`.
 
 HTTP `entities_search`: after strip/[:256], if `len(needle) < 2` return empty + `truncated: false` without calling store.
 
@@ -506,8 +506,8 @@ Search hit shape stays `{entity_id, tenant_id, labels, last_outcome, matched_on,
 - Consumes: stored `properties.last_outcome`, `graph.latestEvaluate`, `entityHistory.trace_ids` / `last_trace_id`, `HUNT_HIERARCHY_EXPAND_CAP`
 - Produces:
   - `lastOutcomeLabel(node|hit) -> "deny"|"review"|"flag"|"allow"|"unknown"`
-  - `hierarchyInstrumentFanout(...) -> { ids: string[], total: number }` — count before cap; ids still capped at 8
-  - `graphLaggedEvaluate(latest, history) -> bool` — true when latest.trace_id is non-blank and not in history.trace_ids and ≠ last_trace_id
+  - `hierarchyInstrumentFanout(...) -> { ids: string[], total: number }`: count before cap; ids still capped at 8
+  - `graphLaggedEvaluate(latest, history) -> bool`: true when latest.trace_id is non-blank and not in history.trace_ids and ≠ last_trace_id
   - Header + typeahead show label; unknown is a word, not allow color
   - Pane: **Showing 8 of N instruments** when `total > 8`
   - Lag copy: `Graph lagged this evaluate. Receipt is source of truth.` 404/null latest → no banner. Do not block Hold.
@@ -535,11 +535,11 @@ it("lags when latest trace is not on the object", () => {
 });
 ```
 
-Keep `decisionToastText` for the canvas toast (existing test). Add unknown as a distinct canvas class in `paintStoredRisk` / node className — not the allow color. Prefer a `data-outcome` / class helper `outcomePaintClass(label)` so unknown ≠ allow.
+Keep `decisionToastText` for the canvas toast (existing test). Add unknown as a distinct canvas class in `paintStoredRisk` / node className, not the allow color. Prefer a `data-outcome` / class helper `outcomePaintClass(label)` so unknown ≠ allow.
 
 Panel test: mock `graph.latestEvaluate` resolving `{ trace_id: "tr-new" }` and history `{ last_trace_id: "tr-old", trace_ids: ["tr-old"] }` → banner text present. `latestEvaluate` null → no banner. First-paint `hunt-eval-buyer` / pack-why regression stays green.
 
-- [ ] **Step 2: Run — expect FAIL.**
+- [ ] **Step 2: Run: expect FAIL.**
 
 ```bash
 cd frontend && npm test -- --run src/domain/graphInvestigation.test.ts src/components/GraphContextPanel.test.tsx
@@ -569,7 +569,7 @@ Walk the spec checklists. If a row is missing, that dimension is not 3.8 / 4.0. 
 **Hunt 4.0 must-be-true**
 
 1. Typeahead hits Person by **email** (`search_keys`), not only `entity_id`.
-2. One Person with `last_outcome`, one without — unknown labeled, not allow color.
+2. One Person with `last_outcome`, one without. Unknown labeled, not allow color.
 3. >8 instruments → **Showing 8 of N**.
 4. Lag banner when latest evaluate `trace_id` ≠ object history. Receipt still loadable. Hold not blocked.
 5. `hunt-eval-buyer` first-paint pack-why still green.

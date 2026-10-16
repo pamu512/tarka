@@ -109,7 +109,7 @@ Existing fields plus:
 
 OpenAPI `EntitySearchHit` required: existing four plus `matched_on`. `via` may be null.
 
-Backends: Neo4j, Janus, AGE — same contract.
+Backends: Neo4j, Janus, AGE: same contract.
 
 ## UI (`/graph` typeahead)
 

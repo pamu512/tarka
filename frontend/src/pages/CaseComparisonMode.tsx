@@ -262,14 +262,14 @@ function PatternHighlights({ left, right }: { left: PaneSnapshot | null; right: 
           <li className="flex gap-2">
             <span className="text-amber-400 shrink-0">●</span>
             <span>
-              <strong className="text-gray-100">Same marketplace actor</strong> — both cases anchor on entity{" "}
+              <strong className="text-gray-100">Same marketplace actor</strong>, both cases anchor on entity{" "}
               <code className="text-[11px] text-brand-200">{left.caseData.entity_id}</code>.
             </span>
           </li>
         ) : (
           <li className="flex gap-2">
             <span className="text-gray-500 shrink-0">○</span>
-            <span>Different entities — linkage may still exist via graph or device cohort (open full cases).</span>
+            <span>Different entities, linkage may still exist via graph or device cohort (open full cases).</span>
           </li>
         )}
         {hints.sharedLabels.length > 0 ? (

@@ -2,7 +2,7 @@
 
 **Prove every signal.** Local-first fraud OS you run yourself.
 
-Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review is residual — leftovers + Hunt, not a CRM inbox. ALLOW never becomes a leftover. Graph is **required for the desk** (AGE on lite, or yours). Empty `GRAPH_SERVICE_URL` is evaluate-only fallback — hops off, not sibling identity, not always-on graph. Evaluate never waits on it. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is pack canary + leftover promote + live-rule slip on `/ops/shadow` — not live. RFP "shadow mode" = evaluate with `metadata.shadow` — not the LLM. Hop packs stay `mode=shadow` until a human Promotes.
+Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / flag / review. Every decision has an audit trail; human overrides store why (`override → y_label`). Review is residual, leftovers + Hunt, not a CRM inbox. ALLOW never becomes a leftover. Graph is **required for the desk** (AGE on lite, or yours). Empty `GRAPH_SERVICE_URL` is evaluate-only fallback, hops off, not sibling identity, not always-on graph. Evaluate never waits on it. Advise (LLM) is optional forensics / copilot, off until BYO. **Observe** is pack canary + leftover promote + live-rule slip on `/ops/shadow`, not live. RFP "shadow mode" = evaluate with `metadata.shadow`, not the LLM. Hop packs stay `mode=shadow` until a human Promotes.
 
 ---
 
@@ -10,7 +10,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 
 | Doc | Purpose |
 |-----|---------|
-| [Clone-and-run desk](guides/clone-demo.md) | `make demo` — Lite + desk + real receipts |
+| [Clone-and-run desk](guides/clone-demo.md) | `make demo`: Lite + desk + real receipts |
 | [Quickstart](quickstart.md) | Lite compose → first decision |
 | [Architecture](architecture.md) | Services and stores |
 | [Feature data flows](guides/feature-data-flows.md) | How features move data and how decisions affect them |
@@ -34,7 +34,7 @@ Tarka is evaluate-first: **decision-api** (Rust JSON packs) owns allow / deny / 
 | Actor | Can set production allow/deny? |
 |-------|--------------------------------|
 | decision-api evaluate | **Yes** |
-| Advise / trend / investigation | No — escalate, draft, cite |
+| Advise / trend / investigation | No: escalate, draft, cite |
 | Analyst GitOps promote | Yes (human) |
 
 See [feature data flows](guides/feature-data-flows.md) for diagrams.

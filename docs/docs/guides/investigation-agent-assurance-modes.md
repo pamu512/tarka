@@ -1,4 +1,4 @@
-# Investigation Copilot — assurance modes (operational guide)
+# Investigation Copilot: assurance modes (operational guide)
 
 This guide describes **optional** controls that make the copilot **more conservative**. None of this is legal or regulatory certification; it reduces *some* classes of silent failure and gives analysts **server-derived** facts separate from model prose.
 
@@ -29,7 +29,7 @@ cd services/investigation-agent
 PYTHONPATH=src:../shared pytest tests/test_assurance_mode.py -q
 ```
 
-These cover derived-fact extraction, strict violation detection, and review persistence—not end-to-end LLM behavior.
+These cover derived-fact extraction, strict violation detection, and review persistence. Not end-to-end LLM behavior.
 
 ## Positioning (honest)
 

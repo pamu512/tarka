@@ -191,7 +191,7 @@ export default function TransactionsLiveGrid(): ReactElement {
           <PageTitle module="analytics">Live transaction grid</PageTitle>
           <p className="text-sm text-gray-500 mt-1 max-w-3xl">
             Infinite scroll over the DuckDB analytical layer (<code className="text-gray-400">v_analytics_transactions</code>
-            ) with keyset cursors — ~5ms fetches per page. TanStack Virtual keeps the DOM small; optional WS feed prepends
+            ) with keyset cursors: ~5ms fetches per page. TanStack Virtual keeps the DOM small; optional WS feed prepends
             live upserts via <code className="text-gray-400">VITE_TRANSACTIONS_WS_URL</code>.
           </p>
         </div>
@@ -230,7 +230,7 @@ export default function TransactionsLiveGrid(): ReactElement {
 
       {atBufferCap ? (
         <p className="text-[11px] text-amber-400/90 shrink-0 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/5">
-          Buffered row cap ({MAX_BUFFERED_ROWS.toLocaleString()}) reached — scroll back up or reload to explore other windows.
+          Buffered row cap ({MAX_BUFFERED_ROWS.toLocaleString()}) reached, scroll back up or reload to explore other windows.
         </p>
       ) : null}
 

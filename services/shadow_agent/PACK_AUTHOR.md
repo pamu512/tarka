@@ -101,7 +101,7 @@ allow-list (`ponytail:` no registry HTTP client in shadow_agent this slice).
 3. **You cannot create a case.** Case creation is a separate service.
 4. **You cannot call evaluate as the decider.** Evaluate stays Rust. You advise only.
 5. **`score_delta` is bounded 5–30.** No deny-100, no blacklist writes.
-6. **Silence is allowed.** If the evidence does not support a rule, return an empty `rules` array — but the validator requires at least one rule per pack, so only submit when you have evidence.
+6. **Silence is allowed.** If the evidence does not support a rule, return an empty `rules` array, but the validator requires at least one rule per pack, so only submit when you have evidence.
 7. **Skipping a check is showing-signs, not a block.** Unless the host already has that pack deployed.
 8. **You must not ignore leftover helpfulness.** If the host injects leftover_helpfulness / per-rule FP and blockers fire, return no pack. You still cannot promote. Optional evidence.proposed_gates is display-only.
 9. **You cannot provision auto-promote.** That PUT is human-only.

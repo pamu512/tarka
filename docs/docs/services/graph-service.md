@@ -1,6 +1,6 @@
 # Graph Service
 
-The Graph Service manages an entity graph. **Lite default is Apache AGE** on the same Postgres (`GRAPH_BACKEND=age`). JanusGraph and Neo4j are optional overlays. It also hosts the **decision context graph** — durable accountability records (evaluate → agent advise → human disposition) with causal chains. Evaluate never waits on this hop.
+The Graph Service manages an entity graph. **Lite default is Apache AGE** on the same Postgres (`GRAPH_BACKEND=age`). JanusGraph and Neo4j are optional overlays. It also hosts the **decision context graph**, durable accountability records (evaluate → agent advise → human disposition) with causal chains. Evaluate never waits on this hop.
 
 **Decision graph guide:** [Decision context graph](../guides/decision-context-graph.md)
 
@@ -8,7 +8,7 @@ The Graph Service manages an entity graph. **Lite default is Apache AGE** on the
 **Version:** 3.0.0
 **Framework:** Python / FastAPI
 
-Canonical HTTP tables: **[API Reference — Graph Service](../api-reference.md#graph-service)** · OpenAPI: `contracts/openapi/graph-service.yaml`
+Canonical HTTP tables: **[API Reference: Graph Service](../api-reference.md#graph-service)** · OpenAPI: `contracts/openapi/graph-service.yaml`
 
 ---
 
@@ -380,7 +380,7 @@ GET /v1/analytics/shared-attributes?tenant_id=acme&attribute=device_id&min_share
 
 ### Fraud Ring Detection
 
-Detect cyclic patterns (rings) in the entity graph — entities connected in a loop, which is a strong indicator of coordinated fraud.
+Detect cyclic patterns (rings) in the entity graph, entities connected in a loop, which is a strong indicator of coordinated fraud.
 
 ```
 GET /v1/analytics/fraud-rings?tenant_id=acme&min_size=3
@@ -488,7 +488,7 @@ Over time, this builds a graph where:
 
 ## Example Cypher Queries
 
-Day-1 investigation is Hunt (`/graph`) or graph-service HTTP (`GET /v1/subgraph` on `:8001`). Empty `GRAPH_SERVICE_URL` means Hunt is off — evaluate-only, no stub graph. The Cypher below is overlay-only (Janus / Bolt), not the lite AGE path.
+Day-1 investigation is Hunt (`/graph`) or graph-service HTTP (`GET /v1/subgraph` on `:8001`). Empty `GRAPH_SERVICE_URL` means Hunt is off, evaluate-only, no stub graph. The Cypher below is overlay-only (Janus / Bolt), not the lite AGE path.
 
 **Find all entities connected to a user within 2 hops:**
 

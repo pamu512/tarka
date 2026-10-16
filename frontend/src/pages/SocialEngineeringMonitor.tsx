@@ -76,7 +76,7 @@ export default function SocialEngineeringMonitor(): ReactElement {
           <p className="text-sm text-gray-500 mt-2 max-w-2xl leading-relaxed">
             Flags accounts that change <strong className="text-gray-300">email</strong> and{" "}
             <strong className="text-gray-300">password</strong> within minutes of posting a{" "}
-            <strong className="text-gray-300">high-value listing</strong> — a common account-takeover /
+            <strong className="text-gray-300">high-value listing</strong>, a common account-takeover /
             scam listing pattern.
           </p>
           <p className="text-[11px] text-gray-600 mt-2 font-mono">

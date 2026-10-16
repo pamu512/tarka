@@ -17,7 +17,7 @@ use tarka_cli::{
 #[derive(Parser)]
 #[command(name = "tarka")]
 #[command(
-    about = "Tarka operator CLI — forensic evidence replay, operational tooling",
+    about = "Tarka operator CLI: forensic evidence replay, operational tooling",
     version,
     propagate_version = true
 )]

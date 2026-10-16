@@ -249,7 +249,7 @@ export function ObserveEasePanel({
               <button type="button" className="text-brand-300 hover:underline" onClick={() => onSelectDraft(d.name || "")}>
                 {d.name}
               </button>
-              {d.is_ai_authored ? " · model drafted — you own Promote" : ""}
+              {d.is_ai_authored ? " · model drafted, you own Promote" : ""}
             </li>
           ))}
         </ul>

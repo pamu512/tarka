@@ -6,12 +6,12 @@ Canonical operator docs.
 
 | Audience | Start here |
 |----------|------------|
-| **Clone and run** — desk + real receipts | [`make demo`](docs/guides/clone-demo.md) |
-| **Pilot path** — every plane, end to end (ingest, signals, product skin) | [pilot path](docs/guides/pilot-path.md) |
-| **Product Day-1** — `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
-| **Strategy analyst** — author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
-| **Investigator** — work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
-| **Buyer / LOI** — CUT only if significant opex vs **~20% Time Eval** (~120 of ~600 Drools); few modules beside Drools | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) · [buyer pilot assessment](compliance/2026-09-08-buyer-pilot-assessment.md) |
+| **Clone and run**: desk + real receipts | [`make demo`](docs/guides/clone-demo.md) |
+| **Pilot path**: every plane, end to end (ingest, signals, product skin) | [pilot path](docs/guides/pilot-path.md) |
+| **Product Day-1**: `make product` + Helm `desk_provision` | [product Day-1 install](docs/guides/product-day1-install.md) |
+| **Strategy analyst**: author and promote packs (JSON rules) | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Quickstart](docs/quickstart.md) · [Rule authoring](docs/guides/rules.md) · [Observe / promote](docs/guides/shadow-and-ab-testing.md) · [Backtest before promote](docs/guides/backtest-before-promote.md) |
+| **Investigator**: work the Person on Hunt; leftovers are the thin station | [clone-and-run desk](docs/guides/clone-demo.md) · [15-minute first decision](docs/guides/oss-15-minute-first-decision.md) · [Feature data flows](docs/guides/feature-data-flows.md) |
+| **Buyer / LOI**: CUT only if significant opex vs **~20% Time Eval** (~120 of ~600 Drools); few modules beside Drools | [SUPPORT.md](../SUPPORT.md) · [CLAIM_LOCK](compliance/CLAIM_LOCK.md) · [buyer pilot assessment](compliance/2026-09-08-buyer-pilot-assessment.md) |
 
 Investigators do not author rules; strategy analysts do. Work **arrives** on `/leftovers`. Work **happens** on Hunt (`/graph`). Fat `/cases` stays hidden in lean. ALLOW never becomes a leftover.
 
@@ -20,9 +20,9 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 | Topic | Start here |
 |-------|------------|
 | **Evaluate (decision stream)** | [Feature data flows](docs/guides/feature-data-flows.md) · [architecture](docs/architecture.md) · [decision-api](../services/decision-api/README.md) |
-| **Graph / Hunt (required for the desk)** | Lite Day-1 is Apache AGE on the same Postgres + `graph-service`. Wire another graph with `GRAPH_SERVICE_URL` + `GRAPH_BACKEND`. Empty URL is evaluate-only fallback (home `/decisions`) — hops off, **not sibling identity**, not always-on graph. Evaluate never waits on graph. [hop packs](docs/guides/hop-pack-authoring.md) · [graph-risk challenger](docs/guides/gnn-label-loop.md) · [service-ports](docs/guides/service-ports.md) |
+| **Graph / Hunt (required for the desk)** | Lite Day-1 is Apache AGE on the same Postgres + `graph-service`. Wire another graph with `GRAPH_SERVICE_URL` + `GRAPH_BACKEND`. Empty URL is evaluate-only fallback (home `/decisions`): hops off, **not sibling identity**, not always-on graph. Evaluate never waits on graph. [hop packs](docs/guides/hop-pack-authoring.md) · [graph-risk challenger](docs/guides/gnn-label-loop.md) · [service-ports](docs/guides/service-ports.md) |
 | **Leftovers** | Thin station `GET /v1/leftovers` + desk `/leftovers`. Hold / resolve stay on Hunt. |
-| **Observe** | Pack canary + leftover promote + live-rule slip on `/ops/shadow` (always-on lean). RFP "shadow mode" = Observe evaluate (`metadata.shadow`) only — not the LLM. [Shadow / A/B guide](docs/guides/shadow-and-ab-testing.md). |
+| **Observe** | Pack canary + leftover promote + live-rule slip on `/ops/shadow` (always-on lean). RFP "shadow mode" = Observe evaluate (`metadata.shadow`) only, not the LLM. [Shadow / A/B guide](docs/guides/shadow-and-ab-testing.md). |
 | **Desk UX surfaces (2026-09)** | Promote-readiness panel (`/ops/shadow`), vertical-pack wizard (`/rules`), pack journey tabs (stage pages), one-click draft backtest (`DraftBacktestButton` on Rules), provision report-card glass (`/settings`), entity sets + timeline (`/graph` investigation). [Desk UI scorecard](docs/guides/desk-ui-scorecard.md) owns the click bar incl. T7 wizard / T8 glass. |
 | **Advise (optional)** | Desk = investigation-agent (`OPENAI_BASE_URL` + key; empty = hide chrome). Ingest = `shadow_agent` (`SHADOW_LLM_*` / `SHADOW_AGENT_URL`). BYO OpenAI-compat only. [SHADOW.md](../services/SHADOW.md) · [investigation-agent](docs/services/investigation-agent.md). |
 | **Cases (residual / SAR)** | case-api + [feature data flows §3](docs/guides/feature-data-flows.md#3-leftovers-hunt-brief-sar). Leftover list is not fat `/cases`. |
@@ -31,8 +31,8 @@ Investigators do not author rules; strategy analysts do. Work **arrives** on `/l
 
 ## QA: two separate loops
 
-1. **Blind predetermined-N evaluate events** — HIL confirms the engine. Schedulable; skip only if no drift.
-2. **Second-human sample of cases already closed by HIL** — existing `qa_sample_closed_cases` / `/ops/qa`.
+1. **Blind predetermined-N evaluate events.** HIL confirms the engine. Schedulable; skip only if no drift.
+2. **Second-human sample of cases already closed by HIL.** Existing `qa_sample_closed_cases` / `/ops/qa`.
 
 Do not collapse them into one workflow. Do not invent review rates.
 
@@ -53,7 +53,7 @@ Do not collapse them into one workflow. Do not invent review rates.
 ## Product locks
 
 - **Skip does not block.** Skipping or avoiding a risk check raises showing-signs risk; it does not hard-block.
-- **Entity states** — proven / already-risky · showing-signs · unknown. Device is a node, not the person. ATO victims stay good.
+- **Entity states:** proven / already-risky · showing-signs · unknown. Device is a node, not the person. ATO victims stay good.
 - **Visual rule builder** is a product-desk job, not stretch. JSON packs still decide. `make demo` stays first-hour lean; the product image shows visual / backtest / lists. Stretch is Command Center / brochure, not the canvas.
 - **No Tarka-branded model.** Advise is BYO LLM.
 

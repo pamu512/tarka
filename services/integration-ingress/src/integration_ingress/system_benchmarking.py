@@ -204,7 +204,7 @@ async def build_system_benchmarking_payload(
             plane="host",
             samples=floor,
             critical=False,
-            detail="Local CPU baseline — not a production SLO path.",
+            detail="Local CPU baseline, not a production SLO path.",
         ),
     )
 

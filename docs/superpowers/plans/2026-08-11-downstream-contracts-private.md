@@ -1,6 +1,6 @@
 # Downstream Contracts (Private)
 
-> INTERNAL — host supplies fields; Tarka does not call carriers/card networks.
+> INTERNAL: host supplies fields; Tarka does not call carriers/card networks.
 
 ## Chargeback early alert → dispute
 
@@ -10,9 +10,9 @@
 
 ## FTID / POD / COD
 
-- `metadata.ftid.*` — Downstream warehouse intake booleans.
-- `metadata.pod.*` — OTP / geofence / photo hash flags.
-- `metadata.cod.*` — refusal rate, address jig/hop, selective theft.
+- `metadata.ftid.*`: Downstream warehouse intake booleans.
+- `metadata.pod.*`: OTP / geofence / photo hash flags.
+- `metadata.cod.*`: refusal rate, address jig/hop, selective theft.
 
 ## Sibling bridges
 

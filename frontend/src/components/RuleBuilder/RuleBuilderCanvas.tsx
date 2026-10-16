@@ -436,7 +436,7 @@ function CanvasInner({
           <div className="mt-2 space-y-2 pt-2 border-t border-surface-700">
             <div>
               <div className="text-xs text-slate-500 mb-1">
-                JSON AST (client) — <code className="text-slate-400">JsonAstNode</code>
+                JSON AST (client): <code className="text-slate-400">JsonAstNode</code>
               </div>
               {astLive.ok ? (
                 <pre className="text-xs bg-black/40 border border-surface-700 rounded p-3 overflow-auto text-cyan-200 max-h-40">
@@ -468,7 +468,7 @@ function CanvasInner({
         <>
           <div>
             <div className="text-xs text-slate-500 mb-1">
-              JSON AST (client) — must match <code className="text-slate-400">decision_api.ast_models.JsonAstNode</code>
+              JSON AST (client): must match <code className="text-slate-400">decision_api.ast_models.JsonAstNode</code>
             </div>
             {astLive.ok ? (
               <pre className="text-xs bg-black/40 border border-surface-700 rounded p-3 overflow-auto text-cyan-200 max-h-48">

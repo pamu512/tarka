@@ -44,10 +44,10 @@ Missing file = today’s env defaults. Invalid `schema_id` → ignore file (log 
 `services/shared/desk_provision.py`
 
 - Path: `TARKA_DESK_PROVISION_PATH` (Helm `/etc/tarka/desk_provision.json`).
-- `leftover_flag(env_name, provision_key)` — nonempty env wins, else file, else false.
-- `hunt_enabled()` — `TARKA_HUNT_ENABLED` if set, else file `hunt.enabled` (default true).
-- `graph_service_url()` — `GRAPH_SERVICE_URL` if the env key is present (empty = off), else file `graph.service_url`.
-- `shadow_agent_should_start()` — false on demo profile; else file `start_when_llm_url` (default true) and a nonempty LLM URL.
+- `leftover_flag(env_name, provision_key)`: nonempty env wins, else file, else false.
+- `hunt_enabled()`: `TARKA_HUNT_ENABLED` if set, else file `hunt.enabled` (default true).
+- `graph_service_url()`: `GRAPH_SERVICE_URL` if the env key is present (empty = off), else file `graph.service_url`.
+- `shadow_agent_should_start()`: false on demo profile; else file `start_when_llm_url` (default true) and a nonempty LLM URL.
 
 Leftover helpers and `Settings.flag_mints_leftover` call the reader. Import miss falls back to env-only.
 

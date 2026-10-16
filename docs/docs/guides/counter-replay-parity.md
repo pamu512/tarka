@@ -2,7 +2,7 @@
 
 **Release target:** `v1.2.0` on **2026-05-30**. **Ship hold:** no tag or GitHub release until **[Epic C Release Candidate Gate Criteria](#epic-c-release-candidate-gate-criteria)** are satisfied on the RC commit.
 
-**Scope for May 2026:** Epic C is **frozen for feature work**. Remaining work is **operational validation only**—execute the gate checklist on the RC branch, attach evidence, and obtain sign-offs. Implementation surface (manifest, replay APIs, scripts, CI workflows) is already on trunk; do not expand counter semantics before the tag.
+**Scope for May 2026:** Epic C is **frozen for feature work**. Remaining work is **operational validation only**. Execute the gate checklist on the RC branch, attach evidence, and obtain sign-offs. Implementation surface (manifest, replay APIs, scripts, CI workflows) is already on trunk; do not expand counter semantics before the tag.
 
 **References:** [redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md) · [roadmap-30-60-90.md](./backtest-before-promote.md) Day 60 · [v1.2.0 release note](../releases/README.md)
 
@@ -29,7 +29,7 @@
 
 **Evidence bundle:** Attach outputs to the GitHub Release draft, release PR, or `docs/docs/releases/evidence/v1.2.0-epic-c/` (one file per gate is fine). **Gates C-2, C-3a, C-3b, and C-3c are release blockers** until signed off.
 
-### C-1 — RC identity and manifest contract
+### C-1: RC identity and manifest contract
 
 | Field | Value |
 |-------|--------|
@@ -39,19 +39,19 @@
 
 ---
 
-### C-2 — Redis key versioning (staging cutover) — **BLOCKER**
+### C-2: Redis key versioning (staging cutover): **BLOCKER**
 
 Production-style cutover evidence is **mandatory**. The release **must not** ship without this log.
 
 | Field | Value |
 |-------|--------|
-| **Verification command** | On a **staging or production-like** profile (not laptop-only): execute the full playbook in **[redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md)**—choose strategy **A**, **B**, or **C**, set `AGG_KEY_VERSION` consistently on decision writers, replay jobs, and feature-service readers, then complete the playbook § *Verification checklist* (manifest, spot `ZCARD`, velocity query spot-check). Capture **complete terminal/session log** (commands + stdout/stderr, no secrets). |
+| **Verification command** | On a **staging or production-like** profile (not laptop-only): execute the full playbook in **[redis-agg-key-version-migration.md](./redis-agg-key-version-migration.md)**. Choose strategy **A**, **B**, or **C**, set `AGG_KEY_VERSION` consistently on decision writers, replay jobs, and feature-service readers, then complete the playbook § *Verification checklist* (manifest, spot `ZCARD`, velocity query spot-check). Capture **complete terminal/session log** (commands + stdout/stderr, no secrets). |
 | **Expected evidence** | **Attached log output** showing: (1) chosen migration strategy and `AGG_KEY_VERSION` value, (2) `GET /v1/internal/counters/manifest` with matching `redis_key_version`, (3) at least one successful post-cutover aggregate spot-check, (4) dated environment name (e.g. `staging`, `prod-dr`). Redact credentials; keep key patterns and exit codes. |
 | **Sign-off owner** | **Platform / SRE** (executes migration) + **Release Manager** (accepts evidence) |
 
 ---
 
-### C-3a — Parity proof: manual weekly runbook on RC — **BLOCKER**
+### C-3a: Parity proof: manual weekly runbook on RC: **BLOCKER**
 
 | Field | Value |
 |-------|--------|
@@ -68,7 +68,7 @@ Production-style cutover evidence is **mandatory**. The release **must not** shi
 
 ---
 
-### C-3b — Parity proof: `counter-parity-smoke` workflow on RC — **BLOCKER**
+### C-3b: Parity proof: `counter-parity-smoke` workflow on RC: **BLOCKER**
 
 | Field | Value |
 |-------|--------|
@@ -78,7 +78,7 @@ Production-style cutover evidence is **mandatory**. The release **must not** shi
 
 ---
 
-### C-3c — Parity proof: `test_golden_counters.py` on RC — **BLOCKER**
+### C-3c: Parity proof: `test_golden_counters.py` on RC: **BLOCKER**
 
 | Field | Value |
 |-------|--------|
@@ -88,7 +88,7 @@ Production-style cutover evidence is **mandatory**. The release **must not** shi
 
 ---
 
-### C-4 — Feature-service contract (Day 60): deterministic 5m / 1h / 24h — **BLOCKER**
+### C-4: Feature-service contract (Day 60): deterministic 5m / 1h / 24h: **BLOCKER**
 
 Day 60 acceptance is **limited** to proving **deterministic** `event_count_5m`, `event_count_1h`, and `event_count_24h` from feature-service when Redis is **shared** with decision-api. No new counter types for v1.2.0.
 
@@ -100,7 +100,7 @@ Day 60 acceptance is **limited** to proving **deterministic** `event_count_5m`, 
 
 ---
 
-### C-5 — Compose defaults and rule-pack key documentation
+### C-5: Compose defaults and rule-pack key documentation
 
 | Field | Value |
 |-------|--------|
@@ -110,7 +110,7 @@ Day 60 acceptance is **limited** to proving **deterministic** `event_count_5m`, 
 
 ---
 
-### C-6 — Ops replay API smoke (non-blocker if C-3 passes)
+### C-6: Ops replay API smoke (non-blocker if C-3 passes)
 
 | Field | Value |
 |-------|--------|

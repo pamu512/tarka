@@ -15,10 +15,10 @@ With lite + graph profile, use `infra/deploy/docker-compose.graph-wire.yml`.
 
 ## API
 
-- `POST /v1/decisions` — record
-- `GET /v1/decisions/search` — filter
-- `GET /v1/decisions/{id}/chain` — causal parents
-- `GET /v1/decisions/{id}/impact` — blast radius
+- `POST /v1/decisions`: record
+- `GET /v1/decisions/search`: filter
+- `GET /v1/decisions/{id}/chain`: causal parents
+- `GET /v1/decisions/{id}/impact`: blast radius
 
 See `src/graph_service/decision_context_store.py` and OpenAPI `contracts/openapi/graph-service.yaml`.
 

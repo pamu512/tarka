@@ -72,17 +72,17 @@ Either trigger → the rule is on the ping list. Neither → omit.
 |----|---------|------|
 | **H1 retire** | That `rule_id` in `rule_precision_after_labels` has `enough_support` and `fp_rate > fp_cap` | Yes, if H2 is false |
 | **H2 successor** | Current half has `>= 5` rows with `y=1` and this `rule_id` **not** in `rule_hits`, **and** mix trigger is true | Yes, if H1 is false |
-| Both or neither | — | Ping only (`hypothesis=ambiguous` or `underpowered`) |
+| Both or neither | n/a | Ping only (`hypothesis=ambiguous` or `underpowered`) |
 
 H2’s miss count is leftover-born fraud only. Ping field `miss_is_not_recall: true`.
 
 ## Park (tick only)
 
-`maybe_park_live_rule_slip(tenant_id)` — same triggers as leftover HIL `maybe_auto_promote_shadow` (y_label merge, scout-pack POST host side, manual tick). **Not** on GET.
+`maybe_park_live_rule_slip(tenant_id)`: same triggers as leftover HIL `maybe_auto_promote_shadow` (y_label merge, scout-pack POST host side, manual tick). **Not** on GET.
 
 Skip park if any `slip_retire_*` / `slip_successor_*` shadow file already has `evidence.live_rule_id` equal to this id. One slot per live rule. Do not rewrite. Human Promote / disable / delete clears the slot. Filenames use `rule_id` sanitized to `[A-Za-z0-9_]` (max 80).
 
-Skip park if the live `rule_id` cannot be found on a loaded `mode=active` pack (H1 needs its `when`). Skip H2 if the dominant mix field of leftover-fraud misses is not an allowed evaluate `when` field — ping stays, `park_reason=no_legal_when`.
+Skip park if the live `rule_id` cannot be found on a loaded `mode=active` pack (H1 needs its `when`). Skip H2 if the dominant mix field of leftover-fraud misses is not an allowed evaluate `when` field. Ping stays, `park_reason=no_legal_when`.
 
 ### H1 file
 

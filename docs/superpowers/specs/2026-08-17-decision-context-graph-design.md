@@ -1,4 +1,4 @@
-# Decision context graph (A+B) — native SoR + Semantica sidecar
+# Decision context graph (A+B): native SoR + Semantica sidecar
 
 **Date:** 2026-08-17  
 **Status:** Implemented (Waves 1–4 + depth: auto-link, case UI, Janus mirror, PROV export)  
@@ -15,8 +15,8 @@ Make Tarka answer, months later, without log archaeology:
 - What downstream decisions depended on this one?
 - Did it pass a deterministic policy check (rule ID / pack)?
 
-**A — Native:** graph-service owns a durable **decision context graph** (SoR).  
-**B — Sidecar:** optional Semantica mirror for demo / export / MCP experimentation — **never** authority for allow/deny.
+**A: Native:** graph-service owns a durable **decision context graph** (SoR).  
+**B: Sidecar:** optional Semantica mirror for demo / export / MCP experimentation, **never** authority for allow/deny.
 
 ## Philosophy (unchanged)
 
@@ -24,7 +24,7 @@ Make Tarka answer, months later, without log archaeology:
 - AI records **advise / propose** decisions; humans and rules record **binding** decisions.
 - Semantica Rete / SPARQL / Datalog stay **advise-only**. Do not import a second production rule engine.
 - Missing graph → `freshness=missing` / `graph_missing=true`; never invent edges.
-- Writers are fire-and-forget from evaluate / AgentRun / case disposition — parent request must not fail if the decision-graph write fails (log + metric).
+- Writers are fire-and-forget from evaluate / AgentRun / case disposition. Parent request must not fail if the decision-graph write fails (log + metric).
 
 ## Non-goals
 
@@ -35,7 +35,7 @@ Make Tarka answer, months later, without log archaeology:
 
 ---
 
-## A — Native decision graph (SoR)
+## A: Native decision graph (SoR)
 
 ### Data model
 
@@ -127,7 +127,7 @@ Case / entity timeline: Decision chips with outcome, kind, link to chain/impact.
 
 ---
 
-## B — Semantica sidecar (optional proof)
+## B: Semantica sidecar (optional proof)
 
 ### Placement
 
@@ -148,7 +148,7 @@ evaluate / AgentRun / disposition
 |-----|---------|---------|
 | `DECISION_GRAPH_ENABLED` | `0` | native writers/readers |
 | `SEMANTICA_BRIDGE_ENABLED` | `0` | mirror to Semantica |
-| `SEMANTICA_URL` / process mode | — | HTTP or in-process pin |
+| `SEMANTICA_URL` / process mode | n/a | HTTP or in-process pin |
 | `SEMANTICA_PIN` | required if B on | pinned package version or git SHA |
 
 ### Rules for B
@@ -157,7 +157,7 @@ evaluate / AgentRun / disposition
 2. On mirror failure: log only; native SoR remains correct.
 3. Store `semantica_decision_id` on native Decision when mirror succeeds.
 4. Semantica reasoning engines: **never** wired into evaluate allow/deny path.
-5. Compose profile `semantica` (optional) — not in default desk stack.
+5. Compose profile `semantica` (optional), not in default desk stack.
 6. Spike acceptance: offline script records 3 linked decisions, prints chain + impact, asserts native GET chain matches mirror chain IDs mapping.
 
 ### What we take from Semantica vs what we ignore
@@ -193,6 +193,6 @@ evaluate / AgentRun / disposition
 
 ## Open questions (resolve before Wave 1 code)
 
-1. Decision vertices in Janus vs AGE-only first? **Proposal:** all backends that support Custom labels — start Janus (default) + in-memory test double.
+1. Decision vertices in Janus vs AGE-only first? **Proposal:** all backends that support Custom labels: start Janus (default) + in-memory test double.
 2. Precedent: property search only in Wave 1–2, or ship embedding index? **Shipped:** overlap rank (`GET /v1/decisions/precedents`); embeddings stay off.
 3. Where does MCP process live? **Proposal:** `services/tarka-mcp/` thin stdio server calling HTTP APIs (keeps investigation-agent free of MCP protocol churn).

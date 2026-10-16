@@ -164,8 +164,8 @@ export default function NatsSetuMonitor() {
         <div>
           <PageTitle module="osint">NATS Setu monitor</PageTitle>
           <p className="text-sm text-gray-500 mt-1 max-w-2xl">
-            Live status of external OSINT fetches routed through NATS <span className="font-mono text-gray-400">setu.query</span>{" "}
-            — VPN/IP intelligence, email reputation, and phone validation responders.
+            Live status of external OSINT fetches routed through NATS <span className="font-mono text-gray-400">setu.query</span>:{" "}
+            VPN/IP intelligence, email reputation, and phone validation responders.
           </p>
           <p className="text-xs text-gray-600 mt-2">
             <Link to="/osint" className="text-sky-400/90 hover:underline">
@@ -263,7 +263,7 @@ export default function NatsSetuMonitor() {
 
           {(data.channels ?? []).length === 0 ? (
             <p className="text-sm text-gray-500 border border-dashed border-surface-700 rounded-lg px-4 py-6 text-center">
-              No OSINT lanes reported — configure integration-ingress NATS Setu monitor or responders.
+              No OSINT lanes reported, configure integration-ingress NATS Setu monitor or responders.
             </p>
           ) : null}
         </>

@@ -2,7 +2,7 @@
 
 How product features move data, who **decides**, and how outcomes affect downstream systems.
 
-**Authority invariant:** `decision-api` (Rust JSON packs via `tarka_rule_engine`) owns allow / deny / flag / review actions. Advise (Shadow agent), investigation, and trend **advise**, escalate, draft, and cite — they never silently clear FLAG→ALLOW or auto-promote WASM.
+**Authority invariant:** `decision-api` (Rust JSON packs via `tarka_rule_engine`) owns allow / deny / flag / review actions. Advise (Shadow agent), investigation, and trend **advise**, escalate, draft, and cite. They never silently clear FLAG→ALLOW or auto-promote WASM.
 Related: [repo-productionization-runbook](repo-productionization-runbook.md) · architecture canvas (IDE).
 
 ---
@@ -11,7 +11,7 @@ Related: [repo-productionization-runbook](repo-productionization-runbook.md) · 
 
 Analyst UI / SDK / merchant → nginx → **core-api** `/decisions` → **decision-api** evaluate pipeline.
 
-Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured` — hops off, **not sibling identity**; packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph. Hop packs stay `mode=shadow`. Live overlay effect only after promote gates pass (ungated → human Promote). Not GNN live.
+Graph is a **hop**, not a hint blob. Identity is hop v1.2 `(tenant_id, vtype, id)`. Named edges stay named (`USES_DEVICE`, not rewritten to `RELATED`). Empty `GRAPH_SERVICE_URL` tags `graph:missing` / `graph:unconfigured`, hops off, **not sibling identity**; packs that need hops do not fire; neighbors are not invented. Evaluate never waits on graph. Hop packs stay `mode=shadow`. Live overlay effect only after promote gates pass (ungated → human Promote). Not GNN live.
 
 ```mermaid
 flowchart TD
@@ -56,23 +56,23 @@ flowchart TD
 | Snapshot | hop that was actually returned | `subgraph_snapshot` + receipt | Replay / late-label / GNN export. Empty URL ⇒ `graph:missing` |
 | Rules | packs + AST + hop atoms | hit list, pack-why, base action | Primary policy |
 | Depth / ring / lifecycle / partner | vertical evidence | fused deltas | Adjust score / escalate. GNN overlay off unless holdout wins |
-| Emit | — | `recommended_action`, audit, `trace_id` | Leftovers / Hunt / webhooks react |
+| Emit | n/a | `recommended_action`, audit, `trace_id` | Leftovers / Hunt / webhooks react |
 
-Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE_URL` = L2 off (`feature_source` is `l1` or `raw`); evaluate never calls L2. When the URL is set, evaluate GETs L2 with `as_of` and stamps `feature_source=l2` only on a hit. Miss/timeout fail-soft to `l1`/`raw` (not a hard evaluate fail, not a fake `l2`). L2 does not decide ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false — this serve is not a named vendor FS. See [feature-store-posture-v1](../../contracts/feature-store-posture-v1.md).
+Redis L1 (velocity counters) is not a production online FS. Empty `FEATURE_STORE_URL` = L2 off (`feature_source` is `l1` or `raw`); evaluate never calls L2. When the URL is set, evaluate GETs L2 with `as_of` and stamps `feature_source=l2` only on a hit. Miss/timeout fail-soft to `l1`/`raw` (not a hard evaluate fail, not a fake `l2`). L2 does not decide ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false. This serve is not a named vendor FS. See [feature-store-posture-v1](../../contracts/feature-store-posture-v1.md).
 
-Optional L2 writers (same plane): when the URL is set, evaluate-seen events upsert L2 (`amount` / `event_count_1h` / `sum_amount_1h`) at the event `as_of` (`event_time` / `created_at` / …). Warehouse/export jsonl can `backfill_from_jsonl` — same tenant/entity/`as_of` replaces, does not double-append into a later PIT read. Empty `FEATURE_STORE_URL` = no L2 writes (writers no-op; serve stays `l2:off`). Writer errors or lag fail-soft: evaluate still returns a decision and does not wait on a remote writer. Writers do not decide ALLOW/DENY. This is not a required stream-processor SKU.
+Optional L2 writers (same plane): when the URL is set, evaluate-seen events upsert L2 (`amount` / `event_count_1h` / `sum_amount_1h`) at the event `as_of` (`event_time` / `created_at` / …). Warehouse/export jsonl can `backfill_from_jsonl`. Same tenant/entity/`as_of` replaces, does not double-append into a later PIT read. Empty `FEATURE_STORE_URL` = no L2 writes (writers no-op; serve stays `l2:off`). Writer errors or lag fail-soft: evaluate still returns a decision and does not wait on a remote writer. Writers do not decide ALLOW/DENY. This is not a required stream-processor SKU.
 
-Golden PIT (offline): write at T1, then a later T2; replay `get_features(as_of=T1)` matches the T1 frozen features — T2 must not leak. Compare event-time, not string sort. `holdout_split` (and `apply_holdout_split` on ML export) is sidecar/offline only: the training split cannot include rows with `as_of >= cutoff`. Model never ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false. `GRAPH_GNN_BETA_URL` unset stays off.
+Golden PIT (offline): write at T1, then a later T2; replay `get_features(as_of=T1)` matches the T1 frozen features. T2 must not leak. Compare event-time, not string sort. `holdout_split` (and `apply_holdout_split` on ML export) is sidecar/offline only: the training split cannot include rows with `as_of >= cutoff`. Model never ALLOW/DENY/Promote/demote. `feast_class_claim_allowed` stays false. `GRAPH_GNN_BETA_URL` unset stays off.
 
 Product field-registry overlays and maps persist in Postgres (`field_registry`, `field_maps`). Demo is bundled seed file/fixture; PUTs 403. Windows stay on `counter_manifest_v1.json`. See [field-registry-onboarding](field-registry-onboarding.md).
 
 **Downstream of action:**
 
-- `allow` — continue; fail-soft AGE Decision hop (rolling cap of 20 allow Decisions per Person). No leftover.
-- `flag` — receipt + pack-why. No leftover.
-- `review` / `deny` — leftover mint (`origin:evaluate`) + AGE `Person -RESULTED_IN-> Decision` + SQLite decision-context write (both fail-soft)
-- `SHADOW_REVIEW` — orchestrator may call Shadow (ingest path)
-- `block` / hold — enforcement adapters + audit
+- `allow`: continue; fail-soft AGE Decision hop (rolling cap of 20 allow Decisions per Person). No leftover.
+- `flag`: receipt + pack-why. No leftover.
+- `review` / `deny`: leftover mint (`origin:evaluate`) + AGE `Person -RESULTED_IN-> Decision` + SQLite decision-context write (both fail-soft)
+- `SHADOW_REVIEW`: orchestrator may call Shadow (ingest path)
+- `block` / hold: enforcement adapters + audit
 
 See also [decide-to-act-enforcement](decide-to-act-enforcement.md) · [decision-context-graph](decision-context-graph.md) · [gnn-label-loop](gnn-label-loop.md).
 
@@ -100,7 +100,7 @@ flowchart LR
   Gate -->|lose_or_no_edges| Off[serve_off_trainable_false]
 ```
 
-Webhook binds `dispute_outcome` + `chargeback_class` (`FRAUD` / `FRIENDLY` / `SERVICE` / `UNKNOWN`) to the original receipt. It also accepts `label_kind` (`fp` / `fraud` / `other`) + `source` (`care` / `finance` / `crm` / `evaluate`) + optional `prior_override_id`. Follow-on evaluate is `label_source=evaluate` on a prior receipt for the same entity — one learning join, not a CRM case. FP on a restrictive receipt can open Observe soften work. It does not reconstruct features. No snapshot ⇒ label still recorded, `trainable: false`. Overlay never allow/denies. Lite compose must keep `GRAPH_GNN_BETA_URL` unset. A model does not evaluate.
+Webhook binds `dispute_outcome` + `chargeback_class` (`FRAUD` / `FRIENDLY` / `SERVICE` / `UNKNOWN`) to the original receipt. It also accepts `label_kind` (`fp` / `fraud` / `other`) + `source` (`care` / `finance` / `crm` / `evaluate`) + optional `prior_override_id`. Follow-on evaluate is `label_source=evaluate` on a prior receipt for the same entity, one learning join, not a CRM case. FP on a restrictive receipt can open Observe soften work. It does not reconstruct features. No snapshot ⇒ label still recorded, `trainable: false`. Overlay never allow/denies. Lite compose must keep `GRAPH_GNN_BETA_URL` unset. A model does not evaluate.
 
 ---
 
@@ -141,7 +141,7 @@ Work **arrives** on `GET /v1/leftovers` (desk `/leftovers`). Work **happens** on
 
 A leftover is an open/investigating case with `entity_id` and label `act:hold` or `origin:evaluate`. `flag` and `allow` never mint leftovers. Evaluate mint on deny/review by default (`CASE_CREATE_ON_DENY_REVIEW` is opt-out).
 
-Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. Human **Propose Demote** parks (live stays on) with actor + reason; **Confirm demote** is a separate human action that flips to Observe. Scout / BYO LLM get 403. One leftover cannot Promote. L2 leftover / HIL override mints an Observe draft (`mode=shadow`); an AI-authored draft needs a backtest pass first (`409 backtest_required`). Beachhead Observe seeds (promo / COD / payout / claims) stay Observe — seed ≠ live.
+Observe `/ops/shadow` folds leftover cost + leftover-extra helpfulness into Promote, and names a live `rule_id` that is slipping (`live_rule_slip`). A slip ping does not demote live. Human **Propose Demote** parks (live stays on) with actor + reason; **Confirm demote** is a separate human action that flips to Observe. Scout / BYO LLM get 403. One leftover cannot Promote. L2 leftover / HIL override mints an Observe draft (`mode=shadow`); an AI-authored draft needs a backtest pass first (`409 backtest_required`). Beachhead Observe seeds (promo / COD / payout / claims) stay Observe. Seed ≠ live.
 
 ```mermaid
 flowchart TD
@@ -205,7 +205,7 @@ flowchart TD
 | Tools | Read case/decision/graph; never overwrite evaluate action |
 | Context assembler | Grounds claims to evidence IDs |
 | AgentRun | Persisted run for “View run” in Shadow chat rail |
-| Offline LLM | Degraded reply — no invented metrics |
+| Offline LLM | Degraded reply, no invented metrics |
 
 Nginx: `/api/investigation/` → investigation-agent.
 
@@ -268,7 +268,7 @@ Sibling bridges (refund/cancel/dispute) are **advisory / fail-soft**: missing UR
 | Feature | Data path | If unavailable |
 |---------|-----------|----------------|
 | Sanctions | FtM cache + Postgres logs | Fail-closed logs; fail-soft JSONL mirror |
-| OSINT (demo burst) | ingress HTTP | `mode=unavailable` — no canned risk_score |
+| OSINT (demo burst) | ingress HTTP | `mode=unavailable`, no canned risk_score |
 | Mule path | demo templates | **501** unless `ALLOW_MULE_PATH_DEMO=1` |
 | AGE hop (lite default) | graph-service on same Postgres | Evaluate fail-soft (`graph:write_failed` / `graph:missing`). Desk without URL is evaluate-only fallback, not the product |
 | Janus / Neo4j overlay | Gremlin / Bolt | Optional. `signals_usable=false` ⇒ Shadow omits; no invented zeros |

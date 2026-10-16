@@ -1,4 +1,4 @@
-# Tarka — evaluate + ingest architecture (audit-first)
+# Tarka: evaluate + ingest architecture (audit-first)
 
 Canonical **deterministic evaluate** is **decision-api** (Rust packs via `tarka-core`), reached as:
 
@@ -69,7 +69,7 @@ flowchart TB
 
 1. Orchestrator evaluates first via **decision-api** (or Python when backend/`DECISION_API_URL` forces it).
 2. If `SHADOW_REVIEW` **∈** `actions` **and** `SHADOW_AGENT_URL` is set, orchestrator calls Shadow `POST /v1/analyze` with the **same** JSON and optional `X-Shadow-Token`.
-3. If `SHADOW_REVIEW` **∉** `actions` (e.g. `BLOCK` only), Shadow is **skipped** — no LLM, no audit row from this hop.
+3. If `SHADOW_REVIEW` **∉** `actions` (e.g. `BLOCK` only), Shadow is **skipped**: no LLM, no audit row from this hop.
 4. If Shadow is required but the HTTP call **times out**, orchestrator returns **200** with `orchestrator_fallback_decision: "FLAG"` (no `shadow_agent` key).
 
 ### Sequence (happy path + skip path)
@@ -103,8 +103,8 @@ sequenceDiagram
 
 | Path | Role | Product surface? |
 |------|------|------------------|
-| **`services/shadow_agent`** | FastAPI ingest sidecar (`POST /v1/analyze`) | **Yes — ingest Advise** (`SHADOW_LLM_*` / `SHADOW_AGENT_URL`) |
-| **`services/shadow`** | Python library (`tarka-shadow`: hooks, NATS OSINT helpers) | **No — library only**, imported by orchestrator |
+| **`services/shadow_agent`** | FastAPI ingest sidecar (`POST /v1/analyze`) | **Yes: ingest Advise** (`SHADOW_LLM_*` / `SHADOW_AGENT_URL`) |
+| **`services/shadow`** | Python library (`tarka-shadow`: hooks, NATS OSINT helpers) | **No: library only**, imported by orchestrator |
 
 Desk Advise is **investigation-agent** (`OPENAI_*`). Empty URL hides chrome. There is no desktop forensics console. See `services/SHADOW.md`.
 
@@ -112,7 +112,7 @@ Desk Advise is **investigation-agent** (`OPENAI_*`). Empty URL hides chrome. The
 
 ## Data schema definitions
 
-### 1. Ingest envelope — `TransactionSchema`
+### 1. Ingest envelope: `TransactionSchema`
 
 Shared Pydantic model (`services/ingestor/src/ingestor/manifest_schema.py`). **Extra fields forbidden.** Used as the **JSON body** for orchestrator `POST /v1/ingest` and forwarded to evaluate / Shadow.
 
@@ -123,13 +123,13 @@ Shared Pydantic model (`services/ingestor/src/ingestor/manifest_schema.py`). **E
 | `timestamp` | datetime | ISO-8601 on the wire. |
 | `metadata` | object | Default `{}`; prefer `tenant_id` (or send `X-Tenant-Id`). Missing tenant → **422** on decision-api path. Default `event_type` = **`payment`**. |
 
-### 2. Evaluate — decision-api response (bridged)
+### 2. Evaluate: decision-api response (bridged)
 
 Orchestrator maps decision-api evaluate JSON into ingest `actions[]` via `decision_evaluate_bridge.py` (`action_map_v1`). Wire actions include `BLOCK`, `SHADOW_REVIEW`, `FLAG`, …
 
 Legacy Python `POST /v1/evaluate` still returns `{ actions, transaction_id }` from `rule_engine` when that backend is selected.
 
-### 3. Shadow — `POST /v1/analyze` response
+### 3. Shadow: `POST /v1/analyze` response
 
 Validated `ShadowDecision` plus orchestration-only `_debug` (`shadow_agent/main.py`):
 
@@ -150,7 +150,7 @@ Validated `ShadowDecision` plus orchestration-only `_debug` (`shadow_agent/main.
 | `audit_log_id` | Surrogate key after commit (or `null` on integrity edge cases). |
 | `audit_log_snapshot` | Correlation + capped prompt/response excerpts for operators. |
 
-### 4. Audit trail — SQLAlchemy ORM
+### 4. Audit trail: SQLAlchemy ORM
 
 `AuditLog` (`packages/shared-core/tarka_shared/audit_trail.py`), table **`audit_logs`**:
 
@@ -169,7 +169,7 @@ Shadow agent loads prior rows for `entity_id` before LLM inference, then **adds 
 
 ## Field registry (feature defs)
 
-Product SoT is Postgres `field_registry` (tenant overlay) and `field_maps` (buyer_key → registry name). Seed is bundled `field_registry_v1.json`. Demo stays that **file/fixture**; `PUT /v1/fields/*` and `PUT /v1/fields/maps` return **403** (`maps persist on product Postgres`). Windows stay on `counter_manifest_v1.json` — do not stuff them into the registry. Not online PIT serve (G1.3).
+Product SoT is Postgres `field_registry` (tenant overlay) and `field_maps` (buyer_key → registry name). Seed is bundled `field_registry_v1.json`. Demo stays that **file/fixture**; `PUT /v1/fields/*` and `PUT /v1/fields/maps` return **403** (`maps persist on product Postgres`). Windows stay on `counter_manifest_v1.json`. Do not stuff them into the registry. Not online PIT serve (G1.3).
 
 ---
 

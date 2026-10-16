@@ -1,6 +1,6 @@
 # GitLab-shaped product P0 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. User said `go` — implement in this session.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. User said `go`. Implement in this session.
 
 **Goal:** Introduce `desk_provision.json` and `make product` without changing `make demo`.
 

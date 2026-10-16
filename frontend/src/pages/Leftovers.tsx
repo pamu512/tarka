@@ -66,14 +66,14 @@ export default function Leftovers() {
       <p className="text-xs text-gray-500" data-testid="queue-honesty">
         {queue?.connected
           ? `Queue last outbound: ${queue.last_error ? `error ${queue.last_error_at || ""}` : `ok ${queue.last_ok_at || ""}`}`.trim()
-          : "Connect your queue — leftovers are residual. Tarka is not your case CRM."}{" "}
+          : "Connect your queue, leftovers are residual. Tarka is not your case CRM."}{" "}
         <a href="/help#leftovers" className="text-brand-300 hover:underline">
           queue-seam-sop
         </a>
       </p>
       {err ? (
         <p className="text-sm text-rose-300" role="alert">
-          {err} Leftover Hold is unavailable — do not treat an empty table as “no work.”
+          {err} Leftover Hold is unavailable, do not treat an empty table as “no work.”
         </p>
       ) : (
       <div className="overflow-x-auto rounded-lg border border-surface-700">
@@ -97,7 +97,7 @@ export default function Leftovers() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={11} className="px-3 py-6 text-gray-500" data-testid="leftovers-empty">
-                  No leftovers. Connect your queue — leftovers are residual. Tarka is not your case CRM. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
+                  No leftovers. Connect your queue, leftovers are residual. Tarka is not your case CRM. A REVIEW or DENY from evaluate (or make demo) mints one. ALLOW never does.
                 </td>
               </tr>
             ) : null}

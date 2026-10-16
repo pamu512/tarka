@@ -90,11 +90,11 @@ async def _verify_jwt(token: str) -> dict[str, Any]:
     try:
         import jwt as pyjwt
     except ImportError:
-        raise HTTPException(401, "PyJWT not installed — cannot verify JWT tokens")
+        raise HTTPException(401, "PyJWT not installed: cannot verify JWT tokens")
 
     jwks = await _fetch_jwks()
     if not jwks or not jwks.get("keys"):
-        raise HTTPException(401, "JWKS unavailable — cannot verify JWT signature")
+        raise HTTPException(401, "JWKS unavailable: cannot verify JWT signature")
 
     try:
         jwk_set = pyjwt.PyJWKSet.from_dict(jwks)
