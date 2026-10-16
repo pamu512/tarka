@@ -204,3 +204,34 @@ def decision_runtime_status(degrade_tags: list[str], notes: list[str]) -> str:
     if "load_shedding:active" in degrade_tags:
         return "Degraded"
     return "Healthy"
+
+
+# Hop was not read. graph:ok (including an empty neighborhood) is a real read.
+_HOP_UNREAD_TAGS = (
+    "graph:missing",
+    "graph:unconfigured",
+    "graph:unavailable",
+    "graph:disabled_by_tenant",
+    "graph:stale_skipped",
+    "graph:stale_fail_closed",
+)
+_HOP_UNREAD_STATUS = frozenset({"graph:missing", "graph:empty", "graph:unavailable"})
+
+
+def hop_unread_reason(
+    hop: dict[str, Any] | None,
+    degrade_tags: list[str] | None = None,
+) -> str | None:
+    """One reason token when this decision did not read a graph hop.
+
+    Does not change allow / review / deny. A present hop (status graph:ok)
+    returns None even when named_edges is empty.
+    """
+    tags = degrade_tags or []
+    for tag in _HOP_UNREAD_TAGS:
+        if tag in tags:
+            return tag
+    status = str((hop or {}).get("status") or "")
+    if status in _HOP_UNREAD_STATUS:
+        return status
+    return None

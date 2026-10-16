@@ -47,6 +47,7 @@ from decision_api.evaluate.score import (
     compute_fallback_reason as _compute_fallback_reason,
     decision_runtime_status as _decision_runtime_status,
     degrade_skip_score_delta as _degrade_skip_score_delta,
+    hop_unread_reason as _hop_unread_reason,
     signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
@@ -1350,6 +1351,9 @@ async def run_evaluate_decision(
             reasons.append(f"signals:{','.join(signal_tags)}")
         if ml_score is not None and isinstance(ml_score, float):
             reasons.append(f"ml:{ml_score:.2f}")
+        hop_reason = _hop_unread_reason(graph_hop_v1, degrade_tags)
+        if hop_reason:
+            reasons.append(hop_reason)
         merged_signal_tags = list(dict.fromkeys(signal_tags))
         inf_ctx = build_inference_context(
             merged_signal_tags,
