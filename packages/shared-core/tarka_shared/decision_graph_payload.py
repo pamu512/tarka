@@ -202,6 +202,29 @@ def _client_ip(payload: dict[str, Any], device_context: dict[str, Any] | None) -
     return ""
 
 
+def link_write_properties(
+    *,
+    relationship: str,
+    trace_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Properties stored on the graph edge evaluate writes."""
+    props: dict[str, Any] = {
+        "trace_id": trace_id,
+        "event_type": event_type,
+        "decision_id": f"dec:{trace_id}",
+    }
+    if relationship == "TRANSACTED" and isinstance(payload, dict):
+        raw = payload.get("amount")
+        if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+            props["amount"] = raw
+        currency = payload.get("currency")
+        if isinstance(currency, str) and currency.strip():
+            props["currency"] = currency.strip()
+    return props
+
+
 def build_evaluate_objects(
     *,
     trace_id: str,
@@ -404,6 +427,18 @@ def build_evaluate_objects(
                 "from_external_id": person_id,
                 "to_external_id": cell,
                 "relationship": "SEEN_AT",
+            }
+        )
+
+    counterparty = _trim(pl.get("counterparty_entity_id"))
+    if counterparty and counterparty != person_id:
+        if not any(o["external_id"] == counterparty for o in objects):
+            _obj(counterparty, "Person", {})
+        links.append(
+            {
+                "from_external_id": person_id,
+                "to_external_id": counterparty,
+                "relationship": "TRANSACTED",
             }
         )
 

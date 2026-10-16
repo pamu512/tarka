@@ -1,237 +1,193 @@
-"""Mule path visualizer — User A → User B (mule) → Payout fund flow (Prompt 179)."""
+"""Mule path from TRANSACTED edges already written by evaluate.
+
+Empty graph, missing origin, or an unset GRAPH_SERVICE_URL returns no hops.
+This module does not invent people, amounts, or payouts.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import os
-import uuid
-from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from datetime import UTC, datetime
+from typing import Any
+from urllib.parse import quote
 
-HopRole = Literal["origin", "mule", "payout"]
-
-_DEMO_PATHS: dict[str, dict[str, Any]] = {
-    "default": {
-        "origin": {
-            "entity_id": "user_alice",
-            "label": "Alice Johnson",
-            "account_id": "acc_alice_main",
-        },
-        "mule": {
-            "entity_id": "mule_ivan",
-            "label": "Ivan Kowalski",
-            "account_id": "acc_mule_ivan_recv",
-            "referred_by": "fraud_frank",
-        },
-        "payout": {
-            "entity_id": "payout_crypto_eu",
-            "label": "External payout (crypto)",
-            "beneficiary": "bc1q…mule-cashout",
-            "channel": "crypto_withdrawal",
-        },
-        "leg1_amount": 12_400.0,
-        "leg2_amount": 11_950.0,
-        "currency": "USD",
-        "hours_span": 4.2,
-    },
-    "fraud_frank_chain": {
-        "origin": {
-            "entity_id": "fraud_frank",
-            "label": "Frank Moretti",
-            "account_id": "acc_frank_burner",
-        },
-        "mule": {
-            "entity_id": "mule_jane",
-            "label": "Jane Okafor",
-            "account_id": "acc_mule_jane_recv",
-            "referred_by": "fraud_gina",
-        },
-        "payout": {
-            "entity_id": "payout_wire_offshore",
-            "label": "Offshore wire beneficiary",
-            "beneficiary": "LT71 3250 …4821",
-            "channel": "international_wire",
-        },
-        "leg1_amount": 8_750.0,
-        "leg2_amount": 8_500.0,
-        "currency": "USD",
-        "hours_span": 2.8,
-    },
-}
+import httpx
 
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _path_key(tenant_id: str, origin: str, mule: str, payout: str) -> str:
-    raw = f"{tenant_id}|{origin}|{mule}|{payout}"
-    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+def _edge_type(edge: dict[str, Any]) -> str:
+    return str(edge.get("type") or edge.get("relationship") or "").strip().upper()
 
 
-def _resolve_demo_template(
-    *,
-    origin_entity_id: str | None,
-    mule_entity_id: str | None,
-) -> dict[str, Any]:
-    if origin_entity_id == "fraud_frank" or mule_entity_id == "mule_jane":
-        return _DEMO_PATHS["fraud_frank_chain"]
-    return _DEMO_PATHS["default"]
+def _end(edge: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        raw = edge.get(key)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return ""
 
 
-def _hop(
-    *,
-    role: HopRole,
-    entity_id: str,
-    label: str,
-    node_type: str,
-    account_id: str | None = None,
-    extra: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    row: dict[str, Any] = {
-        "role": role,
-        "entity_id": entity_id,
-        "label": label,
-        "node_type": node_type,
-        "account_id": account_id,
+def _amount(edge: dict[str, Any]) -> float:
+    props = edge.get("properties") if isinstance(edge.get("properties"), dict) else {}
+    raw = props.get("amount")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return 0.0
+    return float(raw)
+
+
+def _currency(edge: dict[str, Any]) -> str:
+    props = edge.get("properties") if isinstance(edge.get("properties"), dict) else {}
+    raw = props.get("currency")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return "USD"
+
+
+def empty_mule_path(tenant_id: str, *, source: str = "graph") -> dict[str, Any]:
+    return {
+        "tenant_id": (tenant_id or "demo").strip() or "demo",
+        "path_id": "",
+        "updated_at": _now_iso(),
+        "source": source,
+        "hops": [],
+        "transfers": [],
+        "summary": {
+            "hop_count": 0,
+            "total_outflow": 0.0,
+            "payout_amount": 0.0,
+            "mule_retained": 0.0,
+            "currency": "USD",
+            "elapsed_hours": 0.0,
+            "risk_flags": [],
+        },
     }
-    if extra:
-        row.update(extra)
-    return row
 
 
-def build_mule_path_payload(
+def build_mule_path_from_edges(
     *,
     tenant_id: str,
-    origin_entity_id: str | None = None,
-    mule_entity_id: str | None = None,
-    payout_entity_id: str | None = None,
-    allow_demo: bool | None = None,
+    origin_entity_id: str,
+    mule_entity_id: str | None,
+    edges: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Build a three-hop mule fund-flow path from demo templates (opt-in only).
+    origin = (origin_entity_id or "").strip()
+    if not origin:
+        return empty_mule_path(tenant_id)
+    want_mule = (mule_entity_id or "").strip()
+    matched: list[dict[str, Any]] = []
+    for edge in edges:
+        if not isinstance(edge, dict) or _edge_type(edge) != "TRANSACTED":
+            continue
+        src = _end(edge, "from_id", "startNode")
+        dst = _end(edge, "to_id", "endNode")
+        if src != origin or not dst or dst == origin:
+            continue
+        if want_mule and dst != want_mule:
+            continue
+        matched.append(edge)
+    if not matched:
+        return empty_mule_path(tenant_id)
 
-    Demo templates invent hops/amounts. Callers must pass ``allow_demo=True`` or set
-    ``ALLOW_MULE_PATH_DEMO=1``. Otherwise raises ``PermissionError`` (map to HTTP 501).
-    """
-    demo_ok = (
-        allow_demo
-        if allow_demo is not None
-        else (os.environ.get("ALLOW_MULE_PATH_DEMO", "").strip().lower() in {"1", "true", "yes"})
+    mules: list[str] = []
+    for edge in matched:
+        dst = _end(edge, "to_id", "endNode")
+        if dst not in mules:
+            mules.append(dst)
+    hops: list[dict[str, Any]] = [
+        {
+            "role": "origin",
+            "entity_id": origin,
+            "label": origin,
+            "node_type": "user",
+            "description": "Person who sent the payment",
+        }
+    ]
+    hops.extend(
+        {
+            "role": "mule",
+            "entity_id": mule,
+            "label": mule,
+            "node_type": "user",
+            "description": "TRANSACTED counterparty",
+        }
+        for mule in mules
     )
-    if not demo_ok:
-        raise PermissionError(
-            "mule_path demo templates disabled; set ALLOW_MULE_PATH_DEMO=1 for synthetic paths only"
+    transfers: list[dict[str, Any]] = []
+    total = 0.0
+    currency = _currency(matched[0])
+    for index, edge in enumerate(matched):
+        dst = _end(edge, "to_id", "endNode")
+        amount = _amount(edge)
+        total += amount
+        props = edge.get("properties") if isinstance(edge.get("properties"), dict) else {}
+        trace = str(props.get("trace_id") or edge.get("id") or index)
+        transfers.append(
+            {
+                "id": f"xfer-{trace}",
+                "from_role": "origin",
+                "to_role": "mule",
+                "from_entity_id": origin,
+                "to_entity_id": dst,
+                "amount": amount,
+                "currency": _currency(edge),
+                "trace_id": trace,
+                "timestamp": str(props.get("timestamp") or ""),
+                "channel": "payment",
+                "status": "recorded",
+            }
         )
-
-    tid = (tenant_id or "demo").strip() or "demo"
-    tpl = _resolve_demo_template(origin_entity_id=origin_entity_id, mule_entity_id=mule_entity_id)
-
-    origin = dict(tpl["origin"])
-    mule = dict(tpl["mule"])
-    payout = dict(tpl["payout"])
-    if origin_entity_id:
-        origin["entity_id"] = origin_entity_id.strip()
-    if mule_entity_id:
-        mule["entity_id"] = mule_entity_id.strip()
-    if payout_entity_id:
-        payout["entity_id"] = payout_entity_id.strip()
-
-    currency = str(tpl.get("currency") or "USD")
-    leg1 = float(tpl["leg1_amount"])
-    leg2 = float(tpl["leg2_amount"])
-    hours = float(tpl.get("hours_span") or 3.0)
-    t_end = datetime.now(UTC)
-    t_mid = t_end - timedelta(hours=hours * 0.45)
-    t_start = t_end - timedelta(hours=hours)
-
-    trace1 = f"tr-mule-{uuid.uuid4().hex[:10]}"
-    trace2 = f"tr-mule-{uuid.uuid4().hex[:10]}"
-
-    hops = [
-        _hop(
-            role="origin",
-            entity_id=str(origin["entity_id"]),
-            label=str(origin.get("label") or origin["entity_id"]),
-            node_type="user",
-            account_id=origin.get("account_id"),
-            extra={"description": "Source account — funds leave here"},
-        ),
-        _hop(
-            role="mule",
-            entity_id=str(mule["entity_id"]),
-            label=str(mule.get("label") or mule["entity_id"]),
-            node_type="user",
-            account_id=mule.get("account_id"),
-            extra={
-                "description": "Pass-through / mule account",
-                "referred_by": mule.get("referred_by"),
-                "tags": ["mule", "layering"],
-            },
-        ),
-        _hop(
-            role="payout",
-            entity_id=str(payout["entity_id"]),
-            label=str(payout.get("label") or payout["entity_id"]),
-            node_type="payout",
-            extra={
-                "description": "Cash-out / external beneficiary",
-                "beneficiary": payout.get("beneficiary"),
-                "channel": payout.get("channel"),
-            },
-        ),
-    ]
-
-    transfers = [
-        {
-            "id": f"xfer-{trace1}",
-            "from_role": "origin",
-            "to_role": "mule",
-            "from_entity_id": hops[0]["entity_id"],
-            "to_entity_id": hops[1]["entity_id"],
-            "amount": leg1,
-            "currency": currency,
-            "trace_id": trace1,
-            "timestamp": t_start.isoformat(),
-            "channel": "internal_transfer",
-            "status": "settled",
-        },
-        {
-            "id": f"xfer-{trace2}",
-            "from_role": "mule",
-            "to_role": "payout",
-            "from_entity_id": hops[1]["entity_id"],
-            "to_entity_id": hops[2]["entity_id"],
-            "amount": leg2,
-            "currency": currency,
-            "trace_id": trace2,
-            "timestamp": t_mid.isoformat(),
-            "channel": str(payout.get("channel") or "payout"),
-            "status": "settled",
-        },
-    ]
-
-    retained = round(leg1 - leg2, 2)
-    pid = _path_key(tid, hops[0]["entity_id"], hops[1]["entity_id"], hops[2]["entity_id"])
-
+    pid = hashlib.sha256(f"{tenant_id}|{origin}|{'|'.join(mules)}".encode()).hexdigest()[:16]
     return {
-        "tenant_id": tid,
+        "tenant_id": (tenant_id or "demo").strip() or "demo",
         "path_id": pid,
         "updated_at": _now_iso(),
-        "source": "demo_template",
+        "source": "graph",
         "hops": hops,
         "transfers": transfers,
         "summary": {
             "hop_count": len(hops),
-            "total_outflow": leg1,
-            "payout_amount": leg2,
-            "mule_retained": max(0.0, retained),
+            "total_outflow": round(total, 2),
+            "payout_amount": 0.0,
+            "mule_retained": 0.0,
             "currency": currency,
-            "elapsed_hours": round(hours, 2),
-            "risk_flags": [
-                "rapid_pass_through",
-                "mule_account",
-                "external_payout",
-                *(["known_fraud_referrer"] if mule.get("referred_by") else []),
-            ],
+            "elapsed_hours": 0.0,
+            "risk_flags": ["transacted"] if transfers else [],
         },
     }
+
+
+async def load_mule_path(
+    *,
+    tenant_id: str,
+    origin_entity_id: str | None,
+    mule_entity_id: str | None,
+    graph_url: str | None = None,
+) -> dict[str, Any]:
+    origin = (origin_entity_id or "").strip()
+    if not origin:
+        return empty_mule_path(tenant_id)
+    base = graph_url if graph_url is not None else os.environ.get("GRAPH_SERVICE_URL", "")
+    base = base.strip()
+    if not base:
+        return empty_mule_path(tenant_id, source="graph:unconfigured")
+    url = f"{base.rstrip('/')}/v1/entities/{quote(origin, safe='')}/links"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=1.0)) as client:
+            response = await client.get(url, params={"tenant_id": tenant_id})
+        if response.status_code == 404:
+            return empty_mule_path(tenant_id)
+        response.raise_for_status()
+        body = response.json()
+    except Exception:
+        return empty_mule_path(tenant_id, source="graph:unavailable")
+    edges = body.get("edges") if isinstance(body, dict) else None
+    return build_mule_path_from_edges(
+        tenant_id=tenant_id,
+        origin_entity_id=origin,
+        mule_entity_id=mule_entity_id,
+        edges=edges if isinstance(edges, list) else [],
+    )
