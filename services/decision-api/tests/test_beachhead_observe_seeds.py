@@ -141,7 +141,11 @@ def test_refund_instrument_ato_fail_closed_missing_or_wrong_event():
     assert _eval_refund_instrument_ato_pack({"event_type": "refund"}) == []
     assert (
         _eval_refund_instrument_ato_pack(
-            {"event_type": "refund", "refund_instrument_mismatch": False, "recent_ato": False}
+            {
+                "event_type": "refund",
+                "refund_instrument_mismatch": False,
+                "recent_ato": False,
+            }
         )
         == []
     )
@@ -164,7 +168,11 @@ def test_refund_instrument_ato_fail_closed_missing_or_wrong_event():
 
 
 def test_refund_instrument_ato_fail_closed_null_and_non_bool():
-    absent = {"event_type": "refund", "refund_instrument_mismatch": None, "recent_ato": None}
+    absent = {
+        "event_type": "refund",
+        "refund_instrument_mismatch": None,
+        "recent_ato": None,
+    }
     assert _eval_refund_instrument_ato_pack(absent) == []
     stringy = {
         "event_type": "refund",
@@ -195,7 +203,10 @@ def test_refund_instrument_ato_fields_registered_fail_closed():
         for row in json.loads(registry_path.read_text(encoding="utf-8"))
         if row.get("name") in {"refund_instrument_mismatch", "recent_ato"}
     ]
-    assert sorted(row["name"] for row in rows) == ["recent_ato", "refund_instrument_mismatch"]
+    assert sorted(row["name"] for row in rows) == [
+        "recent_ato",
+        "refund_instrument_mismatch",
+    ]
     for row in rows:
         assert row["source"] == "tarka_core"
         explanation = str(row.get("explanation") or "")
