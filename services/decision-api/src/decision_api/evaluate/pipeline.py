@@ -47,6 +47,7 @@ from decision_api.evaluate.score import (
     compute_fallback_reason as _compute_fallback_reason,
     decision_runtime_status as _decision_runtime_status,
     degrade_skip_score_delta as _degrade_skip_score_delta,
+    hop_unread_reason as _hop_unread_reason,
     signal_availability_notes_from_tags as _signal_availability_notes_from_tags,
 )
 from decision_api.graph_decision_explanation import build_graph_decision_explanation_v1
@@ -128,6 +129,12 @@ async def run_evaluate_decision(
         maybe_fetch_partner_signals,
         signals_to_feature_tags,
     )
+    from decision_api.device_intelligence import device_intelligence
+    from decision_api.device_intelligence_eval import (
+        apply_prior_device_reputation,
+        device_ip_for_velocity,
+        record_device_intelligence_outcome,
+    )
 
     shadow_request = is_shadow_evaluate_request(body.metadata)
     # Helpers / stores that still live on the main module
@@ -190,6 +197,28 @@ async def run_evaluate_decision(
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
+
+    async def _record_device_intel(decision: str) -> None:
+        """Call record_device_intelligence_outcome for this evaluate path."""
+        signals = (
+            body.device_context.signals
+            if body.device_context and isinstance(body.device_context.signals, dict)
+            else None
+        )
+        payload = body.payload if isinstance(body.payload, dict) else None
+        ip = device_ip_for_velocity(payload, signals)
+        await record_device_intelligence_outcome(
+            degrade_tags,
+            store=device_intelligence,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            device_id=body.device_context.device_id if body.device_context else None,
+            decision=decision,
+            signals=signals,
+            ip=ip or None,
+            shadow=shadow_request,
+        )
+
     from decision_api.policy_set import current_policy_set_id
 
     policy_set_id = current_policy_set_id() or None
@@ -404,6 +433,7 @@ async def run_evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            await _record_device_intel("allow")
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="allow",
@@ -479,6 +509,7 @@ async def run_evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            await _record_device_intel("deny")
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="deny",
@@ -676,6 +707,14 @@ async def run_evaluate_decision(
         from decision_api.feature_catalog import apply_feature_catalog_v1
 
         merge_device_context_into_features(features, body.device_context)
+        await apply_prior_device_reputation(
+            features,
+            degrade_tags,
+            store=device_intelligence,
+            tenant_id=body.tenant_id,
+            device_id=body.device_context.device_id if body.device_context else None,
+            shadow=shadow_request,
+        )
         if partner_features:
             features.update(partner_features)
         if body.session_id:
@@ -1303,6 +1342,8 @@ async def run_evaluate_decision(
         else:
             decision = "allow"
 
+        await _record_device_intel(decision)
+
         reasons: list[str] = []
         if combined_rule_hits:
             reasons.append(f"rules:{','.join(combined_rule_hits)}")
@@ -1310,6 +1351,9 @@ async def run_evaluate_decision(
             reasons.append(f"signals:{','.join(signal_tags)}")
         if ml_score is not None and isinstance(ml_score, float):
             reasons.append(f"ml:{ml_score:.2f}")
+        hop_reason = _hop_unread_reason(graph_hop_v1, degrade_tags)
+        if hop_reason:
+            reasons.append(hop_reason)
         merged_signal_tags = list(dict.fromkeys(signal_tags))
         inf_ctx = build_inference_context(
             merged_signal_tags,

@@ -2873,113 +2873,21 @@ export function getMockResponse(url: string, init?: RequestInit): unknown | null
   if (path.includes("/api/ingress/v1/investigation/mule-path") && method === "GET") {
     const u = new URL(url, "http://localhost");
     const tid = u.searchParams.get("tenant_id") ?? "demo";
-    const origin = u.searchParams.get("origin_entity_id");
-    const mule = u.searchParams.get("mule_entity_id");
-    const isFrank = origin === "fraud_frank" || mule === "mule_jane";
-    const hops = isFrank
-      ? [
-          {
-            role: "origin",
-            entity_id: "fraud_frank",
-            label: "Frank Moretti",
-            node_type: "user",
-            account_id: "acc_frank_burner",
-            description: "Source account — funds leave here",
-          },
-          {
-            role: "mule",
-            entity_id: "mule_jane",
-            label: "Jane Okafor",
-            node_type: "user",
-            account_id: "acc_mule_jane_recv",
-            description: "Pass-through / mule account",
-            referred_by: "fraud_gina",
-            tags: ["mule", "layering"],
-          },
-          {
-            role: "payout",
-            entity_id: "payout_wire_offshore",
-            label: "Offshore wire beneficiary",
-            node_type: "payout",
-            description: "Cash-out / external beneficiary",
-            beneficiary: "LT71 3250 …4821",
-            channel: "international_wire",
-          },
-        ]
-      : [
-          {
-            role: "origin",
-            entity_id: origin ?? "user_alice",
-            label: "Alice Johnson",
-            node_type: "user",
-            account_id: "acc_alice_main",
-            description: "Source account — funds leave here",
-          },
-          {
-            role: "mule",
-            entity_id: mule ?? "mule_ivan",
-            label: "Ivan Kowalski",
-            node_type: "user",
-            account_id: "acc_mule_ivan_recv",
-            description: "Pass-through / mule account",
-            referred_by: "fraud_frank",
-            tags: ["mule", "layering"],
-          },
-          {
-            role: "payout",
-            entity_id: "payout_crypto_eu",
-            label: "External payout (crypto)",
-            node_type: "payout",
-            description: "Cash-out / external beneficiary",
-            beneficiary: "bc1q…mule-cashout",
-            channel: "crypto_withdrawal",
-          },
-        ];
-    const leg1 = isFrank ? 8750 : 12400;
-    const leg2 = isFrank ? 8500 : 11950;
-    const t0 = Date.now();
     return {
       tenant_id: tid,
-      path_id: `mp-${isFrank ? "fj" : "ai"}`,
+      path_id: "",
       updated_at: nowIso(),
-      source: "mock",
-      hops,
-      transfers: [
-        {
-          id: "xfer-1",
-          from_role: "origin",
-          to_role: "mule",
-          from_entity_id: hops[0].entity_id,
-          to_entity_id: hops[1].entity_id,
-          amount: leg1,
-          currency: "USD",
-          trace_id: `tr-mule-${t0}`,
-          timestamp: new Date(t0 - 4 * 3600_000).toISOString(),
-          channel: "internal_transfer",
-          status: "settled",
-        },
-        {
-          id: "xfer-2",
-          from_role: "mule",
-          to_role: "payout",
-          from_entity_id: hops[1].entity_id,
-          to_entity_id: hops[2].entity_id,
-          amount: leg2,
-          currency: "USD",
-          trace_id: `tr-mule-${t0 + 1}`,
-          timestamp: new Date(t0 - 2 * 3600_000).toISOString(),
-          channel: String(hops[2].channel ?? "payout"),
-          status: "settled",
-        },
-      ],
+      source: "graph",
+      hops: [],
+      transfers: [],
       summary: {
-        hop_count: 3,
-        total_outflow: leg1,
-        payout_amount: leg2,
-        mule_retained: leg1 - leg2,
+        hop_count: 0,
+        total_outflow: 0,
+        payout_amount: 0,
+        mule_retained: 0,
         currency: "USD",
-        elapsed_hours: isFrank ? 2.8 : 4.2,
-        risk_flags: ["rapid_pass_through", "mule_account", "external_payout", "known_fraud_referrer"],
+        elapsed_hours: 0,
+        risk_flags: [],
       },
     };
   }

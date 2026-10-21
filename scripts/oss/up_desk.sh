@@ -69,4 +69,7 @@ if curl -sf -o /dev/null "http://127.0.0.1:${FRONTEND_PORT}/" ; then
 else
   echo "[fail] frontend NOT healthy — http://127.0.0.1:${FRONTEND_PORT}/ (docker compose -f infra/deploy/docker-compose.lite.yml ps frontend)"
 fi
+python3 "$ROOT/scripts/seed_demo_data.py" \
+  --decision-url "http://127.0.0.1:${CORE_PORT}/decisions" \
+  --graph-url "http://127.0.0.1:${GRAPH_PORT}"
 exec python3 "$ROOT/scripts/oss/walk_receipts.py"

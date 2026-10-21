@@ -213,21 +213,23 @@ def _velocity_spike_transactions() -> list[dict]:
 
 
 def _mule_transactions() -> list[dict]:
-    """Transfers routed through money mules."""
+    """Sender evaluate: fraudster pays the mule. Graph edge comes from counterparty_entity_id."""
     txns: list[dict] = []
+    random.seed(184)
     for mule in MULES:
+        sender = mule["referred_by"]
         for i in range(3):
             txns.append(
                 {
                     "tenant_id": TENANT_ID,
                     "event_type": "payment",
-                    "entity_id": mule["id"],
-                    "session_id": f"sess_{mule['id']}_{i}",
+                    "entity_id": sender,
+                    "session_id": f"sess_{sender}_to_{mule['id']}_{i}",
                     "payload": {
                         "amount": round(random.uniform(1000, 3000), 2),
                         "currency": "USD",
                         "merchant": "WireTransfer",
-                        "recipient": mule["id"],
+                        "counterparty_entity_id": mule["id"],
                         "ip_address": f"45.{random.randint(1, 254)}.{random.randint(1, 254)}.{random.randint(1, 254)}",
                         "timestamp": _ts(random.uniform(1, 24)),
                     },
@@ -288,184 +290,6 @@ def _login_transactions() -> list[dict]:
             }
         )
     return txns
-
-
-# ---------------------------------------------------------------------------
-# Graph seeding
-# ---------------------------------------------------------------------------
-
-
-def _graph_entities() -> list[dict]:
-    """All entity upserts for the graph service."""
-    entities: list[dict] = []
-
-    for user in LEGIT_USERS:
-        entities.append(
-            {
-                "tenant_id": TENANT_ID,
-                "entity_type": "User",
-                "external_id": user["id"],
-                "properties": {"name": user["name"], "email": user["email"], "risk": "low"},
-                "tags": ["legit"],
-            }
-        )
-
-    for f in FRAUDSTERS:
-        entities.append(
-            {
-                "tenant_id": TENANT_ID,
-                "entity_type": "User",
-                "external_id": f["id"],
-                "properties": {"name": f["name"], "role": f["role"], "risk": "high"},
-                "tags": ["suspicious", "fraud_ring"],
-            }
-        )
-
-    for m in MULES:
-        entities.append(
-            {
-                "tenant_id": TENANT_ID,
-                "entity_type": "User",
-                "external_id": m["id"],
-                "properties": {"name": m["name"], "risk": "medium"},
-                "tags": ["mule"],
-            }
-        )
-
-    for d in DEVICES:
-        tags = []
-        if d.get("signals", {}).get("is_emulator"):
-            tags.append("emulator")
-        if d.get("signals", {}).get("is_vpn"):
-            tags.append("vpn")
-        entities.append(
-            {
-                "tenant_id": TENANT_ID,
-                "entity_type": "Device",
-                "external_id": d["id"],
-                "properties": {"platform": d["platform"], **d.get("signals", {})},
-                "tags": tags,
-            }
-        )
-
-    for a in ACCOUNTS:
-        entities.append(
-            {
-                "tenant_id": TENANT_ID,
-                "entity_type": "Account",
-                "external_id": a["id"],
-                "properties": {"type": a["type"], "owner": a["owner"]},
-                "tags": [],
-            }
-        )
-
-    return entities
-
-
-def _graph_links() -> list[dict]:
-    """All relationship links for the graph service."""
-    links: list[dict] = []
-
-    # Users OWN accounts
-    for acc in ACCOUNTS:
-        links.append(
-            {
-                "tenant_id": TENANT_ID,
-                "from_external_id": acc["owner"],
-                "to_external_id": acc["id"],
-                "relationship": "OWNS",
-                "properties": {"account_type": acc["type"]},
-            }
-        )
-
-    # Device ownership / usage
-    for dev in DEVICES:
-        owner = dev.get("owner")
-        if owner:
-            links.append(
-                {
-                    "tenant_id": TENANT_ID,
-                    "from_external_id": owner,
-                    "to_external_id": dev["id"],
-                    "relationship": "USED",
-                    "properties": {"primary": True},
-                }
-            )
-        for shared_user in dev.get("shared_with", []):
-            links.append(
-                {
-                    "tenant_id": TENANT_ID,
-                    "from_external_id": shared_user,
-                    "to_external_id": dev["id"],
-                    "relationship": "USED",
-                    "properties": {"primary": False, "shared": True},
-                }
-            )
-
-    # Mule REFERRED_BY fraudster
-    for mule in MULES:
-        links.append(
-            {
-                "tenant_id": TENANT_ID,
-                "from_external_id": mule["referred_by"],
-                "to_external_id": mule["id"],
-                "relationship": "REFERRED",
-                "properties": {"suspicious": True},
-            }
-        )
-
-    # Payment links between mules and fraudsters
-    links.append(
-        {
-            "tenant_id": TENANT_ID,
-            "from_external_id": "fraud_frank",
-            "to_external_id": "mule_ivan",
-            "relationship": "PAID",
-            "properties": {"total_amount": 8500.00, "count": 3},
-        }
-    )
-    links.append(
-        {
-            "tenant_id": TENANT_ID,
-            "from_external_id": "fraud_gina",
-            "to_external_id": "mule_jane",
-            "relationship": "PAID",
-            "properties": {"total_amount": 6200.00, "count": 3},
-        }
-    )
-
-    # Cross-links: mules forward funds to external accounts
-    links.append(
-        {
-            "tenant_id": TENANT_ID,
-            "from_external_id": "mule_ivan",
-            "to_external_id": "acc_mule_ivan_recv",
-            "relationship": "FORWARDED_TO",
-            "properties": {"total_amount": 7000.00},
-        }
-    )
-
-    # Fraud ring internal links
-    links.append(
-        {
-            "tenant_id": TENANT_ID,
-            "from_external_id": "fraud_frank",
-            "to_external_id": "fraud_gina",
-            "relationship": "COLLABORATES_WITH",
-            "properties": {"ring": "alpha"},
-        }
-    )
-    links.append(
-        {
-            "tenant_id": TENANT_ID,
-            "from_external_id": "fraud_frank",
-            "to_external_id": "fraud_henry",
-            "relationship": "COLLABORATES_WITH",
-            "properties": {"ring": "alpha"},
-        }
-    )
-
-    return links
 
 
 # ---------------------------------------------------------------------------
@@ -603,6 +427,15 @@ async def _already_seeded(client: httpx.AsyncClient, case_url: str) -> bool:
     return False
 
 
+def require_seed_planes(*, decision_ok: bool, graph_ok: bool) -> None:
+    if not decision_ok:
+        print("Aborting — decision-api must be running.", file=sys.stderr)
+        raise SystemExit(1)
+    if not graph_ok:
+        print("Aborting — graph-service must be running.", file=sys.stderr)
+        raise SystemExit(1)
+
+
 # ---------------------------------------------------------------------------
 # Seeders
 # ---------------------------------------------------------------------------
@@ -637,22 +470,6 @@ async def seed_decisions(client: httpx.AsyncClient, decision_url: str) -> list[s
             print(f"    [{i}/{len(all_txns)}] ok={ok} errors={errors}")
 
     return trace_ids
-
-
-async def seed_graph(client: httpx.AsyncClient, graph_url: str) -> None:
-    """Create entities and links in the graph service."""
-    entities = _graph_entities()
-    links = _graph_links()
-
-    print(f"  Creating {len(entities)} graph entities ...")
-    for ent in entities:
-        with contextlib.suppress(httpx.HTTPError):
-            await client.post(f"{graph_url}/v1/entities", json=ent)
-
-    print(f"  Creating {len(links)} graph links ...")
-    for link in links:
-        with contextlib.suppress(httpx.HTTPError):
-            await client.post(f"{graph_url}/v1/links", json=link)
 
 
 async def seed_cases(client: httpx.AsyncClient, case_url: str, trace_ids: list[str]) -> None:
@@ -854,28 +671,35 @@ async def main(
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(30.0, connect=10.0),
     ) as client:
-        # ── Health checks ────────────────────────────────────────────
         print("Checking service health ...")
-        for name, url in [("decision-api", decision_url), ("case-api", case_url)]:
-            try:
-                r = await client.get(f"{url}/v1/health")
-                r.raise_for_status()
-                print(f"  ✓ {name} is up")
-            except httpx.HTTPError as exc:
-                print(f"  ✗ {name} at {url} is not reachable: {exc}")
-                print("Aborting — required services must be running.")
-                sys.exit(1)
+        decision_ok = False
+        try:
+            r = await client.get(f"{decision_url}/v1/health")
+            r.raise_for_status()
+            decision_ok = True
+            print("  ✓ decision-api is up")
+        except httpx.HTTPError as exc:
+            print(f"  ✗ decision-api at {decision_url} is not reachable: {exc}")
 
-        graph_available = False
+        case_ok = False
+        try:
+            r = await client.get(f"{case_url}/v1/health")
+            r.raise_for_status()
+            case_ok = True
+            print("  ✓ case-api is up")
+        except httpx.HTTPError as exc:
+            print(f"  – case-api at {case_url} is not reachable: {exc}")
+
+        graph_ok = False
         try:
             r = await client.get(f"{graph_url}/v1/health")
             if r.status_code == 200:
-                graph_available = True
+                graph_ok = True
                 print("  ✓ graph-service is up")
-        except httpx.HTTPError:
-            pass
-        if not graph_available:
-            print("  – graph-service not available (skipping graph seed)")
+        except httpx.HTTPError as exc:
+            print(f"  ✗ graph-service at {graph_url} is not reachable: {exc}")
+
+        require_seed_planes(decision_ok=decision_ok, graph_ok=graph_ok)
 
         ingress_available = False
         try:
@@ -884,12 +708,9 @@ async def main(
                 ingress_available = True
                 print("  ✓ integration-ingress is up")
         except httpx.HTTPError:
-            pass
-        if not ingress_available:
             print("  – integration-ingress not available (skipping integration seed)")
 
-        # ── Idempotency ──────────────────────────────────────────────
-        if not force:
+        if case_ok and not force:
             if await _already_seeded(client, case_url):
                 print(
                     "\nDemo data already exists for tenant 'demo'. Use --force to re-seed (additive)."
@@ -897,48 +718,35 @@ async def main(
                 return
 
         print()
-
-        # ── Seed decisions ───────────────────────────────────────────
-        print("[1/6] Seeding decisions ...")
+        print("Seeding decisions ...")
         trace_ids = await seed_decisions(client, decision_url)
         print(f"  Collected {len(trace_ids)} trace IDs\n")
 
-        # ── Seed graph ───────────────────────────────────────────────
-        if graph_available:
-            print("[2/6] Seeding graph entities & links ...")
-            await seed_graph(client, graph_url)
+        if case_ok:
+            print("Seeding investigation cases ...")
+            await seed_cases(client, case_url, trace_ids)
+            print()
+            print("Seeding disputes ...")
+            await seed_disputes(client, case_url, trace_ids)
             print()
         else:
-            print("[2/6] Skipping graph seed (service unavailable)\n")
+            print("Skipping cases and disputes (case-api unavailable)\n")
 
-        # ── Seed cases ───────────────────────────────────────────────
-        print("[3/6] Seeding investigation cases ...")
-        await seed_cases(client, case_url, trace_ids)
-        print()
-
-        # ── Seed disputes ────────────────────────────────────────────
-        print("[4/6] Seeding disputes ...")
-        await seed_disputes(client, case_url, trace_ids)
-        print()
-
-        # ── Seed entity lists ────────────────────────────────────────
-        print("[5/6] Seeding entity lists ...")
+        print("Seeding entity lists ...")
         await seed_entity_lists(client, decision_url)
         print()
 
-        # ── Seed integrations ────────────────────────────────────────
         if ingress_available:
-            print("[6/6] Seeding integrations ...")
+            print("Seeding integrations ...")
             await seed_integrations(client, ingress_url)
             print()
         else:
-            print("[6/6] Skipping integrations seed (service unavailable)\n")
+            print("Skipping integrations seed (service unavailable)\n")
 
         print("Done! Demo data seeded for tenant 'demo'.")
         print(f"  Decision API: {decision_url}/docs")
         print(f"  Case API:     {case_url}/docs")
-        if graph_available:
-            print(f"  Graph API:    {graph_url}/docs")
+        print(f"  Graph API:    {graph_url}/docs")
 
 
 def cli() -> None:

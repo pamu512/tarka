@@ -75,6 +75,20 @@ def test_shared_device_and_flagged_sibling_fires():
     assert eval_graph_v1("sibling_prior_flag", hop, tenant_id="t1") is True
 
 
+def test_transacted_edge_satisfies_has_etype():
+    hop = hop_view_from_graph_meta(
+        {
+            "named_edges": [
+                {"from_id": "fraud_frank", "to_id": "mule_ivan", "type": "TRANSACTED"},
+            ],
+        },
+        graph_url="http://graph.test",
+        tenant_id="t1",
+        subject_id="fraud_frank",
+    )
+    assert eval_graph_v1("has_etype", hop, etype="TRANSACTED", tenant_id="t1") is True
+
+
 def test_hunt_used_device_write_satisfies_uses_device_atom():
     hop = hop_view_from_graph_meta(
         {
