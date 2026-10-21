@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "name": "seed_refund_instrument_ato_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_refund_to_different_instrument",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "refund" },
+        { "field": "refund_instrument_mismatch", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Refund paid to a different instrument. Observe only — refund event joins first-party refund_instrument_mismatch. Fail-closed when the mismatch flag is missing. Human Promote required."
+    },
+    {
+      "id": "seed_ato_to_refund",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "refund" },
+        { "field": "recent_ato", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Account takeover then refund. Observe only — refund event joins first-party recent_ato. Fail-closed when the ATO flag is missing. Human Promote required."
+    }
+  ],
+  "tag_rules": []
+}
