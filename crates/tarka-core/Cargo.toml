@@ -33,13 +33,15 @@ tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros", "time"] }
 notify = "7"
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 sysinfo = { version = "0.32", default-features = false, features = ["system", "network"] }
-wasmtime = { version = ">=36.0.16,<37", default-features = true, features = ["runtime", "cranelift"] }
+wasmtime = { version = ">=36.0.19,<37", default-features = true, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363
 wasmparser = "0.218"
 opentelemetry = "0.32"
 opentelemetry_sdk = { version = "0.32.1", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.32", features = ["trace", "grpc-tonic"] }
 tracing-opentelemetry = "0.33"
 ureq = { version = "2.9", default-features = false, features = ["tls"] }
+# Floor for RUSTSEC-2026-0381; keep 1.x >=1.0.10 reachable (0.26.11 compat may remain).
+webpki-roots = ">=1.0.10"
 
 [build-dependencies]
 prost-build = "0.13"
