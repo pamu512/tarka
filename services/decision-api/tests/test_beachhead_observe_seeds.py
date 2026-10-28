@@ -1,4 +1,4 @@
-"""Beachhead Observe seeds: promo / COD / payout / claims stay shadow and registry-keyed."""
+"""Beachhead Observe seed packs (promo/COD/payout/refund/ATO/delivery/collusion/claims/AI-claim-evidence) stay shadow and registry-keyed."""
 
 from __future__ import annotations
 

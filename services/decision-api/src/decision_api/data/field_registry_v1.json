@@ -241,17 +241,17 @@
   },
   {
     "name": "false_nad",
-    "explanation": "First-party false item-not-received / NAD claim flag; missing means absent — fail-closed",
+    "explanation": "First-party false item-not-received / NAD claim flag; missing means absent (fail-closed)",
     "source": "tarka_core"
   },
   {
     "name": "synthetic_receipt_evidence",
-    "explanation": "Host flag that claim receipt evidence is synthetic or AI-faked; missing means absent — fail-closed",
+    "explanation": "Host flag that claim receipt evidence is synthetic or AI-faked; missing means absent (fail-closed)",
     "source": "tarka_core"
   },
   {
     "name": "synthetic_damage_evidence",
-    "explanation": "Host flag that damage photo/evidence is synthetic or AI-faked; missing means absent — fail-closed",
+    "explanation": "Host flag that damage photo/evidence is synthetic or AI-faked; missing means absent (fail-closed)",
     "source": "tarka_core"
   }
 ]

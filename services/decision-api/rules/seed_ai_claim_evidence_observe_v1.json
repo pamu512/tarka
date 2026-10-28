@@ -14,7 +14,7 @@
       ],
       "tags": [],
       "score_delta": 8,
-      "description": "False not-as-described / item-not-received claim. Observe only — claim event joins first-party false_nad. Fail-closed when the flag is missing. Human Promote required."
+      "description": "False not-as-described / item-not-received claim. Observe only: claim event joins first-party false_nad. Fail-closed when the flag is missing. Human Promote required."
     },
     {
       "id": "seed_synthetic_receipt_evidence",
@@ -24,7 +24,7 @@
       ],
       "tags": [],
       "score_delta": 8,
-      "description": "Synthetic or AI-faked receipt evidence on a claim. Observe only — claim event joins first-party synthetic_receipt_evidence. Fail-closed when the flag is missing. Human Promote required."
+      "description": "Synthetic or AI-faked receipt evidence on a claim. Observe only: claim event joins first-party synthetic_receipt_evidence. Fail-closed when the flag is missing. Human Promote required."
     },
     {
       "id": "seed_synthetic_damage_evidence",
@@ -34,7 +34,7 @@
       ],
       "tags": [],
       "score_delta": 8,
-      "description": "Synthetic or AI-faked damage photo/evidence on a claim. Observe only — claim event joins first-party synthetic_damage_evidence. Fail-closed when the flag is missing. Human Promote required."
+      "description": "Synthetic or AI-faked damage photo/evidence on a claim. Observe only: claim event joins first-party synthetic_damage_evidence. Fail-closed when the flag is missing. Human Promote required."
     }
   ],
   "tag_rules": []
