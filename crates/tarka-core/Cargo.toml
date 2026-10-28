@@ -34,12 +34,20 @@ notify = "7"
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 sysinfo = { version = "0.32", default-features = false, features = ["system", "network"] }
 wasmtime = { version = ">=36.0.19,<37", default-features = true, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363
+# Floor for RUSTSEC-2026-0410; transitive via wasmtime → zstd → zstd-safe → zstd-sys.
+# zstd 0.13/zstd-safe 7 advisories (RUSTSEC-2026-0391/0398/0403) stay open: every wasmtime
+# release up to 50.0.0 pins zstd ^0.13, so no in-range fix exists yet.
+zstd-sys = { version = ">=2.1.2", default-features = false }
 wasmparser = "0.218"
 opentelemetry = "0.32"
 opentelemetry_sdk = { version = "0.32.1", features = ["trace", "rt-tokio"] }
 opentelemetry-otlp = { version = "0.32", features = ["trace", "grpc-tonic"] }
 tracing-opentelemetry = "0.33"
 ureq = { version = "2.9", default-features = false, features = ["tls"] }
+# Floor for RUSTSEC-2026-0346..0349; transitive via ureq → rustls.
+rustls = { version = ">=0.23.46", default-features = false }
+# Floor for RUSTSEC-2026-0382; transitive via rustls → rustls-webpki.
+rustls-webpki = ">=0.103.16"
 # Floor for RUSTSEC-2026-0381; keep 1.x >=1.0.10 reachable (0.26.11 compat may remain).
 webpki-roots = ">=1.0.10"
 
