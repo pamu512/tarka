@@ -1,4 +1,4 @@
-"""Beachhead Observe seeds: promo / COD / payout / claims stay shadow and registry-keyed."""
+"""Beachhead Observe seeds stay shadow and registry-keyed."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ _SEEDS = (
     "seed_delivery_observe_v1.json",
     "seed_collusion_observe_v1.json",
     "seed_claims_observe_v1.json",
+    "seed_refund_instrument_ato_observe_v1.json",
 )
 _BEACHHEAD_TYPES = ("promo", "cod", "payout", "order", "delivery", "refund", "claim")
 
@@ -97,3 +98,137 @@ def test_claims_observe_fail_closed_missing_amount_or_wrong_event():
     assert "seed_claims_pod_join" not in _eval_claims_pack(
         {"event_type": "refund", "amount": 150, "pod_integrity_fail": True}
     )
+
+
+def _eval_refund_instrument_ato_pack(features: dict) -> list[str]:
+    pack = _load("seed_refund_instrument_ato_observe_v1.json")
+    hits, _tags, _delta, _pf = evaluate_adhoc_packs_json([pack], features, [])
+    return hits
+
+
+def test_refund_instrument_ato_observe_join_hits_stay_shadow():
+    pack = _load("seed_refund_instrument_ato_observe_v1.json")
+    assert pack["mode"] == "shadow"
+    assert pack["is_ai_authored"] is False
+    assert "observe_locked" not in pack
+    assert validate_rule_pack(pack) == []
+    assert [rule["id"] for rule in pack["rules"]] == [
+        "seed_refund_to_different_instrument",
+        "seed_ato_to_refund",
+    ]
+    for rule in pack["rules"]:
+        assert str(rule.get("description") or "").strip()
+    mismatch = _eval_refund_instrument_ato_pack(
+        {"event_type": "refund", "refund_instrument_mismatch": True}
+    )
+    assert "seed_refund_to_different_instrument" in mismatch
+    assert "seed_ato_to_refund" not in mismatch
+    ato = _eval_refund_instrument_ato_pack({"event_type": "refund", "recent_ato": True})
+    assert "seed_ato_to_refund" in ato
+    assert "seed_refund_to_different_instrument" not in ato
+    both = _eval_refund_instrument_ato_pack(
+        {
+            "event_type": "refund",
+            "refund_instrument_mismatch": True,
+            "recent_ato": True,
+        }
+    )
+    assert "seed_refund_to_different_instrument" in both
+    assert "seed_ato_to_refund" in both
+
+
+def test_refund_instrument_ato_fail_closed_missing_or_wrong_event():
+    assert _eval_refund_instrument_ato_pack({"event_type": "refund"}) == []
+    assert (
+        _eval_refund_instrument_ato_pack(
+            {
+                "event_type": "refund",
+                "refund_instrument_mismatch": False,
+                "recent_ato": False,
+            }
+        )
+        == []
+    )
+    assert (
+        _eval_refund_instrument_ato_pack(
+            {"refund_instrument_mismatch": True, "recent_ato": True}
+        )
+        == []
+    )
+    assert (
+        _eval_refund_instrument_ato_pack(
+            {
+                "event_type": "login",
+                "refund_instrument_mismatch": True,
+                "recent_ato": True,
+            }
+        )
+        == []
+    )
+
+
+def test_refund_instrument_ato_fail_closed_null_and_non_bool():
+    absent = {
+        "event_type": "refund",
+        "refund_instrument_mismatch": None,
+        "recent_ato": None,
+    }
+    assert _eval_refund_instrument_ato_pack(absent) == []
+    stringy = {
+        "event_type": "refund",
+        "refund_instrument_mismatch": "true",
+        "recent_ato": "true",
+    }
+    assert _eval_refund_instrument_ato_pack(stringy) == []
+    numeric = {"event_type": "refund", "refund_instrument_mismatch": 1, "recent_ato": 1}
+    assert _eval_refund_instrument_ato_pack(numeric) == []
+    wrong_case = {
+        "event_type": "Refund",
+        "refund_instrument_mismatch": True,
+        "recent_ato": True,
+    }
+    assert _eval_refund_instrument_ato_pack(wrong_case) == []
+
+
+def test_refund_instrument_ato_fields_registered_fail_closed():
+    registry_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "decision_api"
+        / "data"
+        / "field_registry_v1.json"
+    )
+    rows = [
+        row
+        for row in json.loads(registry_path.read_text(encoding="utf-8"))
+        if row.get("name") in {"refund_instrument_mismatch", "recent_ato"}
+    ]
+    assert sorted(row["name"] for row in rows) == [
+        "recent_ato",
+        "refund_instrument_mismatch",
+    ]
+    for row in rows:
+        assert row["source"] == "tarka_core"
+        explanation = str(row.get("explanation") or "")
+        assert "missing" in explanation
+        assert "fail-closed" in explanation
+
+
+def test_amount_refund_and_login_ato_seeds_stay_independent():
+    packs = [
+        _load("seed_refund_observe_v1.json"),
+        _load("seed_ato_observe_v1.json"),
+        _load("seed_refund_instrument_ato_observe_v1.json"),
+    ]
+    amount_hits, _tags, _delta, _pf = evaluate_adhoc_packs_json(
+        packs, {"event_type": "refund", "amount": 200}, []
+    )
+    assert "seed_refund_amount" in amount_hits
+    assert "seed_refund_to_different_instrument" not in amount_hits
+    assert "seed_ato_to_refund" not in amount_hits
+    login_hits, _tags, _delta, _pf = evaluate_adhoc_packs_json(
+        packs, {"event_type": "login", "event_count_1h": 20}, []
+    )
+    assert "seed_ato_velocity" in login_hits
+    assert "seed_ato_to_refund" not in login_hits
+    assert "seed_refund_to_different_instrument" not in login_hits

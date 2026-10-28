@@ -180,6 +180,16 @@
     "source": "tarka_core"
   },
   {
+    "name": "recent_ato",
+    "explanation": "First-party ATO-to-refund join signal; missing means absent — fail-closed",
+    "source": "tarka_core"
+  },
+  {
+    "name": "refund_instrument_mismatch",
+    "explanation": "First-party host flag that the refund instrument differs; missing means absent — fail-closed",
+    "source": "tarka_core"
+  },
+  {
     "name": "screen_resolution",
     "explanation": "Screen resolution string",
     "source": "tarka_core"
