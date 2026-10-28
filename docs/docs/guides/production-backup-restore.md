@@ -86,6 +86,7 @@ TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND \
 
 - External Postgres you own. `prod-on-k8s` / `enterprise-desk` already require this.
 - `pg_dump`, `pg_restore`, `psql`, and `python3` on PATH. `--docker-smoke` is the Docker path; `--live` does not wrap client tools in a container.
+- Keep the client major at or below the server major. A newer-major `pg_dump` writes dumps (for example `SET transaction_timeout`) that an older-major server rejects mid-restore; `--docker-smoke` detects the mismatch and falls back to container clients, `--live` does not.
 - `TARKA_BACKUP_RESTORE_URL` is a **scratch** database you already created, **empty of SoR tables**, different name or host. The script refuses the same host:port/db fingerprint and refuses a scratch that already has SoR tables.
 - Confirm env `TARKA_BACKUP_RESTORE_CONFIRM=I_UNDERSTAND`.
 - Object-export paths optional. Env wins; otherwise the documented default files are copied when they exist under the current working directory.

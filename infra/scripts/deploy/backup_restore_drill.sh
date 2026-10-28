@@ -396,14 +396,31 @@ SQL
   export DECISION_LOG_PATH="${obj_src}/decision-log.jsonl"
   export PACK_GITOPS_EXPORT_PATH="${obj_src}/promote_export.jsonl"
 
+  local host_clients_ok=0
+  local fallback_reason=""
   if have_cmd pg_dump && have_cmd pg_restore && have_cmd psql; then
+    # pg_restore cannot restore a dump taken by a newer-major pg_dump into an
+    # older-major server (e.g. PG17 client dump into postgres:16 fails on
+    # `SET transaction_timeout`). Gate the host-client path on major match.
+    local client_major server_major
+    client_major="$(pg_dump --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -1 | cut -d. -f1 || true)"
+    server_major="$(docker exec "$dst_c" psql -U "$user_name" -d "$db" -t -A -c 'SHOW server_version;' 2>/dev/null | cut -d. -f1 | tr -d '[:space:]' || true)"
+    if [[ "$client_major" =~ ^[0-9]+$ && "$server_major" =~ ^[0-9]+$ && "$client_major" -le "$server_major" ]]; then
+      host_clients_ok=1
+    else
+      fallback_reason="host pg_dump client v${client_major:-?} > server v${server_major:-?}: newer-client dumps cannot restore into older servers"
+    fi
+  else
+    fallback_reason="host clients missing"
+  fi
+  if [[ "$host_clients_ok" -eq 1 ]]; then
     echo "docker-smoke: host clients — using dump_and_restore (same path as --live)"
     local src_url dst_url
     src_url="postgresql://${user_name}:${pass}@127.0.0.1:${src_port}/${db}"
     dst_url="postgresql://${user_name}:${pass}@127.0.0.1:${dst_port}/${db}"
     dump_and_restore "$src_url" "$dst_url"
   else
-    echo "docker-smoke: host clients missing — docker exec fallback"
+    echo "docker-smoke: ${fallback_reason} - docker exec fallback"
     mkdir -p "$BACKUP_DIR"
     local dump_file="${BACKUP_DIR}/sor.dump"
     rm -f "$dump_file"
