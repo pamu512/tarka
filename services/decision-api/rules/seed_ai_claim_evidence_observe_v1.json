@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "name": "seed_ai_claim_evidence_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_false_nad_claim",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "false_nad", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "False not-as-described / item-not-received claim. Observe only — claim event joins first-party false_nad. Fail-closed when the flag is missing. Human Promote required."
+    },
+    {
+      "id": "seed_synthetic_receipt_evidence",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "synthetic_receipt_evidence", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Synthetic or AI-faked receipt evidence on a claim. Observe only — claim event joins first-party synthetic_receipt_evidence. Fail-closed when the flag is missing. Human Promote required."
+    },
+    {
+      "id": "seed_synthetic_damage_evidence",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "synthetic_damage_evidence", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Synthetic or AI-faked damage photo/evidence on a claim. Observe only — claim event joins first-party synthetic_damage_evidence. Fail-closed when the flag is missing. Human Promote required."
+    }
+  ],
+  "tag_rules": []
+}
