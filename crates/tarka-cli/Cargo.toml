@@ -20,6 +20,10 @@ prost = "0.13"
 # Floor for RUSTSEC-2026-0338/0340/0343; transitive via reqwest → quinn.
 quinn-proto = ">=0.11.18"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Floor for RUSTSEC-2026-0346..0349; transitive via reqwest → hyper-rustls → rustls.
+rustls = { version = ">=0.23.46", default-features = false }
+# Floor for RUSTSEC-2026-0382; transitive via rustls → rustls-webpki.
+rustls-webpki = ">=0.103.16"
 # Floor for RUSTSEC-2026-0381 (reqwest/hyper-rustls path).
 webpki-roots = ">=1.0.10"
 serde = { version = "1", features = ["derive"] }
