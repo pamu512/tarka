@@ -253,5 +253,20 @@
     "name": "synthetic_damage_evidence",
     "explanation": "Host flag that damage photo/evidence is synthetic or AI-faked; missing means absent (fail-closed)",
     "source": "tarka_core"
+  },
+  {
+    "name": "merchant_delivery_confirmed",
+    "explanation": "First-party retailer delivery/POD/carrier confirmation; missing means absent (fail-closed)",
+    "source": "tarka_core"
+  },
+  {
+    "name": "merchant_checkout_session_ok",
+    "explanation": "First-party retailer checkout-session integrity/match; missing means absent (fail-closed)",
+    "source": "tarka_core"
+  },
+  {
+    "name": "merchant_payment_record_match",
+    "explanation": "First-party retailer payment/order record matches the claim; missing means absent (fail-closed)",
+    "source": "tarka_core"
   }
 ]
