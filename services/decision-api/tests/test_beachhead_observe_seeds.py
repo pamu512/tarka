@@ -1,4 +1,4 @@
-"""Beachhead Observe seed packs (promo/COD/payout/refund/ATO/delivery/collusion/claims/AI-claim-evidence) stay shadow and registry-keyed."""
+"""Beachhead Observe seed packs (promo/COD/payout/refund/ATO/delivery/collusion/claims/AI-claim-evidence/merchant-truth-claim) stay shadow and registry-keyed."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ _SEEDS = (
     "seed_collusion_observe_v1.json",
     "seed_claims_observe_v1.json",
     "seed_ai_claim_evidence_observe_v1.json",
+    "seed_merchant_truth_claim_observe_v1.json",
 )
 _BEACHHEAD_TYPES = ("promo", "cod", "payout", "order", "delivery", "refund", "claim")
 
@@ -39,6 +40,12 @@ def _eval_claims_pack(features: dict) -> list[str]:
 
 def _eval_ai_claim_evidence_pack(features: dict) -> list[str]:
     pack = _load("seed_ai_claim_evidence_observe_v1.json")
+    hits, _tags, _delta, _pf = evaluate_adhoc_packs_json([pack], features, [])
+    return hits
+
+
+def _eval_merchant_truth_pack(features: dict) -> list[str]:
+    pack = _load("seed_merchant_truth_claim_observe_v1.json")
     hits, _tags, _delta, _pf = evaluate_adhoc_packs_json([pack], features, [])
     return hits
 
@@ -219,3 +226,163 @@ def test_claims_pod_seed_stays_independent_of_ai_claim_evidence():
     assert "seed_false_nad_claim" not in hits
     assert "seed_synthetic_receipt_evidence" not in hits
     assert "seed_synthetic_damage_evidence" not in hits
+
+
+def test_merchant_truth_observe_join_hits_stay_shadow():
+    pack = _load("seed_merchant_truth_claim_observe_v1.json")
+    assert pack["mode"] == "shadow"
+    assert pack["is_ai_authored"] is False
+    assert validate_rule_pack(pack) == []
+    # PackWhy fence: every rule carries a non-empty desk-readable description.
+    for rule in pack["rules"]:
+        assert str(rule.get("description") or "").strip()
+    assert "seed_nad_vs_merchant_delivery" in _eval_merchant_truth_pack(
+        {"event_type": "claim", "false_nad": True, "merchant_delivery_confirmed": True}
+    )
+    assert "seed_synthetic_receipt_vs_merchant_checkout" in _eval_merchant_truth_pack(
+        {
+            "event_type": "claim",
+            "synthetic_receipt_evidence": True,
+            "merchant_checkout_session_ok": True,
+        }
+    )
+    assert "seed_synthetic_damage_vs_merchant_payment" in _eval_merchant_truth_pack(
+        {
+            "event_type": "claim",
+            "synthetic_damage_evidence": True,
+            "merchant_payment_record_match": True,
+        }
+    )
+
+
+def test_merchant_truth_fail_closed_missing_merchant_signal():
+    # Missing retailer truth = absent, never risky-because-silent.
+    assert (
+        _eval_merchant_truth_pack({"event_type": "claim", "false_nad": True})
+        == []
+    )
+    assert (
+        _eval_merchant_truth_pack(
+            {"event_type": "claim", "synthetic_receipt_evidence": True}
+        )
+        == []
+    )
+    assert (
+        _eval_merchant_truth_pack(
+            {"event_type": "claim", "synthetic_damage_evidence": True}
+        )
+        == []
+    )
+
+
+def test_merchant_truth_fail_closed_missing_claim_flag_and_wrong_event():
+    # Missing #535 flag: no hit even when merchant truth is present.
+    assert (
+        _eval_merchant_truth_pack(
+            {"event_type": "claim", "merchant_delivery_confirmed": True}
+        )
+        == []
+    )
+    assert (
+        _eval_merchant_truth_pack(
+            {
+                "event_type": "refund",
+                "false_nad": True,
+                "synthetic_receipt_evidence": True,
+                "synthetic_damage_evidence": True,
+                "merchant_delivery_confirmed": True,
+                "merchant_checkout_session_ok": True,
+                "merchant_payment_record_match": True,
+            }
+        )
+        == []
+    )
+
+
+def test_merchant_truth_fail_closed_null_and_non_bool():
+    nulls = {
+        "event_type": "claim",
+        "false_nad": True,
+        "synthetic_receipt_evidence": True,
+        "synthetic_damage_evidence": True,
+        "merchant_delivery_confirmed": None,
+        "merchant_checkout_session_ok": None,
+        "merchant_payment_record_match": None,
+    }
+    assert _eval_merchant_truth_pack(nulls) == []
+    stringy = {
+        "event_type": "claim",
+        "false_nad": True,
+        "merchant_delivery_confirmed": "true",
+    }
+    assert _eval_merchant_truth_pack(stringy) == []
+    numeric = {
+        "event_type": "claim",
+        "false_nad": True,
+        "merchant_delivery_confirmed": 1,
+    }
+    assert _eval_merchant_truth_pack(numeric) == []
+    wrong_case = {
+        "event_type": "Claim",
+        "false_nad": True,
+        "merchant_delivery_confirmed": True,
+    }
+    assert _eval_merchant_truth_pack(wrong_case) == []
+
+
+def test_merchant_truth_fields_registered_fail_closed():
+    registry_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "decision_api"
+        / "data"
+        / "field_registry_v1.json"
+    )
+    wanted = {
+        "merchant_delivery_confirmed",
+        "merchant_checkout_session_ok",
+        "merchant_payment_record_match",
+    }
+    rows = [
+        row
+        for row in json.loads(registry_path.read_text(encoding="utf-8"))
+        if row.get("name") in wanted
+    ]
+    assert sorted(row["name"] for row in rows) == sorted(wanted)
+    for row in rows:
+        assert row["source"] == "tarka_core"
+        explanation = str(row.get("explanation") or "")
+        assert "missing" in explanation
+        assert "fail-closed" in explanation
+
+
+def test_merchant_truth_stays_independent_of_claims_and_ai_claim_evidence():
+    packs = [
+        _load("seed_claims_observe_v1.json"),
+        _load("seed_ai_claim_evidence_observe_v1.json"),
+        _load("seed_merchant_truth_claim_observe_v1.json"),
+    ]
+    # AI-claim flags without merchant truth fire only the AI-claim seed.
+    ai_only = {
+        "event_type": "claim",
+        "false_nad": True,
+        "synthetic_receipt_evidence": True,
+        "synthetic_damage_evidence": True,
+    }
+    hits, _tags, _delta, _pf = evaluate_adhoc_packs_json(packs, ai_only, [])
+    assert "seed_false_nad_claim" in hits
+    assert "seed_synthetic_receipt_evidence" in hits
+    assert "seed_synthetic_damage_evidence" in hits
+    assert "seed_nad_vs_merchant_delivery" not in hits
+    assert "seed_synthetic_receipt_vs_merchant_checkout" not in hits
+    assert "seed_synthetic_damage_vs_merchant_payment" not in hits
+    # Full merchant-truth join fires the merchant seed only (no amount/POD,
+    # no bare AI-claim ids from this pack).
+    join = {
+        "event_type": "claim",
+        "false_nad": True,
+        "merchant_delivery_confirmed": True,
+    }
+    hits, _tags, _delta, _pf = evaluate_adhoc_packs_json(packs, join, [])
+    assert "seed_nad_vs_merchant_delivery" in hits
+    assert "seed_claims_pod_join" not in hits
