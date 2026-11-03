@@ -33,10 +33,16 @@ tokio = { version = "1.52.2", features = ["rt-multi-thread", "macros", "time"] }
 notify = "7"
 uuid = { version = "1", features = ["serde", "v4", "v7"] }
 sysinfo = { version = "0.32", default-features = false, features = ["system", "network"] }
-wasmtime = { version = ">=36.0.19,<37", default-features = true, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363
-# Floor for RUSTSEC-2026-0410; transitive via wasmtime → zstd → zstd-safe → zstd-sys.
-# zstd 0.13/zstd-safe 7 advisories (RUSTSEC-2026-0391/0398/0403) stay open: every wasmtime
-# release up to 50.0.0 pins zstd ^0.13, so no in-range fix exists yet.
+# default-features = false drops wasmtime's default `cache` feature (an on-disk module cache we
+# never configure in wasm_sandbox), which removes wasmtime-internal-cache -> zstd 0.13 ->
+# zstd-safe 7 from the lock and clears RUSTSEC-2026-0391/0398/0399/0403. A literal
+# zstd-safe >=8.2.0 is still upstream-blocked (wasmtime's cache pins zstd ^0.13 through 50.x,
+# and zstd 0.13 cannot reach zstd-safe 8.x), so we go CVE-green by leaving zstd out of the
+# graph entirely, not by pinning 8.2.0 in-tree.
+wasmtime = { version = ">=36.0.20,<37", default-features = false, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363/0424
+# Floor for RUSTSEC-2026-0410. The original transitive path (wasmtime cache -> zstd ->
+# zstd-safe -> zstd-sys) is gone now that `cache` is dropped; this floor stands guard should
+# zstd-sys re-enter the graph through any other dependency.
 zstd-sys = { version = ">=2.1.2", default-features = false }
 wasmparser = "0.218"
 opentelemetry = "0.32"
