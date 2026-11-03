@@ -164,6 +164,28 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBeNull();
   });
 
+  it("merchant-truth seed: rule_hits with the new rule ids surface a non-missing why", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_merchant_truth_claim_observe_v1.json",
+      rule_hits: ["seed_nad_vs_merchant_delivery"],
+    });
+    expect(view.packId).toBe("seed_merchant_truth_claim_observe_v1");
+    expect(view.why).toBe("seed_nad_vs_merchant_delivery");
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+  });
+
+  it("merchant-truth seed: pack_reason carrying the seed rule description surfaces verbatim", () => {
+    const description =
+      "Customer not-as-described / item-not-received claim contradicted by retailer delivery truth. Observe only: claim event joins first-party false_nad with first-party merchant delivery/POD confirmation. Missing retailer signal means absent (fail-closed), never risky-because-silent. Human Promote required.";
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_merchant_truth_claim_observe_v1.json",
+      pack_reason: description,
+      rule_hits: ["seed_nad_vs_merchant_delivery"],
+    });
+    expect(view.why).toBe(description);
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+  });
+
   it("uses the timeout copy only when advise already timed out on the case", () => {
     const view = resolvePackWhy({
       rule_pack_file: "fintech.json",

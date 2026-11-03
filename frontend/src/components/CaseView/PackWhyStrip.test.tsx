@@ -106,4 +106,25 @@ describe("PackWhyStrip", () => {
     expect(reason).toHaveTextContent(PACK_WHY_MISSING);
     expect(reason).not.toHaveTextContent(/Bot-like|escalate|deny/i);
   });
+
+  it("merchant-truth seed hit mounts a non-missing why from rule_hits", () => {
+    // Open case shaped like the merchant-truth Observe seed: the seed pack fired
+    // and the audit carries the new rule id in rule_hits, so the desk never
+    // renders "missing" for a hit it can explain.
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_merchant_truth_claim_observe_v1.json",
+      rule_hits: ["seed_nad_vs_merchant_delivery"],
+    });
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+
+    render(<PackWhyStrip {...view} />);
+    expect(screen.getByTestId("pack-why-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("pack-why-pack")).toHaveTextContent(
+      "seed_merchant_truth_claim_observe_v1",
+    );
+    const reason = screen.getByTestId("pack-why-reason");
+    expect(reason).toHaveTextContent("seed_nad_vs_merchant_delivery");
+    expect(reason).not.toHaveTextContent(PACK_WHY_MISSING);
+    expect(reason.querySelector(".italic")).toBeNull();
+  });
 });
