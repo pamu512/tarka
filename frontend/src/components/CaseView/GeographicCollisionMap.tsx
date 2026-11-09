@@ -123,7 +123,7 @@ export function GeographicCollisionMap({ evaluatePayload, className = "" }: Prop
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Geographic collision</h3>
           <p className="text-[11px] text-gray-500 mt-0.5 max-w-prose">
-            Session IP location vs ship-to address — great-circle separation on a dark vector basemap.
+            Session IP location vs ship-to address, great-circle separation on a dark vector basemap.
           </p>
         </div>
         {model ? (
@@ -141,7 +141,7 @@ export function GeographicCollisionMap({ evaluatePayload, className = "" }: Prop
 
       {!model ? (
         <div className="px-4 py-6 text-sm text-gray-500">
-          No map yet — structured{" "}
+          No map yet, structured{" "}
           <code className="text-[11px] text-gray-400">geo_collision.ip</code> /{" "}
           <code className="text-[11px] text-gray-400">shipping</code> on the audit envelope, or distinct{" "}
           <code className="text-[11px] text-gray-400">geo_country</code> vs{" "}

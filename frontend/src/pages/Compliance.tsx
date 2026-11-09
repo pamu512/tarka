@@ -330,7 +330,7 @@ export default function Compliance() {
             </span>
           </div>
           <p className="text-xs text-amber-100/85 leading-relaxed">
-            {diligence.honesty || "Customer diligence index — not SOC2 Type II."}
+            {diligence.honesty || "Customer diligence index, not SOC2 Type II."}
           </p>
           <dl className="grid gap-1 text-[11px] text-gray-300 sm:grid-cols-2 font-mono">
             <div>
@@ -378,7 +378,7 @@ export default function Compliance() {
       {profile && (
         <section className="bg-surface-800 border border-surface-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-2">
-            <span className="text-brand-400">&#x1F512;</span> Privacy Profile — {profile.regulation || selectedRegion}
+            <span className="text-brand-400">&#x1F512;</span> Privacy Profile: {profile.regulation || selectedRegion}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Key Rights */}

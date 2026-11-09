@@ -89,6 +89,6 @@ Successful evaluate audits include `payload_snapshot.step_trace`: array of `{ste
 
 ## Code
 
-- `services/decision-api/src/decision_api/eval_steps.py` — `run_evaluation_step`
-- `services/decision-api/src/decision_api/main.py` — wiring + `_graph_upsert_stepped`
+- `services/decision-api/src/decision_api/eval_steps.py`: `run_evaluation_step`
+- `services/decision-api/src/decision_api/main.py`: wiring + `_graph_upsert_stepped`
 - `services/decision-api/tests/test_eval_steps.py`

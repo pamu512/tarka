@@ -8,7 +8,7 @@
 | Env | Where | Purpose |
 |-----|--------|---------|
 | `TREND_AGENT_DATA_DIR` | decision-api / core-api | SQLite for watchlist/baselines/drafts |
-| `TREND_TICK_SKIP_LLM` | decision-api | Default `1` — tick uses policy escalate |
+| `TREND_TICK_SKIP_LLM` | decision-api | Default `1`. Tick uses policy escalate |
 | `TREND_BASELINE_MIN_N` | decision-api | Min EWMA samples before evaluate (default `3`) |
 | `TREND_WATCH_ON_INGEST` | orchestrator | `1` when `DECISION_API_URL` set |
 | `SHADOW_ACTION_MODULATION` | orchestrator | Default `escalate_only` |
@@ -29,7 +29,7 @@ API honesty: `GET /v1/ops/trend/posture`.
 
 ## Gateway
 
-Production nginx already proxies `/api/decisions/` → `core-api` and `/api/investigation/` → investigation-agent ([frontend/nginx.conf](../../../frontend/nginx.conf)). Trend ops and AgentRun use those prefixes — no extra location blocks required.
+Production nginx already proxies `/api/decisions/` → `core-api` and `/api/investigation/` → investigation-agent ([frontend/nginx.conf](../../../frontend/nginx.conf)). Trend ops and AgentRun use those prefixes, no extra location blocks required.
 
 ## Honesty invariants
 

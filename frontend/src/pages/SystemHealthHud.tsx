@@ -188,7 +188,7 @@ export default function SystemHealthHud(): ReactElement {
               )}
             </div>
             <p className="text-sm text-gray-400">
-              {data.redis.reachable ? "PING RTT (edge → Redis)" : "Unreachable — check socket and ACLs."}
+              {data.redis.reachable ? "PING RTT (edge → Redis)" : "Unreachable, check socket and ACLs."}
             </p>
             {data.redis.endpoint_hint ? (
               <p className="text-[11px] font-mono text-gray-500 truncate" title={data.redis.endpoint_hint}>
@@ -208,7 +208,7 @@ export default function SystemHealthHud(): ReactElement {
             <p className="text-sm text-gray-400">
               {data.ollama.reachable
                 ? "Pending local inference requests (daemon queue)."
-                : "Sidecar offline — start Ollama or check the ingest LLM URL (SHADOW_LLM_*)."}
+                : "Sidecar offline, start Ollama or check the ingest LLM URL (SHADOW_LLM_*)."}
             </p>
             {data.ollama.model_loaded ? (
               <p className="text-[11px] font-mono text-gray-500 truncate" title={data.ollama.model_loaded}>
@@ -221,7 +221,7 @@ export default function SystemHealthHud(): ReactElement {
 
       <p className="text-[11px] text-gray-600 max-w-2xl leading-relaxed">
         Production should expose this JSON from a read-only host agent (no secrets). Thresholds shown are defaults for
-        demo HUDs — tune in integration-ingress to match your SLOs.
+        demo HUDs, tune in integration-ingress to match your SLOs.
       </p>
     </div>
   );

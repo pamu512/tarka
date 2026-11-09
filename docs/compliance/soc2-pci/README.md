@@ -1,4 +1,4 @@
-# SOC 2 Type II and PCI DSS — Technical control mapping suite
+# SOC 2 Type II and PCI DSS: Technical control mapping suite
 
 ## Purpose and audience
 
@@ -12,7 +12,7 @@ The present suite documents **how designated technical mechanisms** in the Tarka
 | 1 | [Fail-closed data and analytics architecture](./01-fail-closed-database-architecture.md) |
 | 2 | [Pre-socket data residency enforcement](./02-pre-socket-residency-controls.md) |
 | 3 | [Immutable and tamper-evident audit records](./03-immutable-audit-logs.md) |
-| A | [Appendix — Control mapping matrix](./Appendix-A-control-mapping-matrix.md) |
+| A | [Appendix: Control mapping matrix](./Appendix-A-control-mapping-matrix.md) |
 
 ## Reading order
 

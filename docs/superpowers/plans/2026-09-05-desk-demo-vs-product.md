@@ -4,7 +4,7 @@
 
 **Goal:** Demo stays a lean first-hour skin; the shipped product desk shows existing analyst jobs (visual builder, backtest, lists, simulation, analytics) without turning on the sales brochure.
 
-**Architecture:** Add `VITE_DESK_PROFILE` (`demo` | `product` | `brochure`) in front of `leanNav`. Do not flip `VITE_LEAN_NAV=false` as the product default — that flag is brochure (`INCLUDE_DEMO_SURFACE`). Product is a third path set: demo paths plus job routes. Leftover Brief is a derived English string from labels + optional case-brief comment — no `case.receipt_brief/v1`. Sentence hops add shipped `HAS_LIST` only.
+**Architecture:** Add `VITE_DESK_PROFILE` (`demo` | `product` | `brochure`) in front of `leanNav`. Do not flip `VITE_LEAN_NAV=false` as the product default. That flag is brochure (`INCLUDE_DEMO_SURFACE`). Product is a third path set: demo paths plus job routes. Leftover Brief is a derived English string from labels + optional case-brief comment, no `case.receipt_brief/v1`. Sentence hops add shipped `HAS_LIST` only.
 
 **Tech Stack:** Vite env, React lean nav, case-api leftover row, vitest, pytest.
 
@@ -420,7 +420,7 @@ List handler: if comments are already loaded on the case, pass the newest non-em
 
 - [ ] **Step 4: Desk column**
 
-In `Leftovers.tsx` add a **Brief** column (`data-testid="leftover-brief"`) showing `row.brief || "—"`. Keep fail-close. Do not mention a receipt_brief contract.
+In `Leftovers.tsx` add a **Brief** column (`data-testid="leftover-brief"`) showing `row.brief || "n/a"`. Keep fail-close. Do not mention a receipt_brief contract.
 
 `LeftoverRow` in `client.ts`: `brief?: string`.
 

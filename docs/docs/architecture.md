@@ -1,6 +1,6 @@
 # Architecture
 
-Tarka is a local-first fraud OS. Day-1 deploy is **core-api** (decision-api + case-api in one process). Authoritative decisions come from **Rust JSON packs** (`tarka_rule_engine`) inside decision-api. Product vision is evaluate-first — see [`VISION.md`](../../VISION.md).
+Tarka is a local-first fraud OS. Day-1 deploy is **core-api** (decision-api + case-api in one process). Authoritative decisions come from **Rust JSON packs** (`tarka_rule_engine`) inside decision-api. Product vision is evaluate-first, see [`VISION.md`](../../VISION.md).
 
 For end-to-end feature diagrams (evaluate hop, leftovers/Hunt, ingest→Shadow, trend, investigation), see **[Feature data flows](guides/feature-data-flows.md)**.
 
@@ -27,7 +27,7 @@ flowchart LR
 | decision-api evaluate | **Allow / deny / flag / review** |
 | graph-service (AGE) | Hop + Hunt + Decision vertices. Never overrides policy |
 | leftovers / Hunt | Residual station. ALLOW never becomes a leftover |
-| Shadow / trend / investigation | Advise, escalate, draft, cite — never silent FLAG→ALLOW |
+| Shadow / trend / investigation | Advise, escalate, draft, cite, never silent FLAG→ALLOW |
 ---
 
 ## Major components
@@ -39,7 +39,7 @@ flowchart LR
 | **orchestrator** | TransactionSchema ingest → evaluate → optional Shadow |
 | **shadow_agent** | Ingest Advise sidecar (`SHADOW_LLM_*`; Ollama/OpenAI-compatible) |
 | **investigation-agent** | Pack-why on evaluate-born residual cases; copilot + AgentRun |
-| **graph-service** | Identity hop + Hunt (AGE). Decision-context SQLite is a separate SoR — not the Graph SKU. Janus / Neo4j optional overlays. |
+| **graph-service** | Identity hop + Hunt (AGE). Decision-context SQLite is a separate SoR, not the Graph SKU. Janus / Neo4j optional overlays. |
 | **tarka_mcp** | Stdio MCP over the decision graph. Optional IDE plane. |
 | **signal-api** | Features + ML under one plane |
 | **integration-ingress** | OSINT, sanctions, Integration Hub, vault/KMS |

@@ -41,7 +41,7 @@ export function GlobalErrorFallback({ trace, onRetry }: GlobalErrorFallbackProps
       setCopyHint("Copied trace to clipboard.");
       window.setTimeout(() => setCopyHint(null), 4000);
     } catch {
-      setCopyHint("Clipboard unavailable — select the trace text manually.");
+      setCopyHint("Clipboard unavailable, select the trace text manually.");
       window.setTimeout(() => setCopyHint(null), 6000);
     }
   }, [copyText]);

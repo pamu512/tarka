@@ -168,7 +168,7 @@ git commit -m "feat: Redis counters driven by counter manifest"
 - Modify: `contracts/openapi/graph-service.yaml` (two GET paths) if that file is how graph OpenAPI is kept in this repo
 
 **Interfaces:**
-- Consumes: incident edge timestamps (`coalesce(observed_at, created_at, updated_at)` — same as today’s 1h/24h)
+- Consumes: incident edge timestamps (`coalesce(observed_at, created_at, updated_at)`, same as today’s 1h/24h)
 - Produces:
 
 ```python
@@ -245,7 +245,7 @@ git commit -m "feat: queryable graph growth windows from GRAPH_GROWTH_WINDOWS"
 - Create: `services/decision-api/src/decision_api/author_catalog.py`
 - Create: `services/decision-api/tests/test_author_catalog.py`
 - Modify: `services/decision-api/src/decision_api/rule_api.py` (`GET /author-catalog` **before** `/{filename}` routes; replace `_AI_PACK_ALLOWED_FIELDS` body)
-- Modify: `services/shadow_agent/pack_author_contract.py` (`ALLOWED_FIELDS` built from the same helper — import from a tiny shared module or duplicate the frozen identity+alias sets only, catalog names from `author_catalog.catalog_field_names(growth=[])` plus aliases)
+- Modify: `services/shadow_agent/pack_author_contract.py` (`ALLOWED_FIELDS` built from the same helper: import from a tiny shared module or duplicate the frozen identity+alias sets only, catalog names from `author_catalog.catalog_field_names(growth=[])` plus aliases)
 
 **Interfaces:**
 - Consumes: Task 1 valid redis rows; Task 2 growth-policy JSON when `settings.graph_service_url` is set
@@ -321,7 +321,7 @@ Expected: FAIL import
 - Return `build_author_catalog(...)`.
 - Same auth as other `/v1/rules` GET reads (do not require the internal counters token).
 
-`_validate_ai_authored_pack`: `field not in ai_allowed_fields(build_author_catalog(graph_url=settings.graph_service_url or "", growth_windows=None))` is wrong for growth — call `ai_allowed_fields` on a catalog built with live graph policy when URL set, else empty growth. Reuse the GET builder’s fetch helper so AI and the desk see the same growth keys.
+`_validate_ai_authored_pack`: `field not in ai_allowed_fields(build_author_catalog(graph_url=settings.graph_service_url or "", growth_windows=None))` is wrong for growth. Call `ai_allowed_fields` on a catalog built with live graph policy when URL set, else empty growth. Reuse the GET builder’s fetch helper so AI and the desk see the same growth keys.
 
 `pack_author_contract.ALLOWED_FIELDS`: replace the handwritten velocity subset with `ai_allowed_fields(build_author_catalog(graph_url=os.environ.get("GRAPH_SERVICE_URL") or "", growth_windows=None))` **plus** the same identity/aliases (already inside `ai_allowed_fields`). If importing `decision_api` from shadow_agent is illegal (domain boundary), copy `ai_allowed_fields` + constants into `services/shared/author_catalog.py` and import from both. Prefer **one** shared module: `services/shared/author_catalog.py` if a decision-api import would fail CI domain-boundary tests. Check `test_domain_boundaries_gate` / similar; if decision-api import is fine from shadow_agent tests, keep it in decision-api and have shadow_agent import `author_catalog` via `PYTHONPATH`.
 
@@ -577,7 +577,7 @@ Expected: FAIL `nodeMeetsGrowthPolicy`
 `graph.growthPolicy()` → GET `/v1/graph/growth-policy`  
 `graph.relationGrowth(tenantId, entityId, windows?: string[])` → GET `/v1/entities/{id}/relation-growth`
 
-Dossier: fetch `relationGrowth` for the selected entity. Render `data-testid="node-relation-growth"` as one span per returned window (`{window} {count ?? "—"}`). No `1h`/`24h` string literals in the JSX.
+Dossier: fetch `relationGrowth` for the selected entity. Render `data-testid="node-relation-growth"` as one span per returned window (`{window} {count ?? "n/a"}`). No `1h`/`24h` string literals in the JSX.
 
 Draft: `DESK_PROFILE === "product"` AND (`leftover_id` on the Hunt query OR a pinned evaluate receipt). `data-testid="draft-observe-pack"`. Click → `leftoverVisualHref(catalog, ...)`. Hidden when `DESK_PROFILE === "demo"`. Hidden if graph plane off.
 
@@ -719,7 +719,7 @@ Feature select: `<optgroup>` Count / Sum / Average / Distinct / Growth. Hide Gro
 
 `RuleBuilderCanvas`: register `HopEtypeNode`; Add “Hop etype”. Save: hop compile path sets `when_ast` / `tags`. If `from=leftover`, success copy: `Saved as Observe draft. Promote is not here.`
 
-`VisualRuleBuilder` banner `data-testid="leftover-visual-banner"`: leftover id, pack or `missing`, hits or `—`. If seed null: `No shipped hop or catalog key on this leftover — pick from the palette.` Back link to `/graph?` with entity/decision/leftover params.
+`VisualRuleBuilder` banner `data-testid="leftover-visual-banner"`: leftover id, pack or `missing`, hits or `n/a`. If seed null: `No shipped hop or catalog key on this leftover. Pick from the palette.` Back link to `/graph?` with entity/decision/leftover params.
 
 `/rules`: delete the handwritten velocity hole in `FIELD_CATALOG`; build categories from the fetched catalog.
 

@@ -63,7 +63,7 @@ Indexed path: `truncated: false` unless a layer/tooling signal says otherwise (d
 { "entities": [ ...existing hit shape... ], "truncated": false }
 ```
 
-`truncated` required in OpenAPI, default false. Neo4j/AGE always `false`. Frontend may ignore it this spec (optional small banner later — not required). Mocks include `truncated: false`.
+`truncated` required in OpenAPI, default false. Neo4j/AGE always `false`. Frontend may ignore it this spec (optional small banner later, not required). Mocks include `truncated: false`.
 
 ## Errors
 
@@ -81,7 +81,7 @@ Indexed path: `truncated: false` unless a layer/tooling signal says otherwise (d
 5. Subgraph source: no per-vertex `bothE().toList()` in a Python `for v in frontier` loop; depth-layer traversal present.
 6. OpenAPI + mock + Neo4j HTTP still `{entities}` with `truncated` false; empty `q` still no store call.
 7. Neo4j/AGE search source still `CONTAINS`, not `textContainsPrefix`.
-8. Docs: `janusgraph-adapter.md` + graph-service search section — Janus prefix, `truncated`, ingest-without-identity still misses.
+8. Docs: `janusgraph-adapter.md` + graph-service search section: Janus prefix, `truncated`, ingest-without-identity still misses.
 
 ## Out of scope
 

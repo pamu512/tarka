@@ -17,7 +17,7 @@ curl -H "Authorization: Bearer $TOKEN" \
   "http://127.0.0.1:8000/v1/calibration/reliability-bins?tenant_id=acme&n_bins=10"
 ```
 
-`proxy_label_from_decision` / bin caveats are **not** ground truth — join case dispositions into `y_label` for true reliability diagrams.
+`proxy_label_from_decision` / bin caveats are **not** ground truth. Join case dispositions into `y_label` for true reliability diagrams.
 
 **CLI (same columns, air-gapped):**
 

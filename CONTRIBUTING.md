@@ -34,7 +34,7 @@ Keep each pull request focused on a single concern (one bug, one feature, or one
 
 ### 3. Local checks before you push
 
-Run the checks your change touches (examples—adjust paths to match the service you edited):
+Run the checks your change touches (examples: adjust paths to match the service you edited):
 
 - **Tests:** `pytest` for the affected package under `services/` or `packages/`.
 - **Lint:** **`ruff check`** (and format if the project uses `ruff format`) on changed Python trees.
@@ -65,7 +65,7 @@ Every PR must reflect the template checklist:
 
 ### 6. Deterministic AST policy (non-negotiable)
 
-Any PR that **breaks** or **introduces nondeterminism** into **JSON rule AST** evaluation—how `when_ast` / leaf operators combine, ordering guarantees, or parity with the shipped evaluator contract—**will be rejected** unless maintainers have approved a **written spec change** and you ship **full regression tests** proving behavior. Do not “simplify” or reorder evaluation for convenience without that review.
+Any PR that **breaks** or **introduces nondeterminism** into **JSON rule AST** evaluation: how `when_ast` / leaf operators combine, ordering guarantees, or parity with the shipped evaluator contract. Such a change **will be rejected** unless maintainers have approved a **written spec change** and you ship **full regression tests** proving behavior. Do not “simplify” or reorder evaluation for convenience without that review.
 
 ---
 

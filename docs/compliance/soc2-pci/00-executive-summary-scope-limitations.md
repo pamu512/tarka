@@ -1,12 +1,12 @@
-# Document 0 — Executive summary, scope, and limitations
+# Document 0: Executive summary, scope, and limitations
 
 ## 0.1 Executive summary
 
 The Tarka platform incorporates **defense-in-depth** measures across **persistence**, **egress**, and **audit** planes. Three architectural themes are documented herein because they recur in **SOC 2 Type II** examinations (Security, Availability, Confidentiality, and Processing Integrity categories, as applicable) and in **PCI DSS** assessments where **logging**, **access to system components**, and **protection of cardholder data** (including **scope reduction** via technical enforcement) are material:
 
-1. **Fail-closed database and analytics posture** — Dependent subsystems that materially affect **security-relevant** or **integrity-relevant** outcomes are not permitted to present a **false “available”** state when prerequisites are not satisfied; analytic query paths may be **withheld** when backing stores fail health validation.
-2. **Pre-socket residency blocks** — Certain **cross-border** or **policy-denied** data flows are **interdicted prior to establishment of outbound transport** (i.e., before application-layer HTTP clients complete connection setup for disallowed vendors), with **compliance audit records** generated at the point of denial.
-3. **Immutable audit logs** — Selected audit artifacts are **append-only** by design (e.g., **JSON Lines** decision logs with **cryptographic hash chaining**, **relational** append-only SAR state-transition logs), supporting **detective** control objectives and **non-repudiation** where the service organization’s policies so prescribe.
+1. **Fail-closed database and analytics posture**: Dependent subsystems that materially affect **security-relevant** or **integrity-relevant** outcomes are not permitted to present a **false “available”** state when prerequisites are not satisfied; analytic query paths may be **withheld** when backing stores fail health validation.
+2. **Pre-socket residency blocks**: Certain **cross-border** or **policy-denied** data flows are **interdicted prior to establishment of outbound transport** (i.e., before application-layer HTTP clients complete connection setup for disallowed vendors), with **compliance audit records** generated at the point of denial.
+3. **Immutable audit logs**: Selected audit artifacts are **append-only** by design (e.g., **JSON Lines** decision logs with **cryptographic hash chaining**, **relational** append-only SAR state-transition logs), supporting **detective** control objectives and **non-repudiation** where the service organization’s policies so prescribe.
 
 ## 0.2 Scope
 
@@ -34,6 +34,6 @@ Control **design suitability** and **operating effectiveness** shall be determin
 
 | Field | Value |
 |-------|--------|
-| Classification | Internal — Customer-shared excerpts permitted under NDA |
+| Classification | Internal: Customer-shared excerpts permitted under NDA |
 | Owner | Information Security / Engineering (joint) |
 | Review cadence | Annual, or upon material architecture change |

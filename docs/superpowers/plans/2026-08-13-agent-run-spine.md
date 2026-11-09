@@ -12,7 +12,7 @@
 
 - Decision-api / rules remain sole allow/deny authority.
 - AI never auto-resolves a case and never auto-promotes Wasm (`wasm_ready` stays false).
-- Missing sources are `freshness=missing` — never invented.
+- Missing sources are `freshness=missing`, never invented.
 - Ingest / tick must not fail because investigation-agent is down (2s timeout, log warning, never raise).
 - Chat persist failure → `503` (no un-audited copilot claim).
 - Human promote 200 means `gitops_ready=true`, status `PENDING_VALIDATION`, `wasm_ready=false`.
@@ -448,7 +448,7 @@ async def maybe_enqueue_agent_run(
     claims: list[dict[str, Any]] | None = None,
     http: httpx.AsyncClient | None = None,
 ) -> None:
-    """Fire-and-forget AgentRun ingest — never raises to callers."""
+    """Fire-and-forget AgentRun ingest. Never raises to callers."""
     base = (os.environ.get("INVESTIGATION_AGENT_URL") or "").strip()
     if not base or not tenant_id.strip():
         return
@@ -482,7 +482,7 @@ async def maybe_enqueue_agent_run(
         )
 ```
 
-In the ingest path after Shadow returns (same try-block neighborhood as `maybe_enqueue_trend_watch`, ~line 885): if `shadow_data` is a dict (including timeout fallback), build snapshot from existing `graph_context` / prime payload already on the request — **do not invent graph**. If a graph dict is present, pass it into a tiny local snapshot:
+In the ingest path after Shadow returns (same try-block neighborhood as `maybe_enqueue_trend_watch`, ~line 885): if `shadow_data` is a dict (including timeout fallback), build snapshot from existing `graph_context` / prime payload already on the request. **Do not invent graph**. If a graph dict is present, pass it into a tiny local snapshot:
 
 ```python
 from investigation_agent.context_assembler import assemble_context_snapshot  # DON'T
@@ -574,7 +574,7 @@ async def test_tick_enqueues_agent_run_and_survives_agent_down(
     )
 ```
 
-Add a unit test that `insert_draft_rule` round-trips `agent_run_id` once the column exists — will fail until schema migrates.
+Add a unit test that `insert_draft_rule` round-trips `agent_run_id` once the column exists. It will fail until schema migrates.
 
 In `services/analytics/tests/test_trend_agent.py` or the HTTP test file:
 
@@ -837,7 +837,7 @@ In `main.py` `_execute_tool` add a branch like other local tools.
 
 Bump `INTEGRATION_CONTRACT_VERSION` to `"1.3.0"`.
 
-Do **not** add `propose_case_status` to `no_graph` disabled set — the tool stays registered and returns `graph_required`.
+Do **not** add `propose_case_status` to `no_graph` disabled set. The tool stays registered and returns `graph_required`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -878,7 +878,7 @@ git commit -m "Add graph-gated case status proposals; confirm stays on PUT."
 
 - [ ] **Step 1: Write the failing tests**
 
-Keep existing `test_trend_http_evaluate_reject_promote_forbidden` — query-only POST must still be 409 `never_auto_promote`.
+Keep existing `test_trend_http_evaluate_reject_promote_forbidden`. Query-only POST must still be 409 `never_auto_promote`.
 
 Add:
 
@@ -1023,7 +1023,7 @@ Logic:
 
 Update posture `honesty` string: tick/auto still 409; human + job + graph may set `gitops_ready`.
 
-Amend `docs/superpowers/specs/2026-08-12-ai-productionization-design.md` philosophy bullet that says promote always 409 — point at the 2026-08-13 spec.
+Amend `docs/superpowers/specs/2026-08-12-ai-productionization-design.md` philosophy bullet that says promote always 409. Point at the 2026-08-13 spec.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1099,7 +1099,7 @@ Find the existing case status PUT helper in `client.ts` and reuse it for confirm
 
 - [ ] **Step 2: ShadowChatSidebar**
 
-After a chat response, if `graph_missing`, show a banner: `Graph neighborhood missing — narratives are ungrounded; status changes and promote stay blocked.`
+After a chat response, if `graph_missing`, show a banner: `Graph neighborhood missing. Narratives are ungrounded; status changes and promote stay blocked.`
 
 Load proposals for `caseId`. Confirm: call existing status PUT with `to_status` + `reason_code`, then `ackCaseStatusProposal(..., "confirmed")`. If PUT fails, do not ack (proposal stays `pending`).
 

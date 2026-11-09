@@ -4,7 +4,7 @@ The desktop forensics console (`tools/shadow` submodule, Tauri sidecar on `:8742
 
 ## Day-1
 
-Empty `OPENAI_BASE_URL` = Advise plane off (hide chrome). Setup asks for a BYO OpenAI-compat URL + key (optional model) or skip. OpenAI-compat covers OpenAI / Gemini compat / Bedrock gateway / Azure / vLLM. Keys stay in `infra/deploy/.env` — never in the browser (`VITE_*`).
+Empty `OPENAI_BASE_URL` = Advise plane off (hide chrome). Setup asks for a BYO OpenAI-compat URL + key (optional model) or skip. OpenAI-compat covers OpenAI / Gemini compat / Bedrock gateway / Azure / vLLM. Keys stay in `infra/deploy/.env`, never in the browser (`VITE_*`).
 
 ```bash
 # After setup wrote OPENAI_*:
@@ -37,6 +37,6 @@ docker compose \
 
 `validate_okf_bundle --scope tenant` must exit 0 before the overlay is staged.
 The agent mount is read-only. Retrieval smoke requires cites or an honest
-abstain — zero cites is not success. Tenant SOP payloads stay out of git.
+abstain. Zero cites is not success. Tenant SOP payloads stay out of git.
 
 See [Investigation Agent](../services/investigation-agent.md).

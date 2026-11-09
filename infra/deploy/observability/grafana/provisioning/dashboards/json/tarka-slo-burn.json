@@ -52,7 +52,7 @@
           "refId": "B"
         }
       ],
-      "title": "HTTP 5xx ratio (5m vs 1h) — burn windows",
+      "title": "HTTP 5xx ratio (5m vs 1h): burn windows",
       "type": "timeseries"
     },
     {
@@ -127,7 +127,7 @@
           "refId": "I"
         }
       ],
-      "title": "Decision API circuit opens (rate) — decision-api only",
+      "title": "Decision API circuit opens (rate): decision-api only",
       "type": "timeseries"
     }
   ],

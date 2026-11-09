@@ -20,7 +20,7 @@
 - Do not drop publish solely for leftover **cost** blockers (`leftover_sla_breached`, `leftover_add_over_cap`, `leftover_claimer_ack_required`).
 - Scout / LLM cannot set `mode=active`, Promote, or force-live. `PACK_AUTHOR.md` hard stops stay.
 - Kill / auto-promote stay `is_ai_authored` only. Slip drafts (`authored_by=slip_critic`) stay up.
-- Scout does not promote from `live_rule_slip`. Clobber 409 `slip_draft_exists` already exists — do not remove it.
+- Scout does not promote from `live_rule_slip`. Clobber 409 `slip_draft_exists` already exists. Do not remove it.
 - Do not commit unless the user asks.
 - CI decision-api: `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_brain_wire.py tests/test_brain_wire_api.py tests/test_shadow_promote_gate_api.py -q`
 - CI shadow-agent: `cd services/shadow_agent && PYTHONPATH=.:../shared pytest tests/test_scout_burst_publish_loop.py tests/test_brain_wire_publish.py -q`
@@ -139,7 +139,7 @@ def test_underpowered_stamps_and_publishes():
     assert v["should_kill"] is False
 ```
 
-- [ ] **Step 2: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_brain_wire.py -q` — expected FAIL import
+- [ ] **Step 2: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_brain_wire.py -q`: expected FAIL import
 
 - [ ] **Step 3: Implement**
 
@@ -196,9 +196,9 @@ def brain_wire_verdict(
     }
 ```
 
-- [ ] **Step 4: Run** same command — expected PASS
+- [ ] **Step 4: Run** same command: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -214,13 +214,13 @@ def brain_wire_verdict(
 
 - [ ] **Step 1:** In `test_shadow_promote_gate_api.py` assert `"rule_precision_after_labels" in body` and `body["rule_precision_after_labels"]["schema_id"] == "tarka.rule_precision_after_labels/v1"` on the existing no-tenant GET test.
 
-- [ ] **Step 2: Run** that test — expected FAIL missing key
+- [ ] **Step 2: Run** that test: expected FAIL missing key
 
 - [ ] **Step 3:** In `compute_desk_and_leftover_gates`, after y maps exist, build labeled rows from the same `cc_rows` / slip_rows already scanned (reuse the labeled join leftover HIL uses: set `y_label` from `by_trace` then `by_entity`). Call `rule_precision_after_labels(labeled_rows)`. Return it on the gates dict. GET copies `gates["rule_precision_after_labels"]`. GET must not call kill or park.
 
-- [ ] **Step 4: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_shadow_promote_gate_api.py -q` — expected PASS
+- [ ] **Step 4: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_shadow_promote_gate_api.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless asked.
+- [ ] **Step 5: Commit**: skip unless asked.
 
 ---
 
@@ -236,9 +236,9 @@ def brain_wire_verdict(
   - `killed_path(tenant_id) -> Path` next to `y_label_store` (`killed_scout_<token>.json`)
   - `load_killed_fingerprints(tenant_id) -> set[tuple[str, str]]`
   - `add_killed_fingerprints(tenant_id, keys: Sequence[tuple[str, str]]) -> None`
-  - `fingerprint_from_pack(pack) -> tuple[str, str] | None` — `(evidence.fingerprint_kind, evidence.fingerprint_value)` else `("scout_report_id", scout_report_id)`
-  - `disable_ai_shadow_packs(helpfulness) -> list[str]` — if not `should_kill` from verdict, return `[]`. Else set every loaded pack with `mode=shadow` and `is_ai_authored=true` to `mode=disabled`, append rule-change `kill_shadow_pack_leftover_fp`, add fingerprints, `load_rules()`. Skip slip (`authored_by=slip_critic` or `is_ai_authored` false).
-  - `maybe_kill_leftover_fp_shadows(tenant_id) -> list[str]` — compute leftover helpfulness via `compute_desk_and_leftover_gates` leftover object (or accept leftover_g). Call disable. **Not** called from GET.
+  - `fingerprint_from_pack(pack) -> tuple[str, str] | None`: `(evidence.fingerprint_kind, evidence.fingerprint_value)` else `("scout_report_id", scout_report_id)`
+  - `disable_ai_shadow_packs(helpfulness) -> list[str]`: if not `should_kill` from verdict, return `[]`. Else set every loaded pack with `mode=shadow` and `is_ai_authored=true` to `mode=disabled`, append rule-change `kill_shadow_pack_leftover_fp`, add fingerprints, `load_rules()`. Skip slip (`authored_by=slip_critic` or `is_ai_authored` false).
+  - `maybe_kill_leftover_fp_shadows(tenant_id) -> list[str]`: compute leftover helpfulness via `compute_desk_and_leftover_gates` leftover object (or accept leftover_g). Call disable. **Not** called from GET.
 
 - [ ] **Step 1: Tests** (tmp_path rules dir + monkeypatch `settings.rules_path` / y_label dir)
 
@@ -255,7 +255,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 
 - [ ] **Step 3: GET still does not call this.**
 
-- [ ] **Step 4: Commit** — skip unless asked.
+- [ ] **Step 4: Commit**: skip unless asked.
 
 ---
 
@@ -264,7 +264,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 **Files:**
 - Modify: `services/decision-api/src/decision_api/calibration_api.py` (y_label persist tick)
 - Modify: `services/decision-api/src/decision_api/rule_api.py` (scout-pack + auto-promote-tick)
-- Modify: `services/decision-api/src/decision_api/json_rules.py` if needed — keep a `_disabled_mode_packs` list so GET can show them
+- Modify: `services/decision-api/src/decision_api/json_rules.py` if needed: keep a `_disabled_mode_packs` list so GET can show them
 - Test: `services/decision-api/tests/test_brain_wire_api.py`
 
 **Interfaces:**
@@ -282,7 +282,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 
 - [ ] **Step 2–4:** TDD then wire the three tick sites already used for leftover HIL + slip.
 
-- [ ] **Step 5: Commit** — skip unless asked.
+- [ ] **Step 5: Commit**: skip unless asked.
 
 ---
 
@@ -293,7 +293,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 - Test: `services/shadow_agent/tests/test_brain_wire_publish.py`
 
 **Interfaces:**
-- `async def leftover_gate_payload(tenant_id: str, *, decision_api_url: str | None = None) -> dict | None` — GET `/v1/calibration/shadow-promote-gate?tenant_id=`. Same headers as scout-pack POST (governance secret + actor). Non-2xx / exception → `None`.
+- `async def leftover_gate_payload(tenant_id: str, *, decision_api_url: str | None = None) -> dict | None`: GET `/v1/calibration/shadow-promote-gate?tenant_id=`. Same headers as scout-pack POST (governance secret + actor). Non-2xx / exception → `None`.
 - `publish_scout_pack` / burst: tenant from `report.get("tenant_id")` or `scan_payload.get("tenant_id")`. Missing → `{"published": False, "reason": "leftover_helpfulness_no_tenant"}` (do not POST).
 - Gate GET `None` → `leftover_helpfulness_unavailable`.
 - Call `brain_wire_verdict` from the GET body (`leftover_promote_gate.helpfulness`, `rule_precision_after_labels`, leftover `fp_rate_cap` from helpfulness or 0.4). If not allowed, return that reason; do not POST.
@@ -310,7 +310,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 
 - [ ] **Step 2–4:** TDD then implement.
 
-- [ ] **Step 5: Commit** — skip unless asked.
+- [ ] **Step 5: Commit**: skip unless asked.
 
 ---
 
@@ -333,7 +333,7 @@ def test_disable_skips_human_and_slip(tmp_path, monkeypatch):
 - [ ] **Step 1:** Test analyze with a mocked precision row `fp_rate=0.8` enough_support → that recommendation is in `dropped`, not `recommendations`.
 - [ ] **Step 2:** PACK_AUTHOR / contract test still forbids `mode=active` (existing test). Add assert `"leftover helpfulness"` in PACK_AUTHOR.md text.
 - [ ] **Step 3–4:** Implement.
-- [ ] **Step 5: Commit** — skip unless asked.
+- [ ] **Step 5: Commit**: skip unless asked.
 
 ---
 

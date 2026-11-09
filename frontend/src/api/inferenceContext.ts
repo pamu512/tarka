@@ -124,10 +124,10 @@ export function normalizeInferenceContext(raw: unknown): InferenceContext | null
       }
       const t = asConfidenceTier(r.confidence_tier);
       return t === "high"
-        ? "High — integrity signals support confident scoring"
+        ? "High: integrity signals support confident scoring"
         : t === "low"
-          ? "Low — weak integrity or conflicting signals"
-          : "Medium — mixed signals; review edge cases";
+          ? "Low: weak integrity or conflicting signals"
+          : "Medium: mixed signals; review edge cases";
     })(),
     driver_explain,
     integrity_confidence: typeof r.integrity_confidence === "number" ? r.integrity_confidence : 0,

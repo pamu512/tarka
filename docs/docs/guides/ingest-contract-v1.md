@@ -34,13 +34,13 @@ Optional **v1 wire envelope** (event-ingest only):
 Shared field checks live in `packages/shared-core/tarka_shared/ingest_contract_v1.py`.
 Event-ingest unwrap + full parse: `services/event-ingest/src/event_ingest/ingest_contract.py`.
 
-SDK bools on `payload` / `device_context.signals` (`is_bot`, `is_emulator`, `is_vpn`, …) are present only when sent. Omitted keys stay missing — packs such as `device_signals` fire on present `true` only (`is_true`). Do not invent `false`.
+SDK bools on `payload` / `device_context.signals` (`is_bot`, `is_emulator`, `is_vpn`, …) are present only when sent. Omitted keys stay missing. Packs such as `device_signals` fire on present `true` only (`is_true`). Do not invent `false`.
 
 ## Adapter: orchestrator `POST /v1/ingest`
 
 Orchestrator accepts **`TransactionSchema`** (`entity_id` UUID, `amount`, `timestamp`,
 `metadata`, optional `country`) for policy + outbox side-effects. That path is **not**
-a second public fraud envelope — it must map into evaluate-shaped fields before
+a second public fraud envelope. It must map into evaluate-shaped fields before
 calling decision-api (tenant / event_type / entity / payload).
 
 | TransactionSchema | Evaluate / async ingest |

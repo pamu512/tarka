@@ -18,7 +18,7 @@ val client = OkHttpClient.Builder()
     .build()
 ```
 
-3. Set **`metadata.tls_pinning_verified: true`** on evaluate requests **only** after a successful pin-verified connection (Decision API reads this for integrity hints — see `integrity_policy.py`).
+3. Set **`metadata.tls_pinning_verified: true`** on evaluate requests **only** after a successful pin-verified connection (Decision API reads this for integrity hints, see `integrity_policy.py`).
 
 ### iOS (URLSession delegate)
 
@@ -35,13 +35,13 @@ Prefer **HTTPS** + **CORS**-correct API; pinning in browsers is limited. Use **S
 Canonical helpers: **`services/shared/tarka_request_signature.py`** and **`packages/fraud-sdk-python`** (`fraud_stack_sdk.request_signing`).
 
 - **Server (decision-api):** set **`REQUEST_SIGNATURE_SECRET`** to enable optional verification on **`POST /v1/decisions/evaluate`** (same HMAC). When unset, evaluate is unchanged (many teams still terminate signing at **Envoy / Kong / Cloudflare**).
-- **Client:** compute HMAC in the app and add headers; **never** embed the secret in the client for public apps — use **per-install** keys from your backend or mTLS instead.
+- **Client:** compute HMAC in the app and add headers; **never** embed the secret in the client for public apps, use **per-install** keys from your backend or mTLS instead.
 - **Production hardening overlay:** [`infra/deploy/docker-compose.production-hardening.yml`](../../../infra/deploy/docker-compose.production-hardening.yml) sets **`INTEGRITY_SOFT_TAGS=true`** (evaluate emits soft `integrity:*` tags when HMAC/pinning evidence is absent) and documents `REQUEST_SIGNATURE_*` / challenge webhook env. Ops: `GET /v1/ops/governance` → `integrity_ingress`, `GET /v1/policy/posture` → `integrity`, UI `/ops/integrity`.
 
 Edge gateways with **mTLS** to decision-api remain a common pattern for multi-hop setups.
 
 ## Related
 
-- `services/decision-api` — `metadata.tls_pinning_verified` in evaluate path  
+- `services/decision-api`: `metadata.tls_pinning_verified` in evaluate path  
 - [SDK scorecard](../sdks/typescript.md)  
-- [Regulated markets feature pack](./tls-pinning-and-signed-requests.md) — optional checklist for last-mile / food / q-comm / gig / retail (regulated self-host; not banks as P0)
+- [Regulated markets feature pack](./tls-pinning-and-signed-requests.md): optional checklist for last-mile / food / q-comm / gig / retail (regulated self-host; not banks as P0)

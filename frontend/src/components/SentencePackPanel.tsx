@@ -126,7 +126,7 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
                 const name = String(pack.name || "").trim();
                 const packRules = Array.isArray(pack.rules) ? pack.rules : [];
                 if (!name || !packRules.length) {
-                  setSaveMsg("Invalid pack JSON — not saved.");
+                  setSaveMsg("Invalid pack JSON, not saved.");
                   return;
                 }
                 await rules.create({ name, rules: packRules, tag_rules: [] });
@@ -135,7 +135,7 @@ export function SentencePackPanel({ onJson }: { onJson: (text: string) => void }
               } catch (e) {
                 setSaveMsg(
                   e instanceof SyntaxError
-                    ? "Invalid pack JSON — not saved."
+                    ? "Invalid pack JSON, not saved."
                     : toUserFacingError(e, { subject: "Observe pack", action: "save sentence pack" }),
                 );
               } finally {

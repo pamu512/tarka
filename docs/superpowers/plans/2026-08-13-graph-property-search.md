@@ -221,7 +221,7 @@ def test_cypher_predicate_uses_frozen_keys_not_q():
 
 Run: `cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py::test_matched_on_allowlist_order_strings_only tests/test_entity_search.py::test_merge_resolve_person_first_keeps_email -v`
 
-Expected: FAIL — `matched_on_from_props` / `merge_search_hits` not defined (or `matched_on` missing from hit).
+Expected: FAIL: `matched_on_from_props` / `merge_search_hits` not defined (or `matched_on` missing from hit).
 
 - [ ] **Step 4: Implement helpers**
 
@@ -395,7 +395,7 @@ git commit -m "Add graph search match, resolve merge, and via hit fields."
 
 **Interfaces:**
 - Consumes: Task 1 helpers (`cypher_search_prop_predicate`, `eligible_search_node`, `labels_are_identifier`, `labels_are_owner`, `cap_identifier_owners`, `merge_search_hits`, `OWNER_LABELS`, `clamp_search_limit`, `search_hit_from_node`)
-- Produces: `async search_entities(tenant_id: str, q: str, label: str | None = None, limit: int = 20) -> list[dict]` — property CONTAINS, then 1-hop owners, then merge. No Cypher `LIMIT` on the match (slice in `merge_search_hits`). `label` is not in the MATCH WHERE.
+- Produces: `async search_entities(tenant_id: str, q: str, label: str | None = None, limit: int = 20) -> list[dict]`: property CONTAINS, then 1-hop owners, then merge. No Cypher `LIMIT` on the match (slice in `merge_search_hits`). `label` is not in the MATCH WHERE.
 
 - [ ] **Step 1: Extend inspect tests**
 
@@ -421,7 +421,7 @@ def test_neo4j_search_cypher_is_parameterized_contains():
 
 Run: `cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py::test_neo4j_search_cypher_is_parameterized_contains -v`
 
-Expected: FAIL — `merge_search_hits` / `--(m)` not in `search_entities` source.
+Expected: FAIL: `merge_search_hits` / `--(m)` not in `search_entities` source.
 
 - [ ] **Step 3: Replace `search_entities` in `neo4j_client.py`**
 
@@ -589,7 +589,7 @@ def test_age_search_cypher_contains_and_tenant():
 
 Run: `cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py::test_janus_search_filters_in_python_not_full_graph_scan_without_tenant tests/test_entity_search.py::test_age_search_cypher_contains_and_tenant -v`
 
-Expected: FAIL — `merge_search_hits` / `both()` missing.
+Expected: FAIL: `merge_search_hits` / `both()` missing.
 
 - [ ] **Step 3: Replace Janus `search_entities`**
 
@@ -803,7 +803,7 @@ describe("searchHitViaSubtitle", () => {
 
 Run: `cd frontend && npm test -- src/domain/graphInvestigation.test.ts`
 
-Expected: FAIL — `searchHitViaSubtitle` is not exported.
+Expected: FAIL: `searchHitViaSubtitle` is not exported.
 
 - [ ] **Step 3: Types + helper + page + mock**
 

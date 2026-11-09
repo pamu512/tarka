@@ -1,6 +1,6 @@
 # Label join contract v1
 
-Immutable join keys on evaluate receipt snapshots and late-label binds. W2 implements warehouse export and extra `label_kind`s against this schema — do not invent a parallel key set.
+Immutable join keys on evaluate receipt snapshots and late-label binds. W2 implements warehouse export and extra `label_kind`s against this schema, do not invent a parallel key set.
 
 ## Required on every evaluate receipt snapshot
 
@@ -30,7 +30,7 @@ Chargeback is not the only label.
 
 ## Horizon policy (`tarka.label_horizon/v1`)
 
-Per-`label_kind` window used by join-rate glass (and later consume). **Tenant policy EXAMPLE — not Tarka morals.** Not a chargeback-guarantee SKU. Horizons never auto-demote a pack.
+Per-`label_kind` window used by join-rate glass (and later consume). **Tenant policy EXAMPLE, not Tarka morals.** Not a chargeback-guarantee SKU. Horizons never auto-demote a pack.
 
 | Field | Notes |
 |-------|-------|
@@ -64,7 +64,7 @@ Runtime parameters (do not drift): `tenant_id`, `outcome`, `trace_id`, `evaluati
 3. Else `trace_id` + `tenant_id`.
 4. Fail closed if neither token nor `trace_id`+`tenant` resolves.
 
-Late labels may arrive 30–120 days later. Never reconstruct features — bind to the frozen snapshot only. No snapshot → label may still be recorded; `trainable: false`.
+Late labels may arrive 30–120 days later. Never reconstruct features, bind to the frozen snapshot only. No snapshot → label may still be recorded; `trainable: false`.
 
 ## Warehouse export shape (docs; host is buyer)
 

@@ -12,10 +12,10 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 | Concern | Entry point |
 |---------|-------------|
 | Chat (sync / SSE) | `POST /v1/chat`, `POST /v1/chat/stream` |
-| Evidence summary (OSS #40) | `POST /v1/evidence/summary` — no LLM; structured `citations[].resolves_to`, `next_actions`, optional typology drivers |
+| Evidence summary (OSS #40) | `POST /v1/evidence/summary`: no LLM; structured `citations[].resolves_to`, `next_actions`, optional typology drivers |
 | Operator checklist | `GET /v1/setup`, `GET /v1/ready`, `GET /v1/health` |
 | Integration contract | `GET /v1/integration` |
-| Trust / ops data source | Console strip calls Decision API **`GET /v1/ops/evaluation-posture`** + **`GET /v1/slo`** (not this service); see [API Reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness) |
+| Trust / ops data source | Console strip calls Decision API **`GET /v1/ops/evaluation-posture`** + **`GET /v1/slo`** (not this service); see [API Reference: Trust / ops readiness](../api-reference.md#trust-ops-readiness) |
 
 !!! note "Contracts & guides"
 
@@ -26,11 +26,11 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 
 ## Configuration
 
-Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO only — no Tarka-branded model. OpenAI-compat URL covers OpenAI / Gemini (OpenAI-compat) / AWS Bedrock gateway / Azure / vLLM. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (optional **`OPENAI_MODEL`**). Empty URL = desk Advise off. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
+Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO only, no Tarka-branded model. OpenAI-compat URL covers OpenAI / Gemini (OpenAI-compat) / AWS Bedrock gateway / Azure / vLLM. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (optional **`OPENAI_MODEL`**). Empty URL = desk Advise off. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs, see investigation-agent README under `services/`.
 
 Optional confidence gate in front of a residual case review (`case_id` set), investigation-agent only. **Leave `JEV_SYSTEM_ONE_URL` empty to keep Advise unchanged** (no System One call). If you set a URL, set **`JEV_API_KEY`** when the endpoint requires a bearer. URL without a key is valid only if the endpoint allows anonymous; otherwise set both or leave the URL empty. Blank key + **`JEV_API_KEY_REQUIRED=true`** fail-closes as `jev_auth` without calling out. 401/403 from System One also map to `jev_auth` (not generic `jev_error`). **`JEV_MODE`** starts at `shadow` (judge + `jev` receipt, generative LLM still runs); flip to `gate` only after soak. `gate` skips that LLM call and shows abstain copy. **`JEV_TIMEOUT_MS`** defaults to `400`, **`JEV_MIN_CONFIDENCE`** to `0.55`, **`JEV_QUESTION_PACK`** to `advise_sufficiency_v1`. Keys never appear on receipts and never as `VITE_*`. These keys are not evaluate controls and do not Promote. `GET /v1/setup` reports the URL+key pairing (`jev_url_key_pairing`) without echoing the secret.
 
-Helm `investigationAgent.enabled` defaults **false**. Enable only when the operator supplies that BYO endpoint. Keys stay in extraEnv / secrets — never `VITE_*`.
+Helm `investigationAgent.enabled` defaults **false**. Enable only when the operator supplies that BYO endpoint. Keys stay in extraEnv / secrets, never `VITE_*`.
 
 Built-in playbooks are **generic defaults** only when the desk provides none. Prefer desk-owned playbooks / SOPs.
 
@@ -49,7 +49,7 @@ python3 scripts/oss/advise_sop_import.py --zip /path/to/tenant-okf.zip --tenant-
 Compose (`docker-compose.investigation.yml`) mounts
 `${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}` **read-only** into
 investigation-agent as `OKF_TENANT_ROOT`. Retrieval against the mount must
-return cites **or** an explicit abstain — empty retrieval is not a soft success.
+return cites **or** an explicit abstain, empty retrieval is not a soft success.
 
 **Advise context (later):** Confluence / Wiki read-only sync into tenant OKF / RAG.
 Other connectors on request. This page does not implement a Confluence connector.

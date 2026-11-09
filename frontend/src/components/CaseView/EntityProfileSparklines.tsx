@@ -92,7 +92,7 @@ export function EntityProfileSparklines({
 
       {!model || !buckets ? (
         <p className="text-xs text-gray-500">
-          No inference / velocity payload yet — sparklines appear when the decision audit includes velocity counters.
+          No inference / velocity payload yet, sparklines appear when the decision audit includes velocity counters.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -108,7 +108,7 @@ export function EntityProfileSparklines({
               )}
             </div>
             <p className="text-[10px] leading-snug text-gray-600">
-              Audit amount allocated across UTC hours by event share — proxy for real-time spend pacing.
+              Audit amount allocated across UTC hours by event share, proxy for real-time spend pacing.
             </p>
             {spendByHour && cohortSpend ? (
               <Sparkline
@@ -131,7 +131,7 @@ export function EntityProfileSparklines({
             </div>
             <p className="text-[10px] leading-snug text-gray-600">
               Rolling 24h event counts per UTC hour
-              {model.synthesized ? " — buckets inferred from 5m / 1h / 24h when hourly series omitted." : "."}
+              {model.synthesized ? ", buckets inferred from 5m / 1h / 24h when hourly series omitted." : "."}
             </p>
             <Sparkline
               values={buckets}

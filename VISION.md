@@ -1,4 +1,4 @@
-# Tarka — Vision
+# Tarka: Vision
 
 **Category:** Local-First Fraud Intelligence (LFFI)
 
@@ -31,7 +31,7 @@ Tarka is a **local-first fraud OS**. Two things define the product:
 
 Progressive friction from signup onward: **login → device → onboarding → payment → payout**. At each hop: **allow / step-up / review / block**. Each event heats the next.
 
-Skipping or avoiding a risk check does **not** block — it raises showing-signs risk.
+Skipping or avoiding a risk check does **not** block. It raises showing-signs risk.
 
 Chargeback is one late label, not the product. Labels include dispositions, step-up outcomes, disputes, and other ground truth.
 
@@ -57,7 +57,7 @@ Owned JSON packs + native SDK evidence + in-tenant / VPC stack.
 
 The first desk beat is evaluate writes a Person you Hunt (`/graph`). Receipts stay a plane at `/decisions`.
 
-Add-on: a scout writes a rule into Observe / canary — not a caption on `device_signals`, not a CRM ticket queue.
+Add-on: a scout writes a rule into Observe / canary, not a caption on `device_signals`, not a CRM ticket queue.
 
 ---
 
@@ -105,7 +105,7 @@ Do not collapse them.
 
 **Prove every signal.** If it cannot be replayed, traversed, or cited from your own audit and graph edges, it does not ship.
 
-We are not building a better remote score. We are building infrastructure where intelligence and privacy stop trading off — because the model, the graph, and the rule engine share the same air-gapped room when you choose that deployment.
+We are not building a better remote score. We are building infrastructure where intelligence and privacy stop trading off, because the model, the graph, and the rule engine share the same air-gapped room when you choose that deployment.
 
 ---
 

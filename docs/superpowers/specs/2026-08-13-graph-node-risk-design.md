@@ -1,4 +1,4 @@
-# Persisted node risk — lookup, subgraph, top-N
+# Persisted node risk: lookup, subgraph, top-N
 
 **Date:** 2026-08-13  
 **Status:** Approved  
@@ -6,7 +6,7 @@
 
 ## Goal
 
-Calculate a per-node **risk** score, persist it, and query it: point lookup, every node in a subgraph (depth **1–5**), and a ranked list per tenant. Investigation-agent (and AgentRun graph context) must see the same scores and growth flags — no second “importance” axis, no PageRank/GDS.
+Calculate a per-node **risk** score, persist it, and query it: point lookup, every node in a subgraph (depth **1–5**), and a ranked list per tenant. Investigation-agent (and AgentRun graph context) must see the same scores and growth flags, no second “importance” axis, no PageRank/GDS.
 
 **Importance is this same `risk_score`.** Fast-growing relation counts and larger-than-peer degree raise that score and add `risk_factors` the model can cite.
 
@@ -21,12 +21,12 @@ Calculate a per-node **risk** score, persist it, and query it: point lookup, eve
 ## What already exists
 
 - `compute_entity_risk`: tags, flagged neighbors, community size, shared devices, connectivity (≥5 / ≥10); checkpoint hop clamp 1–5 (community default 3).
-- `GET /v1/analytics/entity-risk` — live Cypher; optional GNN-beta if beta > base.
+- `GET /v1/analytics/entity-risk`: live Cypher; optional GNN-beta if beta > base.
 - Missing entity GET: `risk_score: 0`, `risk_factors: ["entity_not_found"]`. **Keep that contract.**
 - `GET /v1/subgraph?depth=` already clamps **1–5** (HTTP default **2**). Investigation tools `subgraph` / `subgraph_with_velocity` use the same clamp; default depth **2**.
 - `subgraph_with_velocity` overlays decision-api **transaction** velocity (`/v1/analyst/entity-velocity`). That is **not** graph edge growth. This spec adds graph relation growth on the node; do not replace the transaction overlay.
-- Orchestrator `degree_centrality` ingest signal — still not a stored node property.
-- Graph Explorer UI — out of scope.
+- Orchestrator `degree_centrality` ingest signal, still not a stored node property.
+- Graph Explorer UI: out of scope.
 
 ## Architecture
 
@@ -71,7 +71,7 @@ Keep existing tag / flagged-neighbor / community / shared-device points.
 
 Do not stack peer points with absolute connectivity on the same node.
 
-**Relation growth** (undirected incident edges; Device and Account/User use the same counters — neighbor type does not matter):
+**Relation growth** (undirected incident edges; Device and Account/User use the same counters. Neighbor type does not matter):
 
 `relation_growth_1h` / `relation_growth_24h` = count of incident relationships whose `coalesce(observed_at, created_at, updated_at)` is inside that window (UTC). Untimestamped edges: excluded from growth, included in `relation_count`.
 
@@ -148,13 +148,13 @@ Response entities include `risk_score`, `risk_factors`, `risk_computed_at`, `rel
 
 ### Subgraph and deep-context (≤5 hops)
 
-`GET /v1/subgraph?entity_id=&tenant_id=&depth=` — `depth` clamp **1–5**, HTTP default **2**. Each node includes `scored`, `risk_score` (`number | null`), `risk_computed_at`, `relation_count`, `relation_growth_1h`, `relation_growth_24h` from stored properties. Do not run `compute_entity_risk` per node on these reads.
+`GET /v1/subgraph?entity_id=&tenant_id=&depth=`: `depth` clamp **1–5**, HTTP default **2**. Each node includes `scored`, `risk_score` (`number | null`), `risk_computed_at`, `relation_count`, `relation_growth_1h`, `relation_growth_24h` from stored properties. Do not run `compute_entity_risk` per node on these reads.
 
 ## AI (investigation-agent)
 
 No new tool. `subgraph` and `subgraph_with_velocity` already call `/v1/subgraph` with `_validate_depth` **1–5**. They return the new node fields as-is. Transaction velocity overlay stays. Default tool depth stays **2**; the model may pass `depth` up to **5**.
 
-Playbook/persona: one added line — when checking rings, shared devices, or mule fan-out, call `subgraph_with_velocity` with depth up to 5 and cite `risk_factors` (`fast_growth_1h`, `fast_growth_24h`, `high_degree_vs_peers`). Do not claim growth if those factors are absent.
+Playbook/persona: one added line: when checking rings, shared devices, or mule fan-out, call `subgraph_with_velocity` with depth up to 5 and cite `risk_factors` (`fast_growth_1h`, `fast_growth_24h`, `high_degree_vs_peers`). Do not claim growth if those factors are absent.
 
 AgentRun: if `graph_neighborhood` vertices already carry these fields, persist them on the run. Chat must not fetch a 5-hop subgraph on every turn. `graph_missing` policy from the AgentRun spine spec is unchanged. Shadow does not write graph scores and does not auto-resolve.
 

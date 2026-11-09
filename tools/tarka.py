@@ -193,7 +193,7 @@ def _module_line(key: str, mod: dict[str, Any]) -> str:
     """Single-line label: codename + technical name + slug."""
     saga = mod.get("codename")
     if saga:
-        return f"{saga} — {mod['name']} ({key})"
+        return f"{saga}: {mod['name']} ({key})"
     return f"{mod['name']} ({key})"
 
 
@@ -201,14 +201,14 @@ def _module_saga_title(mod: dict[str, Any]) -> str:
     """Codename + technical name (no slug), for tables that already show the key."""
     saga = mod.get("codename")
     if saga:
-        return f"{saga} — {mod['name']}"
+        return f"{saga}: {mod['name']}"
     return mod["name"]
 
 
 def _sdk_line(key: str, sdk: dict[str, Any]) -> str:
     saga = sdk.get("codename")
     if saga:
-        return f"{saga} — {sdk['name']} ({key})"
+        return f"{saga}: {sdk['name']} ({key})"
     return f"{sdk['name']} ({key})"
 
 
@@ -231,7 +231,7 @@ def _print_module(key: str, mod: dict, selected: bool = False, index: int | None
     port = f" {C.DIM}:{mod['port']}{C.RESET}" if mod.get("port") else ""
     saga = mod.get("codename")
     title = (
-        f"{C.BOLD}{saga}{C.RESET} — {mod['name']}" if saga else f"{C.BOLD}{mod['name']}{C.RESET}"
+        f"{C.BOLD}{saga}{C.RESET}: {mod['name']}" if saga else f"{C.BOLD}{mod['name']}{C.RESET}"
     )
     print(f"  {idx}{marker} {title}{C.DIM} ({key}){C.RESET}{port}{req}{deps}")
     print(f"       {C.DIM}{mod['description']}{C.RESET}")
@@ -362,7 +362,7 @@ def cmd_install(args):
         print(f"\n{C.BOLD}SDK Packages (optional):{C.RESET}")
         for i, (key, sdk) in enumerate(SDK_MODULES.items(), 1):
             print(
-                f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET} — {C.DIM}{sdk['description']}{C.RESET}"
+                f"  {C.DIM}{i}.{C.RESET} {C.BOLD}{_sdk_line(key, sdk)}{C.RESET}: {C.DIM}{sdk['description']}{C.RESET}"
             )
         sdk_input = input("\n  Enter SDK numbers (comma-separated, or Enter to skip): ").strip()
         if sdk_input:
@@ -528,7 +528,7 @@ def _generate_env(modules: list[str]):
                 "NATS_URL=nats://nats:4222",
                 "REDIS_URL=redis://redis:6379/0",
                 "",
-                "# OSINT API Keys (all optional — sources work without keys at lower limits)",
+                "# OSINT API Keys (all optional: sources work without keys at lower limits)",
                 "ABUSEIPDB_KEY=",
                 "GREYNOISE_KEY=",
                 "EMAILREP_KEY=",
@@ -819,7 +819,7 @@ def cmd_list(args):
         installed_sdks = set(state.get("sdks", []))
         marker = f"{C.GREEN}●{C.RESET}" if key in installed_sdks else f"{C.DIM}○{C.RESET}"
         saga = sdk.get("codename")
-        sdk_title = f"{saga} — {sdk['name']}" if saga else sdk["name"]
+        sdk_title = f"{saga}: {sdk['name']}" if saga else sdk["name"]
         print(f"  {marker} {C.BOLD}{key:<15}{C.RESET} {sdk_title}")
         print(f"    {C.DIM}{sdk['description']}{C.RESET}")
 
@@ -917,7 +917,7 @@ def _get_all_profile_args(modules: list[str]) -> list[str]:
 def main():
     parser = argparse.ArgumentParser(
         prog="tarka",
-        description="Tarka — fraud detection platform installer and manager",
+        description="Tarka: fraud detection platform installer and manager",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

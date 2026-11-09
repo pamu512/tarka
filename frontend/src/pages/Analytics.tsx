@@ -37,7 +37,7 @@ function buildScorecardExportBundle(data: AnalyticsDecisionScorecard) {
 
 function buildScorecardDiscussionMarkdown(data: AnalyticsDecisionScorecard): string {
   const lines: string[] = [
-    `## Decision scorecard — \`${data.tenant_id}\``,
+    `## Decision scorecard: \`${data.tenant_id}\``,
     "",
     `**Window:** ${data.window_days} day(s) · **Total events:** ${data.total_events.toLocaleString()} · **Deny rate:** ${data.deny_rate_pct.toFixed(2)}%`,
     "",

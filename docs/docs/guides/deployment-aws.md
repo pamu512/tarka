@@ -13,7 +13,7 @@ This guide maps the **reference** deployment artifacts in this repo ([Docker Com
 | **Kubernetes** | **Amazon EKS** | Run application workloads; use at least two nodes across AZs for HA. |
 | **Ingress / TLS** | **Application Load Balancer** via [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/) | Terminate TLS at the ALB; use ACM certificates. |
 | **Container images** | **Amazon ECR** | Build images from `services/*/Dockerfile` (repo root context); push tags per service. |
-| **Relational DB** | **Amazon RDS for PostgreSQL** | Decision API and Case API can share a cluster with **two databases** (e.g. `fraud` and `fraud_cases`) or separate instances—match your isolation policy. |
+| **Relational DB** | **Amazon RDS for PostgreSQL** | Decision API and Case API can share a cluster with **two databases** (e.g. `fraud` and `fraud_cases`) or separate instances. Match your isolation policy. |
 | **Cache** | **ElastiCache for Redis** | Single primary + replica for HA; use TLS and auth token in production. |
 | **Graph** | **Neo4j Aura**, self-managed Neo4j on EKS, or **JanusGraph** on EC2/EKS | Community Neo4j is single-node; plan backups and upgrades. |
 | **Streaming (optional)** | **NATS** in-cluster (chart includes `nats`) or self-managed on EC2 | Event-ingest path; size JetStream storage for retention. |
@@ -69,7 +69,7 @@ python3 infra/scripts/deploy/generate_cloud_values.py \
 
 - Place EKS worker nodes in **private subnets**; use a public ALB only for ingress to the UI / gateway / public APIs.
 - **Security groups:** allow app subnets → RDS/ElastiCache only on required ports (5432, 6379); no database ports on `0.0.0.0/0`.
-- **VPC endpoints** (optional): ECR, S3, Secrets Manager—reduce NAT dependency and tighten egress.
+- **VPC endpoints** (optional): ECR, S3, Secrets Manager. Reduce NAT dependency and tighten egress.
 
 ---
 
@@ -82,7 +82,7 @@ python3 infra/scripts/deploy/generate_cloud_values.py \
 
 ## Investigation agent / LLM egress
 
-If you use `investigation-agent` with a **public** LLM API, egress goes to the internet (or through a **NAT Gateway** / **egress firewall**). For stricter data residency, run inference in **VPC-only** endpoints or self-hosted models and set `OPENAI_BASE_URL` accordingly. See [Investigation Copilot — LLM data flow](./investigation-agent-llm-data-flow.md).
+If you use `investigation-agent` with a **public** LLM API, egress goes to the internet (or through a **NAT Gateway** / **egress firewall**). For stricter data residency, run inference in **VPC-only** endpoints or self-hosted models and set `OPENAI_BASE_URL` accordingly. See [Investigation Copilot: LLM data flow](./investigation-agent-llm-data-flow.md).
 
 ---
 
@@ -101,5 +101,5 @@ If you use `investigation-agent` with a **public** LLM API, egress goes to the i
 
 ## Further reading
 
-- [AWS Well-Architected — Security Pillar](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)  
+- [AWS Well-Architected: Security Pillar](https://docs.aws.amazon.com/wellarchitected/latest/security-pillar/welcome.html)  
 - [EKS Best Practices Guide](https://aws.github.io/aws-eks-best-practices/)

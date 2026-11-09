@@ -56,7 +56,7 @@ export default function OpsPipelines() {
       <div className="space-y-1">
         <PageTitle module="compliance">ETL &amp; ingest pipelines</PageTitle>
         <p className="text-sm text-gray-500">
-          Contract reject counts from event-ingest (<span className="font-mono">GET /v1/ingest/stats</span>) — since
+          Contract reject counts from event-ingest (<span className="font-mono">GET /v1/ingest/stats</span>), since
           process boot.
         </p>
       </div>
@@ -140,7 +140,7 @@ export default function OpsPipelines() {
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={2} className="px-3 py-6 text-center text-gray-500">
-                  No reject reasons recorded yet — healthy stream, or counters not yet incremented.
+                  No reject reasons recorded yet, healthy stream, or counters not yet incremented.
                 </td>
               </tr>
             ) : (

@@ -2,13 +2,13 @@
 
 ## Path B (D7.4)
 
-**Path B — enforced depth-1.** `hunt_depth_max=1`. AGE 1.6 finding: Hunt `query_subgraph` is `MATCH (root)-[e]-(nb)`. No `age_unnest`. `entity_risk_sql` community_size is 1-hop degree + 1. A `[*1..{depth}]` string in another AGE helper is not the Hunt product. Path A (AGE-safe fixed k-hop) was not proven; do not raise `hunt_depth_max`.
+**Path B: enforced depth-1.** `hunt_depth_max=1`. AGE 1.6 finding: Hunt `query_subgraph` is `MATCH (root)-[e]-(nb)`. No `age_unnest`. `entity_risk_sql` community_size is 1-hop degree + 1. A `[*1..{depth}]` string in another AGE helper is not the Hunt product. Path A (AGE-safe fixed k-hop) was not proven; do not raise `hunt_depth_max`.
 
 `GET /v1/subgraph` and AGE `query_subgraph` walk one hop from the seed. Desk `depth` (1–5) and a `depth` query default are request hints. `depth_requested` > 1 → `depth_applied=1` and `degrade_reason=hunt:depth_capped`. Walk stays 1.
 
 Empty `GRAPH_SERVICE_URL` = Hunt and hops **off** (same plane-off as [graph-planes-v1](graph-planes-v1.md)). No invented neighbors.
 
-Operator day-1: [graph-analysis — Day-1 Hunt depth](../docs/guides/graph-analysis.md#day-1-hunt-depth). Next-agent regression: [hunt-depth-regression](../testing/hunt-depth-regression.md).
+Operator day-1: [graph-analysis: Day-1 Hunt depth](../docs/guides/graph-analysis.md#day-1-hunt-depth). Next-agent regression: [hunt-depth-regression](../testing/hunt-depth-regression.md).
 
 ## Schema (`tarka.hunt_depth/v1`)
 
@@ -32,9 +32,9 @@ AGE-safe variable-length paths remain unproven on AGE 1.6; `hunt_depth_max` stay
 
 `HUNT_DEPTH_2_ENABLED` (operator env; default unset/off) raises the **effective walk ceiling to 2** for `GET /v1/subgraph` when the caller requests depth ≥ 2:
 
-- Implementation is an **explicit second edge pattern** (`(root)-[e1]-(nb1)-[e2]-(nb2)`, tenant-scoped, root excluded), never a variable-length `[*1..n]` — the AGE 1.6 constraint stands.
+- Implementation is an **explicit second edge pattern** (`(root)-[e1]-(nb1)-[e2]-(nb2)`, tenant-scoped, root excluded), never a variable-length `[*1..n]`, the AGE 1.6 constraint stands.
 - Honesty semantics unchanged: `depth_applied` is the real walk; requesting > 2 still caps at 2 with `degrade_reason=hunt:depth_capped`. Responses additionally carry `hunt_depth_ceiling` (1 or 2) so the desk can show the effective bound.
-- `hunt_depth_max` in the schema payload stays **1** — the constant names the contract's default posture; the opt-in ceiling is reported separately rather than mutating the v1 field.
+- `hunt_depth_max` in the schema payload stays **1**, the constant names the contract's default posture; the opt-in ceiling is reported separately rather than mutating the v1 field.
 - Depth-2 stays a Hunt (Plane C) capability: no effect on decide-time hops (Plane A) or offline jobs (Plane B).
 
 ## Degrade (D7.2–D7.4)
@@ -43,7 +43,7 @@ Desk glass and Hunt API must show `depth_requested` vs `depth_applied` plus `deg
 
 ## Out of scope
 
-Non-claims — do not read Path B as any of these:
+Non-claims: do not read Path B as any of these:
 
 - Unlimited Hunt
 - Variable-length path product
@@ -65,6 +65,6 @@ latency more than 2x depth-1. Measured on `r2proof` (3-node chain tenant,
 | 1     | 12.8 ms | 24.4 ms |
 | 2     | 12.8 ms | 27.2 ms |
 
-Ratio **1.11x** (gate <= 2x) — **PASS, depth-2 stays**. First-pass 17.5x
+Ratio **1.11x** (gate <= 2x): **PASS, depth-2 stays**. First-pass 17.5x
 reading was contaminated by a concurrent tenant refresh on the same
 database; rule for re-measurement: quiet stack only.

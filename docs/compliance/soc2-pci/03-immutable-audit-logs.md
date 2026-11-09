@@ -1,4 +1,4 @@
-# Document 3 — Immutable audit logs and tamper-evident decision records
+# Document 3: Immutable audit logs and tamper-evident decision records
 
 ## 3.1 Control objective (narrative)
 
@@ -48,4 +48,4 @@ Hash chaining provides **tamper-evident** properties **conditional on** the **in
 
 ## 3.5 Cross-reference
 
-Formal mapping to **TSC** and **PCI DSS** requirements appears in [Appendix A — Control mapping matrix](./Appendix-A-control-mapping-matrix.md).
+Formal mapping to **TSC** and **PCI DSS** requirements appears in [Appendix A: Control mapping matrix](./Appendix-A-control-mapping-matrix.md).

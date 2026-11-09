@@ -240,12 +240,12 @@ export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void })
             <button
               onClick={() => void install()}
               disabled={!bm || installing}
-              title={bm ? "" : "Run benchmark first — install requires kill_criteria metrics."}
+              title={bm ? "" : "Run benchmark first, install requires kill_criteria metrics."}
               className="px-3 py-1.5 text-xs rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white"
             >
               {installing ? "Installing…" : "Install pack"}
             </button>
-            {!bm && <span className="text-[10px] text-gray-500">Benchmark first — install requires kill_criteria metrics.</span>}
+            {!bm && <span className="text-[10px] text-gray-500">Benchmark first, install requires kill_criteria metrics.</span>}
             {bm && <BenchVerdict bm={bm} kill={full.kill_criteria} />}
           </div>
         </div>
@@ -253,7 +253,7 @@ export function VerticalPackWizard({ onInstalled }: { onInstalled: () => void })
 
       {done && (
         <div className="text-xs text-green-400">
-          Installed {done}. It lands in Observe (shadow) — Promote from the Observe panel.
+          Installed {done}. It lands in Observe (shadow). Promote from the Observe panel.
         </div>
       )}
       {error && <div className="text-xs text-red-400">{error}</div>}

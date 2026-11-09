@@ -52,7 +52,7 @@
 - Test: `services/decision-api/tests/test_live_rule_slip.py`
 
 **Interfaces:**
-- Consumes: `rule_precision_after_labels(rows, min_labeled_hits=5)` — rows need `y_label`, `rule_hits`, `decision`
+- Consumes: `rule_precision_after_labels(rows, min_labeled_hits=5)`: rows need `y_label`, `rule_hits`, `decision`
 - Produces:
   - `resolve_y(row, by_trace, by_entity) -> str | None`
   - `mix_value(row, field: str) -> str`
@@ -153,7 +153,7 @@ def test_resolve_y_trace_then_entity_ignores_proxy():
     assert mix_value(row, "geo_country") == "US"
 ```
 
-- [ ] **Step 2: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_live_rule_slip.py -q` — expected FAIL import
+- [ ] **Step 2: Run** `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_live_rule_slip.py -q`: expected FAIL import
 
 - [ ] **Step 3: Implement** `live_rule_slip.py` (math only; no disk I/O)
 
@@ -324,9 +324,9 @@ def live_rule_slip(
 
 Rows passed in are newest-first (same as the 500-row query). `split_window` treats `[0:mid]` as current.
 
-- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -401,7 +401,7 @@ def test_write_slip_pack_roundtrip(tmp_path, monkeypatch):
 
 If `RULES_PATH` env is not what `settings` reads, only `monkeypatch.setattr(settings, "rules_path", str(tmp_path))`.
 
-- [ ] **Step 2: Run** — expected FAIL
+- [ ] **Step 2: Run**: expected FAIL
 
 - [ ] **Step 3: Implement** park helpers in the same module
 
@@ -525,11 +525,11 @@ def write_slip_pack(pack: Mapping[str, Any]) -> str:
     return fname
 ```
 
-H2 dominant field of **misses** (for park, not just ping): add `successor_mix(current, rule_id, by_trace, by_entity) -> tuple[str, str] | None` — first MIX_FIELDS value that appears `>= 5` times among current `y=1` misses. Tests: DE geo on 5 misses → `("geo_country", "DE")`.
+H2 dominant field of **misses** (for park, not just ping): add `successor_mix(current, rule_id, by_trace, by_entity) -> tuple[str, str] | None`: first MIX_FIELDS value that appears `>= 5` times among current `y=1` misses. Tests: DE geo on 5 misses → `("geo_country", "DE")`.
 
-- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -544,7 +544,7 @@ H2 dominant field of **misses** (for park, not just ping): add `successor_mix(cu
 - Produces: `async def maybe_park_live_rule_slip(tenant_id: str, *, rows=None, session=None) -> dict`  
   `{ "parked": [name], "skipped": [{rule_id, reason}] }`
 
-- [ ] **Step 1: Tests** (tmp rules dir, in-memory rows — no DB)
+- [ ] **Step 1: Tests** (tmp rules dir, in-memory rows, no DB)
 
 ```python
 import pytest
@@ -584,7 +584,7 @@ Add `load_y_maps(tenant_id) -> tuple[dict, dict]` wrapping `load_y_labels` so te
 
 Ambiguous rows → `parked == []` and skip reason `ambiguous`.
 
-- [ ] **Step 2: Run** — expected FAIL
+- [ ] **Step 2: Run**: expected FAIL
 
 - [ ] **Step 3: Implement**
 
@@ -657,9 +657,9 @@ async def maybe_park_live_rule_slip(
 
 `successor_mix`: current half only (`split_window` first list), count mix values on `y=1` misses, return first field with a value count `>= 5`.
 
-- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -696,7 +696,7 @@ def test_tick_source_parks():
 
 Plus one async GET test (reuse `challenge_client` / existing fixture from `test_shadow_promote_gate_api.py`): response has `live_rule_slip.window` in `{"ok", "underpowered"}` and does not create `slip_*.json` in the rules dir.
 
-- [ ] **Step 2: Run** — expected FAIL
+- [ ] **Step 2: Run**: expected FAIL
 
 - [ ] **Step 3: Implement**
 
@@ -746,9 +746,9 @@ return out
 
 `create_scout_pack`: after `maybe_auto_promote_shadow(tid)`, `await maybe_park_live_rule_slip(tid)` in the same `if tid` try.
 
-- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip_api.py tests/test_shadow_promote_gate_api.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip_api.py tests/test_shadow_promote_gate_api.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -778,9 +778,9 @@ def test_clobber_name_and_slot():
 
 HTTP: POST `/v1/rules/scout-pack` with `name=slip_retire_r1` → 409 `slip_draft_exists`.
 
-Promote: write live pack with `r1`, write parked successor shadow, call `activate_shadow_pack` / Promote 200, read live file — `r1` still in `rules`.
+Promote: write live pack with `r1`, write parked successor shadow, call `activate_shadow_pack` / Promote 200, read live file. `r1` still in `rules`.
 
-- [ ] **Step 2: Run** — expected FAIL
+- [ ] **Step 2: Run**: expected FAIL
 
 - [ ] **Step 3: Implement**
 
@@ -802,13 +802,13 @@ if slip_draft_would_clobber(body.name, None, get_shadow_packs()):
     raise HTTPException(409, "slip_draft_exists")
 ```
 
-ScoutPackIn has no evidence field — name prefix is the 409. Slot check is for a later evidence field; still unit-test it.
+ScoutPackIn has no evidence field. Name prefix is the 409. Slot check is for a later evidence field; still unit-test it.
 
 Do **not** add `replaces_rule_id` to `activate_shadow_pack`.
 
-- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip_api.py tests/test_live_rule_slip.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_live_rule_slip_api.py tests/test_live_rule_slip.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -854,7 +854,7 @@ describe("formatLiveRuleSlipLine", () => {
 });
 ```
 
-- [ ] **Step 2: Run** `cd frontend && npm test -- --run src/domain/liveRuleSlip.test.ts` — expected FAIL
+- [ ] **Step 2: Run** `cd frontend && npm test -- --run src/domain/liveRuleSlip.test.ts`: expected FAIL
 
 - [ ] **Step 3: Implement** helper + types + card
 
@@ -884,9 +884,9 @@ describe("formatLiveRuleSlipLine", () => {
 
 No Promote button on the row. Existing draft picker stays the path.
 
-- [ ] **Step 4: Run** `npm test -- --run src/domain/liveRuleSlip.test.ts` — expected PASS
+- [ ] **Step 4: Run** `npm test -- --run src/domain/liveRuleSlip.test.ts`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 

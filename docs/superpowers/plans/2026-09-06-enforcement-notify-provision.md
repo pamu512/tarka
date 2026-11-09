@@ -1,6 +1,6 @@
 # Enforcement notify provision Implementation Plan
 
-> **For agentic workers:** User said `go` — implement in this session (executing-plans + TDD).
+> **For agentic workers:** User said `go`. Implement in this session (executing-plans + TDD).
 
 **Goal:** Provision hook URLs; product observe inbox in Postgres; allow webhook confirmed.
 

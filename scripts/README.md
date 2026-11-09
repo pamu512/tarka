@@ -14,18 +14,18 @@ Automation, **CI gates**, benchmarks, ETL helpers, and release tooling. Many sub
 
 ## Policy and typology
 
-- [`policy/validate_rule_packs.py`](policy/validate_rule_packs.py) — JSON rule packs.
-- [`policy/validate_typology_dsl.py`](policy/validate_typology_dsl.py) — typology DSL + predicate registry (CI **lint**).
+- [`policy/validate_rule_packs.py`](policy/validate_rule_packs.py): JSON rule packs.
+- [`policy/validate_typology_dsl.py`](policy/validate_typology_dsl.py): typology DSL + predicate registry (CI **lint**).
 
 ## ML
 
-- [`ml/validate_ml_promotion_policy.py`](ml/validate_ml_promotion_policy.py), [`ml/validate_signal_catalogs.py`](ml/validate_signal_catalogs.py) — promotion policy and signal catalog gates.
+- [`ml/validate_ml_promotion_policy.py`](ml/validate_ml_promotion_policy.py), [`ml/validate_signal_catalogs.py`](ml/validate_signal_catalogs.py): promotion policy and signal catalog gates.
 
 ## Data backfill (offline)
 
 | Script | Purpose |
 |--------|---------|
-| [`run-batch-ingest.sh`](run-batch-ingest.sh) | Wrapper for **`services/batch-ingest`** — CSV → ClickHouse `fraud_features_offline` (checkpoints; no NATS). See [`services/batch-ingest/README.md`](../services/batch-ingest/README.md). |
+| [`run-batch-ingest.sh`](run-batch-ingest.sh) | Wrapper for **`services/batch-ingest`**: CSV → ClickHouse `fraud_features_offline` (checkpoints; no NATS). See [`services/batch-ingest/README.md`](../services/batch-ingest/README.md). |
 
 ## Documentation generation
 

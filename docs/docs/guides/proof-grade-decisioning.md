@@ -21,7 +21,7 @@ Tarka.
    under a deterministic clock, with 100% parity gates. A tampered history
    cannot reproduce the same manifests.
 5. **Buyer-verifiable export.** `tarka.training_row/v1` export joins
-   receipts with labels — the buyer's own training/audit artifact.
+   receipts with labels, the buyer's own training/audit artifact.
 
 ## The auditor path: `tarka verify`
 
@@ -29,7 +29,7 @@ Tarka.
 # export the bundle once (any tenant):
 curl -H "x-api-key: ..." "$CASE_API/v1/compliance/evidence?tenant_id=acme" > bundle.json
 
-# verify offline — no Tarka services, no network:
+# verify offline: no Tarka services, no network:
 tarka verify --bundle bundle.json --key "$EVIDENCE_SIGNING_SECRET"
 #   bundle hash : OK
 #   hash chain  : OK (N records)
@@ -39,7 +39,7 @@ tarka verify --bundle bundle.json --key "$EVIDENCE_SIGNING_SECRET"
 ```
 
 Without the key (`--bundle` only), hash + chain still prove the bundle's
-internal integrity — a third-party auditor who is NOT given the signing key
+internal integrity. A third-party auditor who is NOT given the signing key
 can confirm the export has not been edited since signing only fails on
 signature, never silently.
 
@@ -47,7 +47,7 @@ signature, never silently.
 
 `GET /decisions/v1/loop-metrics?tenant_id=...` now includes
 `evidence_chain_completeness`: `{complete, total, ratio}` over the receipt
-window — the share of decisions whose chain is complete (receipt + bound
+window, the share of decisions whose chain is complete (receipt + bound
 label). `ratio: null` means unknown (no receipts in window), never
 0.0 theater. Bake-off rules apply (null = unknown).
 
@@ -57,7 +57,7 @@ SaaS fraud platforms hold the keys and the database: their "audit trail" is
 their own infrastructure testifying about itself. Consortium members legally
 cannot contribute raw network data into a buyer-visible evidence chain.
 Proof-grade requires local-first by construction: the buyer owns the
-receipts, the labels, the graph, and the signing keys — Tarka is the
+receipts, the labels, the graph, and the signing keys. Tarka is the
 evidence fabric, not the counterparty.
 
 ## Repo anchors

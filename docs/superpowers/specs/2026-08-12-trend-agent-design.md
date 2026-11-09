@@ -15,7 +15,7 @@ Automated **forensic statistician** for multi-window velocity deviations. Not an
 ## Contract
 
 1. **RAG matrix is the source of truth** (`compile_rag_matrix` → JSON user message).  
-2. **LLM is optional and provider-agnostic** — any OpenAI-compatible `POST {base}/chat/completions` (OpenAI, Azure OpenAI, vLLM, Groq, Ollama `/v1`, etc.).  
+2. **LLM is optional and provider-agnostic**: any OpenAI-compatible `POST {base}/chat/completions` (OpenAI, Azure OpenAI, vLLM, Groq, Ollama `/v1`, etc.).  
 3. Inject a custom `LlmClient` if you are not HTTP OpenAI-shaped.
 
 ## Loop
@@ -42,7 +42,7 @@ asyncio.run(run_trend_evaluation(
 
 HTTP (decision-api):
 
-- `POST /v1/ops/trend/evaluate` — run loop (drafts `wasm_ready=false`)
+- `POST /v1/ops/trend/evaluate`: run loop (drafts `wasm_ready=false`)
 - `GET /v1/ops/trend/drafts?tenant_id=`
 - `POST /v1/ops/trend/drafts/{id}/reject`
 - `POST /v1/ops/trend/drafts/{id}/promote` → **409 never_auto_promote**

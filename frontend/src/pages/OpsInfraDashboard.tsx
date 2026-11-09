@@ -230,7 +230,7 @@ export default function OpsInfraDashboard() {
             aria-live="assertive"
             className="fixed top-0 left-0 right-0 z-[301] px-4 py-3 text-center text-sm font-semibold text-white bg-red-600 shadow-lg animate-pulse motion-reduce:animate-none"
           >
-            Critical service degradation — check Signal API, Core API, or Data plane (HTTP 5xx or timeout).
+            Critical service degradation, check Signal API, Core API, or Data plane (HTTP 5xx or timeout).
           </div>
         </>
       ) : null}

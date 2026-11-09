@@ -6,7 +6,7 @@
 
 **Goal:** Stop a named-draft promote when leftover cost or leftover-extra helpfulness fails, and allow host auto-promote only after the user provisions gates on first review.
 
-**Architecture:** Pure extras + helpfulness from the existing 500-row Observe CC window and `y_label_store`. Leftover list + ack stay on case-api. `desk_promote_gate` requires `leftover_promote_gate`. Desk Promote and `PUT …/mode=active` share the leftover floor. Auto-promote is a decision-api host tick after provision — Scout still writes `mode=shadow` only.
+**Architecture:** Pure extras + helpfulness from the existing 500-row Observe CC window and `y_label_store`. Leftover list + ack stay on case-api. `desk_promote_gate` requires `leftover_promote_gate`. Desk Promote and `PUT …/mode=active` share the leftover floor. Auto-promote is a decision-api host tick after provision. Scout still writes `mode=shadow` only.
 
 **Tech Stack:** FastAPI case-api + decision-api, SQLAlchemy/alembic, file provision next to `y_label_store`, React `/ops/shadow`, pytest, vitest.
 
@@ -204,7 +204,7 @@ Run: `cd services/decision-api && PYTHONPATH=src:.:../shared pytest tests/test_l
 
 Expected: PASS (gate compose tests from Task 2 may still fail if already added)
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -299,7 +299,7 @@ def test_gate_sla_volume_ack_and_empty_green():
     assert g5["ack_required"] is False
 ```
 
-- [ ] **Step 2: Run the new tests — expect FAIL** (`leftover_promote_gate` missing)
+- [ ] **Step 2: Run the new tests: expect FAIL** (`leftover_promote_gate` missing)
 
 - [ ] **Step 3: Implement composer**
 
@@ -374,9 +374,9 @@ def leftover_promote_gate(
     }
 ```
 
-- [ ] **Step 4: Run** `pytest tests/test_leftover_promote_gate.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_leftover_promote_gate.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -439,7 +439,7 @@ def test_promote_ack_403_unless_claimer_and_stale_after_release(case_client, mon
     assert after.json()["required"] is False
 ```
 
-- [ ] **Step 2: Run** `pytest tests/test_leftovers.py::test_promote_ack_403_unless_claimer_and_stale_after_release -q` — expect FAIL 404
+- [ ] **Step 2: Run** `pytest tests/test_leftovers.py::test_promote_ack_403_unless_claimer_and_stale_after_release -q`: expect FAIL 404
 
 - [ ] **Step 3: Model + alembic + routes**
 
@@ -483,9 +483,9 @@ async def post_leftover_promote_ack(body: LeftoverPromoteAckIn, request: Request
 
 GET `required` = at least one leftover claimed (spec), even if ack row still exists after release.
 
-- [ ] **Step 4: Run** `pytest tests/test_leftovers.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_leftovers.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -497,7 +497,7 @@ GET `required` = at least one leftover claimed (spec), even if ack row still exi
 - Modify: `services/decision-api/tests/test_shadow_promote_gate_api.py`
 
 **Interfaces:**
-- Consumes: `settings.case_api_url`, `settings.case_internal_token`, `settings.case_create_on_deny_review`, `load_y_labels`, `aggregate_champion_challenger` rows, provision caps (Task 5 — until then use env defaults)
+- Consumes: `settings.case_api_url`, `settings.case_internal_token`, `settings.case_create_on_deny_review`, `load_y_labels`, `aggregate_champion_challenger` rows, provision caps (Task 5: until then use env defaults)
 - Produces: GET body includes `leftover_promote_gate`; `desk_promote_gate.requires` includes `"leftover_promote_gate"`; `desk_promote_gate.promote_allowed` is false if leftover blockers exist
 - Optional query `draft_id` on shadow-promote-gate for ack lookup
 
@@ -516,7 +516,7 @@ async def test_shadow_promote_gate_includes_leftover_gate(challenge_client, monk
     assert body["desk_promote_gate"]["promote_allowed"] is False
 ```
 
-- [ ] **Step 2: Run — expect FAIL** missing key `leftover_promote_gate`
+- [ ] **Step 2: Run: expect FAIL** missing key `leftover_promote_gate`
 
 - [ ] **Step 3: Fetch + fold**
 
@@ -550,7 +550,7 @@ async def fetch_promote_ack(tenant_id: str, draft_id: str) -> dict[str, Any] | N
 ```
 
 In `shadow_promote_gate`:
-1. Build extras from `cc_audit["audit_rows"]` (ensure aggregate returns them — it already has `audit_rows` in the existing function; use those).
+1. Build extras from `cc_audit["audit_rows"]` (ensure aggregate returns them. It already has `audit_rows` in the existing function; use those).
 2. `load_y_labels(tid)` when tid else empty maps.
 3. Caps: `int(os.environ.get("LEFTOVER_PROMOTE_ADD_CAP", "10"))` until Task 5 reads provision.
 4. `leftover_g = leftover_promote_gate(...)`
@@ -560,9 +560,9 @@ In `shadow_promote_gate`:
 
 Accept optional `draft_id: str | None = Query(None)`.
 
-- [ ] **Step 4: Run** `pytest tests/test_shadow_promote_gate_api.py tests/test_leftover_promote_gate.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_shadow_promote_gate_api.py tests/test_leftover_promote_gate.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -620,7 +620,7 @@ def test_provision_default_then_save_increments(tmp_path, monkeypatch):
 
 Validate: `leftover_add_cap >= 0`, `0 <= leftover_fp_rate_cap <= 1`, `min_labeled_extras >= 1`. Raise `ValueError` otherwise.
 
-- [ ] **Step 2: Run — expect FAIL** import
+- [ ] **Step 2: Run: expect FAIL** import
 
 - [ ] **Step 3: File store** (copy `_file_token` + `_data_dir` from `y_label_store`; filename `shadow_auto_promote_{token}.json`)
 
@@ -628,9 +628,9 @@ Wire GET/PUT on `rule_api` with `require_role("analyst")`. PUT body fields only;
 
 In `shadow_promote_gate`, if `load_provision(tid)["version"] >= 1` use provision caps, else env defaults.
 
-- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py -q` — expected PASS for provision tests
+- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py -q`: expected PASS for provision tests
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -647,7 +647,7 @@ In `shadow_promote_gate`, if `load_provision(tid)["version"] >= 1` use provision
   - `POST /v1/rules/shadow-packs/{draft_id}/promote?tenant_id=` → 200 or 409 `{detail: "promote_blocked", desk_promote_gate, leftover_promote_gate}`
   - `POST /v1/rules/shadow-packs/auto-promote-tick?tenant_id=`
   - `set_pack_mode(mode=active)` runs leftover_promote_gate (query `tenant_id`); leftover blockers → 409
-  - `maybe_auto_promote_shadow(tenant_id: str) -> dict` — no-op if `not provision.auto_promote`; no auto-ack; only `is_ai_authored` shadow packs
+  - `maybe_auto_promote_shadow(tenant_id: str) -> dict`: no-op if `not provision.auto_promote`; no auto-ack; only `is_ai_authored` shadow packs
 
 Register `/shadow-packs/auto-promote-tick` and `/shadow-auto-promote-provision` **before** `/{filename}/mode`.
 
@@ -677,9 +677,9 @@ async def test_set_mode_active_409_on_sla(tmp_path, monkeypatch):
     ...
 ```
 
-Reuse the calibration test app pattern (`ALLOW_INSECURE_NO_AUTH`, inject analyst). For `set_pack_mode` also set `RULE_GOVERNANCE_SECRET` if `_require_rule_governance` needs it — read `_require_rule_governance` and match existing rule_api tests.
+Reuse the calibration test app pattern (`ALLOW_INSECURE_NO_AUTH`, inject analyst). For `set_pack_mode` also set `RULE_GOVERNANCE_SECRET` if `_require_rule_governance` needs it. Read `_require_rule_governance` and match existing rule_api tests.
 
-- [ ] **Step 2: Run — expect FAIL** 404 on new routes
+- [ ] **Step 2: Run: expect FAIL** 404 on new routes
 
 - [ ] **Step 3: Implement**
 
@@ -693,9 +693,9 @@ Desk Promote: `require_role("analyst")` (no governance secret). 404 `no_shadow_d
 
 GET shadow-promote-gate must **not** call `maybe_auto_promote_shadow`.
 
-- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py tests/test_shadow_promote_gate_api.py tests/test_leftover_promote_gate.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py tests/test_shadow_promote_gate_api.py tests/test_leftover_promote_gate.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -708,17 +708,17 @@ GET shadow-promote-gate must **not** call `maybe_auto_promote_shadow`.
 
 **Interfaces:**
 - Consumes: `maybe_auto_promote_shadow(tenant_id)`
-- Produces: after successful scout-pack write, if request/body has `tenant_id` (add optional `tenant_id` on `ScoutPackIn`, default `""`) call tick; after y_label persist in reliability merge, call tick. Failures in tick are logged, not raised (promote path is fail-closed on *gates*, not on tick exceptions — still log). Scout response `mode` stays `"shadow"`; file may already be `active` if tick ran.
+- Produces: after successful scout-pack write, if request/body has `tenant_id` (add optional `tenant_id` on `ScoutPackIn`, default `""`) call tick; after y_label persist in reliability merge, call tick. Failures in tick are logged, not raised (promote path is fail-closed on *gates*, not on tick exceptions, still log). Scout response `mode` stays `"shadow"`; file may already be `active` if tick ran.
 
-- [ ] **Step 1: Test** — provision on + green leftover mock; `create_scout_pack` then `get_shadow_packs()` empty / pack file `mode=active`. Second test: GET shadow-promote-gate does not change pack mode.
+- [ ] **Step 1: Test**: provision on + green leftover mock; `create_scout_pack` then `get_shadow_packs()` empty / pack file `mode=active`. Second test: GET shadow-promote-gate does not change pack mode.
 
-- [ ] **Step 2: Run — expect FAIL** pack still shadow
+- [ ] **Step 2: Run: expect FAIL** pack still shadow
 
 - [ ] **Step 3: Call `maybe_auto_promote_shadow` in those two places only**
 
-- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py -q` — expected PASS
+- [ ] **Step 4: Run** `pytest tests/test_shadow_auto_promote.py -q`: expected PASS
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -743,7 +743,7 @@ In `keeps desk core paths…`:
 
 Add: empty `VITE_SIGNAL_API_URL` still shows `/ops/shadow` via `isNavItemVisible("/ops/shadow") === true`.
 
-- [ ] **Step 2: Run** `cd frontend && npm test -- --run src/config/leanNav.test.ts` — expect FAIL
+- [ ] **Step 2: Run** `cd frontend && npm test -- --run src/config/leanNav.test.ts`: expect FAIL
 
 - [ ] **Step 3: Add `"/ops/shadow"` to `LEAN_NAV_PATHS` only.** Do not add it to `EXACT_PATH_PLANE`.
 
@@ -757,13 +757,13 @@ putShadowAutoPromoteProvision(body: { tenant_id: string; auto_promote: boolean; 
 promoteShadowPack(draftId: string, tenantId: string)
 ```
 
-`OpsShadow.tsx`: card above science — extras, SLA count, claimers, helpfulness (`underpowered` or `extra_tp`/`extra_fp`/`fp_rate`), draft `<select>` from `GET` leftover gate / a thin `shadow` names list (if no list API, parse `leftover_promote_gate.draft_id` plus `governance_summary` if already on the page; otherwise add `shadow_drafts: [{name}]` to shadow-promote-gate in Task 4 — do that if missing). Ack button (disabled when this actor is not in `claimers`). Provision: three numbers + `auto_promote` checkbox + version/by. Promote button disabled when `!desk_promote_gate.promote_allowed`. Do not remove L3.
+`OpsShadow.tsx`: card above science: extras, SLA count, claimers, helpfulness (`underpowered` or `extra_tp`/`extra_fp`/`fp_rate`), draft `<select>` from `GET` leftover gate / a thin `shadow` names list (if no list API, parse `leftover_promote_gate.draft_id` plus `governance_summary` if already on the page; otherwise add `shadow_drafts: [{name}]` to shadow-promote-gate in Task 4. Do that if missing). Ack button (disabled when this actor is not in `claimers`). Provision: three numbers + `auto_promote` checkbox + version/by. Promote button disabled when `!desk_promote_gate.promote_allowed`. Do not remove L3.
 
-- [ ] **Step 4: Run** `npm test -- --run src/config/leanNav.test.ts` — expected PASS
+- [ ] **Step 4: Run** `npm test -- --run src/config/leanNav.test.ts`: expected PASS
 
 If the frontend has a running desk, click `/ops/shadow` with empty signal URL and confirm the leftover card (not “plane off”).
 
-- [ ] **Step 5: Commit** — skip unless the user asked.
+- [ ] **Step 5: Commit**: skip unless the user asked.
 
 ---
 
@@ -779,7 +779,7 @@ If the frontend has a running desk, click `/ops/shadow` with empty signal URL an
 
 Register `POST /{filename}/force-live` **before** `/{filename}`.
 
-- [x] **Step 1: Tests** — expect FAIL
+- [x] **Step 1: Tests**: expect FAIL
 
 ```python
 @pytest.mark.asyncio
@@ -799,11 +799,11 @@ async def test_put_mode_active_is_shadow_first(tmp_path):
     # PUT …/mode=active → 409 shadow_first even when leftover gate is green
 ```
 
-- [x] **Step 2: Implement** — `create_rule_pack` / `update_rule_pack` / add-rule set `mode=shadow`. `POST …/force-live` as spec. `set_pack_mode(active)` → 409 `shadow_first`. Scout / assist caller 403 on force-live.
+- [x] **Step 2: Implement**: `create_rule_pack` / `update_rule_pack` / add-rule set `mode=shadow`. `POST …/force-live` as spec. `set_pack_mode(active)` → 409 `shadow_first`. Scout / assist caller 403 on force-live.
 
-- [x] **Step 3: Run** `pytest tests/test_shadow_first_writes.py -q` — expected PASS
+- [x] **Step 3: Run** `pytest tests/test_shadow_first_writes.py -q`: expected PASS
 
-- [ ] **Step 4: Commit** — skip unless the user asked.
+- [ ] **Step 4: Commit**: skip unless the user asked.
 
 ---
 

@@ -12,10 +12,10 @@
 
 - Decision-api / rules remain sole allow/deny. Stored `risk_score` is a feature, not a decision.
 - Do not invent graph, nodes, paths, or scores when the graph plane is down.
-- `0` is a computed clean score. Unscored is `scored: false`, `risk_score: null` — never treat null as 0 in filters or paint.
+- `0` is a computed clean score. Unscored is `scored: false`, `risk_score: null`, never treat null as 0 in filters or paint.
 - Search matches `external_id` only (parameterized contains). No property-bag / Elasticsearch.
 - Empty `q` → `{ "entities": [] }` 200, no scan.
-- Omni-search is case-table only — do not use it as the workspace typeahead.
+- Omni-search is case-table only. Do not use it as the workspace typeahead.
 - No new investigation-agent or Shadow tool.
 - No ontology editor. Schema chips are read-only from `GET /v1/schema/{tenant_id}`.
 - `/graph/mule-path` stays. vis-network Explorer goes away.
@@ -62,7 +62,7 @@
 **Interfaces:**
 - Consumes: `stored_risk_view(props) -> dict`
 - Produces:
-  - `clamp_search_limit(limit: int | None) -> int` — default 20, clamp 1–50
+  - `clamp_search_limit(limit: int | None) -> int`: default 20, clamp 1–50
   - `search_hit_from_node(tenant_id: str, entity_id: str, labels: list[str], props: dict) -> dict` with keys `entity_id`, `tenant_id`, `labels`, `scored`, `risk_score`
   - `async search_entities(tenant_id: str, q: str, label: str | None = None, limit: int = 20) -> list[dict]`
   - HTTP `GET /v1/entities/search` → `{ "entities": [...] }`
@@ -150,7 +150,7 @@ def test_search_http_passes_label_and_clamps(monkeypatch):
 
 Run: `cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py -v`
 
-Expected: FAIL — `search_hit_from_node` / `search_entities` not defined.
+Expected: FAIL: `search_hit_from_node` / `search_entities` not defined.
 
 - [ ] **Step 3: Implement helpers + Neo4j + HTTP**
 
@@ -269,11 +269,11 @@ def test_age_search_cypher_contains_and_tenant():
 
 Run: `cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py::test_janus_search_filters_in_python_not_full_graph_scan_without_tenant tests/test_entity_search.py::test_age_search_cypher_contains_and_tenant -v`
 
-Expected: FAIL — functions missing.
+Expected: FAIL: functions missing.
 
 - [ ] **Step 3: Implement twins**
 
-Janus: follow `_list_entity_risk_top_sync` — iterate `g.V().has("tenant_id", tenant_id)`, skip `GraphRiskStats`, skip empty `external_id`, casefold contains on `external_id`, optional label match (`em.get("label")` or list), sort with scored first then `-risk_score` then id, slice to limit. ponytail: full tenant vertex scan; upgrade = mixed index on `external_id`.
+Janus: follow `_list_entity_risk_top_sync`: iterate `g.V().has("tenant_id", tenant_id)`, skip `GraphRiskStats`, skip empty `external_id`, casefold contains on `external_id`, optional label match (`em.get("label")` or list), sort with scored first then `-risk_score` then id, slice to limit. ponytail: full tenant vertex scan; upgrade = mixed index on `external_id`.
 
 AGE: same Cypher shape as `list_entity_risk_top` with `toLower(n.external_id) CONTAINS toLower($q)` and optional label via params JSON. Pass `q` in params_json (never interpolate the needle into the Cypher string). `LIMIT {int(limit)}` is OK because limit is already clamped.
 
@@ -299,13 +299,13 @@ git commit -m "Search graph entities on Janus and AGE with the same contract."
 **Files:**
 - Create: `frontend/src/domain/graphInvestigation.ts`
 - Test: `frontend/src/domain/graphInvestigation.test.ts`
-- Modify: `frontend/src/api/client.ts` — extend `GraphNode` with optional stored fields (used by the domain module)
+- Modify: `frontend/src/api/client.ts`: extend `GraphNode` with optional stored fields (used by the domain module)
 
 **Interfaces:**
 - Consumes: `GraphNode`, `GraphEdge`, `pruneSubgraphForLinkView`, `LINK_ANALYSIS_MAX_NODES`
 - Produces:
   - `parseGraphWorkspaceParams(sp: URLSearchParams, defaultTenant: string) -> { entityId: string; tenantId: string; depth: number }`
-  - `primaryLabel(labels: string[] | undefined) -> string` — `labels[0] || "Custom"`
+  - `primaryLabel(labels: string[] | undefined) -> string`: `labels[0] || "Custom"`
   - `storedDisplayRisk(node: GraphNode) -> number | null`
   - `typeHistogram(nodes: GraphNode[]) -> Array<{ label: string; count: number }>`
   - `filterWorkspaceNodes(nodes, edges, opts) -> { nodes; edges }`
@@ -460,7 +460,7 @@ describe("typeHistogram", () => {
 
 Run: `cd frontend && npm test -- src/domain/graphInvestigation.test.ts`
 
-Expected: FAIL — module missing.
+Expected: FAIL: module missing.
 
 - [ ] **Step 3: Implement `graphInvestigation.ts`**
 
@@ -634,7 +634,7 @@ git commit -m "Expose graph entity search on OpenAPI, client, and mocks."
 
 - [ ] **Step 1: Force-graph extras**
 
-Add optional `highlightIds?: Set<string>` and `onNodeDoubleClick?: LinkAnalysisNodeSelectHandler`. In `nodeCanvasObject`, if `highlightIds` is non-empty and the node id is in the set, draw a wider stroke (`#60a5fa`). Wire `onNodeRightClick` **not** used — use `onNodeClick` existing; add:
+Add optional `highlightIds?: Set<string>` and `onNodeDoubleClick?: LinkAnalysisNodeSelectHandler`. In `nodeCanvasObject`, if `highlightIds` is non-empty and the node id is in the set, draw a wider stroke (`#60a5fa`). Wire `onNodeRightClick` **not** used. Use `onNodeClick` existing; add:
 
 ```ts
 onNodeDblClick={
@@ -657,7 +657,7 @@ function RedirectLinkAnalysisToGraph() {
 }
 ```
 
-Replace `<Route path="/graph" element={<GraphExplorer />} />` with `GraphInvestigationPage`. Replace link-analysis route with `RedirectLinkAnalysisToGraph`. Drop `LinkAnalysisPage` lazy import. Nav item: `{ to: "/graph", label: "Graph", module: "graph" }` — remove the “Link analysis (2D)” item.
+Replace `<Route path="/graph" element={<GraphExplorer />} />` with `GraphInvestigationPage`. Replace link-analysis route with `RedirectLinkAnalysisToGraph`. Drop `LinkAnalysisPage` lazy import. Nav item: `{ to: "/graph", label: "Graph", module: "graph" }`. Remove the “Link analysis (2D)” item.
 
 Command palette + accessModuleCatalog: label **Graph**.
 
@@ -680,7 +680,7 @@ Reuse Explorer’s `NODE_COLORS` / failover copy. Keep a Mule path link to `/gra
 
 If schema GET fails, chips = `["Person","Account","Device","Payment","Email","IP","Address"]`.
 
-- [ ] **Step 4: Delete old pages** after App compiles with the new import. Grep `GraphExplorer` / `LinkAnalysisPage` — only App should have referenced them; fix any leftover imports.
+- [ ] **Step 4: Delete old pages** after App compiles with the new import. Grep `GraphExplorer` / `LinkAnalysisPage`. Only App should have referenced them; fix any leftover imports.
 
 - [ ] **Step 5: Run domain tests again + frontend test suite slice**
 

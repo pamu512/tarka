@@ -154,7 +154,7 @@ export function rankFeatureImportanceFromAudit(
   const leadLabel = lead?.label ?? "composite risk";
   const lead_rationale =
     items.length > 0
-      ? `**${leadLabel}** is the strongest explanatory driver for this ${body.decision} at ${body.risk_score.toFixed(1)}/100 — use the chart for relative weighting across velocity, graph, integrity, and policy signals.`
+      ? `**${leadLabel}** is the strongest explanatory driver for this ${body.decision} at ${body.risk_score.toFixed(1)}/100, use the chart for relative weighting across velocity, graph, integrity, and policy signals.`
       : `Insufficient structured drivers on the audit to rank feature importance for trace ${body.trace_id}.`;
 
   return {

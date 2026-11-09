@@ -11,9 +11,9 @@ Velocity reads and canonical feature snapshots over **Redis-backed aggregates** 
 
 | Concern | Entry point |
 |---------|-------------|
-| Multi-window velocity | `POST /v1/velocity/query` — see [API Reference — Feature Service](../api-reference.md#feature-service) |
-| Parity gate (OSS #48) | `POST /v1/internal/parity/verify` — compare live counters to `expected` within `epsilon` (**200** vs **409** drift) |
-| Canonical snapshot | `POST /v1/snapshot` — feature vector for ML/rules enrichment |
+| Multi-window velocity | `POST /v1/velocity/query`, see [API Reference: Feature Service](../api-reference.md#feature-service) |
+| Parity gate (OSS #48) | `POST /v1/internal/parity/verify`, compare live counters to `expected` within `epsilon` (**200** vs **409** drift) |
+| Canonical snapshot | `POST /v1/snapshot`, feature vector for ML/rules enrichment |
 | SLO / health | `GET /v1/slo`, `GET /v1/health` |
 
 !!! note "Contract"

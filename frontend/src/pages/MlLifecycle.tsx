@@ -80,7 +80,7 @@ export default function MlLifecycle() {
       <div className="space-y-1">
         <PageTitle module="analytics">ML lifecycle</PageTitle>
         <p className="text-sm text-gray-500">
-          Registry, approval, activation, traffic split, rollback, and lineage — same surface as{" "}
+          Registry, approval, activation, traffic split, rollback, and lineage, same surface as{" "}
           <span className="font-mono text-xs text-gray-400">ml-scoring /v1/models/*</span>.
         </p>
       </div>

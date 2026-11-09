@@ -9,7 +9,7 @@
 
 McNemar going green must not promote into a burning leftover queue **or** a draft whose extra reviews resolve as false positives. A named shadow draft can become live **only** when desk science, leftover **cost**, and leftover-extra **helpfulness** pass.
 
-Scout / the LLM **cannot** promote. After the user’s **first review** provisions auto-promote, decision-api may flip `mode=active` when those **current** user gates pass. If the user later redefines the gates, the next auto-promote uses the new bar — not the AI-stamped one, not the old provision. Default is off. Trend/Wasm `never_auto_promote` is unchanged.
+Scout / the LLM **cannot** promote. After the user’s **first review** provisions auto-promote, decision-api may flip `mode=active` when those **current** user gates pass. If the user later redefines the gates, the next auto-promote uses the new bar, not the AI-stamped one, not the old provision. Default is off. Trend/Wasm `never_auto_promote` is unchanged.
 
 ## Scoring lock
 
@@ -54,8 +54,8 @@ This slice is leftover-lead HIL on Observe promote: cost **and** “did the extr
 
 ## Next specs (not this implementation)
 
-1. [Observe brain wire](./2026-08-31-observe-brain-wire-design.md) — Scout / recommender must read leftover-extra helpfulness before publish; kill FP drafts. **After this spec ships.**
-2. [Live-rule slip](./2026-08-31-live-rule-slip-design.md) — host ping + xor park on the same GET/tick. **After this spec ships.** Sibling of brain wire; does not rewrite it.
+1. [Observe brain wire](./2026-08-31-observe-brain-wire-design.md): Scout / recommender must read leftover-extra helpfulness before publish; kill FP drafts. **After this spec ships.**
+2. [Live-rule slip](./2026-08-31-live-rule-slip-design.md): host ping + xor park on the same GET/tick. **After this spec ships.** Sibling of brain wire; does not rewrite it.
 3. B: knobs on the named draft (`score_delta` 5–30, leftover destination `mint` / `none`), then Promote. Same page.
 
 ---
@@ -252,7 +252,7 @@ Scout still cannot call desk Promote or set `mode=active`.
 Decision-api `maybe_auto_promote_shadow(tenant_id)`:
 
 1. Load provision. If missing / `auto_promote` is false → no-op, reason `not_provisioned`.
-2. Recompute leftover_promote_gate **using provision numbers** + desk science. If any blocker → no-op (including `leftover_claimer_ack_required` — no auto-ack).
+2. Recompute leftover_promote_gate **using provision numbers** + desk science. If any blocker → no-op (including `leftover_claimer_ack_required`, no auto-ack).
 3. For each loaded pack with `mode=shadow` and `is_ai_authored=true`, same write as desk Promote (`mode=active`, `load_rules()`, rule-change `auto_promote_shadow_pack` with `provision.version`, `actor=auto_promote`).
 4. Human-authored shadow canaries are not auto-promoted.
 
@@ -311,7 +311,7 @@ Desk: Override is a second control on Observe, smaller than Promote, reason requ
 - Add `/ops/shadow` to `LEAN_NAV_PATHS` and `isProductionSurfacePath`.
 - `planeForPath("/ops/shadow")` stays **null** (not `signals`). Visible when lean is on, even if `VITE_SIGNAL_API_URL` is empty.
 - `/leftovers` visibility unchanged (graph on).
-- Page: leftover card above existing science — extras, SLA count, claimers, **helpfulness**, draft picker, Ack, Promote, **first-review provision** (the three numbers + `auto_promote` checkbox + last `version` / `provisioned_by`). Optional “use scout proposed gates” copies `evidence.proposed_gates` into the form; it does not save until the user PUTs.
+- Page: leftover card above existing science: extras, SLA count, claimers, **helpfulness**, draft picker, Ack, Promote, **first-review provision** (the three numbers + `auto_promote` checkbox + last `version` / `provisioned_by`). Optional “use scout proposed gates” copies `evidence.proposed_gates` into the form; it does not save until the user PUTs.
 - Promote stays available when `auto_promote` is false. When true, Promote is still valid (human can force the same path). Disabled when `desk_promote_gate.promote_allowed` is false. Show blockers as text, not a second CRM.
 - Do not port L3 off the page in this slice.
 

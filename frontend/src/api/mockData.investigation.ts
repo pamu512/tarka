@@ -19,7 +19,7 @@ export type InvestigationMockRequest = {
 /** Narrative + follow-ups from platform audit rows (Admin security feed). */
 function buildAuditAnalysisParagraph(events: AnyObj[]): string {
   const lines: string[] = [
-    "**Platform audit context** — recent user actions from the security/audit feed (see tool `get_platform_audit_feed`).",
+    "**Platform audit context**: recent user actions from the security/audit feed (see tool `get_platform_audit_feed`).",
   ];
   const critical = events.filter((e) =>
     (e.flags as AnyObj[] | undefined)?.some((f) => f.severity === "critical"),
@@ -281,7 +281,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
 
   if (t.includes("/skill")) {
     return finalizeInvestigationMockReply(
-      "I see a **/skill**-style message in the chat transcript. The skill catalog is rendered locally in the UI—open the preset list or type `/skill` in the composer for ids. I can still help interpret any skill output once you run it.",
+      "I see a **/skill**-style message in the chat transcript. The skill catalog is rendered locally in the UI, open the preset list or type `/skill` in the composer for ids. I can still help interpret any skill output once you run it.",
       [],
       body,
       deps,
@@ -291,7 +291,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   if (t.includes("audit") || t.includes("platform log") || t.includes("user actions") || t.includes("who changed")) {
     return finalizeInvestigationMockReply(
       [
-        "**Audit-focused answer (mock)** — Cross-check the **platform audit feed** for who changed rules, who hit graph heavily, and any **guardrail** or **critical** flags.",
+        "**Audit-focused answer (mock)**: Cross-check the **platform audit feed** for who changed rules, who hit graph heavily, and any **guardrail** or **critical** flags.",
         "Pair that with **get_decision_audit** for the case trace and **list_cases** for queue pressure so actions are grounded.",
       ].join("\n\n"),
       [toolAudit],
@@ -302,7 +302,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   if (t.includes("batch") || t.includes("cohort") || t.includes("export")) {
     return finalizeInvestigationMockReply(
       [
-        "**Batch / cohort (mock)** — Segment by score decile, channel, and entity age first; watch for selection bias after marketing pushes.",
+        "**Batch / cohort (mock)**: Segment by score decile, channel, and entity age first; watch for selection bias after marketing pushes.",
         "1. Pull decisions + case outcomes for the window; join on `entity_id`.",
         "2. Hypotheses to test: velocity drift, geo concentration, new device ratio vs baseline.",
         "3. Next: run a small labeled review set before changing thresholds.",
@@ -315,7 +315,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   }
   if (t.includes("a/b") || t.includes("ab test") || t.includes("shadow") || t.includes("experiment")) {
     return finalizeInvestigationMockReply(
-      "**Experiment readout (mock)** — Hold segment mix constant. Primary: review rate & estimated $ at risk; guardrail: deny false-positive proxy. Run at least one full weekly cycle before promote; pre-define rollback if review queue >15% over baseline.",
+      "**Experiment readout (mock)**: Hold segment mix constant. Primary: review rate & estimated $ at risk; guardrail: deny false-positive proxy. Run at least one full weekly cycle before promote; pre-define rollback if review queue >15% over baseline.",
       [toolAudit],
       body,
       deps,
@@ -323,7 +323,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   }
   if (t.includes("report") || t.includes("monitoring") || t.includes("weekly") || t.includes("digest")) {
     return finalizeInvestigationMockReply(
-      "**Monitoring report skeleton (mock)** — (1) Volume & decision mix (2) SLA / aging (3) Top entities (4) Rule leaders (5) Graph rings called out (6) Experiments (7) Action items. Replace date placeholders before sharing.",
+      "**Monitoring report skeleton (mock)**: (1) Volume & decision mix (2) SLA / aging (3) Top entities (4) Rule leaders (5) Graph rings called out (6) Experiments (7) Action items. Replace date placeholders before sharing.",
       [],
       body,
       deps,
@@ -331,7 +331,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   }
   if (t.includes("rule") && (t.includes("gap") || t.includes("improve") || t.includes("opa"))) {
     return finalizeInvestigationMockReply(
-      "**Rule-base ideas (mock, advisory)** — Tighten velocity windows for high-risk channels; add list cross-check for devices seen on >3 entities in 24h; tag VPN + emulator combo for manual review. Validate via replay before production.",
+      "**Rule-base ideas (mock, advisory)**: Tighten velocity windows for high-risk channels; add list cross-check for devices seen on >3 entities in 24h; tag VPN + emulator combo for manual review. Validate via replay before production.",
       [toolAudit, toolGraph],
       body,
       deps,
@@ -342,7 +342,7 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
       [
         "**TL;DR (mock)**",
         "• Case signals point to scripted/automation + hostile network path.",
-        "• Decision: review — velocity_guard fired; ML score elevated.",
+        "• Decision: review, velocity_guard fired; ML score elevated.",
         "• Next: expand graph 2-hop, confirm mule links, document for SAR if pattern holds.",
       ].join("\n"),
       [toolCase, toolAudit],
@@ -352,14 +352,14 @@ function mockInvestigationChatResponse(body: AnyObj, deps: InvestigationMockDeps
   }
 
   const batchHint = batchId
-    ? `_Active **batch_id** (\`${batchId.slice(0, 8)}…\`) — live agent would use **get_batch_profile**, **query_batch_rows**, **aggregate_batch_column** on this upload._`
-    : "_No batch file attached — use **Upload batch** (CSV / JSON / Excel) for tabular analysis._";
+    ? `_Active **batch_id** (\`${batchId.slice(0, 8)}…\`), live agent would use **get_batch_profile**, **query_batch_rows**, **aggregate_batch_column** on this upload._`
+    : "_No batch file attached, use **Upload batch** (CSV / JSON / Excel) for tabular analysis._";
 
   return finalizeInvestigationMockReply(
     [
-      "**Copilot (mock)** — I’m running in **demo mode** without the live investigation agent.",
+      "**Copilot (mock)**: I’m running in **demo mode** without the live investigation agent.",
       "Your message is in context; typical next steps: pull **case + audit**, then **graph neighborhood**, then compare **velocity vs peers**.",
-      caseId ? `_Linked case: \`${caseId.slice(0, 12)}…\`_` : "_No case_id in URL — open from a case for tighter context._",
+      caseId ? `_Linked case: \`${caseId.slice(0, 12)}…\`_` : "_No case_id in URL, open from a case for tighter context._",
       batchHint,
       "",
       "_Synthetic tool rows below illustrate cross-module pulls (Cases, Decisions, Graph, Platform audit)._",
@@ -382,7 +382,7 @@ export function getInvestigationMockResponse(
       profile: "global",
       label: "Global",
       references: [
-        "ISO/IEC 42001 (AI management systems — optional certification path)",
+        "ISO/IEC 42001 (AI management systems, optional certification path)",
         "OECD AI Principles",
         "Contractual and local statutory requirements (varies by country)",
       ],
@@ -429,10 +429,10 @@ export function getInvestigationMockResponse(
         { id: "collusion_fake_accounts", title: "Collusion, fake & duplicate accounts", vertical: "platform_abuse" },
         { id: "coupon_instrument_abuse", title: "Coupon, stacking & instrument-led promo abuse", vertical: "ecommerce_promo" },
         { id: "disputes_chargebacks", title: "Disputes & chargebacks (lifecycle + evidence)", vertical: "payments_disputes" },
-        { id: "fulfillment_inrb_snad", title: "Fulfillment — INR, SNAD, damage, theft claims", vertical: "ecommerce_logistics" },
-        { id: "marketplace_cod_courier_hold", title: "Marketplace — COD / courier spoof / payout hold", vertical: "marketplace_offline_payment" },
+        { id: "fulfillment_inrb_snad", title: "Fulfillment: INR, SNAD, damage, theft claims", vertical: "ecommerce_logistics" },
+        { id: "marketplace_cod_courier_hold", title: "Marketplace: COD / courier spoof / payout hold", vertical: "marketplace_offline_payment" },
         { id: "mule_layering", title: "Money mule & layering indicators", vertical: "payments_fincrime" },
-        { id: "payments_first_party", title: "Payments — first-party / friendly fraud", vertical: "payments" },
+        { id: "payments_first_party", title: "Payments: first-party / friendly fraud", vertical: "payments" },
         { id: "refund_promo_abuse", title: "Refund & promo abuse", vertical: "ecommerce_food_delivery" },
         { id: "scheme_monitoring_merchant", title: "Scheme-style monitoring (fraud + disputes + testing)", vertical: "payments_acquiring" },
       ],
@@ -471,7 +471,7 @@ export function getInvestigationMockResponse(
       summary_confidence: {
         level: claims.length ? "medium" : "low",
         score: claims.length ? 0.5 : 0,
-        notes: ["Offline mock — connect investigation-agent for live summaries."],
+        notes: ["Offline mock, connect investigation-agent for live summaries."],
       },
       claim_confidence_summary: {
         high: 0,

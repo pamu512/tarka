@@ -33,9 +33,9 @@ export function initialCapabilityStatus(): CapabilityStatus {
 /** Amber warnings when a capability is down (not missing/n/a). */
 export function capabilityDownWarnings(status: CapabilityStatus): string[] {
   const out: string[] = [];
-  if (status.audit === "down") out.push("Decision audit unavailable — explain panels may be empty");
+  if (status.audit === "down") out.push("Decision audit unavailable, explain panels may be empty");
   if (status.graph === "down") out.push("Graph risk unavailable — topology signals cannot be trusted this session");
-  if (status.calibration === "down") out.push("Calibration posture unavailable — do not treat scores as calibrated");
+  if (status.calibration === "down") out.push("Calibration posture unavailable, do not treat scores as calibrated");
   return out;
 }
 

@@ -24,7 +24,7 @@ Embedding transport policy in the engine couples **two different rate-of-change 
 
 We standardize on an **Envoy sidecar** (or equivalent mesh data plane) for **retries, timeouts, circuit breaking, and mTLS** on paths that originate from or terminate on services that host the Rust engine, rather than implementing those behaviors as first-class features inside `tarka-core`.
 
-The Rust engine process should assume **stable, local, or already-authenticated** upstreams where practical (e.g. loopback to Envoy), and should remain **focused on rule execution**—parsing inputs, evaluating verified rules, emitting manifests—without owning enterprise-grade transport stacks.
+The Rust engine process should assume **stable, local, or already-authenticated** upstreams where practical (e.g. loopback to Envoy), and should remain **focused on rule execution** (parsing inputs, evaluating verified rules, emitting manifests) without owning enterprise-grade transport stacks.
 
 Envoy is the **default reference** because it is widely deployed, has mature xDS configuration, and separates L7 policy from application code; teams may substitute another mesh proxy only if it meets the same operational bar (mTLS, bounded retries, structured telemetry) and is documented as a deliberate deviation.
 
@@ -38,9 +38,9 @@ Envoy is the **default reference** because it is widely deployed, has mature xDS
 
 ### Negative
 
-- **Operational overhead** — sidecars consume memory/CPU; clusters must size pods accordingly and monitor Envoy config validity.
-- **Two-hop debugging** — failures may require correlating engine logs with Envoy access logs and upstream health; runbooks must document that split.
-- **Local dev parity** — developers need a documented way to run Envoy (or a slim equivalent) beside the engine, not only “engine binary only” for integration tests.
+- **Operational overhead**: sidecars consume memory/CPU; clusters must size pods accordingly and monitor Envoy config validity.
+- **Two-hop debugging**: failures may require correlating engine logs with Envoy access logs and upstream health; runbooks must document that split.
+- **Local dev parity**: developers need a documented way to run Envoy (or a slim equivalent) beside the engine, not only “engine binary only” for integration tests.
 
 ### Neutral
 

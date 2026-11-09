@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md) — capacity, health, what pages. This page is the broader profile / Helm catalog.
+**SRE default (Linux VM + Compose desk):** [SRE Compose profiles](../operations/sre-compose-profiles.md): capacity, health, what pages. This page is the broader profile / Helm catalog.
 
 **Production secrets:** [secrets matrix](../../contracts/production-install-v1.md) · [rotation](./production-secrets-rotation.md). G0–G2 contract + honesty/digest CI stay; this page does not replace them.
 
@@ -8,7 +8,7 @@
 **Ports:** [service-ports](./service-ports.md) · **Evaluate knobs:** [evaluation-step-controls](./evaluation-step-controls.md)  
 **Backup / restore (SoR Postgres + AGE Hunt note):** [production-backup-restore](./production-backup-restore.md)  
 **Upgrade / rollback:** [production-upgrade](./production-upgrade.md)  
-**Soak / GitLab-grade gate (G9):** [production-install-soak-checklist](./production-install-soak-checklist.md) — claim allowed only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Grade contract: [production-install-v1](../../contracts/production-install-v1.md). Buyer-facing support: [SUPPORT.md](../../../SUPPORT.md). Named internal-lab start: [internal-lab binder](../../pilots/internal-lab/README.md) · `scripts/oss/soak_backup_upgrade_dry_run.py` (G6/G7 dating). Not a grade claim.
+**Soak / GitLab-grade gate (G9):** [production-install-soak-checklist](./production-install-soak-checklist.md): claim allowed only after G0–G8 **and** a named-pilot sign-off. Not primary decisioner. Grade contract: [production-install-v1](../../contracts/production-install-v1.md). Buyer-facing support: [SUPPORT.md](../../../SUPPORT.md). Named internal-lab start: [internal-lab binder](../../pilots/internal-lab/README.md) · `scripts/oss/soak_backup_upgrade_dry_run.py` (G6/G7 dating). Not a grade claim.
 
 ---
 
@@ -35,33 +35,33 @@ The `infra/deploy/docker-compose.yml` file uses Compose profiles so you can pick
 
 ### Usage Examples
 
-**Core only** — minimum viable fraud scoring:
+**Core only:** minimum viable fraud scoring:
 
 ```bash
 cd infra/deploy
 docker compose --profile core up -d
 ```
 
-**Core + graph** — scoring with graph analytics (cases live on **core-api** at `/cases`):
+**Core + graph:** scoring with graph analytics (cases live on **core-api** at `/cases`):
 
 ```bash
 docker compose --profile core --profile graph up -d
 ```
 
-**Core + ML** — scoring with machine learning:
+**Core + ML:** scoring with machine learning:
 
 ```bash
 docker compose --profile core --profile ml up -d
 ```
 
-**Full stack** — everything:
+**Full stack:** everything:
 
 ```bash
 cp .env.example .env   # configure inter-service URLs
 docker compose --profile full up -d
 ```
 
-**Collaboration chat (Slack / Teams / Lark)** — enable **`agent`**; the **chat_bridge** runs **inside investigation-agent** on **`/v1/chat/…`**. Use **`core`** (and **`graph`** if you need graph-backed tools). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-agent-integration-contract.md)**.
+**Collaboration chat (Slack / Teams / Lark):** enable **`agent`**; the **chat_bridge** runs **inside investigation-agent** on **`/v1/chat/…`**. Use **`core`** (and **`graph`** if you need graph-backed tools). Operator wiring and secrets: **[Collaboration chat & cloud](./investigation-agent-integration-contract.md)**.
 
 ### Inter-Service Configuration
 
@@ -254,19 +254,19 @@ helm upgrade --install tarka infra/deploy/helm/fraud-stack \
 
 Digest-to-digest upgrade, evaluate verify, rollback, schema expand/contract, pack fail-closed, kill switches: [production-upgrade.md](production-upgrade.md). Grade contract: [production-install-v1](../../contracts/production-install-v1.md). Backup drill: [production-backup-restore.md](production-backup-restore.md).
 
-CI (`cloud-preset-smoke` + `infra/scripts/ci/helm_prod_digest_honesty.py --self-check`) **fails** an empty digest on the prod-on-k8s honesty / publish path. `--allow-empty-digest` remains only so placeholder `helm template` still works — that render is not a grade.
+CI (`cloud-preset-smoke` + `infra/scripts/ci/helm_prod_digest_honesty.py --self-check`) **fails** an empty digest on the prod-on-k8s honesty / publish path. `--allow-empty-digest` remains only so placeholder `helm template` still works. That render is not a grade.
 
-Desk SSO is first-class Helm values: `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` (chart `values.yaml` is SoT). Empty `issuer` keeps API keys as the machine path (`GET /auth/config` returns `oidc_enabled: false`). Do not set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` / `OIDC_ROLES_CLAIM` via `coreApi.extraEnv` unless you are on a leftover overlay — first-class keys win when `issuer` is set. `OIDC_CLIENT_ID` stays `extraEnv`; `OIDC_CLIENT_SECRET` is the `global.appSecretsName` key. When `issuer` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl` — `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
+Desk SSO is first-class Helm values: `coreApi.oidc.{issuer,audience,jwksUrl,rolesClaim}` (chart `values.yaml` is SoT). Empty `issuer` keeps API keys as the machine path (`GET /auth/config` returns `oidc_enabled: false`). Do not set `OIDC_ISSUER` / `OIDC_JWKS_URL` / `OIDC_AUDIENCE` / `OIDC_ROLES_CLAIM` via `coreApi.extraEnv` unless you are on a leftover overlay. First-class keys win when `issuer` is set. `OIDC_CLIENT_ID` stays `extraEnv`; `OIDC_CLIENT_SECRET` is the `global.appSecretsName` key. When `issuer` is set on a production profile or `global.environment=prod`, Helm refuses to render unless Redis is actually available (in-cluster `redis.enabled`, or a resolved `global.externalServices.redis.redisUrl`. `__REDIS_URL__` placeholders fail). Same rule as `TARKA_DEPLOYMENT_PROFILE=production` + issuer in Python. Helm prod also requires `CASE_API_PRODUCTION_MODE` (case-api refuses sqlite fallback and the default evidence HMAC). Probe paths on core-api are `/decisions/v1/health` and `/decisions/v1/ready`.
 
-Optional decision-api circuit knobs `ANUMANA_SIGNALS_*` / `ASYNC_OSINT_REDIS_*` are first-class under `coreApi.circuitSettings` (Settings remains SoT; chart defaults match Settings: `0.08` / `1` / `5` / `2.0`). Both planes are **`on_failure=SKIP`** (soft-fail / optional), not required HA; empty URL = plane off. CI asserts all eight keys appear on the rendered core-api env — see [evaluation-step-controls](./evaluation-step-controls.md).
+Optional decision-api circuit knobs `ANUMANA_SIGNALS_*` / `ASYNC_OSINT_REDIS_*` are first-class under `coreApi.circuitSettings` (Settings remains SoT; chart defaults match Settings: `0.08` / `1` / `5` / `2.0`). Both planes are **`on_failure=SKIP`** (soft-fail / optional), not required HA; empty URL = plane off. CI asserts all eight keys appear on the rendered core-api env, see [evaluation-step-controls](./evaluation-step-controls.md).
 
 When the production profile is on (`global.environment=prod` or `TARKA_DEPLOYMENT_PROFILE=production`), the chart emits a default-deny NetworkPolicy plus allow rules for kube-dns, same-namespace labeled pods, frontend to core-api / signal-api / investigation-agent (nginx.conf ports), core-api to in-cluster postgres/redis/nats when those Services exist, TCP 5432/6379 egress for managed data stores (tighten with a VPC ipBlock if you need CIDRs), and HTTPS 443 from core-api when `coreApi.oidc.issuer` is set (or leftover `coreApi.extraEnv` `OIDC_ISSUER`). `prod-on-k8s` sets `global.networkPolicy.enabled: true`. Opt out with `--set global.networkPolicy.enabled=false` without dropping other prod fail-closes. Lite / default values emit no NetworkPolicy. Ingress from another namespace is operator-owned. Mesh / Istio stays optional.
-Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. The documented generate command above **requires** `--digest-map` so values contain `sha256:<64-hex>` pins (`image: repo@sha256:…`; tag is ignored when digest is set). An empty digest on the committed preset is only so CI can `--allow-empty-digest` and `helm template` placeholders — that is **not** immutable and **not** a GitLab-grade claim.
+Prod forbids `:latest` but `1.3.0-beta` is still a mutable tag. The documented generate command above **requires** `--digest-map` so values contain `sha256:<64-hex>` pins (`image: repo@sha256:…`; tag is ignored when digest is set). An empty digest on the committed preset is only so CI can `--allow-empty-digest` and `helm template` placeholders. That is **not** immutable and **not** a GitLab-grade claim.
 The same production profile emits Prometheus Operator `ServiceMonitor` objects for each enabled HTTP API that already exposes `/metrics` on its Service port (core-api `:8000`, signal-api `:8004`, investigation-agent `:8006`; 30s scrape). `prod-on-k8s` sets `global.serviceMonitor.enabled: true`. Opt out with `--set global.serviceMonitor.enabled=false`. Default/dev and `lite-on-k8s` emit none. The cluster must already run Prometheus Operator. Thin scrape + example evaluate 5xx/latency alerts: [production-observability.md](production-observability.md).
 
 ### Enterprise desk (Helm)
 
-`enterprise-desk-on-k8s` is the thin Hunt desk on buyer SoR Postgres + Redis (AGE sidecar). Same OIDC SoT as prod-on-k8s: `coreApi.oidc.*`. Empty issuer is valid. Frontend is on; still beta — not GitLab-grade.
+`enterprise-desk-on-k8s` is the thin Hunt desk on buyer SoR Postgres + Redis (AGE sidecar). Same OIDC SoT as prod-on-k8s: `coreApi.oidc.*`. Empty issuer is valid. Frontend is on; still beta, not GitLab-grade.
 
 ```yaml
 coreApi:
@@ -508,8 +508,8 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 - Set `API_KEYS` on all services with strong, unique keys
 - Rotate API keys on a regular schedule
 - Use separate API keys for each client application
-- Desk SSO is a core-api BFF. Set `coreApi.oidc.issuer` / `audience` / `jwksUrl` / `rolesClaim` in Helm values (SoT). Set `OIDC_CLIENT_ID` via `coreApi.extraEnv`. Put `OIDC_CLIENT_SECRET` on `global.appSecretsName` under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback` — that URI is operator IdP configuration, not a Helm value. Empty issuer = API-key / local mode (`GET /auth/config` returns `oidc_enabled: false`). Production + a non-empty issuer requires a resolved `REDIS_URL` (Helm fail at render; process refuse at start) — no in-process OIDC state fallback. Tarka does not ship an IdP and does not require SAML.
-- Roles claim → desk roles (no second policy language). `coreApi.oidc.rolesClaim` (default `roles`) is the JWT claim name. Claim values **are** the desk role strings: `RiskArchitect` (visual builder, field map, calibration-window override on Promote) vs `FraudAnalyst` (investigator — Hunt / leftovers; does not author rules). API RBAC hierarchy remains `admin` / `analyst` / `viewer` / `service` on the same claim when you use those strings. Do not invent a second mapping DSL.
+- Desk SSO is a core-api BFF. Set `coreApi.oidc.issuer` / `audience` / `jwksUrl` / `rolesClaim` in Helm values (SoT). Set `OIDC_CLIENT_ID` via `coreApi.extraEnv`. Put `OIDC_CLIENT_SECRET` on `global.appSecretsName` under key `OIDC_CLIENT_SECRET`. Register the IdP redirect URI as `{desk-origin}/api/auth/callback`. That URI is operator IdP configuration, not a Helm value. Empty issuer = API-key / local mode (`GET /auth/config` returns `oidc_enabled: false`). Production + a non-empty issuer requires a resolved `REDIS_URL` (Helm fail at render; process refuse at start), no in-process OIDC state fallback. Tarka does not ship an IdP and does not require SAML.
+- Roles claim → desk roles (no second policy language). `coreApi.oidc.rolesClaim` (default `roles`) is the JWT claim name. Claim values **are** the desk role strings: `RiskArchitect` (visual builder, field map, calibration-window override on Promote) vs `FraudAnalyst` (investigator: Hunt / leftovers; does not author rules). API RBAC hierarchy remains `admin` / `analyst` / `viewer` / `service` on the same claim when you use those strings. Do not invent a second mapping DSL.
 - Optional maker-checker for **Promote** is install governance only (operator two-person process / existing `RULE_FORCE_LIVE_TWO_PERSON` for force-live). It is not a second product policy language and is not required for API-key machines. See [Install governance](#install-governance) below. Grade claim SoT: [production-install-v1](../../contracts/production-install-v1.md).
 
 ### Network
@@ -535,7 +535,7 @@ The Decision API is the most latency-sensitive service. Scale horizontally behin
 
 ### Monitoring
 
-- All services expose `/v1/health` — configure liveness probes
+- All services expose `/v1/health`. Configure liveness probes
 - Prometheus metrics are available via the observability module
 - Set up alerts for high error rates and latency spikes
 - Monitor NATS consumer lag for the event ingest pipeline

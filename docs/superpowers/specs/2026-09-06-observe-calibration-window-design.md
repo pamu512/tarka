@@ -1,7 +1,7 @@
 # Observe calibration window (P-obs1)
 
 **Date:** 2026-09-06  
-**Status:** Design — cut locked in chat (`go`).  
+**Status:** Design: cut locked in chat (`go`).  
 **Branch:** `honesty/observe-calibration-registry` stacked on P-reg1 (`#378` / `feat/desk-demo-vs-product`)  
 **Related:** `leftover_promote_gate.py`, `GET /v1/calibration/shadow-promote-gate`, Observe `/ops/shadow`
 

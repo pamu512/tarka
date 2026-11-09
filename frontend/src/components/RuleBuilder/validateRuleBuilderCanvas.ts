@@ -75,7 +75,7 @@ export function validateCanvasForAstSave(nodes: Node[], edges: Edge[]): CanvasVa
     if (n.type === NODE_TYPES.logicAnd || n.type === NODE_TYPES.logicOr) {
       const inc = getIncomers(n, nodes, edges);
       if (inc.length === 0) {
-        push(errors, `${n.type === NODE_TYPES.logicAnd ? "AND" : "OR"} node “${n.id}” has no inputs — connect at least one branch before saving.`);
+        push(errors, `${n.type === NODE_TYPES.logicAnd ? "AND" : "OR"} node “${n.id}” has no inputs, connect at least one branch before saving.`);
       }
     }
   }

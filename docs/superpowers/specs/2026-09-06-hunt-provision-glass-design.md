@@ -15,7 +15,7 @@
 - Empty plane URL = that plane off.
 - Demo compose unchanged.
 - No third-party desk names. Do not call Tarka OSS.
-- Helm prod-on-k8s keeps frontend OFF — Hunt chrome is the compose desk bake.
+- Helm prod-on-k8s keeps frontend OFF. Hunt chrome is the compose desk bake.
 
 ## Design
 
@@ -23,7 +23,7 @@
 
 Product compose bakes `VITE_HUNT_ENABLED` from `TARKA_HUNT_ENABLED`. `make product` copies `hunt.enabled` from the example file into that env when unset.
 
-Loader `hunt_enabled()` already reads `TARKA_HUNT_ENABLED` then `hunt.enabled`. File-only flip without a desk rebuild does not change baked chrome — limitation line says so.
+Loader `hunt_enabled()` already reads `TARKA_HUNT_ENABLED` then `hunt.enabled`. File-only flip without a desk rebuild does not change baked chrome. Limitation line says so.
 
 ## Non-goals
 

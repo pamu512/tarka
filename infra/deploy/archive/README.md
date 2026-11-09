@@ -25,6 +25,6 @@ Repo-root `docker-compose.yml` includes the desk pair so `docker compose up` is 
 
 Left in place (required CI / scripts still invoke the old path):
 
-- `infra/deploy/docker-compose.graph-env.yml` — `full_stack_smoke.py`
-- `infra/deploy/docker-compose.micro.yml` + `docker-compose.micro.e2e.yml` — ops-qa-desk / start-micro
-- repo-root `docker-compose.local.yml` — optional Ollama overlay
+- `infra/deploy/docker-compose.graph-env.yml`: `full_stack_smoke.py`
+- `infra/deploy/docker-compose.micro.yml` + `docker-compose.micro.e2e.yml`: ops-qa-desk / start-micro
+- repo-root `docker-compose.local.yml`: optional Ollama overlay

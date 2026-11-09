@@ -26,11 +26,11 @@ Local Python AST evaluation remains the default when `RULE_ENGINE_COMPAT_MODE` i
 `RULE_EVAL_BACKEND=python`, `RULE_EVAL_DUAL_RUN`, and `RULE_ENGINE_COMPAT_MODE` have
 zero runtime callers.
 
-## Still used (in-process) — exile candidates
+## Still used (in-process): exile candidates
 
 - **Canonical schemas:** `tarka_shared.ast_schemas` (`packages/shared-core`)
 - `rule_engine.ast_schemas` is a **re-export shim** only
-- `evaluator` — orchestrator `rule_shadow_test`, pack validators, e2e holy-grail (still under this package)
+- `evaluator`: orchestrator `rule_shadow_test`, pack validators, e2e holy-grail (still under this package)
 - Optional compose profile `legacy-python-rules` on `docker-compose.v2-ingest.yml` for dual-run / emergency rollback
 
 Importing this package emits `DeprecationWarning`. Evaluate path of record remains decision-api.

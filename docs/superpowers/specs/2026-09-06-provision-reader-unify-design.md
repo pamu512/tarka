@@ -32,7 +32,7 @@ Leftover FLAG mint / `multi_analyst_claim` / `qa_queue_isolates` / `receipt_brie
 
 Add `observe.auto_promote` (default **false**) to the schema and example.
 
-Env: `TARKA_AUTO_PROMOTE` — same truthy set as leftover (`1` / `true` / `yes` / `on`).
+Env: `TARKA_AUTO_PROMOTE`: same truthy set as leftover (`1` / `true` / `yes` / `on`).
 
 ```
 observe_auto_promote() -> bool | None

@@ -70,8 +70,8 @@ export default function Help() {
       <Section id="overview" title="Overview">
         <p>
           Tarka is a fraud operations desk: Hunt on a Person, decision receipts, rules, and a small ops strip in one
-          shell. Leftovers are the thin station — not a case CRM. Observe is a canary; a human Promotes. Promote confirm shows pack hit rate and Observe divergence, or says they are not yet available. Bake-off numbers on Observe inform Promote; thresholds are tenant policy examples (including label horizons: promo FP days, collusion window, chargeback lag) — not Tarka morals and not a chargeback-guarantee SKU. Horizons never auto-demote. The left nav lists the desk surface
-          {LEAN_NAV ? " (lean mode — brochure modules are not registered)" : ""}. The{" "}
+          shell. Leftovers are the thin station, not a case CRM. Observe is a canary; a human Promotes. Promote confirm shows pack hit rate and Observe divergence, or says they are not yet available. Bake-off numbers on Observe inform Promote; thresholds are tenant policy examples (including label horizons: promo FP days, collusion window, chargeback lag), not Tarka morals and not a chargeback-guarantee SKU. Horizons never auto-demote. The left nav lists the desk surface
+          {LEAN_NAV ? " (lean mode, brochure modules are not registered)" : ""}. The{" "}
           <strong className="text-gray-400">top bar</strong> starts with tenant + environment (environment is a{" "}
           <strong className="text-gray-400">display label</strong>), then{" "}
           <strong className="text-gray-400">Search / jump</strong> (
@@ -112,7 +112,7 @@ export default function Help() {
         <Sub title="Leftover (/leftovers)">
           <p>
             Hold or an evaluate mint can leave a leftover. The queue is{" "}
-            <code className="text-gray-500">/leftovers</code> when Hunt is on — work happens on{" "}
+            <code className="text-gray-500">/leftovers</code> when Hunt is on, work happens on{" "}
             <code className="text-gray-500">/graph</code>. This is not a case CRM. Lean nav still hides{" "}
             <code className="text-gray-500">/cases</code>. Deep link <code className="text-gray-500">/cases/:id</code>{" "}
             stays for SAR / dispute. Approve / Close stay on <code className="text-gray-500">cases.update</code>.
@@ -159,7 +159,7 @@ export default function Help() {
         {isPlaneEnabled("graph") ? (
           <Sub title="Graph (/graph)">
             <p>
-              Desk home. You open on a person — the entity is the key; a decision is the event right now.
+              Desk home. You open on a person, the entity is the key; a decision is the event right now.
               Tenant is the same workspace id as the top bar (
               <code className="text-gray-500">tarka-workspace-tenant</code>), not a second localStorage key.
             </p>
@@ -181,9 +181,9 @@ export default function Help() {
             Rule packs and thresholds. Rule performance lives at{" "}
             <code className="text-gray-500">/analytics/rule-performance</code>. Observe is a canary
             (<code className="text-gray-500">/ops/shadow</code> and <code className="text-gray-500">/observe</code>
-            ). Thin no-code is SentencePackPanel on ObserveEasePanel — same pack JSON evaluate already runs; drafts stay
+            ). Thin no-code is SentencePackPanel on ObserveEasePanel, same pack JSON evaluate already runs; drafts stay
             Observe until a human Promotes. VisualRuleBuilder (legacy canvas) is not a product SKU. Hop packs stay
-            shadow. A human Promotes — a model never goes live.
+            shadow. A human Promotes, a model never goes live.
             Suggest Demote lists effectiveness-tick numbers and opens Propose only; Confirm stays a separate human step. Nothing auto-demotes.
           </p>
         </Sub>

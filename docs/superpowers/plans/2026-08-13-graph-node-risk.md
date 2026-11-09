@@ -53,7 +53,7 @@
 
 **Files:**
 - Create: `services/graph-service/src/graph_service/entity_risk_score.py`
-- Modify: `services/graph-service/src/graph_service/algorithms_neo4j.py` (call scorer; keep Cypher as-is until Task 2 — pass `relation_growth_*=0`, `peer_p90=None` via `.get`)
+- Modify: `services/graph-service/src/graph_service/algorithms_neo4j.py` (call scorer; keep Cypher as-is until Task 2. Pass `relation_growth_*=0`, `peer_p90=None` via `.get`)
 - Test: `services/graph-service/tests/test_entity_risk_score.py`
 
 **Interfaces:**
@@ -397,7 +397,7 @@ RETURN
   relation_growth_24h
 ```
 
-If Neo4j `datetime(ts)` fails on ISO strings, count in Python: return `collect(ts)` of incident edge timestamps and count windows in Python with `datetime.fromisoformat`. Prefer Python counting if the mock driver cannot run `duration()`. **For unit tests**, the mock record already supplies `relation_growth_1h` / `relation_growth_24h` / `primary_label` — Cypher only matters live. Implement Python-side counting when the record has `edge_timestamps: list` **or** the two growth ints.
+If Neo4j `datetime(ts)` fails on ISO strings, count in Python: return `collect(ts)` of incident edge timestamps and count windows in Python with `datetime.fromisoformat`. Prefer Python counting if the mock driver cannot run `duration()`. **For unit tests**, the mock record already supplies `relation_growth_1h` / `relation_growth_24h` / `primary_label`. Cypher only matters live. Implement Python-side counting when the record has `edge_timestamps: list` **or** the two growth ints.
 
 Janus: for each incident edge, read `observed_at` then `created_at` then `updated_at`; parse ISO; count 1h/24h. Untimestamped: skip growth, still in `conn_count`.
 
@@ -541,7 +541,7 @@ EOF
   - SET only if `is_found_payload`; never CREATE
   - Properties: `risk_score`, `risk_factors`, `risk_computed_at` (UTC ISO Z), `relation_count`, `relation_growth_1h`, `relation_growth_24h`
   - Swallow SET errors (log)
-  - GET found → persist **returned** payload after GNN-beta merge; growth fields stay from compute (beta must not invent them — copy from `base` before overwriting score)
+  - GET found → persist **returned** payload after GNN-beta merge; growth fields stay from compute (beta must not invent them. Copy from `base` before overwriting score)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -585,7 +585,7 @@ async def test_persist_sets_found_payload():
     assert "risk_computed_at" in props
 ```
 
-`test_entity_risk_schema.py` — validate `scored` + growth fields.
+`test_entity_risk_schema.py`: validate `scored` + growth fields.
 
 HTTP write-through (`test_entity_risk_http.py` or same file) using FastAPI TestClient + patch `compute_entity_risk` and `persist_entity_risk`:
 
@@ -757,7 +757,7 @@ Expected: FAIL missing helpers
 
 - [ ] **Step 3: Write minimal implementation**
 
-`_link_properties_with_observed_at` in `neo4j_client.py` (Janus/AGE call the same helper from `entity_risk_score.py` or writeback to avoid three copies — put it in `entity_risk_score.py`).
+`_link_properties_with_observed_at` in `neo4j_client.py` (Janus/AGE call the same helper from `entity_risk_score.py` or writeback to avoid three copies. Put it in `entity_risk_score.py`).
 
 `list_one_hop_ids` Cypher:
 
@@ -1048,7 +1048,7 @@ EOF
 ### Task 7: Investigation-agent + AgentRun passthrough
 
 **Files:**
-- Modify: `services/investigation-agent/src/investigation_agent/playbooks.py` (`mule_layering` and `account_takeover` fragments — one sentence each)
+- Modify: `services/investigation-agent/src/investigation_agent/playbooks.py` (`mule_layering` and `account_takeover` fragments, one sentence each)
 - Modify: `services/investigation-agent/src/investigation_agent/personas.py` (`_WORKFLOW_AND_TAIL`)
 - Modify: `services/investigation-agent/src/investigation_agent/tools.py` (`subgraph` + `subgraph_with_velocity` descriptions)
 - Test: `services/investigation-agent/tests/test_agent.py`
@@ -1066,7 +1066,7 @@ Persona workflow add after the subgraph_with_velocity bullet:
 
 `- Graph nodes may include scored, risk_score, relation_growth_1h/24h, and risk_factors from graph-service. Cite fast_growth_* / high_degree_vs_peers only when present. You may pass depth up to 5; default stays 2. Do not fetch a 5-hop subgraph on every turn.`
 
-Tool description add: `Each node may include scored, risk_score, relation_growth_1h, relation_growth_24h, risk_factors (graph relation growth — not the transaction velocity overlay). depth is clamped 1–5.`
+Tool description add: `Each node may include scored, risk_score, relation_growth_1h, relation_growth_24h, risk_factors (graph relation growth, not the transaction velocity overlay). depth is clamped 1–5.`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1115,7 +1115,7 @@ def test_agent_run_keeps_neighborhood_risk_fields(data_dir: Path) -> None:
     )
     got = agent_run_store.get_agent_run(run_id=rid, tenant_id="ten-a")
     verts = (got["context_snapshot"].get("graph_neighborhood") or got["context_snapshot"])
-    # assert the snapshot still contains risk_score 20 on a vertex — walk artifacts/sources as assemble_context_snapshot actually stores them
+    # assert the snapshot still contains risk_score 20 on a vertex. Walk artifacts/sources as assemble_context_snapshot actually stores them.
 ```
 
 Inspect `assemble_context_snapshot` return shape in `context_assembler.py` and assert on the real key (`sources` / `artifacts` excerpt). Do **not** add a subgraph HTTP call in chat.
@@ -1133,7 +1133,7 @@ Expected: FAIL (depth 5 tool test / missing copy)
 
 - [ ] **Step 3: Write minimal implementation**
 
-Playbook + persona + tool description only. No new endpoints. `_validate_depth` already clamps — the tool test should pass once descriptions exist if depth is already forwarded; if `tool_subgraph` already passes `depth`, only the playbook assert is RED until copy lands.
+Playbook + persona + tool description only. No new endpoints. `_validate_depth` already clamps. The tool test should pass once descriptions exist if depth is already forwarded; if `tool_subgraph` already passes `depth`, only the playbook assert is RED until copy lands.
 
 - [ ] **Step 4: Run tests to verify they pass**
 

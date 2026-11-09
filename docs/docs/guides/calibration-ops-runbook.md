@@ -7,9 +7,9 @@
 
 Bump (or cut over) the tenant calibration **profile** when any of these hold:
 
-1. **Drift hint elevated** — `GET /v1/ops/calibration-status` (or Drift hint on the ops page) shows a non-`ok` hint / rising `drift_score` after a rule-pack or model change.
-2. **Rule pack / typology cutover** — active pack SHA or typology version changed and score distributions shifted (confirm via calibration snapshots).
-3. **Integrity schema change** — `inference_schema_version` moved and confidence tiers are no longer comparable to the pinned reference.
+1. **Drift hint elevated:** `GET /v1/ops/calibration-status` (or Drift hint on the ops page) shows a non-`ok` hint / rising `drift_score` after a rule-pack or model change.
+2. **Rule pack / typology cutover:** active pack SHA or typology version changed and score distributions shifted (confirm via calibration snapshots).
+3. **Integrity schema change:** `inference_schema_version` moved and confidence tiers are no longer comparable to the pinned reference.
 
 Pin a new reference with `POST /v1/calibration/reference/{profile}` after the cutover window is stable. Keep the old profile name available until holdout review finishes.
 
@@ -17,7 +17,7 @@ Pin a new reference with `POST /v1/calibration/reference/{profile}` after the cu
 
 - `GET /v1/calibration/reliability-bins` and `…/reliability-export.csv` use `decision_audit` scores.
 - When case disposition labels (`y_label`) are absent, bins use **`proxy_label_from_decision`** (block/review-like → 1, allow-like → 0). That is **not** ground truth.
-- Prefer **`POST /v1/calibration/reliability-bins`** with `labels_by_trace` / `labels_by_entity` (FRAUD/LEGITIMATE or 0/1). Response includes `posture.healthy` — **false** when proxy-only or coverage below threshold.
+- Prefer **`POST /v1/calibration/reliability-bins`** with `labels_by_trace` / `labels_by_entity` (FRAUD/LEGITIMATE or 0/1). Response includes `posture.healthy`: **false** when proxy-only or coverage below threshold.
 - `GET /v1/ops/calibration-status` exposes `label_coverage` + top-level `healthy` (refuses healthy on proxy-only).
 
 ## Quick checks

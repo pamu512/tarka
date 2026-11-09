@@ -20,7 +20,7 @@ Do not put replacement values in Helm values, git, or compose production example
 ## Kubernetes Secret (no Vault)
 
 ```bash
-# Create once (example keys only — generate your own).
+# Create once (example keys only; generate your own).
 kubectl create secret generic tarka-app-secrets \
   --from-literal=API_KEYS="$(openssl rand -hex 32)" \
   --from-literal=EVIDENCE_SIGNING_SECRET="$(openssl rand -hex 32)" \

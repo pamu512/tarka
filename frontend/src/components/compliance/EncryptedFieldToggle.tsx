@@ -80,7 +80,7 @@ export function EncryptedFieldToggle({
       <span
         id={labelId}
         className={`font-mono truncate ${revealed ? "text-gray-200" : "text-gray-500 tracking-wide"}`}
-        title={revealed ? undefined : "Masked — reveal to view"}
+        title={revealed ? undefined : "Masked, reveal to view"}
       >
         {display}
       </span>
