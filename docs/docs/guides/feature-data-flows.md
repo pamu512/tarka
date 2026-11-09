@@ -269,7 +269,7 @@ Sibling bridges (refund/cancel/dispute) are **advisory / fail-soft**: missing UR
 |---------|-----------|----------------|
 | Sanctions | FtM cache + Postgres logs | Fail-closed logs; fail-soft JSONL mirror |
 | OSINT (demo burst) | ingress HTTP | `mode=unavailable` — no canned risk_score |
-| Mule path | demo templates | **501** unless `ALLOW_MULE_PATH_DEMO=1` |
+| Mule path | `TRANSACTED` edges from evaluate | Empty path. No invented people or amounts |
 | AGE hop (lite default) | graph-service on same Postgres | Evaluate fail-soft (`graph:write_failed` / `graph:missing`). Desk without URL is evaluate-only fallback, not the product |
 | Janus / Neo4j overlay | Gremlin / Bolt | Optional. `signals_usable=false` ⇒ Shadow omits; no invented zeros |
 
