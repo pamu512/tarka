@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "studio_both_set_dead_rule",
+  "mode": "shadow",
+  "rules": [
+    {
+      "id": "both_set_never_fires",
+      "when": [{ "field": "amount", "op": "gte", "value": 1000 }],
+      "tags": ["dead:both_set"],
+      "score_delta": 5,
+      "description": "Both when and when_ast set; evaluator never fires",
+      "when_ast": {
+        "type": "leaf",
+        "op": "gte",
+        "field": "amount",
+        "value": 1000
+      }
+    }
+  ],
+  "tag_rules": [],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null
+}
