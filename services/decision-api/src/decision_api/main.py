@@ -1012,7 +1012,6 @@ if settings.request_signature_secret:
         max_skew_seconds=settings.request_signature_max_skew_seconds,
     )
 
-from decision_api.analytics_dashboards import router as analytics_dashboards_router  # noqa: E402
 from decision_api.backtest_api import router as backtest_router  # noqa: E402
 from decision_api.ml_export_api import router as ml_export_router  # noqa: E402
 from decision_api.calibration_api import router as calibration_router  # noqa: E402
@@ -1095,7 +1094,6 @@ app.include_router(rule_gitops_router)
 app.include_router(backtest_router)
 app.include_router(ml_export_router)
 app.include_router(feature_store_router)
-app.include_router(analytics_dashboards_router)
 app.include_router(manifest_visualize_router)
 app.include_router(manifest_compare_router)
 app.include_router(vendor_marketplace_router)

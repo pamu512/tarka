@@ -11,8 +11,10 @@ COPY services/data-plane/pyproject.toml /app/
 COPY services/event-ingest/src/event_ingest /app/src/event_ingest
 COPY services/analytics-sink/src/analytics_sink /app/src/analytics_sink
 COPY services/data-plane/src/data_plane /app/src/data_plane
+COPY services/analytics/src/analytics /app/services/analytics/src/analytics
+COPY services/core/src/tarka_core /app/services/core/src/tarka_core
 COPY services/shared /app/shared
 COPY packages/shared-core/tarka_shared /app/packages/shared-core/tarka_shared
 RUN pip install --no-cache-dir -c /tmp/constraints.txt -e .
-ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core
+ENV PYTHONPATH=/app/src:/app/shared:/app/packages/shared-core:/app/services/analytics/src:/app/services/core/src
 CMD ["uvicorn", "data_plane.main:app", "--host", "0.0.0.0", "--port", "8007"]

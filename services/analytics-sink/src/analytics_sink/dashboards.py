@@ -1,4 +1,17 @@
-"""Executive KPIs from the configured analytics engine (ClickHouse or DuckDB); fail closed when offline."""
+"""Executive KPIs from the configured analytics engine (ClickHouse or DuckDB); fail closed when offline.
+
+Moved from decision-api (prune plan v7 item 3.2): data-plane is the canonical analytics
+front door behind nginx ``/api/analytics/``. The 503 reason codes and message bodies are
+carried over verbatim from ``decision_api.analytics_dashboards``:
+
+- ``ANALYTICS_CONFIG_INVALID``   (table not in NL_SQL_ALLOWED_TABLES)
+- ``ANALYTICS_TABLE_MISSING``    (engine rejected the query: table missing/inaccessible)
+- ``ANALYTICS_ENGINE_OFFLINE``   (query failed or exceeded the execution budget)
+- ``ANALYTICS_BAD_SCALAR``       (KPI payload missing event_count)
+
+Auth follows the sink model: API key + tenant binding via the app-level
+``require_api_key`` dependency (the same as every other ``/v1/analytics/*`` route here).
+"""
 
 from __future__ import annotations
 
@@ -7,6 +20,7 @@ import logging
 import os
 from typing import Any
 
+import anyio
 from analytics.dashboards import (
     dashboard_cache_key,
     fetch_dashboard_aggregates_sync,
@@ -17,15 +31,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from tarka_core.cache import KeyValueCache
 
-from decision_api.shared_path import ensure_services_shared_on_path
+from .config import settings
 
-ensure_services_shared_on_path()
-from auth_rbac import require_role  # noqa: E402
-
-from decision_api.config import settings  # noqa: E402
-from decision_api.deps import get_kv_cache, require_analytics_engine, run_analytics_sync  # noqa: E402
-
-log = logging.getLogger("decision-api")
+log = logging.getLogger("analytics-sink")
 
 router = APIRouter(prefix="/v1/analytics/dashboards", tags=["analytics-dashboards"])
 
@@ -33,6 +41,12 @@ _CACHE_PREFIX = "tarka:dashboard:kpis:"
 _SUMMARY_CACHE_TTL = int(os.environ.get("DASHBOARD_SUMMARY_CACHE_TTL_SECONDS", "300"))
 _TTL = int(os.environ.get("DASHBOARD_KPI_CACHE_TTL_SECONDS", "300"))
 _SUMMARY_MAX_EXECUTION_SECONDS = 12
+_KPI_MAX_EXECUTION_SECONDS = 5
+
+
+async def run_analytics_sync(fn):
+    """Run a synchronous analytics engine call off the event loop."""
+    return await anyio.to_thread.run_sync(fn)
 
 
 def _allowed_analytics_tables() -> set[str]:
@@ -55,7 +69,30 @@ def _analytics_table_qualified() -> str:
     return t
 
 
-_KPI_MAX_EXECUTION_SECONDS = 5
+def _require_analytics_engine(request: Request) -> BaseAnalyticsEngine:
+    eng = getattr(request.app.state, "analytics_engine", None)
+    if eng is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "ANALYTICS_ENGINE_OFFLINE",
+                "message": "Analytics engine is not available for this deployment profile.",
+            },
+        )
+    return eng
+
+
+def _get_kv_cache(request: Request) -> KeyValueCache:
+    cache = getattr(request.app.state, "kv_cache", None)
+    if cache is None:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "reason_code": "KV_CACHE_UNAVAILABLE",
+                "message": "Application key-value cache is not initialized.",
+            },
+        )
+    return cache
 
 
 async def _count_events_for_tenant(
@@ -106,25 +143,14 @@ async def _count_events_for_tenant(
 
 @router.get("/kpis")
 async def get_dashboard_kpis(
-    request: Request,
     tenant_id: str = Query(..., max_length=128),
-    engine: BaseAnalyticsEngine = Depends(require_analytics_engine),
-    cache: KeyValueCache = Depends(get_kv_cache),
-    _user=Depends(require_role("analyst")),
+    engine: BaseAnalyticsEngine = Depends(_require_analytics_engine),
+    cache: KeyValueCache = Depends(_get_kv_cache),
 ) -> dict[str, Any]:
-    """Analyst+ (admin included); tenant binding enforced when API key maps tenants.
+    """Tenant-scoped KPI event count, cached per tenant and backend.
 
-    Uses ``require_analytics_engine`` (503 when offline). KPI queries run via ``run_analytics_sync``.
+    API key + tenant binding enforced at the app level (``require_api_key``).
     """
-    auth = getattr(request.state, "auth_user", None)
-    if (
-        auth
-        and auth.tenant_ids
-        and "*" not in auth.tenant_ids
-        and tenant_id not in auth.tenant_ids
-    ):
-        raise HTTPException(403, "tenant not permitted for this credential")
-
     table = _analytics_table_qualified()
     key = f"{_CACHE_PREFIX}{tenant_id}"
 
@@ -161,7 +187,6 @@ async def get_dashboard_kpis(
 
 @router.get("/summary")
 async def get_dashboard_summary(
-    request: Request,
     tenant_id: str = Query(..., max_length=128),
     period_start: str = Query(
         ..., description="Inclusive local calendar date (YYYY-MM-DD) in ``timezone``."
@@ -174,9 +199,8 @@ async def get_dashboard_summary(
         max_length=128,
         description="IANA timezone for interpreting ``period_*``.",
     ),
-    engine: BaseAnalyticsEngine = Depends(require_analytics_engine),
-    cache: KeyValueCache = Depends(get_kv_cache),
-    _user=Depends(require_role("analyst")),
+    engine: BaseAnalyticsEngine = Depends(_require_analytics_engine),
+    cache: KeyValueCache = Depends(_get_kv_cache),
 ) -> dict[str, Any]:
     """Tenant-scoped OLAP aggregates for executive dashboards (volume, block rate, top rules, geo spikes).
 
@@ -185,15 +209,6 @@ async def get_dashboard_summary(
 
     Responses are cached per ``tenant_id``, period, timezone, and analytics backend to avoid hammering OLAP.
     """
-    auth = getattr(request.state, "auth_user", None)
-    if (
-        auth
-        and auth.tenant_ids
-        and "*" not in auth.tenant_ids
-        and tenant_id not in auth.tenant_ids
-    ):
-        raise HTTPException(403, "tenant not permitted for this credential")
-
     table = _analytics_table_qualified()
     try:
         utc_start, utc_end = parse_dashboard_period(period_start, period_end, timezone)
