@@ -1,0 +1,8 @@
+{
+  "pack_id": "advise_sufficiency_v1",
+  "answers": {
+    "has_enough_signal": {"value": true, "confidence": 0.71},
+    "review_priority": {"value": "routine", "confidence": 0.64},
+    "pattern_hint": {"value": "velocity", "confidence": 0.58}
+  }
+}

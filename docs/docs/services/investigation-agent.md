@@ -28,6 +28,8 @@ LLM **copilot** for investigations: tool-use loop against Case API, Graph Servic
 
 Requires an OpenAI-compatible LLM endpoint for LLM rounds. BYO only — no Tarka-branded model. OpenAI-compat URL covers OpenAI / Gemini (OpenAI-compat) / AWS Bedrock gateway / Azure / vLLM. Set **`OPENAI_BASE_URL`** + **`OPENAI_API_KEY`** (optional **`OPENAI_MODEL`**). Empty URL = desk Advise off. Optional upstreams: **`CASE_API_URL`**, **`GRAPH_SERVICE_URL`**, **`DECISION_API_URL`**. Production hardening: **`infra/deploy/docker-compose.production-hardening.yml`**, `COPILOT_PRODUCTION_MODE`, and related envs — see investigation-agent README under `services/`.
 
+Optional confidence gate in front of a residual case review (`case_id` set), investigation-agent only. Empty **`JEV_SYSTEM_ONE_URL`** leaves Advise unchanged (no System One call). **`JEV_MODE`** defaults to `shadow` (judge + `jev` receipt, generative LLM still runs). `gate` can skip that LLM call. **`JEV_TIMEOUT_MS`** defaults to `400`, **`JEV_MIN_CONFIDENCE`** to `0.55`, **`JEV_QUESTION_PACK`** to `advise_sufficiency_v1`. **`JEV_API_KEY`** is a bearer when the endpoint requires one; it is never written on the receipt. These keys are not evaluate controls and do not Promote.
+
 Helm `investigationAgent.enabled` defaults **false**. Enable only when the operator supplies that BYO endpoint. Keys stay in extraEnv / secrets — never `VITE_*`.
 
 Built-in playbooks are **generic defaults** only when the desk provides none. Prefer desk-owned playbooks / SOPs.

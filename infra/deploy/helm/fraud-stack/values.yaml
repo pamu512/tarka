@@ -217,6 +217,15 @@ investigationAgent:
   aiGovernanceProfile: global
   # Optional batch TTL for copilot uploads (seconds); omit to use default. Applies to disk and postgres blobs.
   batchTtlSeconds: null
+  # Desk Advise confidence gate only. Empty systemOneUrl = off (today's Advise path).
+  # Default mode shadow judges and writes a receipt, then still calls the generative LLM.
+  # Do not copy these keys onto core-api / evaluate. JEV_API_KEY stays in the app secret.
+  jev:
+    systemOneUrl: ""
+    timeoutMs: 400
+    minConfidence: "0.55"
+    mode: shadow
+    questionPack: advise_sufficiency_v1
   extraEnv: {}
 
 integrationIngress:
