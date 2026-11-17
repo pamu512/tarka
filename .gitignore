@@ -115,3 +115,6 @@ tools/shadow/
 
 # sqlite :memory: cwd accidents (G5)
 :memory:
+.pytest_cache/
+/var/
+/openick.json
