@@ -105,7 +105,7 @@ Do not collapse them.
 
 **Prove every signal.** If it cannot be replayed, traversed, or cited from your own audit and graph edges, it does not ship.
 
-We are not building a better remote score. We are building infrastructure where intelligence and privacy stop trading off — because the model, the graph, and the rule engine share the same air-gapped room when you choose that deployment.
+When you choose that deployment, the model, the graph, and the rule engine run in the same air-gapped room.
 
 ---
 

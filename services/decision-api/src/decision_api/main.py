@@ -934,6 +934,9 @@ async def lifespan(application: FastAPI):
         agg_store.set_client(redis_tags._client)
         fingerprint_store.set_client(redis_tags._client)
         entity_link_store.set_client(redis_tags._client)
+        from decision_api.device_intelligence import device_intelligence
+
+        device_intelligence.set_client(redis_tags._client)
         from decision_api.ehailing_escalation import ehailing_challenge_store
         from decision_api.marketplace_kyb_store import kyb_store
 
@@ -2189,6 +2192,15 @@ async def _graph_upsert(
     if not settings.graph_service_url:
         return
     base = settings.graph_service_url.rstrip("/")
+
+    async def _post_graph(path: str, payload: dict[str, Any]) -> None:
+        response = await http.post(
+            f"{base}{path}",
+            json=payload,
+            headers=_upstream_headers(),
+        )
+        response.raise_for_status()
+
     from tarka_shared.decision_graph_payload import (
         attach_decision_object,
         build_evaluate_objects,
@@ -2243,16 +2255,15 @@ async def _graph_upsert(
                     if isinstance(v, (str, bool, int, float)) or v is None
                 }
             )
-        await http.post(
-            f"{base}/v1/entities",
-            json={
+        await _post_graph(
+            "/v1/entities",
+            {
                 "tenant_id": body.tenant_id,
                 "entity_type": etype,
                 "external_id": oid,
                 "properties": props,
                 "tags": tags,
             },
-            headers=_upstream_headers(),
         )
     for link in links:
         src = str(link.get("from_external_id") or "").strip()
@@ -2260,9 +2271,9 @@ async def _graph_upsert(
         rel = str(link.get("relationship") or "").strip()
         if not src or not dst or not rel:
             continue
-        await http.post(
-            f"{base}/v1/links",
-            json={
+        await _post_graph(
+            "/v1/links",
+            {
                 "tenant_id": body.tenant_id,
                 "from_external_id": src,
                 "to_external_id": dst,
@@ -2273,7 +2284,6 @@ async def _graph_upsert(
                     "decision_id": f"dec:{trace_id}",
                 },
             },
-            headers=_upstream_headers(),
         )
 
     # Place / SEEN_AT is not in Hunt objects yet — keep it on this hop only.
@@ -2298,9 +2308,9 @@ async def _graph_upsert(
 
         cell = place_cell_id(la_f, lo_f)
         gtags = list(geo_extra_tags or [])
-        await http.post(
-            f"{base}/v1/entities",
-            json={
+        await _post_graph(
+            "/v1/entities",
+            {
                 "tenant_id": body.tenant_id,
                 "entity_type": "Place",
                 "external_id": cell,
@@ -2312,11 +2322,10 @@ async def _graph_upsert(
                 },
                 "tags": gtags,
             },
-            headers=_upstream_headers(),
         )
-        await http.post(
-            f"{base}/v1/links",
-            json={
+        await _post_graph(
+            "/v1/links",
+            {
                 "tenant_id": body.tenant_id,
                 "from_external_id": body.entity_id,
                 "to_external_id": cell,
@@ -2327,14 +2336,13 @@ async def _graph_upsert(
                     "decision_id": f"dec:{trace_id}",
                 },
             },
-            headers=_upstream_headers(),
         )
         sess = str(body.session_id or "").strip()
         sess_ext = f"sess:{sess}" if sess and not sess.startswith("sess:") else sess
         if sess_ext:
-            await http.post(
-                f"{base}/v1/links",
-                json={
+            await _post_graph(
+                "/v1/links",
+                {
                     "tenant_id": body.tenant_id,
                     "from_external_id": sess_ext,
                     "to_external_id": cell,
@@ -2344,16 +2352,15 @@ async def _graph_upsert(
                         "decision_id": f"dec:{trace_id}",
                     },
                 },
-                headers=_upstream_headers(),
             )
 
     from decision_api.partner_fusion import graph_writes_from_hints
 
     hint_objs, hint_links = graph_writes_from_hints(partner_graph_hints)
     for obj in hint_objs:
-        await http.post(
-            f"{base}/v1/entities",
-            json={
+        await _post_graph(
+            "/v1/entities",
+            {
                 "tenant_id": body.tenant_id,
                 "entity_type": obj["entity_type"],
                 "external_id": obj["external_id"],
@@ -2362,21 +2369,19 @@ async def _graph_upsert(
                     "trace_id": obj["properties"].get("trace_id") or trace_id,
                 },
             },
-            headers=_upstream_headers(),
         )
     for link in hint_links:
         props = dict(link["properties"])
         props.setdefault("trace_id", trace_id)
-        await http.post(
-            f"{base}/v1/links",
-            json={
+        await _post_graph(
+            "/v1/links",
+            {
                 "tenant_id": body.tenant_id,
                 "from_external_id": link["from_external_id"],
                 "to_external_id": link["to_external_id"],
                 "relationship": link["relationship"],
                 "properties": props,
             },
-            headers=_upstream_headers(),
         )
 
 

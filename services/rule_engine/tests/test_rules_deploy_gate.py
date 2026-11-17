@@ -55,12 +55,14 @@ def test_deploy_v2_then_db_activate_v1_reload_reverts_evaluation(tmp_path, monke
     }
 
     app = create_app()
+    monkeypatch.setenv("RULE_ENGINE_AUTH_TOKEN", "test-admin-token")
+    admin_headers = {"X-Auth-Token": "test-admin-token"}
     with TestClient(app) as client:
-        r1 = client.post("/v1/rules/deploy", json={"rules": [rule_v1]})
+        r1 = client.post("/v1/rules/deploy", json={"rules": [rule_v1]}, headers=admin_headers)
         assert r1.status_code == 200, r1.text
         assert r1.json() == {"ok": True, "version": 1, "rule_count": 1}
 
-        r2 = client.post("/v1/rules/deploy", json={"rules": [rule_v2]})
+        r2 = client.post("/v1/rules/deploy", json={"rules": [rule_v2]}, headers=admin_headers)
         assert r2.status_code == 200, r2.text
         assert r2.json() == {"ok": True, "version": 2, "rule_count": 1}
 
@@ -74,7 +76,7 @@ def test_deploy_v2_then_db_activate_v1_reload_reverts_evaluation(tmp_path, monke
             conn.execute(text("UPDATE fraud_rules SET is_active = 1 WHERE version = 1"))
         engine.dispose()
 
-        rel = client.post("/v1/rules/reload")
+        rel = client.post("/v1/rules/reload", headers=admin_headers)
         assert rel.status_code == 200
         assert rel.json().get("ok") is True
 

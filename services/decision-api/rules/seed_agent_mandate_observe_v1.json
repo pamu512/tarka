@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "seed_agent_mandate_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "observe_locked": true,
+  "author_notes": "Observe only. Cannot leave Observe or auto-Promote.",
+  "rules": [
+    {
+      "id": "seed_agent_out_of_mandate_caps",
+      "when": [
+        { "field": "actor_kind", "op": "eq", "value": "agent" },
+        { "field": "mandate_caps", "op": "not_exists" }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Agent with no mandate caps. Observe plus receipt. Out of mandate."
+    },
+    {
+      "id": "seed_agent_out_of_mandate_expiry",
+      "when": [
+        { "field": "actor_kind", "op": "eq", "value": "agent" },
+        { "field": "mandate_expired", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Agent mandate past expiry. Observe plus receipt. Out of mandate."
+    }
+  ],
+  "tag_rules": []
+}

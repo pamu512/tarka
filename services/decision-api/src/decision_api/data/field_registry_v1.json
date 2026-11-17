@@ -5,6 +5,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "actor_kind",
+    "explanation": "Caller actor. Absent stays missing.",
+    "source": "tarka_core"
+  },
+  {
     "name": "amount",
     "explanation": "Transaction amount on payload",
     "source": "tarka_core"
@@ -147,6 +152,21 @@
   {
     "name": "language",
     "explanation": "Browser language",
+    "source": "tarka_core"
+  },
+  {
+    "name": "mandate_caps",
+    "explanation": "Agent mandate capability caps. Absent means the caps are missing.",
+    "source": "tarka_core"
+  },
+  {
+    "name": "mandate_expired",
+    "explanation": "True when mandate expiry is past or unparseable.",
+    "source": "tarka_core"
+  },
+  {
+    "name": "mandate_expires_at",
+    "explanation": "Agent mandate expiry timestamp.",
     "source": "tarka_core"
   },
   {

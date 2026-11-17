@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -184,6 +185,21 @@ async def test_force_live_requires_actor_and_reason(client):
     assert row["detail"]["reason"].startswith("incident-42")
     assert row["detail"]["prior_mode"] == "shadow"
     assert row["detail"]["file"] == fname
+
+
+@pytest.mark.asyncio
+async def test_force_live_refuses_observe_locked_mandate_seed(client):
+    fname = "seed_agent_mandate_observe_v1.json"
+    src = Path(__file__).resolve().parents[1] / "rules" / fname
+    (client._rules_dir / fname).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    denied = await client.post(
+        f"/v1/rules/{fname}/force-live",
+        json={"reason": "trying to leave observe for incident 42"},
+        headers={"X-Actor": "ops-lead"},
+    )
+    assert denied.status_code == 409, denied.text
+    assert denied.json()["detail"] == "observe_locked"
+    assert _on_disk(client, fname)["mode"] == "shadow"
 
 
 @pytest.mark.asyncio

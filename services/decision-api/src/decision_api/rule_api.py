@@ -37,9 +37,11 @@ from decision_api.replay import ReplayRequest, ReplayRule, replay_events
 from decision_api.rule_pack_validation import validate_rule_pack as _validate_rule_pack
 from decision_api.live_rule_slip import maybe_park_live_rule_slip
 from decision_api.shadow_auto_promote import (
+    ObserveLocked,
     activate_shadow_pack,
     maybe_auto_promote_shadow,
     public_provision,
+    raise_if_observe_locked,
     save_provision,
 )
 from decision_api.shadow import (
@@ -760,12 +762,15 @@ async def promote_shadow_pack(
     if applied:
         reason = "promote_shadow_pack_calibration_override"
         detail = {"calibration_override_reason": override_reason}
-    return activate_shadow_pack(
-        want,
-        actor=_actor_from_headers(x_actor),
-        reason=reason,
-        detail=detail,
-    )
+    try:
+        return activate_shadow_pack(
+            want,
+            actor=_actor_from_headers(x_actor),
+            reason=reason,
+            detail=detail,
+        )
+    except ObserveLocked:
+        raise HTTPException(409, "observe_locked") from None
 
 
 @router.post("/{filename}/force-live")
@@ -790,6 +795,10 @@ async def force_live_pack(
     approver = _require_force_live_approver(actor, x_force_live_approver)
     fpath = _existing_pack_path(filename)
     pack = json.loads(fpath.read_text(encoding="utf-8"))
+    try:
+        raise_if_observe_locked(pack)
+    except ObserveLocked:
+        raise HTTPException(409, "observe_locked") from None
     prior_mode = str(pack.get("mode") or "active")
     pack["mode"] = "active"
     fpath.write_text(json.dumps(pack, indent=2), encoding="utf-8")

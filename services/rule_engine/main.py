@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from ingestor.manifest_schema import TransactionSchema
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +37,27 @@ from rules_store import (
 logger = logging.getLogger(__name__)
 
 _GRAPH_PROVIDER_UNSET = object()
+
+
+async def require_rules_admin_token(
+    x_auth_token: Annotated[str, Header(alias="X-Auth-Token")],
+) -> str:
+    """Fail-closed guard for the sidecar's policy-admin routes.
+
+    ``RULE_ENGINE_AUTH_TOKEN`` must be configured and matched (constant-time compare).
+    Unlike the orchestrator's presence-only demo mode, policy deploy/rollback never
+    runs soft-open: an unset token locks the admin surface with 503 instead.
+    """
+    expected = (os.environ.get("RULE_ENGINE_AUTH_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="RULE_ENGINE_AUTH_TOKEN must be configured to use policy-admin routes",
+        )
+    token = (x_auth_token or "").strip()
+    if not secrets.compare_digest(token, expected):
+        raise HTTPException(status_code=401, detail="invalid admin token")
+    return token
 
 # In-memory demo ruleset when no ``fraud_rules`` / ``engine_rules`` rows exist (local dev / tests).
 # Lower ``priority`` runs first. ``STRESS_BLOCK_LANE`` in ``metadata`` JSON yields a deterministic
@@ -309,7 +331,11 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
             raise HTTPException(status_code=404, detail=f"version {version} not found")
         return row
 
-    @application.post("/v1/rules/rollback/{version}", response_model=RulesRollbackResponse)
+    @application.post(
+        "/v1/rules/rollback/{version}",
+        response_model=RulesRollbackResponse,
+        dependencies=[Depends(require_rules_admin_token)],
+    )
     async def v1_rules_rollback(version: int, request: Request) -> RulesRollbackResponse:
         """Activate a prior ``fraud_rules`` AST snapshot and hot-reload the in-process ruleset."""
         if rules_database_url() is None:
@@ -341,7 +367,7 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
         request.app.state.ruleset = load_active_ruleset()
         return RulesRollbackResponse(active_version=ver, rule_count=n)
 
-    @application.post("/v1/rules/reload")
+    @application.post("/v1/rules/reload", dependencies=[Depends(require_rules_admin_token)])
     async def v1_rules_reload(request: Request) -> dict[str, Any]:
         """Reload the in-process rules cache from ``fraud_rules`` (active row) or legacy ``engine_rules``.
 
@@ -356,7 +382,11 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
         request.app.state.ruleset = rs
         return {"ok": True, "count": len(rs)}
 
-    @application.post("/v1/rules/deploy", response_model_exclude_none=True)
+    @application.post(
+        "/v1/rules/deploy",
+        response_model_exclude_none=True,
+        dependencies=[Depends(require_rules_admin_token)],
+    )
     async def v1_rules_deploy(body: RulesDeployBody, request: Request) -> RulesDeployResponse:
         """
         Append a new immutable ``fraud_rules`` version and make it active (previous rows unchanged).
@@ -395,7 +425,7 @@ def create_app(*, graph_context_provider: object = _GRAPH_PROVIDER_UNSET) -> Fas
             rule_count=n,
         )
 
-    @application.post("/v1/hypotheses/deploy")
+    @application.post("/v1/hypotheses/deploy", dependencies=[Depends(require_rules_admin_token)])
     async def v1_hypotheses_deploy(body: HypothesisDeployBody) -> HypothesisDeployResponse:
         """
         Deploy active shadow hypotheses to Redis (sole delivery channel;
