@@ -237,6 +237,59 @@ describe("CaseDetail device integrity strip", () => {
     expect(screen.getByTestId("device-integrity-biometrics")).toHaveTextContent("missing");
   });
 
+  it("renders a missing device as missing for an agent, not as risky", async () => {
+    vi.mocked(client.cases.get).mockResolvedValue(makeCase());
+    vi.mocked(client.decisions.getAudit).mockResolvedValue({
+      trace_id: "tr-agent",
+      entity_id: "ent-1",
+      tenant_id: "demo",
+      event_type: "payment",
+      decision: "review",
+      score: 40,
+      tags: [],
+      rule_hits: [],
+      recommended_action: null,
+      evaluate_payload: { actor_kind: "agent" },
+      inference_context: {
+        schema_version: "3",
+        calibration_profile: "default",
+        expected_calibration_version: 1,
+        integrity_confidence: 0,
+        tamper_risk: 0,
+        network_trust: 0,
+        replay_risk: 0,
+        geo_consistency_risk: 0,
+        top_signals: [],
+        confidence_tier: "medium",
+        driver_reasons: [],
+        driver_explain: [],
+        colocation_risk: 0,
+        copresence_risk: 0,
+        impossible_travel_risk: 0,
+        velocity_events_5m: 0,
+        velocity_events_1h: 0,
+        velocity_events_24h: 0,
+        calibration_profile_version: 1,
+        location_confidence: 0,
+        confidence_sources: { calibration: "heuristic", counter: "heuristic", location: "heuristic" },
+        graph_risk_score: 0,
+        graph_risk_reasons: [],
+        external_signal_score: 0,
+        external_signal_providers: [],
+      },
+      created_at: new Date().toISOString(),
+    });
+    render(wrap(<CaseDetail />));
+    await screen.findByTestId("device-integrity-strip");
+    await waitFor(() => {
+      expect(screen.getByTestId("device-integrity-rooted")).toHaveTextContent("missing");
+      expect(screen.getByTestId("device-integrity-jailbroken")).toHaveTextContent("missing");
+      expect(screen.getByTestId("device-integrity-biometrics")).toHaveTextContent("missing");
+    });
+    const strip = screen.getByTestId("device-integrity-strip");
+    expect(strip.textContent?.toLowerCase()).not.toMatch(/risky/);
+  });
+
   it("shows rooted / jailbroken / biometrics from device_context and tags on the open case", async () => {
     vi.mocked(client.cases.get).mockResolvedValue(makeCase());
     vi.mocked(client.decisions.getAudit).mockResolvedValue({

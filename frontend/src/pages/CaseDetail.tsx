@@ -2032,16 +2032,24 @@ function GraphTab({
   }, [displayGraph, selectedNode]);
 
   useEffect(() => {
+    // Ignore-flag guard: on fast case-to-case navigation a stale subgraph response
+    // must not overwrite the newly opened case's graph (GraphInvestigationPage pattern).
+    let ignore = false;
     (async () => {
       try {
         const data = await graph.subgraph(entityId, tenantId, 2);
+        if (ignore) return;
         setGraphData(data);
       } catch (e) {
+        if (ignore) return;
         setError(toUserFacingApiError(e, { subject: "Case graph", action: "load related entity graph" }));
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     })();
+    return () => {
+      ignore = true;
+    };
   }, [entityId, tenantId]);
 
   useEffect(() => {
