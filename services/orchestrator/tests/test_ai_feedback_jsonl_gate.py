@@ -41,7 +41,9 @@ def test_post_ai_feedback_bridges_to_operational_signals(monkeypatch: pytest.Mon
         "context": "Analyst rejected Shadow narrative.",
     }
     with TestClient(app) as client:
-        r = client.post("/v1/ai/feedback", json=payload)
+        r = client.post(
+            "/v1/ai/feedback", json=payload, headers={"X-Auth-Token": "gate-test-token"}
+        )
     assert r.status_code == 202, r.text
     body = r.json()
     assert body["ok"] is True
@@ -56,5 +58,10 @@ def test_post_ai_feedback_requires_at_least_one_reason() -> None:
         shadow_agent_url=None,
     )
     with TestClient(app) as client:
-        r = client.post("/v1/ai/feedback", json={"rejection_reasons": []})
+        # Token present so the 422 comes from the empty payload, not the auth guard.
+        r = client.post(
+            "/v1/ai/feedback",
+            json={"rejection_reasons": []},
+            headers={"X-Auth-Token": "gate-test-token"},
+        )
     assert r.status_code == 422

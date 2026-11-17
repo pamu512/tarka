@@ -381,6 +381,7 @@ def create_app(
     application.include_router(
         legacy_feedback_bridge_router,
         prefix="/v1",
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
     )
     application.include_router(
         data_export_router,
@@ -886,6 +887,7 @@ def create_app(
             "updates ``lifecycle_cases.status``, and links ``case_history.audit_log_id`` atomically."
         ),
         response_model=CaseStatusUpdateResponse,
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
@@ -902,15 +904,9 @@ def create_app(
         body: CaseStatusUpdateRequest,
         x_auth_token: Annotated[str, Header(alias="X-Auth-Token")],
     ) -> CaseStatusUpdateResponse:
+        # Token validity (incl. constant-time secret compare when configured) is enforced by
+        # V1_PROTECTED_ROUTE_DEPENDENCIES; the header is still read here for the audit fingerprint.
         tok = (x_auth_token or "").strip()
-        if not tok:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "missing_auth_token",
-                    "message": "X-Auth-Token header is required and must be non-empty",
-                },
-            )
         fac = getattr(request.app.state, "audit_session_factory", None)
         gc: GraphClient = request.app.state.graph_client
         payload = await put_lifecycle_case_status(
@@ -936,6 +932,7 @@ def create_app(
             "Requires the same ``X-Auth-Token`` convention as ``PUT /v1/cases/{case_id}/status``."
         ),
         response_class=Response,
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             422: {
@@ -948,17 +945,7 @@ def create_app(
     async def v1_export_case_compliance(
         request: Request,
         case_id: str,
-        x_auth_token: Annotated[str, Header(alias="X-Auth-Token")],
     ) -> Response:
-        tok = (x_auth_token or "").strip()
-        if not tok:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "missing_auth_token",
-                    "message": "X-Auth-Token header is required and must be non-empty",
-                },
-            )
         fac = getattr(request.app.state, "audit_session_factory", None)
         if fac is None:
             raise HTTPException(
@@ -1008,6 +995,7 @@ def create_app(
             f"(section title: *{PDF_GRAPH_SECTION_TITLE}*). Requires ``X-Auth-Token``."
         ),
         response_class=Response,
+        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
         responses={
             404: {"description": "Unknown ``lifecycle_cases.case_id``."},
             409: {"description": "Illegal state transition or corrupt stored status."},
@@ -1023,15 +1011,8 @@ def create_app(
         case_id: str,
         x_auth_token: Annotated[str, Header(alias="X-Auth-Token")],
     ) -> Response:
+        # Token validity enforced by V1_PROTECTED_ROUTE_DEPENDENCIES; header read for the audit fingerprint.
         tok = (x_auth_token or "").strip()
-        if not tok:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "missing_auth_token",
-                    "message": "X-Auth-Token header is required and must be non-empty",
-                },
-            )
         fac = getattr(request.app.state, "audit_session_factory", None)
         if fac is None:
             raise HTTPException(

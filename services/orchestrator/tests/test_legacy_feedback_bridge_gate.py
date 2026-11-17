@@ -54,7 +54,9 @@ def test_legacy_ai_feedback_bridges_to_operational_signals(monkeypatch: pytest.M
         "context": "Analyst rejected Shadow narrative.",
     }
     with TestClient(app) as client:
-        r = client.post("/v1/ai/feedback", json=payload)
+        r = client.post(
+            "/v1/ai/feedback", json=payload, headers={"X-Auth-Token": "gate-test-token"}
+        )
         assert r.status_code == 202, r.text
         body = r.json()
         assert body["ok"] is True
@@ -98,6 +100,7 @@ def test_legacy_consortium_feedback_bridges_to_operational_signals(
                 "entity_id": "entity-legacy-1",
                 "outcome": "confirmed_fraud",
             },
+            headers={"X-Auth-Token": "gate-test-token"},
         )
         assert r.status_code == 202, r.text
         body = r.json()
@@ -144,6 +147,7 @@ def test_legacy_copilot_feedback_bridges_to_operational_signals(
                 "tenant_id": "tenant-a",
                 "analyst_id": "analyst-7",
             },
+            headers={"X-Auth-Token": "gate-test-token"},
         )
     assert r.status_code == 202, r.text
     body = r.json()
