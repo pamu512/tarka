@@ -64,6 +64,7 @@ ALLOWED_RELS = frozenset(
         "REFERRED",
         "KYC_VERIFIED_BY",
         "USED_DEVICE",
+        "TRANSACTED",
         "USED_SESSION",
         "USED_IP",
         "MADE_PAYMENT",
