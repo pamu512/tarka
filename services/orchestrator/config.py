@@ -10,7 +10,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 SHADOW_INVESTIGATE_STREAM_NAME = "TARKA_SHADOW_INVESTIGATE"
 DEFAULT_SHADOW_INVESTIGATE_SUBJECT = "shadow.investigate"
-TARKA_EVENTS_STREAM_NAME = "TARKA_EVENTS"
 
 _DEFAULT_JETSTREAM_MAX_AGE_SEC = 7 * 24 * 3600
 _DEFAULT_JETSTREAM_MAX_BYTES = 10 * 1024 * 1024 * 1024
@@ -79,16 +78,6 @@ class OrchestratorSettings(BaseSettings):
         default=DEFAULT_SHADOW_INVESTIGATE_SUBJECT,
         min_length=1,
         validation_alias="SHADOW_DISPATCH_NATS_SUBJECT",
-    )
-    tarka_events_jetstream_max_age_sec: float = Field(
-        default=float(_DEFAULT_JETSTREAM_MAX_AGE_SEC),
-        gt=0.0,
-        validation_alias="TARKA_EVENTS_JETSTREAM_MAX_AGE_SEC",
-    )
-    tarka_events_jetstream_max_bytes: int = Field(
-        default=int(_DEFAULT_JETSTREAM_MAX_BYTES),
-        gt=0,
-        validation_alias="TARKA_EVENTS_JETSTREAM_MAX_BYTES",
     )
     shadow_investigate_jetstream_stream: str = Field(
         default=SHADOW_INVESTIGATE_STREAM_NAME,

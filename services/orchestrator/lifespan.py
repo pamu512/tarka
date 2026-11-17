@@ -20,14 +20,14 @@ from orchestrator_analytics.provider import AnalyticsProvider
 from audit_case_worker import build_audit_engine
 from deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES, build_v1_rate_limiter
 from graph.client import GraphClient, graph_client_from_environment
-from messaging.nats_jetstream import (
-    JetStreamUnavailableError,
-    TarkaEventsJetStreamInitializer,
-)
 from messaging.shadow_investigate_jetstream import ensure_shadow_investigate_stream
 from queues.shadow_dispatch import shadow_investigate_subject
 
 logger = logging.getLogger(__name__)
+
+
+class JetStreamUnavailableError(RuntimeError):
+    """Raised when the broker has no usable JetStream context."""
 
 _CLOUD_ENV_HINTS = frozenset({"production", "prod", "staging", "stage", "cloud"})
 
@@ -108,8 +108,6 @@ async def _bootstrap_nats_jetstream(
         await nc.drain()
         raise JetStreamUnavailableError("NATS JetStream context is not available on the broker")
 
-    events_init = TarkaEventsJetStreamInitializer.from_environment()
-    await events_init.ensure_streams_on(js)
     await ensure_shadow_investigate_stream(js, subject=shadow_investigate_subject())
     logger.info("orchestrator_lifespan_nats_jetstream_verified url=%s", nats_url.split("@")[-1])
     return nc, js
