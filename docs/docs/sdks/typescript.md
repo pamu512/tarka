@@ -97,6 +97,12 @@ const ack = await ingest.sendEvent(
 console.log(ack.ingest_id);
 ```
 
+### Agent mandate
+
+Set `actor_kind: "agent"` plus `mandate_caps` and `mandate_expires_at` on `DecisionClient.evaluate` and on `EventIngestClient.sendEvent` / `sendBatch`. Leave `actor_kind` off the object when you do not have one. Neither client adds a score or a decision, and neither defaults a missing actor to human.
+
+Empty caps are dropped. A timestamp at or before now, or an unparseable timestamp, sets `mandate_expired` to true. Numbers below 1e12 are Unix seconds; numbers at or above 1e12 are epoch milliseconds. `AGENT` is normalized to `agent`. Missing caps or a past expiry stay out of mandate. `ingest_id` on the ack is the receipt. `EventIngestClient` does not call evaluate.
+
 See **[Ingest, idempotency & replay](../guides/ingest-replay-onboarding.md)**.
 
 When `autoCollectSignals` is `true` (the default), the SDK automatically:

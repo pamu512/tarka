@@ -12,6 +12,7 @@ from fraud_stack_sdk.envelope import (
     default_client_nonce,
     default_client_timestamp,
 )
+from fraud_stack_sdk.ingest_client import apply_agent_mandate
 from fraud_stack_sdk.signals import ServerSignalCollector
 
 
@@ -54,6 +55,26 @@ class EvaluateResponse(TypedDict, total=False):
     challenge_policy_id: NotRequired[str | None]
     challenge_metadata: NotRequired[dict[str, Any] | None]
     graph_decision_explanation: NotRequired[dict[str, Any] | None]
+
+
+def _with_agent_mandate(
+    body: dict[str, Any],
+    *,
+    actor_kind: str | None,
+    mandate_caps: dict[str, Any] | None,
+    mandate_expires_at: str | None,
+) -> dict[str, Any]:
+    """Attach mandate fields when the caller set them. Absent actor_kind stays absent.
+
+    Does not add a score or a decision.
+    """
+    if actor_kind is not None:
+        body["actor_kind"] = actor_kind
+    if mandate_caps is not None:
+        body["mandate_caps"] = mandate_caps
+    if mandate_expires_at is not None:
+        body["mandate_expires_at"] = mandate_expires_at
+    return apply_agent_mandate(body)
 
 
 class DecisionClient:
@@ -101,6 +122,9 @@ class DecisionClient:
         client_nonce: str | None = None,
         client_timestamp: int | None = None,
         role: str | None = None,
+        actor_kind: str | None = None,
+        mandate_caps: dict[str, Any] | None = None,
+        mandate_expires_at: str | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -120,6 +144,12 @@ class DecisionClient:
             region=region,
             challenge_policy_id=challenge_policy_id,
             role=role,
+        )
+        body = _with_agent_mandate(
+            body,
+            actor_kind=actor_kind,
+            mandate_caps=mandate_caps,
+            mandate_expires_at=mandate_expires_at,
         )
         body_bytes = canonical_json_bytes(body)
         nonce = client_nonce
@@ -171,6 +201,9 @@ class DecisionClient:
         client_nonce: str | None = None,
         client_timestamp: int | None = None,
         role: str | None = None,
+        actor_kind: str | None = None,
+        mandate_caps: dict[str, Any] | None = None,
+        mandate_expires_at: str | None = None,
     ) -> EvaluateResponse:
         if self._collector and client_ip:
             device_context = self._collector.build_device_context(
@@ -190,6 +223,12 @@ class DecisionClient:
             region=region,
             challenge_policy_id=challenge_policy_id,
             role=role,
+        )
+        body = _with_agent_mandate(
+            body,
+            actor_kind=actor_kind,
+            mandate_caps=mandate_caps,
+            mandate_expires_at=mandate_expires_at,
         )
         body_bytes = canonical_json_bytes(body)
         nonce = client_nonce
