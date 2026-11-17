@@ -37,7 +37,11 @@ def test_openapi_spec_and_redoc_at_docs() -> None:
         assert "/v1/cases/{case_id}/status" in spec["paths"]
         assert "/v1/cases/{case_id}/export" in spec["paths"]
         assert "/v1/cases/{case_id}/file-dispute" in spec["paths"]
-        assert "/v1/ai/feedback" in spec["paths"]
+        # Legacy feedback bridges were removed (2026-11-17); operational-signals is the ingress.
+        assert "/v1/ai/feedback" not in spec["paths"]
+        assert "/v1/consortium/feedback" not in spec["paths"]
+        assert "/v1/feedback" not in spec["paths"]
+        assert "/v1/operational-signals" in spec["paths"]
         desc = spec["info"].get("description", "")
         assert "8778" not in desc
         assert "/v1/evaluate" not in desc

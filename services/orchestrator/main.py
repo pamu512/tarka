@@ -79,7 +79,6 @@ from deps.v1_api_guard import V1_PROTECTED_ROUTE_DEPENDENCIES
 from lifespan import LifespanConfig, build_lifespan
 from routes.data_export import router as data_export_router
 from routes.hil_overrides import router as hil_overrides_router
-from routes.legacy_feedback_bridge import router as legacy_feedback_bridge_router
 from routes.operational_signals import router as operational_signals_router
 from rule_shadow_test import execute_rule_shadow_test
 from ingest_side_effects import IngestSideEffectsRequest, handle_ingest_side_effects_request
@@ -375,11 +374,6 @@ def create_app(
     )
     application.include_router(
         hil_overrides_router,
-        prefix="/v1",
-        dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
-    )
-    application.include_router(
-        legacy_feedback_bridge_router,
         prefix="/v1",
         dependencies=V1_PROTECTED_ROUTE_DEPENDENCIES,
     )
