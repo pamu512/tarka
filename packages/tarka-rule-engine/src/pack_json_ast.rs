@@ -413,12 +413,13 @@ pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
 
 fn eval_ast_inner(node: &AstNode, features: &Map<String, Value>) -> bool {
     match node {
-        AstNode::CustomSignal {
-            plugin_id,
-            output_key,
-        } => {
-            let _ = (plugin_id, output_key);
-            true
+        AstNode::CustomSignal { output_key, .. } => {
+            // Parity with Python ast_evaluator: a custom_signal matches only when the
+            // plugin's output_key resolved to a signal — present AND non-null. The
+            // Python resolver injects null on failure/timeout, so an unresolved
+            // plugin must fail the match, not fire it; a legit falsy value matches.
+            !output_key.is_empty()
+                && features.get(output_key).is_some_and(|v| !v.is_null())
         }
         AstNode::Condition {
             op,
@@ -480,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn custom_signal_parses_and_is_noop_for_eval() {
+    fn custom_signal_matches_only_when_output_key_present() {
         let v = json!({
             "type": "and",
             "children": [
@@ -495,5 +496,54 @@ mod tests {
             m.insert("x".to_string(), json!(0.9));
             assert!(eval_ast(&ast, &m));
         }
+    }
+
+    #[test]
+    fn custom_signal_missing_output_key_fails_match() {
+        // Plugin output unresolved (timeout/failure upstream): the key is absent,
+        // so the custom_signal must be false — never silently true.
+        let v = json!({
+            "type": "and",
+            "children": [
+                {"type": "custom_signal", "plugin_id": "demo", "output_key": "x"},
+                {"type": "condition", "op": "gte", "field": "amount", "value": 0},
+            ]
+        });
+        let ast = parse_ast_strict(&v, "$").expect("valid ast");
+        let mut m = Map::new();
+        m.insert("amount".to_string(), json!(100));
+        assert!(!eval_ast(&ast, &m));
+
+        // Same key injected: the custom_signal now matches.
+        m.insert("x".to_string(), json!(false));
+        assert!(eval_ast(&ast, &m));
+    }
+
+    #[test]
+    fn custom_signal_or_divergence_guard() {
+        // or(custom_signal, amount rule): with the key absent only the amount rule
+        // can fire — the guard against the old always-true custom_signal.
+        let v = json!({
+            "type": "or",
+            "children": [
+                {"type": "custom_signal", "plugin_id": "demo", "output_key": "unresolved"},
+                {"type": "condition", "op": "gte", "field": "amount", "value": 5000},
+            ]
+        });
+        let ast = parse_ast_strict(&v, "$").expect("valid ast");
+        let mut m = Map::new();
+        m.insert("amount".to_string(), json!(100));
+        assert!(!eval_ast(&ast, &m), "unresolved custom_signal must not fire the or");
+
+        // Failed resolution injects JSON null: still not a match.
+        let mut m_null = Map::new();
+        m_null.insert("amount".to_string(), json!(100));
+        m_null.insert("unresolved".to_string(), Value::Null);
+        assert!(!eval_ast(&ast, &m_null), "null-injected custom_signal must not fire the or");
+
+        let mut m_hit = Map::new();
+        m_hit.insert("amount".to_string(), json!(100));
+        m_hit.insert("unresolved".to_string(), json!(true));
+        assert!(eval_ast(&ast, &m_hit));
     }
 }

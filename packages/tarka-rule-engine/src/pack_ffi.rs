@@ -31,6 +31,10 @@ static ACTIVE_PACKS_JSON: LazyLock<Mutex<Option<Arc<String>>>> =
     LazyLock::new(|| Mutex::new(None));
 static PARSED_CACHE: LazyLock<Mutex<HashMap<String, Arc<Vec<Arc<ParsedPack>>>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+/// Safety valve only: sync drops stale generations, so steady state is 1-2 entries
+/// (plus any generations still held by in-flight evaluations). The cap bounds memory
+/// if many distinct generations are parsed between syncs; a cleared entry re-parses on miss.
+const MAX_PARSED_CACHE_ENTRIES: usize = 8;
 
 create_exception!(
     tarka_rule_engine,
@@ -459,7 +463,16 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
                 .map(|v| !v.is_null())
                 .unwrap_or(false);
             if has_flat && has_ast {
-                continue;
+                // Same shape rule_pack_validation rejects on deploy ("ambiguous"):
+                // a pack reaching the engine with both set has bypassed validation,
+                // so fail closed instead of silently dropping the rule.
+                return Err(TarkaEngineError::AstValidation {
+                    rule_id: rid.clone(),
+                    ast_node_index: None,
+                    path: format!("{source_file}.rules[{rid}].when"),
+                    code: "rule_when_and_when_ast_both_set".to_string(),
+                    message: "rule sets both non-empty 'when' and 'when_ast' (ambiguous)".to_string(),
+                });
             }
             let rule_tags: Vec<String> = rule
                 .get("tags")
@@ -495,7 +508,18 @@ fn parse_active_packs(arr: &[Value], exclude_shadow: bool) -> Result<Vec<Arc<Par
 
             let when = match when_arr {
                 Some(w) if !w.is_empty() && w.len() <= MAX_CONDITIONS_PER_RULE => w,
-                _ => continue,
+                Some(w) if !w.is_empty() => continue, // oversize: eval-time limit, soft-skip for Python parity
+                _ => {
+                    // Neither 'when' nor 'when_ast' ("requires non-empty when or when_ast"
+                    // in rule_pack_validation): fail closed, never a silent drop.
+                    return Err(TarkaEngineError::AstValidation {
+                        rule_id: rid.clone(),
+                        ast_node_index: None,
+                        path: format!("{source_file}.rules[{rid}].when"),
+                        code: "rule_requires_when_or_when_ast".to_string(),
+                        message: "rule has neither non-empty 'when' nor 'when_ast'".to_string(),
+                    });
+                }
             };
             let mut conds = Vec::new();
             let mut skip = false;
@@ -597,8 +621,17 @@ fn get_cached_parsed(json: &Arc<String>) -> Result<Arc<Vec<Arc<ParsedPack>>>, Ta
     let parsed_vec = parse_active_packs(&arr, true)?;
     let parsed: Arc<Vec<Arc<ParsedPack>>> = Arc::new(parsed_vec);
     let mut cache = PARSED_CACHE.lock();
+    if cache.len() >= MAX_PARSED_CACHE_ENTRIES {
+        cache.clear();
+    }
     cache.insert(key, parsed.clone());
     Ok(parsed)
+}
+
+/// Drop parsed generations older than `current_json` (see `sync_packs_json`).
+fn retain_current_generation(current_json: &str) {
+    let key = format!("{:x}", Sha256::digest(current_json.as_bytes()));
+    PARSED_CACHE.lock().retain(|k, _| k == &key);
 }
 
 /// Replace cached JSON for active rule packs (same semantics as Python `_cached_packs` only).
@@ -617,6 +650,9 @@ pub(crate) fn sync_packs_json(packs_json: String) -> PyResult<()> {
         .collect();
     let s = serde_json::to_string(&active)
         .map_err(|e| engine_err_to_py(&json_serialize_err("sync_packs_json", e)))?;
+    // Drop parsed generations older than this content: entries are keyed by content
+    // hash and each reload would otherwise leak one parsed-pack set forever.
+    retain_current_generation(&s);
     *ACTIVE_PACKS_JSON.lock() = Some(Arc::new(s));
     Ok(())
 }
@@ -883,5 +919,72 @@ mod tests {
         let mut feats = serde_json::Map::new();
         feats.insert("s".into(), json!("abc"));
         assert!(match_condition(&feats, &cond("regex", "s", json!("abc"))));
+    }
+
+    #[test]
+    fn malformed_flat_rules_fail_closed() {
+        // Both 'when' and 'when_ast' set: rejected by rule_pack_validation upstream;
+        // the engine must error, not silently drop the rule.
+        let mut both = always_hit_pack(json!({"version": 1, "name": "both"}))
+            .as_object()
+            .cloned()
+            .unwrap();
+        let mut rules = both["rules"].as_array().cloned().unwrap();
+        rules[0]["when_ast"] = json!({
+            "type": "condition", "op": "gte", "field": "x", "value": 0
+        });
+        both["rules"] = Value::Array(rules);
+        let err = match parse_active_packs(&[Value::Object(both)], true) {
+            Err(e) => e,
+            Ok(_) => panic!("ambiguous when+when_ast must fail closed"),
+        };
+        assert!(matches!(err, TarkaEngineError::AstValidation { ref code, .. } if code == "rule_when_and_when_ast_both_set"));
+
+        // Neither 'when' nor 'when_ast': same contract.
+        let mut neither = always_hit_pack(json!({"version": 1, "name": "neither"}))
+            .as_object()
+            .cloned()
+            .unwrap();
+        let mut rules = neither["rules"].as_array().cloned().unwrap();
+        rules[0].as_object_mut().unwrap().remove("when");
+        neither["rules"] = Value::Array(rules);
+        let err = match parse_active_packs(&[Value::Object(neither)], true) {
+            Err(e) => e,
+            Ok(_) => panic!("rule without when/when_ast must fail closed"),
+        };
+        assert!(matches!(err, TarkaEngineError::AstValidation { ref code, .. } if code == "rule_requires_when_or_when_ast"));
+    }
+
+    #[test]
+    fn parsed_cache_bounded_across_syncs_and_generations() {
+        // One test fn so the two scenarios share the global cache serially.
+        let gen = |name: &str| {
+            Arc::new(
+                serde_json::to_string(&[always_hit_pack(json!({"version": 1, "name": name}))])
+                    .expect("serialize"),
+            )
+        };
+
+        // 1) sync semantics: after retaining the new generation, the old key is gone.
+        let a = gen("gen-a");
+        assert!(get_cached_parsed(&a).is_ok());
+        let b = gen("gen-b");
+        retain_current_generation(b.as_str());
+        {
+            let cache = PARSED_CACHE.lock();
+            assert_eq!(cache.len(), 0, "stale generation must be dropped on sync");
+        }
+        assert!(get_cached_parsed(&b).is_ok());
+
+        // 2) safety valve: many distinct generations between syncs stay capped.
+        for i in 0..(MAX_PARSED_CACHE_ENTRIES * 3) {
+            let g = gen(&format!("burst-{i}"));
+            assert!(get_cached_parsed(&g).is_ok());
+        }
+        let len = PARSED_CACHE.lock().len();
+        assert!(
+            len <= MAX_PARSED_CACHE_ENTRIES,
+            "cache must stay bounded, got {len}"
+        );
     }
 }
