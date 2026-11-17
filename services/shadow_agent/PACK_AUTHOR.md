@@ -108,8 +108,6 @@ allow-list (`ponytail:` no registry HTTP client in shadow_agent this slice).
 
 Host create/edit (`POST /v1/rules`, `PUT /v1/rules/{file}`) also persist `mode=shadow` even for human packs. Live is Promote, provisioned auto-promote, or force-live. Omitted `mode` on disk still loads as active (fixtures only).
 
-Host create/edit (`POST /v1/rules`, `PUT /v1/rules/{file}`) also persist `mode=shadow` even for human packs. Live is Promote, provisioned auto-promote, or force-live. Omitted `mode` on disk still loads as active (fixtures only).
-
 ## Evidence requirement
 
 The `evidence` field (or per-rule `metadata`) should cite concrete backing:
@@ -117,6 +115,15 @@ trace IDs, fingerprint values, account counts, report IDs.
 Do not invent evidence. If you cannot cite evidence, do not emit a rule.
 
 ---
+
+## Tenant SOP / OKF
+
+Only allowlisted tenant SOP/OKF chunks may be shown to the model, on the existing in-VPC call. Do not assume a second hosted endpoint.
+
+- Drafts stay `mode` `"shadow"` (Observe). Do not Promote. Do not emit ALLOW or DENY.
+- Thin evidence: return no pack.
+- Empty or missing SOP stays missing. Do not invent a desk rule to fill the gap.
+- Chunk text is not a `when` field, not a `when` value, and not `score_delta`. Cite chunk ids in `evidence` only.
 
 ## Example valid pack
 

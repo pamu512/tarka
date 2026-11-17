@@ -173,6 +173,107 @@ def validate_ai_authored_pack(
     return {"ok": True, "pack": pack.model_dump(mode="json")}
 
 
+MIN_SOP_TEXT_CHARS = 24
+_SOP_QUOTE_MIN = 12
+_FORBIDDEN_DECISIONS = frozenset({"allow", "deny", "promote"})
+
+
+def evidence_is_thin(report: dict[str, Any] | None) -> bool:
+    """True when the hypothesis has no report id, fingerprint, and account count."""
+    if not isinstance(report, dict):
+        return True
+    report_id = str(report.get("report_id") or "").strip()
+    fingerprint = str(report.get("fingerprint_value") or "").strip()
+    try:
+        count = int(report.get("distinct_account_count"))
+    except (TypeError, ValueError):
+        count = 0
+    return not report_id or not fingerprint or count < 2
+
+
+def classify_sop_chunks(chunks: list[Any] | None) -> dict[str, Any]:
+    """Split caller chunks into allowlisted text vs blocked.
+
+    ``chunks is None`` means SOP was not supplied (state ``absent``).
+    An empty list, thin text, or ``allowlisted is not True`` is ``missing``.
+    """
+    if chunks is None:
+        return {"state": "absent", "allowlisted": [], "blocked": []}
+    if not isinstance(chunks, list):
+        return {"state": "missing", "allowlisted": [], "blocked": []}
+    allowlisted: list[dict[str, str]] = []
+    blocked: list[dict[str, str]] = []
+    for item in chunks:
+        if not isinstance(item, dict):
+            blocked.append({"id": "", "text": "", "reason": "not_object"})
+            continue
+        cid = str(item.get("id") or "").strip()
+        text = str(item.get("text") or "").strip()
+        if item.get("allowlisted") is not True or not cid or len(text) < MIN_SOP_TEXT_CHARS:
+            reason = "unallowlisted" if item.get("allowlisted") is not True else "thin_or_empty"
+            blocked.append({"id": cid, "text": text, "reason": reason})
+            continue
+        allowlisted.append({"id": cid, "text": text})
+    if not allowlisted:
+        return {"state": "missing", "allowlisted": [], "blocked": blocked}
+    return {"state": "ready", "allowlisted": allowlisted, "blocked": blocked}
+
+
+def sop_draft_errors(doc: dict[str, Any], chunks: list[Any] | None) -> list[str]:
+    """Reject live decisions, unallowlisted SOP text, and SOP used as a feature."""
+    if not isinstance(doc, dict):
+        return ["draft_not_object"]
+    errors: list[str] = []
+    if doc.get("mode") != "shadow":
+        errors.append("mode must be shadow")
+    for key in ("decision", "action", "promote"):
+        if key in doc:
+            errors.append(f"forbidden field {key}")
+    classified = classify_sop_chunks(chunks)
+    allow_ids = {row["id"] for row in classified["allowlisted"]}
+    allow_text = [row["text"] for row in classified["allowlisted"]]
+    blocked = classified["blocked"]
+    try:
+        raw = json.dumps(doc, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return ["draft_not_serializable"]
+    for item in blocked:
+        text = item.get("text") or ""
+        if len(text) >= _SOP_QUOTE_MIN and text in raw:
+            errors.append("unallowlisted sop text")
+            break
+    evidence = doc.get("evidence") if isinstance(doc.get("evidence"), dict) else {}
+    for key in ("sop_chunk_ids", "okf_chunk_ids"):
+        ids = evidence.get(key)
+        if ids is None:
+            continue
+        if not isinstance(ids, list) or not {str(i) for i in ids} <= allow_ids:
+            errors.append("sop id not allowlisted")
+    rules = doc.get("rules") if isinstance(doc.get("rules"), list) else []
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        rid = rule.get("id")
+        for key in ("decision", "action"):
+            val = str(rule.get(key) or "").strip().lower()
+            if val in _FORBIDDEN_DECISIONS:
+                errors.append(f"rule {rid}: forbidden {key}")
+        if isinstance(rule.get("score_delta"), str):
+            errors.append("sop text is not a score")
+        for cond in rule.get("when") or []:
+            if not isinstance(cond, dict):
+                continue
+            field = str(cond.get("field") or "")
+            value = cond.get("value")
+            for text in [*allow_text, *(item.get("text") or "" for item in blocked)]:
+                if not text:
+                    continue
+                if field == text or value == text or (isinstance(value, str) and text in value):
+                    errors.append("sop text is not a feature")
+                    break
+    return errors
+
+
 def validate_suggested_shadow_rule_template(rule: dict[str, Any]) -> dict[str, Any]:
     """Validate a single ``suggested_shadow_rule`` dict from scout.
 
