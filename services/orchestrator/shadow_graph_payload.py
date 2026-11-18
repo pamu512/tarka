@@ -58,7 +58,13 @@ async def build_shadow_analyze_payload(
 
     if uid:
         try:
-            signals = await graph_client.get_graph_signals(uid)
+            import httpx
+
+            from graph.service_client import signals_for_entity
+
+            tenant = str(meta.get("tenant_id") or "_").strip() or "_"
+            async with httpx.AsyncClient(timeout=1.0) as http:
+                signals = await signals_for_entity(http, tenant_id=tenant, entity_id=uid)
             # ponytail: omit zero-filled unavailable backends so Shadow never treats them as live
             if signals.get("signals_usable") is False or signals.get("implemented") is False:
                 ctx["signals_unavailable"] = {

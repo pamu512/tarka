@@ -617,7 +617,14 @@ async def _prefetch_graph_signals_for_triage(
     if not uid:
         return None
     try:
-        return await graph_client.get_graph_signals(uid)
+        import httpx
+
+        from graph.service_client import signals_for_entity
+
+        meta = transaction.metadata if isinstance(transaction.metadata, dict) else {}
+        tenant = str(meta.get("tenant_id") or "_").strip() or "_"
+        async with httpx.AsyncClient(timeout=1.0) as http:
+            return await signals_for_entity(http, tenant_id=tenant, entity_id=uid)
     except Exception:
         logger.exception(
             "orchestrator_shadow_triage_graph_signals_failed transaction_id=%s",
