@@ -34,7 +34,7 @@ FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 
 WORKDIR /app/services/orchestrator
 
-ENV PYTHONPATH=/app/services/orchestrator:/app/services:/app/services/rule_engine:/app/services/shadow_agent:/app/services/ingestor:/app/services/ingestor/src:/app/packages/shared-core \
+ENV PYTHONPATH=/app/services/orchestrator:/app/services:/app/services/rule_engine:/app/services/shadow_agent:/app/services/ingestor:/app/services/ingestor/src:/app/packages/shared-core:/app/services/shared \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 

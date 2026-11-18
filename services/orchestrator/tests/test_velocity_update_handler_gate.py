@@ -78,7 +78,7 @@ def test_velocity_update_handler_applies_redis_only() -> None:
         from workers.handlers.velocity_update import VelocityUpdateHandler
 
         pipe = MagicMock()
-        pipe.incrby = MagicMock(return_value=pipe)
+        pipe.zadd = MagicMock(return_value=pipe)
         pipe.expire = MagicMock(return_value=pipe)
         pipe.execute = AsyncMock(return_value=[])
         redis_client = MagicMock()
@@ -111,8 +111,10 @@ def test_velocity_update_handler_applies_redis_only() -> None:
 
         await handler.execute(payload)
 
-        redis_client.pipeline.assert_called_once_with(transaction=True)
-        pipe.execute.assert_awaited_once()
+        zadd_keys = [call.args[0] for call in pipe.zadd.call_args_list]
+        assert any(key.endswith(":device:device-hash-token:events") for key in zadd_keys)
+        assert any(":ip:192.0.2.1:events" in key for key in zadd_keys)
+        assert all(":entity-1:" not in key for key in zadd_keys)
         ch_client.insert.assert_not_called()
         ch_client.command.assert_not_called()
 
@@ -148,3 +150,34 @@ def test_velocity_update_handler_requires_amount_cents() -> None:
             )
 
     asyncio.run(_run())
+
+
+@pytest.mark.asyncio
+async def test_velocity_handler_records_device_and_ip_on_aggregate_store() -> None:
+    from workers.handlers.velocity_update import VelocityUpdateHandler
+
+    calls: list[tuple] = []
+
+    class _Store:
+        async def record_event(self, tenant_id, entity_id, event_id, fields, ts=None):
+            calls.append((tenant_id, entity_id, event_id, fields, ts))
+
+    handler = VelocityUpdateHandler(deps=type("D", (), {"redis_client": object()})())
+    handler._aggregate_store = _Store()
+    await handler.execute(
+        {
+            "schema": "tarka.velocity_update.v1",
+            "entity_id": "evt-1",
+            "device_hash_string": "devtok",
+            "amount_cents": 500,
+            "transaction_timestamp_utc": "2026-11-17T00:00:00Z",
+            "client_browser_metadata_context": {
+                "tenant_id": "acme",
+                "ingress_ip": "203.0.113.9",
+            },
+        }
+    )
+    # 2026-11-17T00:00:00Z
+    assert ("acme", "device:devtok", "evt-1", {"amount": 500}, 1794873600) in calls
+    assert ("acme", "ip:203.0.113.9", "evt-1", {"amount": 500}, 1794873600) in calls
+    assert all(call[1] != "evt-1" for call in calls)
