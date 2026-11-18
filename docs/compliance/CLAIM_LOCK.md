@@ -73,6 +73,7 @@ Buyer-facing README / Day-1 / hop / GNN copy must match this table. Do not adver
 | FP late-label → Observe soften draft (#394) | Consortium SKU |
 | Optional consume of joined warehouse labels since T → Observe drafts (`authored_by=seed`). Promote only via existing gates / human. Never auto Active. | Case CRM / dispute inbox; auto Active from labels |
 | Beachhead Observe seeds (promo / COD / payout / claims) seed ≠ live. Not banks | Users / LOI / ARR as traction |
+| Gift/store-credit cash-out Observe seed (`seed_gift_store_credit_cashout_observe`): refund/payout with `instrument_kind` = gift_card / store_credit stays Observe (`observe_locked`). Missing tender field = no hit (fail-closed). Seed hits are not production loss-prevention evidence | Seed hits sold as production loss-prevention; missing instrument_kind treated as not-gift (soft-open) |
 | Community = GitHub issues (no SLA). Commercial pack = VPC / Helm / SSO / pack-GitOps assist + severity intent ([SUPPORT.md](../../SUPPORT.md)) | 99.99% (or any nines) as a Tarka SLA; SOC 2 from us; hosted Tarka Cloud; GitLab-grade from SUPPORT.md |
 | Graph-risk / ring-score challenger (#397). `GRAPH_GNN_BETA_URL` unset in compose | GNN live |
 | G2.4 CI: compose/Lite keep `GRAPH_GNN_BETA_URL` unset (no live GNN score; evaluate stays heuristic_v1, `gnn_claim_allowed` false). Shadow hop + ring Observe drafts never emit live FLAG/DENY (no auto Active). No identity-as-SKU product copy. | GNN live by default; auto live FLAG from hop/ring; identity product SKU |
