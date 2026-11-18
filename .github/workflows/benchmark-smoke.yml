@@ -38,7 +38,16 @@ jobs:
         working-directory: services/decision-api
         env:
           PYTHONPATH: src:../shared:../../packages/shared-core
-          DATABASE_URL: sqlite+aiosqlite:///
+          # Empty-path sqlite (`sqlite+aiosqlite:///`) resolves to a shared
+          # in-memory DB whose single raw connection is handed to concurrent
+          # evaluate sessions; interleaved audit commits raise
+          # `sqlite3.OperationalError: cannot commit transaction - SQL
+          # statements in progress` -> HTTP 500 on a large fraction of
+          # measured requests (reproduced 2026-11-18: 14/30 at concurrency 5).
+          # A per-run temp file keeps one on-disk DB for all pooled
+          # connections and removes the 500s without touching the app or the
+          # error bar.
+          DATABASE_URL: sqlite+aiosqlite:////tmp/decision-api-bench.db
           REDIS_URL: redis://127.0.0.1:6379/0
           API_KEYS: ""
           ALLOW_INSECURE_NO_AUTH: "true"
@@ -46,6 +55,7 @@ jobs:
           RULES_PATH: rules
         run: |
           set -euo pipefail
+          rm -f /tmp/decision-api-bench.db
           nohup python -m uvicorn decision_api.main:app --host 127.0.0.1 --port 8000 > /tmp/decision-api.log 2>&1 &
           echo $! > /tmp/decision-api.pid
           for i in $(seq 1 45); do
@@ -68,6 +78,12 @@ jobs:
             --concurrency 5 \
             --warmup 3 \
             --timeout 90
+
+      - name: Dump decision-api log on smoke failure
+        if: failure()
+        run: |
+          echo "--- decision-api log (smoke failure) ---"
+          cat /tmp/decision-api.log || true
 
       - name: Stop Decision API
         if: always()
