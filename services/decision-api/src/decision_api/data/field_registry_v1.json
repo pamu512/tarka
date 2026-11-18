@@ -130,6 +130,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "instrument_kind",
+    "explanation": "First-party tender on refund/payout (gift_card, store_credit). Missing means absent — fail-closed.",
+    "source": "tarka_core"
+  },
+  {
     "name": "is_bot",
     "explanation": "Bot flag on payload",
     "source": "tarka_core"

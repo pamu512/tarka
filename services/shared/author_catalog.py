@@ -30,6 +30,7 @@ PAYLOAD_FIELDS = (
     "ip_is_proxy",
     "distinct_countries_7d",
     "email_domain",
+    "instrument_kind",
 )
 IDENTITY_FIELDS = (
     "event_type",

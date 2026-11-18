@@ -164,6 +164,17 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBeNull();
   });
 
+  it("surfaces a non-missing Why for the gift/store-credit cash-out Observe seed rule id via rule_hits", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_gift_store_credit_cashout_observe_v1.json",
+      rule_hits: ["seed_refund_gift_store_credit_cashout"],
+    });
+    expect(view.packId).toBe("seed_gift_store_credit_cashout_observe_v1");
+    expect(view.why).toBe("seed_refund_gift_store_credit_cashout");
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+    expect(view.advise).toBeNull();
+  });
+
   it("uses the timeout copy only when advise already timed out on the case", () => {
     const view = resolvePackWhy({
       rule_pack_file: "fintech.json",

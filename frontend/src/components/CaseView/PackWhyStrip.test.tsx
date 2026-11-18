@@ -85,6 +85,20 @@ describe("PackWhyStrip", () => {
     expect(screen.queryByTestId("pack-why-behavior")).not.toBeInTheDocument();
   });
 
+  it("renders a non-missing why for the gift/store-credit cash-out seed rule id (rule_hits, not pack_reason)", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_gift_store_credit_cashout_observe_v1.json",
+      rule_hits: ["seed_payout_gift_store_credit_cashout"],
+    });
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+
+    render(<PackWhyStrip {...view} />);
+    expect(screen.getByTestId("pack-why-strip")).toBeInTheDocument();
+    const reason = screen.getByTestId("pack-why-reason");
+    expect(reason).toHaveTextContent("seed_payout_gift_store_credit_cashout");
+    expect(reason.querySelector(".italic")).toBeNull();
+  });
+
   it("leftover with pack id but no receipt-why mounts strip with why = missing", () => {
     // Leftover-shaped audit: pack present, no pack_reason / rule_hits / driver.
     const view = resolvePackWhy({
