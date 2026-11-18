@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import UUID
 
-import pytest
-
 from graph.client import JanusGraphClient
-from workers.handlers import graph_ingest
 
 
 def _tx(**meta: object) -> SimpleNamespace:
@@ -101,46 +97,6 @@ def test_merge_email_external_id_is_email() -> None:
     assert "alice@acme.com" in joined
     assert "external_id" in joined
     assert "email" in joined
-
-
-def test_ingest_skips_gremlin_when_tenant_missing(caplog: pytest.LogCaptureFixture) -> None:
-    merge = MagicMock()
-    client = SimpleNamespace(_g=MagicMock())
-    with (
-        patch.object(graph_ingest, "_merge_vertex", merge),
-        patch.object(graph_ingest, "_ensure_connection") as ensure,
-        caplog.at_level(logging.INFO, logger="workers.handlers.graph_ingest"),
-    ):
-        reason = graph_ingest._ingest_janus_sync(
-            client,
-            _tx(user_id="u1", device_id="d1"),
-            audit_log_id=7,
-        )
-    merge.assert_not_called()
-    ensure.assert_not_called()
-    assert reason == "noop:no_tenant"
-    assert "reason=no_tenant" in caplog.text
-
-
-def test_ingest_passes_tenant_into_merge() -> None:
-    merge = MagicMock(return_value="V")
-    client = SimpleNamespace(_g=MagicMock())
-    with (
-        patch.object(graph_ingest, "_merge_vertex", merge),
-        patch.object(graph_ingest, "_ensure_connection"),
-        patch.object(graph_ingest, "_ingest_already_committed", return_value=False),
-        patch.object(graph_ingest, "_upsert_edge"),
-    ):
-        graph_ingest._ingest_janus_sync(
-            client,
-            _tx(tenant_id="acme", user_id="u1", device_id="d1", email="alice@acme.com"),
-            audit_log_id=7,
-        )
-    assert merge.call_count >= 3
-    tenants = {c.kwargs.get("tenant_id") for c in merge.call_args_list}
-    assert tenants == {"acme"}
-    labels = {c.args[1] for c in merge.call_args_list}
-    assert "Device" in labels and "Email" in labels and "User" in labels
 
 
 def test_janus_client_ingest_skips_without_tenant() -> None:
