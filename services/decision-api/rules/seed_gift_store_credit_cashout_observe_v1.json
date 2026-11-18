@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "name": "seed_gift_store_credit_cashout_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "observe_locked": true,
+  "author_notes": "Observe only. Cannot leave Observe or auto-Promote. First-party instrument_kind on refund/payout. Fail-closed when the field is absent. Not production loss-prevention evidence.",
+  "rules": [
+    {
+      "id": "seed_refund_gift_store_credit_cashout",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "refund" },
+        { "field": "instrument_kind", "op": "in", "value": ["gift_card", "store_credit"] }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Refund cashed out to a gift card or store credit: a reversible card payment is returned as a bearer instrument that is hard to claw back. Observe only."
+    },
+    {
+      "id": "seed_payout_gift_store_credit_cashout",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "payout" },
+        { "field": "instrument_kind", "op": "in", "value": ["gift_card", "store_credit"] }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Payout issued as a gift card or store credit instead of the original tender. Observe only."
+    }
+  ],
+  "tag_rules": []
+}
