@@ -115,6 +115,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "instrument_kind",
+    "explanation": "First-party tender on refund/payout (gift_card, store_credit). Missing means absent — fail-closed.",
+    "source": "tarka_core"
+  },
+  {
     "name": "ip_address",
     "explanation": "Client IP address",
     "source": "tarka_core"
@@ -127,11 +132,6 @@
   {
     "name": "ip_risk_score",
     "explanation": "IP reputation risk score",
-    "source": "tarka_core"
-  },
-  {
-    "name": "instrument_kind",
-    "explanation": "First-party tender on refund/payout (gift_card, store_credit). Missing means absent — fail-closed.",
     "source": "tarka_core"
   },
   {
