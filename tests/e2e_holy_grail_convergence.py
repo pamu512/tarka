@@ -49,7 +49,7 @@ class _VelocityPipeline:
 
     def __init__(self, parent: _VelocityRedis) -> None:
         self._parent = parent
-        self._ops: list[tuple[str, str, int]] = []
+        self._ops: list[tuple] = []
 
     def incrby(self, key: str, amount: int) -> _VelocityPipeline:
         self._ops.append(("incrby", key, int(amount)))
@@ -59,13 +59,23 @@ class _VelocityPipeline:
         self._ops.append(("expire", key, int(ttl)))
         return self
 
+    def zadd(self, key: str, mapping: dict) -> _VelocityPipeline:
+        self._ops.append(("zadd", key, mapping))
+        return self
+
     async def execute(self) -> list[int]:
         out: list[int] = []
-        for op, key, val in self._ops:
-            if op == "incrby":
-                out.append(await self._parent.incrby(key, val))
+        for op in self._ops:
+            kind = op[0]
+            key = op[1]
+            if kind == "incrby":
+                out.append(await self._parent.incrby(key, op[2]))
+            elif kind == "zadd":
+                slot = self._parent.zsets.setdefault(key, {})
+                slot.update(op[2])
+                out.append(len(op[2]))
             else:
-                self._parent.ttls[key] = val
+                self._parent.ttls[key] = op[2]
                 out.append(1)
         return out
 
@@ -76,6 +86,7 @@ class _VelocityRedis:
     def __init__(self) -> None:
         self.counters: dict[str, int] = {}
         self.ttls: dict[str, int] = {}
+        self.zsets: dict[str, dict] = {}
 
     def pipeline(self, transaction: bool = False) -> _VelocityPipeline:
         _ = transaction
@@ -375,7 +386,6 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
     from rule_engine.main import create_app as create_rule_app
 
     from orchestrator.anumana_velocity import (
-        build_transaction_velocity_incrby_commands,
         device_hash_token,
         ip_key_token,
     )
@@ -564,20 +574,9 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
             )
             assert int(edge_count_after) == int(edge_count_before)
 
-            expected_cmds = build_transaction_velocity_incrby_commands(
-                tenant_id="tenant-holy-grail",
-                device_token=device_token,
-                ip_tokens=[ingress_ip],
-                amount_cents=amount_cents,
-                now_unix=ingest_ts_unix,
-            )
-            for cmd in expected_cmds:
-                observed = velocity_redis.counters.get(cmd.redis_key)
-                assert observed == cmd.increment, (
-                    f"velocity key {cmd.redis_key!r} expected {cmd.increment}, got {observed!r}"
-                )
-            assert any(":device:" in key for key in velocity_redis.counters)
-            assert any(":ip:" in key and ip_token in key for key in velocity_redis.counters)
+            zkeys = list(velocity_redis.zsets)
+            assert any(f":device:{device_token}:events" in key for key in zkeys)
+            assert any(f":ip:{ip_token}:events" in key for key in zkeys)
 
             async with fac() as session:
                 await process_new_audit_logs(session)

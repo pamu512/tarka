@@ -7,7 +7,6 @@ from typing import Any
 
 from fraud_aggregates import AggregateStore
 
-ANUMANA_VEL_PREFIX = "anumana:velocity"
 ANUMANA_SESSION_RISK_PREFIX = "anumana:session_risk"
 _MEMBER_SEP = "\x1f"
 _RISK_VALUE = "HIGH_RISK_DROPOFF"

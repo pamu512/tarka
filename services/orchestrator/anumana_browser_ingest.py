@@ -8,6 +8,7 @@ Payload validation: :class:`~orchestrator.ingestion_schema.IngestionSchema` (fai
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import secrets
@@ -15,10 +16,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request, status
+from fraud_aggregates import AggregateStore
 
 from ingestion_schema import IngestionSchema
 from anumana_velocity import (
-    build_velocity_incr_expire_commands,
     device_hash_token,
     ip_key_token,
     run_ingest_pipeline,
@@ -99,18 +100,23 @@ async def handle_browser_telemetry_ingest(
     if canvas:
         device_token = device_hash_token(canvas)
 
-    vel_cmds = build_velocity_incr_expire_commands(
-        tenant_id=body.tenant_id,
-        device_token=device_token,
-        ip_tokens=ip_segments,
-    )
+    store = AggregateStore(redis_client)
+    tenant = (body.tenant_id or "").strip() or "_"
+    event_id = hashlib.sha256(raw).hexdigest()
+    written = 0
+    if device_token:
+        await store.record_event(tenant, f"device:{device_token}", event_id, {})
+        written += 1
+    for ip_token in ip_segments:
+        await store.record_event(tenant, f"ip:{ip_token}", event_id, {})
+        written += 1
 
     try:
         await run_ingest_pipeline(
             redis_client,
             stream_key=redis_key,
             payload_bytes=raw,
-            velocity_commands=vel_cmds,
+            velocity_commands=[],
             session_watch=(body.tenant_id, body.device_session_id),
             telemetry_list_cap=telemetry_list_cap,
         )
@@ -125,5 +131,5 @@ async def handle_browser_telemetry_ingest(
         "accepted": True,
         "sink": "redis",
         "key": redis_key,
-        "velocity_updates": len(vel_cmds),
+        "velocity_updates": written,
     }

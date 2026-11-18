@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from pathlib import Path
+
 from decision_api.anumana_signals import (
-    ANUMANA_VEL_PREFIX,
     anumana_device_token,
     anumana_velocity_features,
     merge_anumana_signals,
@@ -40,8 +41,11 @@ def test_anumana_velocity_reads_aggregate_store_device_key() -> None:
     assert ("acme", f"device:{token}", 60) in store.keys
 
 
-def test_prefix() -> None:
-    assert ANUMANA_VEL_PREFIX == "anumana:velocity"
+def test_legacy_velocity_prefix_absent() -> None:
+    text = Path(__file__).resolve().parents[1].joinpath(
+        "src/decision_api/anumana_signals.py"
+    ).read_text()
+    assert "anumana:velocity" not in text
 
 
 def test_device_token_matches_orchestrator_derivation() -> None:

@@ -115,7 +115,7 @@ def test_post_ingest_lpush_canvas_and_ingress_ip() -> None:
     assert r.status_code == 200, r.text
     data = r.json()
     assert data.get("accepted") is True
-    assert data.get("velocity_updates") == 9
+    assert data.get("velocity_updates") == 3
     assert len(fake.pushes) == 1
     key, raw = fake.pushes[0]
     assert key == "anumana:browser_telemetry"
@@ -124,10 +124,10 @@ def test_post_ingest_lpush_canvas_and_ingress_ip() -> None:
     assert env["ingress_ip"] == "198.51.100.9"
     assert env["client_claimed_ip"] == "192.0.2.1"
     assert env["canvas_fingerprint"] == "ab" * 32
-    assert len(fake.incrs) == 10
-    assert len(fake.expires) == 9
-    assert any(":device:1m:" in k for k in fake.incrs)
-    assert any(":ip:1h:" in k for k in fake.incrs)
+    zkeys = list(fake.zsets)
+    assert any(":device:" in k and k.endswith(":events") for k in zkeys)
+    assert any(":ip:198.51.100.9:events" in k for k in zkeys)
+    assert any(":ip:192.0.2.1:events" in k for k in zkeys)
     from anumana_session_watch import session_watch_member  # noqa: E402
 
     m = session_watch_member("t1", "sess-9")

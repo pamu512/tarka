@@ -405,9 +405,8 @@ def create_app(
             "optional sealed **telemetry_packet**. Body must satisfy strict **IngestionSchema** "
             "(unknown keys rejected); validation failures return **400**. One **async Redis pipeline** per "
             "request: **LPUSH** JSON "
-            "to the telemetry stream key and **INCR**/**EXPIRE** fixed-window velocity counters for "
-            "**device** (SHA-256 of canvas string) and **IP** (ingress ``X-Forwarded-For`` first hop + "
-            "optional JSON ``ip``) at **1m**, **5m**, and **1h** buckets (prefix ``ANUMANA_VELOCITY_KEY_PREFIX``). "
+            "to the telemetry stream key and records device and IP counts in AggregateStore "
+            "ids ``device:{token}`` and ``ip:{token}``. "
             "No graph upsert, no DuckDB append. Optional auth: ``ANUMANA_TELEMETRY_INGEST_KEY`` + "
             "``X-Anumana-Ingest-Key``. CORS: ``ANUMANA_TELEMETRY_CORS_ORIGINS`` (default ``*``)."
         ),
