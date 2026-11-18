@@ -18,6 +18,28 @@ def asyncio_run(coro):
     return asyncio.get_event_loop_policy().new_event_loop().run_until_complete(coro)
 
 
+def test_anumana_velocity_reads_aggregate_store_device_key() -> None:
+    import hashlib
+
+    class _Store:
+        def __init__(self) -> None:
+            self.keys: list[tuple] = []
+
+        async def count(self, tenant_id, entity_id, window_seconds):
+            self.keys.append((tenant_id, entity_id, window_seconds))
+            return {60: 2, 300: 0, 3600: 4}[window_seconds]
+
+    store = _Store()
+    feats = asyncio_run(
+        anumana_velocity_features(
+            store, tenant_id="acme", canvas="fp-canvas-abc", now_unix=1
+        )
+    )
+    token = hashlib.sha256(b"fp-canvas-abc").hexdigest()
+    assert feats == {"anumana_velocity_1m": 2, "anumana_velocity_1h": 4}
+    assert ("acme", f"device:{token}", 60) in store.keys
+
+
 def test_prefix() -> None:
     assert ANUMANA_VEL_PREFIX == "anumana:velocity"
 
@@ -32,34 +54,24 @@ def test_device_token_matches_orchestrator_derivation() -> None:
 
 
 class _FakeRedis:
-    def __init__(self, mapping: dict[str, str] | None = None) -> None:
+    def __init__(self, counts: list[int] | None = None, mapping: dict[str, str] | None = None) -> None:
+        self.counts = list(counts or [])
         self.mapping = mapping or {}
         self.get_calls: list[str] = []
 
-    async def mget(self, keys: list[str]) -> list[str | None]:
-        return [self.mapping.get(k) for k in keys]
+    async def zcount(self, key: str, cutoff: float, hi: str) -> int:
+        del key, cutoff, hi
+        if not self.counts:
+            return 0
+        return self.counts.pop(0)
 
     async def get(self, key: str) -> str | None:
         self.get_calls.append(key)
         return self.mapping.get(key)
 
 
-def test_velocity_key_format_exact() -> None:
-    r = _FakeRedis()
-    token = anumana_device_token("fp-canvas-abc")
-    now = 1_700_000_000
-    key_1m = f"{ANUMANA_VEL_PREFIX}:t:t1:device:1m:{token}:{now // 60}"
-    r.mapping[key_1m] = "7"
-    feats = asyncio_run(
-        anumana_velocity_features(
-            r, tenant_id="t1", canvas="fp-canvas-abc", now_unix=now
-        )
-    )
-    assert feats == {"anumana_velocity_1m": 7}
-
-
 def test_velocity_missing_keys_absent() -> None:
-    r = _FakeRedis()
+    r = _FakeRedis(counts=[0, 0, 0])
     feats = asyncio_run(
         anumana_velocity_features(r, tenant_id="t1", canvas="fp-canvas-abc", now_unix=1)
     )
@@ -68,7 +80,7 @@ def test_velocity_missing_keys_absent() -> None:
 
 def test_velocity_redis_error_fail_open() -> None:
     class _Boom:
-        async def mget(self, keys: list[str]) -> list[str | None]:
+        async def count(self, tenant_id, entity_id, window_seconds):
             raise ConnectionError("down")
 
     feats = asyncio_run(
@@ -83,10 +95,7 @@ def test_session_risk_key_format_exact() -> None:
 
 
 def test_merge_sets_dropoff_and_tags() -> None:
-    r = _FakeRedis()
-    token = anumana_device_token("fp")
-    now = 1_700_000_000
-    r.mapping[f"{ANUMANA_VEL_PREFIX}:t:t1:device:1h:{token}:{now // 3600}"] = "4"
+    r = _FakeRedis(counts=[0, 0, 4])
     r.mapping[session_risk_key("t1", "sess-9")] = "HIGH_RISK_DROPOFF"
     feats: dict[str, Any] = {}
     tags: list[str] = []
@@ -98,7 +107,6 @@ def test_merge_sets_dropoff_and_tags() -> None:
             session_id="sess-9",
             features=feats,
             degrade_tags=tags,
-            now_unix=now,
         )
     )
     assert feats["anumana_velocity_1h"] == 4

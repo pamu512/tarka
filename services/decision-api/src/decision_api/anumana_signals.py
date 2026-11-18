@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from typing import Any
+
+from fraud_aggregates import AggregateStore
 
 ANUMANA_VEL_PREFIX = "anumana:velocity"
 ANUMANA_SESSION_RISK_PREFIX = "anumana:session_risk"
@@ -28,45 +29,27 @@ def _tenant_seg(tenant_id: str | None) -> str:
     return t
 
 
-def _bucket(now_unix: int, win_sec: int) -> int:
-    return now_unix // win_sec
-
-
-def _device_keys(tenant_id: str | None, token: str, now: int) -> list[tuple[str, str]]:
-    return [
-        (
-            f"{ANUMANA_VEL_PREFIX}:t:{_tenant_seg(tenant_id)}:device:{win}:{token}:{_bucket(now, ws)}",
-            win,
-        )
-        for win, ws in _WINDOWS
-    ]
-
-
 async def anumana_velocity_features(
-    redis_client: Any,
+    store: Any,
     *,
     tenant_id: str | None,
     canvas: str | None,
     now_unix: int | None = None,
 ) -> dict[str, int]:
-    """MGET device velocity counters for current buckets; empty dict on any failure."""
+    """Read device window counts from AggregateStore. Empty dict on any failure."""
+    del now_unix
     token = anumana_device_token(canvas)
-    if redis_client is None or token is None:
-        return {}
-    now = int(now_unix if now_unix is not None else time.time())
-    pairs = _device_keys(tenant_id, token, now)
-    try:
-        raw = await redis_client.mget([k for k, _ in pairs])
-    except Exception:  # pragma: no cover — network
+    if store is None or token is None:
         return {}
     out: dict[str, int] = {}
-    for (key, win), val in zip(pairs, raw):
-        if val is None:
-            continue
+    tenant = tenant_id or "_"
+    for label, seconds in _WINDOWS:
         try:
-            out[f"anumana_velocity_{win}"] = int(val)
-        except (TypeError, ValueError):
-            continue
+            n = await store.count(tenant, f"device:{token}", seconds)
+        except Exception:
+            return {}
+        if n:
+            out[f"anumana_velocity_{label}"] = int(n)
     return out
 
 
@@ -93,7 +76,10 @@ async def merge_anumana_signals(
     if redis_client is None:
         return
     vel = await anumana_velocity_features(
-        redis_client, tenant_id=tenant_id, canvas=canvas, now_unix=now_unix
+        AggregateStore(redis_client),
+        tenant_id=tenant_id,
+        canvas=canvas,
+        now_unix=now_unix,
     )
     for k, v in vel.items():
         features.setdefault(k, v)
