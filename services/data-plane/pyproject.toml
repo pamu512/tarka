@@ -15,6 +15,8 @@ dependencies = [
   "asyncpg>=0.29.0",
   "clickhouse-connect>=0.8.0",
   "sqlglot>=26.0.0",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "aiosqlite>=0.20.0",
 ]
 
 [project.optional-dependencies]
