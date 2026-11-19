@@ -191,7 +191,9 @@ async def test_force_live_requires_actor_and_reason(client):
 async def test_force_live_refuses_observe_locked_mandate_seed(client):
     fname = "seed_agent_mandate_observe_v1.json"
     src = Path(__file__).resolve().parents[1] / "rules" / fname
-    (client._rules_dir / fname).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    (client._rules_dir / fname).write_text(
+        src.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     denied = await client.post(
         f"/v1/rules/{fname}/force-live",
         json={"reason": "trying to leave observe for incident 42"},

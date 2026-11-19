@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import math
-import re
 from typing import Any
 
 MISSING = "missing"
@@ -17,17 +16,41 @@ _MAX_WHY_CHARS = 240
 _MAX_OKF = 8
 _MAX_ID_CHARS = 128
 
-_EMAIL = re.compile(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", re.I)
-_PAN = re.compile(r"\b(?:\d[ -]?){13,19}\b")
+
+def _looks_like_email(text: str) -> bool:
+    # Linear: local@domain.tld. No regex — CodeQL flagged the % class-plus pattern.
+    at = text.find("@")
+    if at < 1:
+        return False
+    rest = text[at + 1 :]
+    dot = rest.find(".")
+    return dot > 0 and dot < len(rest) - 1
+
+
+def _looks_like_pan(text: str) -> bool:
+    digits = 0
+    for ch in text:
+        if ch.isdigit():
+            digits += 1
+            if digits >= 13:
+                return True
+        elif ch not in " -":
+            digits = 0
+    return False
 
 
 def _text(value: Any, limit: int = _MAX_ID_CHARS) -> str:
     if not isinstance(value, str):
         return ""
     cleaned = value.strip()
-    if not cleaned or _EMAIL.search(cleaned) or _PAN.search(cleaned):
+    if not cleaned:
         return ""
-    return cleaned[:limit]
+    # Cap first so PII scans never walk unbounded leftover/audit strings.
+    if len(cleaned) > limit:
+        cleaned = cleaned[:limit]
+    if _looks_like_email(cleaned) or _looks_like_pan(cleaned):
+        return ""
+    return cleaned
 
 
 def _amount(value: Any) -> int | float | None:

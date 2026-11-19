@@ -448,9 +448,7 @@ def test_sop_text_is_not_a_feature_or_score():
 
 def test_empty_and_thin_sop_do_not_draft():
     client = _RecordingLLM(_valid_pack())
-    empty = asyncio.run(
-        author_pack_from_hypothesis(_rich_report(), client, sop_chunks=[])
-    )
+    empty = asyncio.run(author_pack_from_hypothesis(_rich_report(), client, sop_chunks=[]))
     assert empty["ok"] is False
     assert empty["abstained"] is True
     assert "pack" not in empty
@@ -471,9 +469,7 @@ def test_empty_and_thin_sop_do_not_draft():
 
 def test_thin_evidence_abstains_before_model():
     client = _RecordingLLM(_valid_pack())
-    result = asyncio.run(
-        author_pack_from_hypothesis({}, client, sop_chunks=[_allowlisted_chunk()])
-    )
+    result = asyncio.run(author_pack_from_hypothesis({}, client, sop_chunks=[_allowlisted_chunk()]))
     assert result["ok"] is False
     assert result["errors"] == ["thin_evidence"]
     assert "pack" not in result

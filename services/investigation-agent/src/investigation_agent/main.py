@@ -1815,11 +1815,47 @@ async def setup_diagnostics():
             "detail": "Optional: CASE_API_URL, DECISION_API_URL, GRAPH_SERVICE_URL for live investigation tools.",
         },
     ]
+    jev_url = (settings.jev_system_one_url or "").strip()
+    jev_key = bool((settings.jev_api_key or "").strip())
+    jev_required = bool(settings.jev_api_key_required)
+    if not jev_url:
+        jev_ok = True
+        jev_detail = (
+            "Leave JEV_SYSTEM_ONE_URL empty to keep Advise unchanged. "
+            "If you set a URL, set JEV_API_KEY when the endpoint requires a bearer. "
+            "URL without auth only if the endpoint allows anonymous; otherwise set both or leave URL empty. "
+            "Mode starts shadow; flip to gate only after soak. Keys never appear on receipts or as VITE_*."
+        )
+    elif jev_key:
+        jev_ok = True
+        jev_detail = (
+            "System One URL and bearer are paired. Mode starts shadow; flip to gate only after soak. "
+            "Keys never appear on receipts or as VITE_*."
+        )
+    elif jev_required:
+        jev_ok = False
+        jev_detail = (
+            "JEV_SYSTEM_ONE_URL is set and JEV_API_KEY_REQUIRED=true, but JEV_API_KEY is empty. "
+            "Set the bearer, or leave URL empty to keep Advise unchanged."
+        )
+    else:
+        jev_ok = True
+        jev_detail = (
+            "JEV_SYSTEM_ONE_URL is set with an empty key: only valid if the endpoint allows anonymous. "
+            "401/403 map to jev_auth. Set JEV_API_KEY when a bearer is required, or leave URL empty."
+        )
+    checklist.append({"id": "jev_url_key_pairing", "ok": jev_ok, "detail": jev_detail})
     return {
         "schema": "saarthi_setup_v1",
         "reference_mode": settings.copilot_reference_mode,
         "plain_chat": settings.copilot_plain_chat,
         "plain_prefetch_rag": settings.copilot_plain_prefetch_rag,
+        "jev": {
+            "system_one_url_configured": bool(jev_url),
+            "api_key_configured": jev_key,
+            "api_key_required": jev_required,
+            "mode": (settings.jev_mode or "shadow"),
+        },
         "llm": {
             "chat_base_url": settings.openai_base_url,
             "chat_model": _effective_chat_model(),

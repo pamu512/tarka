@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # Not an evaluate/Promote control. Default shadow still calls the generative LLM.
     jev_system_one_url: str = ""
     jev_api_key: str = ""
+    jev_api_key_required: bool = Field(
+        default=False,
+        description=(
+            "If true, a set JEV_SYSTEM_ONE_URL with an empty JEV_API_KEY fail-closes as jev_auth. "
+            "Default false: blank key means the endpoint allows anonymous; 401/403 still map to jev_auth."
+        ),
+    )
     jev_timeout_ms: int = Field(default=400, ge=1, le=30_000)
     jev_min_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
     jev_mode: Literal["off", "shadow", "gate"] = "shadow"
