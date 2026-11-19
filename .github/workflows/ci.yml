@@ -726,7 +726,9 @@ jobs:
           cache: pip
           cache-dependency-path: services/data-plane/pyproject.toml
       - name: Install data-plane (Python)
-        run: pip install -e "."
+        run: |
+          pip install -e "."
+          pip install -e "../analytics"
         working-directory: services/data-plane
       - name: Import merged FastAPI app
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
