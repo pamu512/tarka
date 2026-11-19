@@ -5,7 +5,7 @@ Canonical **deterministic evaluate** is **decision-api** (Rust packs via `tarka-
 - **Macroservice:** `core-api` → `POST /decisions/v1/decisions/evaluate` (default compose: Lite)
 - **Ingest rail:** Orchestrator `POST /v1/ingest` with `RULE_EVAL_BACKEND=decision_api` and `DECISION_API_URL` (e.g. `http://core-api:8000/decisions` or `http://decision-api:8000`)
 
-The Python AST sidecar (`services/rule_engine`, historically `:8778` / `:8001`) is **legacy dual-run / rollback only** (`RULE_EVAL_BACKEND=python` or `RULE_EVAL_DUAL_RUN=true`). See `services/rule_engine/DEPRECATED.md` and `infra/deploy/docker-compose.v2-ingest.yml` profile `legacy-python-rules`.
+The Python AST sidecar (`services/rule_engine`, historically `:8778` / `:8001`) is **legacy dual-run / rollback only** (`RULE_EVAL_BACKEND=python` or `RULE_EVAL_DUAL_RUN=true`). See `services/rule_engine/DEPRECATED.md` and `infra/deploy/archive/docker-compose.v2-ingest.yml` profile `legacy-python-rules`.
 
 ---
 
@@ -14,7 +14,7 @@ The Python AST sidecar (`services/rule_engine`, historically `:8778` / `:8001`) 
 | Stack | Compose | Evaluate surface |
 |-------|---------|------------------|
 | **Default / Lite** | `docker-compose.yml` → `infra/deploy/docker-compose.lite.yml` | `core-api` `:8000` `/decisions/.../evaluate` + AGE `graph-service` `:8001`. Desk home `/graph`. |
-| **V2 ingest** | `infra/deploy/docker-compose.v2-ingest.yml` | Orchestrator → decision-api; Shadow on `SHADOW_REVIEW` |
+| **V2 ingest** | `infra/deploy/archive/docker-compose.v2-ingest.yml` | Orchestrator → decision-api; Shadow on `SHADOW_REVIEW` |
 
 ---
 

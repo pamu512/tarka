@@ -47,17 +47,12 @@ def test_lifespan_bootstraps_jetstream_when_nats_url_set(monkeypatch: pytest.Mon
 
     with patch("nats.connect", AsyncMock(return_value=mock_nc)):
         with patch(
-            "lifespan.TarkaEventsJetStreamInitializer.ensure_streams_on",
+            "lifespan.ensure_shadow_investigate_stream",
             AsyncMock(),
-        ) as ensure_events:
-            with patch(
-                "lifespan.ensure_shadow_investigate_stream",
-                AsyncMock(),
-            ) as ensure_shadow:
-                app = create_app(rule_engine_url="http://rules.test", shadow_agent_url=None)
-                with TestClient(app) as client:
-                    assert client.app.state.shadow_dispatch_nats is mock_nc
-                    assert client.app.state.shadow_dispatch_jetstream is mock_js
+        ) as ensure_shadow:
+            app = create_app(rule_engine_url="http://rules.test", shadow_agent_url=None)
+            with TestClient(app) as client:
+                assert client.app.state.shadow_dispatch_nats is mock_nc
+                assert client.app.state.shadow_dispatch_jetstream is mock_js
 
-    ensure_events.assert_awaited_once()
     ensure_shadow.assert_awaited_once()

@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,7 +45,29 @@ def test_graph_ingest_handler_requires_audit_log_id() -> None:
     asyncio.run(_run())
 
 
-def test_graph_ingest_handler_connection_drop_raises() -> None:
+def test_ingest_from_event_no_tenant_returns_reason_not_write() -> None:
+    async def _run() -> None:
+        from graph.client import NullGraphClient
+        from workers.handlers.base import OutboxProcessorDeps
+        from workers.handlers.graph_ingest import GraphIngestHandler
+
+        handler = GraphIngestHandler(
+            OutboxProcessorDeps(
+                session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None
+            ),
+        )
+        reason = await handler.execute(
+            {
+                "audit_log_id": 7,
+                "event": {"entity_id": "tx-1", "payload": {"device_id": "d1", "user_id": "u1"}},
+            }
+        )
+        assert reason == "noop:no_tenant"
+
+    asyncio.run(_run())
+
+
+def test_graph_ingest_non_200_raises() -> None:
     async def _run() -> None:
         from graph.client import NullGraphClient
         from workers.handlers.base import OutboxProcessorDeps
@@ -55,89 +76,57 @@ def test_graph_ingest_handler_connection_drop_raises() -> None:
             GraphIngestHandler,
         )
 
+        class _Http:
+            async def __aenter__(self) -> _Http:
+                return self
+
+            async def __aexit__(self, *args: object) -> None:
+                return None
+
+            async def post(self, url: str, json: object) -> object:
+                return type("R", (), {"status_code": 503})()
+
         handler = GraphIngestHandler(
             OutboxProcessorDeps(
                 session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None
             ),
         )
-        payload = {
-            "audit_log_id": 42,
-            "edge_transaction_payload_envelope": {
-                "entity_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                "amount": 1.0,
-                "timestamp": "2026-05-09T12:00:00+00:00",
-                "metadata": {"user_id": "u1", "device_id": "d1"},
-            },
-        }
-        fake_client = SimpleNamespace(_g=MagicMock(), close=MagicMock(return_value=None))
-
-        async def _close() -> None:
-            return None
-
-        fake_client.close = _close
-
         with patch(
-            "workers.handlers.graph_ingest._connect_janusgraph",
-            return_value=fake_client,
+            "workers.handlers.graph_ingest.httpx.AsyncClient",
+            lambda *args, **kwargs: _Http(),
         ):
-            with patch(
-                "workers.handlers.graph_ingest._ingest_janus_from_event",
-                side_effect=ConnectionResetError("connection dropped"),
-            ):
-                with pytest.raises(GraphDatabaseConnectionError):
-                    await handler.execute(payload)
+            with pytest.raises(GraphDatabaseConnectionError):
+                await handler.execute(
+                    {
+                        "audit_log_id": 7,
+                        "event": {
+                            "tenant_id": "acme",
+                            "entity_id": "tx-1",
+                            "payload": {"user_id": "u1", "device_id": "d1"},
+                        },
+                    }
+                )
 
     asyncio.run(_run())
 
 
-def test_ingest_already_committed_short_circuits() -> None:
-    from workers.handlers.graph_ingest import _ingest_already_committed
-
-    client = SimpleNamespace(_g=MagicMock())
-    client._g.E.return_value = client._g
-    client._g.has.return_value = client._g
-    client._g.limit.return_value = client._g
-    client._g.count.return_value = client._g
-    client._g.next.return_value = 1
-
-    assert _ingest_already_committed(client, transaction_id="tx-1", audit_log_id=7) is True
-
-
-def test_ingest_from_event_no_tenant_returns_reason_not_write() -> None:
-    from workers.handlers.graph_ingest import _ingest_janus_from_event
-
-    apply = MagicMock()
-    client = SimpleNamespace(_g=MagicMock())
-    with (
-        patch("workers.handlers.graph_ingest._apply_janus_mutations", apply),
-        patch("workers.handlers.graph_ingest._ensure_connection") as ensure,
-    ):
-        reason = _ingest_janus_from_event(
-            client,
-            {
-                "entity_id": "tx-1",
-                "payload": {"device_id": "d1", "user_id": "u1"},
-            },
-            audit_log_id=7,
-        )
-    assert reason == "noop:no_tenant"
-    apply.assert_not_called()
-    ensure.assert_not_called()
-
-
 def test_ingest_from_event_no_hints_returns_reason() -> None:
-    from workers.handlers.graph_ingest import _ingest_janus_from_event
+    async def _run() -> None:
+        from graph.client import NullGraphClient
+        from workers.handlers.base import OutboxProcessorDeps
+        from workers.handlers.graph_ingest import GraphIngestHandler
 
-    apply = MagicMock()
-    client = SimpleNamespace(_g=MagicMock())
-    with (
-        patch("workers.handlers.graph_ingest._apply_janus_mutations", apply),
-        patch("workers.handlers.graph_ingest._ensure_connection"),
-    ):
-        reason = _ingest_janus_from_event(
-            client,
-            {"tenant_id": "acme", "entity_id": "tx-1", "payload": {}},
-            audit_log_id=7,
+        handler = GraphIngestHandler(
+            OutboxProcessorDeps(
+                session_factory=MagicMock(), graph_client=NullGraphClient(), redis_client=None
+            ),
         )
-    assert reason == "noop:no_graph_hints"
-    apply.assert_not_called()
+        reason = await handler.execute(
+            {
+                "audit_log_id": 7,
+                "event": {"tenant_id": "acme", "entity_id": "tx-1", "payload": {}},
+            }
+        )
+        assert reason == "noop:no_graph_hints"
+
+    asyncio.run(_run())

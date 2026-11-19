@@ -42,9 +42,11 @@ class TestLabelsBusRemoved(unittest.TestCase):
             self.assertNotIn("publish_normalized_label_enriched", text, name)
             self.assertNotIn("build_label_bus_emit_dict", text, name)
 
-    def test_stream_registration_dropped_subject(self) -> None:
-        text = (_ORCH / "messaging/nats_jetstream.py").read_text()
-        self.assertNotIn("labels", text.lower())
+    def test_stream_registration_module_is_gone(self) -> None:
+        # The TARKA_EVENTS stream had no producer or consumer; the whole
+        # nats_jetstream module was removed with it. See
+        # test_tarka_events_stream_removed.py.
+        self.assertFalse((_ORCH / "messaging/nats_jetstream.py").exists())
 
 
 if __name__ == "__main__":

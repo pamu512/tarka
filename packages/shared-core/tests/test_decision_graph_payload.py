@@ -428,3 +428,39 @@ def test_allow_decision_ids_over_cap_keeps_material_and_newest_allows():
     drop = mod.allow_decision_ids_over_cap(nodes)
     assert drop == ["dec:allow-0"]
     assert "dec:deny-1" not in drop
+
+
+def test_counterparty_entity_id_emits_transacted_edge():
+    mod = _load_payload()
+    objects, links = mod.build_evaluate_objects(
+        trace_id="tr-pay",
+        entity_id="fraud_frank",
+        event_type="payment",
+        payload={
+            "amount": 1200,
+            "currency": "USD",
+            "counterparty_entity_id": "mule_ivan",
+        },
+    )
+    assert _link(links, "TRANSACTED", src="fraud_frank", dst="mule_ivan")
+    persons = [o["external_id"] for o in objects if o["entity_type"] == "Person"]
+    assert persons.count("mule_ivan") == 1
+    assert "fraud_frank" in persons
+
+
+def test_counterparty_blank_same_or_missing_emits_no_transacted_edge():
+    mod = _load_payload()
+    cases = [
+        {},
+        {"counterparty_entity_id": ""},
+        {"counterparty_entity_id": "   "},
+        {"counterparty_entity_id": "fraud_frank"},
+    ]
+    for payload in cases:
+        _objects, links = mod.build_evaluate_objects(
+            trace_id="tr-pay",
+            entity_id="fraud_frank",
+            event_type="payment",
+            payload=payload,
+        )
+        assert _link(links, "TRANSACTED") is None

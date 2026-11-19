@@ -6,11 +6,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from anumana_velocity import (
-    apply_velocity_incrby_multi_exec,
-    build_transaction_velocity_incrby_commands,
-    ip_key_token,
-)
+from anumana_velocity import ip_key_token
+from fraud_aggregates import AggregateStore
 from models.outbox import OUTBOX_EVENT_VELOCITY_UPDATE
 from workers.handlers.base import BaseOutboxHandler
 
@@ -106,6 +103,12 @@ class VelocityUpdateHandler(BaseOutboxHandler):
 
     event_type = OUTBOX_EVENT_VELOCITY_UPDATE
 
+    def _store(self) -> AggregateStore:
+        store = getattr(self, "_aggregate_store", None)
+        if store is not None:
+            return store
+        return AggregateStore(self._deps.redis_client)
+
     async def execute(self, payload: dict[str, Any]) -> None:
         if self._deps.redis_client is None:
             raise RuntimeError("ANUMANA_REDIS_URL is not configured for VELOCITY_UPDATE")
@@ -115,26 +118,28 @@ class VelocityUpdateHandler(BaseOutboxHandler):
         entity_id, device_token, tenant_id, ip_tokens, amount_cents, now_unix = (
             _parse_velocity_payload(payload)
         )
-
-        commands = build_transaction_velocity_incrby_commands(
-            tenant_id=tenant_id,
-            device_token=device_token,
-            ip_tokens=ip_tokens,
-            amount_cents=amount_cents,
-            now_unix=now_unix,
-        )
-        if not commands:
+        if not device_token and not ip_tokens:
             logger.info(
                 "outbox_velocity_update_noop entity_id=%s reason=no_device_or_ip_segments",
                 entity_id,
             )
             return
 
-        await apply_velocity_incrby_multi_exec(self._deps.redis_client, commands)
+        store = self._store()
+        fields = {"amount": amount_cents}
+        ts = float(now_unix) if now_unix is not None else None
+        tenant = tenant_id or "_"
+        written = 0
+        if device_token:
+            await store.record_event(tenant, f"device:{device_token}", entity_id, fields, ts=ts)
+            written += 1
+        for ip_token in ip_tokens:
+            await store.record_event(tenant, f"ip:{ip_token}", entity_id, fields, ts=ts)
+            written += 1
 
         logger.info(
             "velocity_update_handler_completed entity_id=%s command_count=%s amount_cents=%s",
             entity_id,
-            len(commands),
+            written,
             amount_cents,
         )

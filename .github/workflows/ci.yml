@@ -726,13 +726,15 @@ jobs:
           cache: pip
           cache-dependency-path: services/data-plane/pyproject.toml
       - name: Install data-plane (Python)
-        run: pip install -e "."
+        run: |
+          pip install -e "."
+          pip install -e "../analytics"
         working-directory: services/data-plane
       - name: Import merged FastAPI app
         run: python -c "from data_plane.main import app; assert 'Data Plane' in app.title"
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core:../analytics/src:../core/src
       - name: Install event-ingest + data-plane test deps
         run: |
           pip install -e "./services/event-ingest[dev]"
@@ -745,17 +747,17 @@ jobs:
       - name: Pytest — data-plane ready/health
         working-directory: services/data-plane
         env:
-          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../event-ingest/src:../analytics-sink/src:../shared:../../packages/shared-core:../analytics/src:../core/src
         run: pytest tests -q
       - name: Pytest — analytics-sink ClickHouse retry/health
         working-directory: services/analytics-sink
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../analytics/src:../core/src
         run: pytest tests/test_analytics.py -q -k "retry or health"
       - name: Pytest — analytics-sink delivery guarantees (B1)
         working-directory: services/analytics-sink
         env:
-          PYTHONPATH: src:../shared:../../packages/shared-core
+          PYTHONPATH: src:../shared:../../packages/shared-core:../analytics/src:../core/src
         run: pytest tests/test_sink_delivery_guarantees.py -q
       - name: JetStream DLQ not under consumer wildcard
         run: |

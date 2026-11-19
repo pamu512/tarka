@@ -1,8 +1,8 @@
 """
 Holy-grail convergence: ingest → outbox (graph + velocity) → analyst transition → label bus.
 
-Uses real rule-engine evaluation (ASGI), embedded TinkerGraph Gremlin mutations, in-memory Redis
-``MULTI``/``INCRBY`` semantics, and deterministic retroactive label evaluation (structural tag
+Uses real rule-engine evaluation (ASGI), graph-service object posts, in-memory Redis
+sorted-set velocity, and deterministic retroactive label evaluation (structural tag
 helpers — no ``unittest.mock`` response stubs).
 """
 
@@ -10,9 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-import shutil
-import subprocess
 import sys
 import time
 import uuid
@@ -39,9 +36,6 @@ for _p in (_SRC_ORCH, _SRC_RULE, _SRC_INGESTOR, _SRC_SHARED, _SRC_SHADOW, _SRC_S
 
 _E2E_AUTH = "holy-grail-e2e-token"
 _INGEST_LATENCY_BUDGET_MS = 3000.0
-_GREMLIN_REMOTE_URL = "ws://127.0.0.1:8182/gremlin"
-_GREMLIN_DOCKER_IMAGE = "tinkerpop/gremlin-server:3.8.1"
-_GREMLIN_DOCKER_NAME = "tarka-e2e-gremlin"
 
 
 class _VelocityPipeline:
@@ -49,7 +43,7 @@ class _VelocityPipeline:
 
     def __init__(self, parent: _VelocityRedis) -> None:
         self._parent = parent
-        self._ops: list[tuple[str, str, int]] = []
+        self._ops: list[tuple] = []
 
     def incrby(self, key: str, amount: int) -> _VelocityPipeline:
         self._ops.append(("incrby", key, int(amount)))
@@ -59,13 +53,23 @@ class _VelocityPipeline:
         self._ops.append(("expire", key, int(ttl)))
         return self
 
+    def zadd(self, key: str, mapping: dict) -> _VelocityPipeline:
+        self._ops.append(("zadd", key, mapping))
+        return self
+
     async def execute(self) -> list[int]:
         out: list[int] = []
-        for op, key, val in self._ops:
-            if op == "incrby":
-                out.append(await self._parent.incrby(key, val))
+        for op in self._ops:
+            kind = op[0]
+            key = op[1]
+            if kind == "incrby":
+                out.append(await self._parent.incrby(key, op[2]))
+            elif kind == "zadd":
+                slot = self._parent.zsets.setdefault(key, {})
+                slot.update(op[2])
+                out.append(len(op[2]))
             else:
-                self._parent.ttls[key] = val
+                self._parent.ttls[key] = op[2]
                 out.append(1)
         return out
 
@@ -76,6 +80,7 @@ class _VelocityRedis:
     def __init__(self) -> None:
         self.counters: dict[str, int] = {}
         self.ttls: dict[str, int] = {}
+        self.zsets: dict[str, dict] = {}
 
     def pipeline(self, transaction: bool = False) -> _VelocityPipeline:
         _ = transaction
@@ -87,90 +92,6 @@ class _VelocityRedis:
 
     async def aclose(self) -> None:
         return None
-
-
-def _probe_gremlin_server(url: str) -> bool:
-    """Return True when a Gremlin Server accepts a trivial ``inject(1)`` traversal."""
-    pytest.importorskip("gremlin_python")
-    try:
-        from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
-        from gremlin_python.process.anonymous_traversal import traversal
-
-        conn = DriverRemoteConnection(url, "g")
-        try:
-            g = traversal().with_remote(conn)
-            return g.inject(1).toList() == [1]
-        finally:
-            conn.close()
-    except Exception:
-        return False
-
-
-def _ensure_gremlin_server(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Point ``GRAPH_BACKEND=janusgraph`` at a live Gremlin Server.
-
-    Uses ``GREMLIN_REMOTE_URL`` when reachable; otherwise tries to start
-    ``tinkerpop/gremlin-server`` via Docker (same contract as deploy compose).
-    """
-    url = (os.environ.get("GREMLIN_REMOTE_URL") or _GREMLIN_REMOTE_URL).strip()
-    if _probe_gremlin_server(url):
-        monkeypatch.setenv("GREMLIN_REMOTE_URL", url)
-        monkeypatch.setenv("GRAPH_BACKEND", "janusgraph")
-        return
-
-    if shutil.which("docker") is None:
-        pytest.skip(
-            f"Gremlin Server not reachable at {url!r} and docker is unavailable to start one",
-        )
-
-    subprocess.run(
-        ["docker", "rm", "-f", _GREMLIN_DOCKER_NAME],
-        check=False,
-        capture_output=True,
-    )
-    proc = subprocess.run(
-        [
-            "docker",
-            "run",
-            "-d",
-            "--rm",
-            "--name",
-            _GREMLIN_DOCKER_NAME,
-            "-p",
-            "8182:8182",
-            _GREMLIN_DOCKER_IMAGE,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        pytest.skip(
-            f"Gremlin Server not reachable at {url!r} and docker run failed: {proc.stderr.strip()}",
-        )
-
-    deadline = time.monotonic() + 45.0
-    while time.monotonic() < deadline:
-        if _probe_gremlin_server(url):
-            monkeypatch.setenv("GREMLIN_REMOTE_URL", url)
-            monkeypatch.setenv("GRAPH_BACKEND", "janusgraph")
-            return
-        time.sleep(1.0)
-
-    pytest.skip(f"Gremlin Server did not become ready at {url!r} within 45s")
-
-
-def _janusgraph_client_from_env() -> Any:
-    from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
-    from gremlin_python.process.anonymous_traversal import traversal
-
-    from orchestrator.graph.client import JanusGraphClient
-
-    url = (os.environ.get("GREMLIN_REMOTE_URL") or _GREMLIN_REMOTE_URL).strip()
-    conn = DriverRemoteConnection(url, "g")
-    g = traversal().with_remote(conn)
-    return JanusGraphClient(g, conn, neighbor_max_hops=2)
 
 
 @dataclass
@@ -358,7 +279,6 @@ def _rule_engine_asgi_client_factory(rule_app: Any):
 @pytest.mark.e2e
 def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("aiosqlite")
-    pytest.importorskip("gremlin_python")
 
     import orchestrator.models.cases  # noqa: F401
     import orchestrator.models.decision  # noqa: F401
@@ -375,18 +295,11 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
     from rule_engine.main import create_app as create_rule_app
 
     from orchestrator.anumana_velocity import (
-        build_transaction_velocity_incrby_commands,
         device_hash_token,
         ip_key_token,
     )
     from orchestrator.audit_case_worker import process_new_audit_logs
-    from orchestrator.graph.client import (
-        LABEL_DEVICE,
-        LABEL_IP,
-        LABEL_USER,
-        REL_ORDERED_FROM_IP,
-        REL_USED_DEVICE,
-    )
+    from orchestrator.graph.client import NullGraphClient
     from orchestrator.main import create_app
     from orchestrator.models.cases import CaseORM, CaseStatus
     from orchestrator.models.decision import DecisionORM
@@ -400,7 +313,7 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
     )
     from orchestrator.schemas.domain_boundaries import RiskDecision
     from orchestrator.workers.handlers.base import OutboxProcessorDeps
-    from orchestrator.workers.handlers.graph_ingest import _ingest_janus_sync, _parse_transaction
+    from orchestrator.workers.handlers import graph_ingest as graph_ingest_handler
     from orchestrator.workers.outbox_processor import process_outbox_batch
     from shadow_agent.agent import ShadowAgent
     from tarka_shared.audit_trail import AuditLog
@@ -417,7 +330,6 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
     ingest_ts = "2026-05-09T12:00:00+00:00"
     ingest_ts_unix = int(datetime.fromisoformat(ingest_ts).timestamp())
 
-    _ensure_gremlin_server(monkeypatch)
     monkeypatch.setattr("rule_engine.main.load_active_ruleset", lambda: _e2e_flag_ruleset())
     rule_app = create_rule_app()
     rule_app.state.ruleset = _e2e_flag_ruleset()
@@ -426,10 +338,26 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
         _rule_engine_asgi_client_factory(rule_app),
     )
 
-    janus_client = _janusgraph_client_from_env()
+    graph_posts: list[dict[str, object]] = []
+
+    class _OkResponse:
+        status_code = 200
+
+    class _OkHttp:
+        async def __aenter__(self) -> _OkHttp:
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, url: str, json: dict[str, object]) -> _OkResponse:
+            graph_posts.append(json)
+            return _OkResponse()
+
     monkeypatch.setattr(
-        "orchestrator.workers.handlers.graph_ingest._connect_janusgraph",
-        lambda: janus_client,
+        graph_ingest_handler.httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: _OkHttp(),
     )
 
     velocity_redis = _VelocityRedis()
@@ -507,7 +435,7 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
 
             deps = OutboxProcessorDeps(
                 session_factory=fac,
-                graph_client=janus_client,
+                graph_client=NullGraphClient(),
                 redis_client=velocity_redis,
                 clickhouse_client=None,
                 shadow_runtime=shadow_runtime,
@@ -526,58 +454,16 @@ def test_holy_grail_convergence_end_to_end(monkeypatch: pytest.MonkeyPatch) -> N
                 ).all()
                 assert len(completed) == 2
 
-            g = janus_client._g
-            user_count = g.V().has(LABEL_USER, "user_id", user_id).count().next()
-            device_count = g.V().has(LABEL_DEVICE, "device_id", device_token).count().next()
-            ip_count = g.V().has(LABEL_IP, "address", ingress_ip).count().next()
-            used_device_edges = (
-                g.V()
-                .has(LABEL_USER, "user_id", user_id)
-                .outE(REL_USED_DEVICE)
-                .has("transaction_id", entity_id)
-                .count()
-                .next()
-            )
-            ordered_ip_edges = (
-                g.V()
-                .has(LABEL_USER, "user_id", user_id)
-                .outE(REL_ORDERED_FROM_IP)
-                .has("transaction_id", entity_id)
-                .count()
-                .next()
-            )
-            assert int(user_count) == 1
-            assert int(device_count) == 1
-            assert int(ip_count) == 1
-            assert int(used_device_edges) == 1
-            assert int(ordered_ip_edges) == 1
+            kinds = {
+                (body["mapping"]["object_type"], body["mapping"]["relationship"])
+                for body in graph_posts
+            }
+            assert ("device", "USED_DEVICE") in kinds
+            assert ("ip", "USED_IP") in kinds
 
-            audit_log_id = int(graph_payload["audit_log_id"])
-            transaction = _parse_transaction(graph_payload)
-            edge_count_before = (
-                g.E().has("transaction_id", entity_id).has("tarka_audit_log_id", audit_log_id).count().next()
-            )
-            assert int(edge_count_before) >= 1
-            _ingest_janus_sync(janus_client, transaction, audit_log_id=audit_log_id)
-            edge_count_after = (
-                g.E().has("transaction_id", entity_id).has("tarka_audit_log_id", audit_log_id).count().next()
-            )
-            assert int(edge_count_after) == int(edge_count_before)
-
-            expected_cmds = build_transaction_velocity_incrby_commands(
-                tenant_id="tenant-holy-grail",
-                device_token=device_token,
-                ip_tokens=[ingress_ip],
-                amount_cents=amount_cents,
-                now_unix=ingest_ts_unix,
-            )
-            for cmd in expected_cmds:
-                observed = velocity_redis.counters.get(cmd.redis_key)
-                assert observed == cmd.increment, (
-                    f"velocity key {cmd.redis_key!r} expected {cmd.increment}, got {observed!r}"
-                )
-            assert any(":device:" in key for key in velocity_redis.counters)
-            assert any(":ip:" in key and ip_token in key for key in velocity_redis.counters)
+            zkeys = list(velocity_redis.zsets)
+            assert any(f":device:{device_token}:events" in key for key in zkeys)
+            assert any(f":ip:{ip_token}:events" in key for key in zkeys)
 
             async with fac() as session:
                 await process_new_audit_logs(session)

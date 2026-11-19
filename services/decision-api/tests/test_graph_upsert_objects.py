@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
+import pytest
+
 from tarka_shared.decision_graph_payload import build_evaluate_objects
 
 
@@ -37,3 +40,37 @@ def test_evaluate_objects_session_is_typed():
     assert "USED_DEVICE" in rels
     assert "USED_SESSION" in rels
     assert "USED" not in rels
+
+
+@pytest.mark.asyncio
+async def test_graph_upsert_does_not_treat_rejected_link_as_success(monkeypatch):
+    from decision_api.config import settings
+    from decision_api.main import _graph_upsert
+    from decision_api.schemas import EvaluateRequest
+
+    monkeypatch.setattr(settings, "graph_service_url", "http://graph.test")
+
+    class _Http:
+        def __init__(self) -> None:
+            self.posts: list[tuple[str, dict]] = []
+
+        async def post(self, url, json=None, headers=None):
+            self.posts.append((url, json))
+            request = httpx.Request("POST", url)
+            return httpx.Response(
+                422, request=request, json={"detail": "unsigned etype"}
+            )
+
+    body = EvaluateRequest(
+        tenant_id="demo",
+        event_type="payment",
+        entity_id="fraud_frank",
+        role="member",
+        payload={
+            "amount": 10,
+            "currency": "USD",
+            "counterparty_entity_id": "mule_ivan",
+        },
+    )
+    with pytest.raises(httpx.HTTPStatusError):
+        await _graph_upsert(_Http(), body, "tr-1", [], decision="allow")

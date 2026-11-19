@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import uuid
 from typing import Any
 from urllib.parse import quote
 
@@ -109,17 +111,47 @@ class ConsortiumAdapter:
         ttl_days: int = 30,
         consortium_id: str | None = None,
     ) -> dict[str, Any]:
+        """Post a consortium outcome as a MANUAL_OVERRIDE operational signal.
+
+        Replaces the deprecated ``POST /v1/consortium/feedback`` bridge (removed
+        2026-11-17). The entity-UUID and idempotency-key derivations replicate the
+        bridge exactly, so replayed feedback stays deduplicated after the switch.
+        """
         if outcome not in ("false_positive", "confirmed_fraud"):
             raise ValueError("outcome must be 'false_positive' or 'confirmed_fraud'")
+        override_action = "REVIEW" if outcome == "false_positive" else "BLOCK"
+        reason_code = "FALSE_POSITIVE" if outcome == "false_positive" else "CONFIRMED_FRAUD"
+        token = entity_id.strip()
+        try:
+            target_entity_id = str(uuid.UUID(token))
+        except ValueError:
+            target_entity_id = str(
+                uuid.UUID(hashlib.sha256(token.encode("utf-8")).hexdigest()[:32]),
+            )
+        digest_material = "|".join(
+            p for p in (tenant_id, entity_id, outcome, consortium_id or "") if p
+        )
+        idempotency_key = (
+            "legacy:consortium_feedback:"
+            + hashlib.sha256(digest_material.encode("utf-8")).hexdigest()[:32]
+        )
+        notes = (
+            f"consortium_outcome={outcome}; consortium_id={(consortium_id or 'default').strip()}; "
+            f"ttl_days={ttl_days}; legacy_entity_id={token}"
+        )
         body: dict[str, Any] = {
-            "tenant_id": tenant_id,
-            "entity_id": entity_id,
-            "outcome": outcome,
-            "ttl_days": ttl_days,
+            "idempotency_key": idempotency_key,
+            "target_entity_id": target_entity_id,
+            "signal_type": "MANUAL_OVERRIDE",
+            "metadata": {
+                "override_action": override_action,
+                "reason_code": reason_code,
+                "analyst_id": (tenant_id or "consortium_feedback").strip() or "consortium_feedback",
+                "prior_decision": "CONSORTIUM_SIGNAL",
+                "notes": notes[:4096],
+            },
         }
-        if consortium_id is not None:
-            body["consortium_id"] = consortium_id
-        r = self._client.post("/v1/consortium/feedback", json=body)
+        r = self._client.post("/v1/operational-signals", json=body)
         r.raise_for_status()
         return r.json()
 

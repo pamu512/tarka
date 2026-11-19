@@ -1,6 +1,0 @@
-# Compatibility wrapper — lab overlay lives in archive/.
-# Sets GRAPH_SERVICE_URL on core-api and VITE_GRAPH_SERVICE_URL on the desk.
-# Investigation-agent graph env is on docker-compose.investigation.yml (host GRAPH_SERVICE_URL).
-
-include:
-  - path: archive/docker-compose.graph-wire.yml

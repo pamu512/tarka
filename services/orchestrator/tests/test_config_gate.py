@@ -45,7 +45,12 @@ def test_outbox_settings_from_environment(monkeypatch: pytest.MonkeyPatch) -> No
 def test_jetstream_settings_defaults() -> None:
     settings = get_settings()
     assert settings.shadow_investigate_jetstream_fetch_batch == 10
-    assert settings.tarka_events_jetstream_max_bytes > 0
+
+
+def test_tarka_events_settings_are_gone() -> None:
+    settings = get_settings()
+    assert not hasattr(settings, "tarka_events_jetstream_max_age_sec")
+    assert not hasattr(settings, "tarka_events_jetstream_max_bytes")
 
 
 def test_operational_signal_constraint_settings_defaults() -> None:
@@ -82,7 +87,6 @@ def test_configured_modules_avoid_os_environ() -> None:
     module_paths = [
         _SRC_ORCH / "config.py",
         _SRC_ORCH / "workers" / "outbox_processor.py",
-        _SRC_ORCH / "messaging" / "nats_jetstream.py",
         _SRC_ORCH / "messaging" / "shadow_investigate_jetstream.py",
         _SRC_ORCH / "queues" / "shadow_dispatch.py",
         _SRC_ORCH / "services" / "operational_signal_ingress.py",

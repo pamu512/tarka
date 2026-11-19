@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "shadow_rule_hits",
+  "mode": "shadow",
+  "rules": [],
+  "tag_rules": [],
+  "canary_percent": null,
+  "effective_at": null,
+  "approved_by": null,
+  "lifecycle": {
+    "state": "abandoned",
+    "abandoned_at": "2026-11-16T02:24:02.865787+00:00",
+    "abandoned_by": "api"
+  }
+}

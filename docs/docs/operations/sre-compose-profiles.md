@@ -35,10 +35,10 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 | **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Desk Advise. Enable only with BYO OpenAI-compat (`OPENAI_BASE_URL` + key). Sets desk `VITE_INVESTIGATION_AGENT_URL` (URL only — never the key). Empty URL hides Advise chrome. |
 | **+ signals** | lite + `docker-compose.signals.yml` | nats, signal-api `:8004`, integration-ingress `:8003` | **+2–3 GB** | Features / ML / calibration + ingress. Sets `FEATURE_SERVICE_URL` / `ML_SCORING_URL` and desk `VITE_SIGNAL_API_URL`. |
 | **Full desk** | `docker-compose.full-desk.yml` (lite + fraud-desk + signals + investigation) | lite plus nats, signal-api, ingress, investigation-agent | **~8 GB** | Former "Desk" shape. Analyst tools. AGE graph already on lite. Still no Janus, no Ollama. |
-| **+ ingest** | lite `--profile ingest` (optional `docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
+| **+ ingest** | lite `--profile ingest` (optional `archive/docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
 | **+ OPA** | full compose `--profile opa` | `openpolicyagent/opa` `:8181` | **+256 MB** | Set `OPA_URL=http://opa:8181` on core-api. Empty URL skips the hop (no 2s timeout). Not part of `--profile full`. |
-| **+ Janus graph** | lite `--profile graph` + `docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`); graph-service already on lite | **+8 GB** | Optional Gremlin backend. Lite already has AGE. Empty `VITE_GRAPH_SERVICE_URL` hides Hunt (honest "plane off"). |
-| **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends add ~256 MB. | Ingest Advise (`SHADOW_LLM_*`). Not desk chrome. |
+| **+ Janus graph** | lite `--profile graph` + `archive/docker-compose.graph-wire.yml` | janusgraph/janusgraph:1.0.0 (BerkeleyJE volume, Gremlin `:8182`); graph-service already on lite | **+8 GB** | Optional Gremlin backend. Lite already has AGE. Empty `VITE_GRAPH_SERVICE_URL` hides Hunt (honest "plane off"). |
+| **+ Shadow** | `archive/docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends add ~256 MB. | Ingest Advise (`SHADOW_LLM_*`). Not desk chrome. |
 | **Full triad on one box** | full desk + graph + large local LLM | all of the above | **~24 GB+** | Lab / demo. Not the production default. |
 
 Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Enable `investigationAgent` only when the operator supplies a BYO OpenAI-compat endpoint. Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay — do not treat it as this Day-1 shape.
@@ -118,7 +118,7 @@ UI: `http://127.0.0.1:3000` (desk-strict: no auto mocks).
 ```bash
 docker compose \
   -f infra/deploy/docker-compose.lite.yml \
-  -f infra/deploy/docker-compose.graph-wire.yml \
+  -f infra/deploy/archive/docker-compose.graph-wire.yml \
   --profile graph up -d --build
 curl -sf http://127.0.0.1:8001/v1/health >/dev/null && echo graph_ok
 ```
@@ -130,7 +130,7 @@ Ingest + graph (outbox writes Gremlin). `graph-wire.yml` sets `GREMLIN_REMOTE_UR
 ```bash
 docker compose \
   -f infra/deploy/docker-compose.lite.yml \
-  -f infra/deploy/docker-compose.graph-wire.yml \
+  -f infra/deploy/archive/docker-compose.graph-wire.yml \
   --profile graph --profile ingest up -d --build
 ```
 

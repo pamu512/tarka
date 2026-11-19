@@ -52,6 +52,8 @@ jobs:
           pip install -e ./packages/deploy-settings
           pip install -e "./services/shadow[dev]"
           (cd crates/tarka-py && maturin build --release --out /tmp/tarka-wheels && pip install /tmp/tarka-wheels/*.whl)
+          (cd packages/tarka-rule-engine && maturin build --release --out /tmp/tarka-rule-wheels)
+          python -c "import glob,pathlib,zipfile; pathlib.Path('/tmp/tarka-rule-py').mkdir(exist_ok=True); zipfile.ZipFile(glob.glob('/tmp/tarka-rule-wheels/*.whl')[0]).extractall('/tmp/tarka-rule-py')"
           (cd services/rule_engine && pip install -e .)
           (cd services/orchestrator && pip install -e ".[janus,dev]")
           pip install fakeredis
@@ -88,7 +90,7 @@ jobs:
       - name: Pytest — Orchestrator
         working-directory: services/orchestrator
         env:
-          PYTHONPATH: .:..:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../rule_engine:../shadow_agent
+          PYTHONPATH: .:/tmp/tarka-rule-py:..:../ingestor/src:../ingestor:../shared:../../packages/shared-core:../rule_engine:../shadow_agent
         run: pytest tests -q
 
       - name: Pytest — Shadow (hooks + NATS tools)

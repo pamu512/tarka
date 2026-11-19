@@ -248,6 +248,9 @@ services:
         VITE_GRAPH_SERVICE_URL: /api/graph
         # Single key for the browser; falls back to API_KEYS when it holds one key.
         VITE_API_KEY: ${VITE_API_KEY:-${API_KEYS:-}}
+        # Demo-only opt-in: the baked key is extractable from the public JS bundle,
+        # so the Dockerfile refuses it everywhere except this single-box stack.
+        ALLOW_BAKED_API_KEY: "1"
     ports:
       - "${TARKA_FRONTEND_PORT:-3000}:80"
     depends_on:

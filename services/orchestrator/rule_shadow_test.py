@@ -144,18 +144,10 @@ def run_shadow_test_against_transactions(
     try:
         from pydantic import TypeAdapter
 
-        try:
-            from ast_schemas import Action, LogicalNode
-            from evaluator import evaluate_node
-        except ImportError:
-            from tarka_shared.ast_schemas import Action, LogicalNode
-
-            # REMOVAL GATE: migrate shadow-test AST eval to tarka_rule_engine /
-            # decision-api simulation once parity harness covers LogicalNode roots
-            # (rg -n 'rule_engine.evaluator|from evaluator import evaluate_node').
-            from rule_engine.evaluator import evaluate_node
-    except ImportError as exc:  # pragma: no cover — Docker / CI install ``rule_engine``
-        raise RuntimeError("rule_engine package is required for shadow tests") from exc
+        from rule_ast_bridge import evaluate_shadow_tree_via_rust
+        from tarka_shared.ast_schemas import Action, LogicalNode
+    except ImportError as exc:  # pragma: no cover — Docker / CI install ``tarka_rule_engine``
+        raise RuntimeError("tarka_rule_engine is required for shadow tests") from exc
 
     ta = TypeAdapter(LogicalNode)
     root = ta.validate_python(root_payload)
@@ -171,7 +163,7 @@ def run_shadow_test_against_transactions(
     matched = 0
     for tx in transactions:
         try:
-            if evaluate_node(root, tx):
+            if evaluate_shadow_tree_via_rust(root, tx):
                 matched += 1
         except Exception:
             logger.warning(

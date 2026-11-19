@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -145,16 +146,24 @@ export function CaseWorkbenchProvider({
 
   const isPanelOpen = useCallback((panel: WorkbenchPanelId) => panelState[panel], [panelState]);
 
+  // Guards against stale case fetches: fast case-to-case navigation lets an older
+  // response resolve after a newer one and overwrite the open case (same pattern
+  // as GraphInvestigationPage's abort flag; the API layer takes no signal).
+  const fetchCaseGeneration = useRef(0);
+
   const fetchCase = useCallback(async () => {
     if (!caseId) return;
+    const generation = ++fetchCaseGeneration.current;
     try {
       const data = await cases.get(caseId, tenantId);
+      if (generation !== fetchCaseGeneration.current) return;
       setCaseData(data);
       setError(null);
     } catch (e) {
+      if (generation !== fetchCaseGeneration.current) return;
       setError(toUserFacingApiError(e, { subject: "Case detail", action: "load this case" }));
     } finally {
-      setLoading(false);
+      if (generation === fetchCaseGeneration.current) setLoading(false);
     }
   }, [caseId, tenantId]);
 

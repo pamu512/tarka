@@ -16,7 +16,9 @@ function calendarDateInTimeZone(d: Date, timeZone: string): string {
 }
 
 /**
- * Executive OLAP summary (decision-api ``/v1/analytics/dashboards/summary``): volume, block rate, top rules, geo spikes.
+ * Executive OLAP summary (data-plane ``/v1/analytics/dashboards/summary`` behind nginx
+ * ``/api/analytics/``): volume, block rate, top rules, geo spikes. Same-origin only;
+ * the dashboards surface moved off decision-api (which no longer serves it).
  */
 export default function ExecutiveDashboards() {
   const [tenantId, setTenantId] = useState("demo-tenant");
@@ -30,7 +32,6 @@ export default function ExecutiveDashboards() {
   const [periodEnd, setPeriodEnd] = useState(() => calendarDateInTimeZone(new Date(), timeZone));
 
   useEffect(() => {
-    const base = (import.meta.env.VITE_DECISION_API_URL as string | undefined)?.replace(/\/$/, "") || "";
     const key = (import.meta.env.VITE_API_KEY as string) || "";
     const q = new URLSearchParams({
       tenant_id: tenantId,
@@ -38,7 +39,7 @@ export default function ExecutiveDashboards() {
       period_end: periodEnd,
       timezone: timeZone,
     });
-    void fetch(`${base}/v1/analytics/dashboards/summary?${q.toString()}`, {
+    void fetch(`/api/analytics/v1/analytics/dashboards/summary?${q.toString()}`, {
       headers: { "X-Api-Key": key },
     })
       .then((r) => r.json())
