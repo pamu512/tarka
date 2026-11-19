@@ -109,7 +109,9 @@ def transaction_feature_map(
     Mirrors ``rule_engine.evaluator._transaction_field_value`` exactly, including the
     ``graph_linked_to_blocked_count`` default of 0 when no graph context is supplied.
     """
-    graph_count_raw = 0 if graph_context is None else graph_context.get("graph_linked_to_blocked_count", 0)
+    graph_count_raw = (
+        0 if graph_context is None else graph_context.get("graph_linked_to_blocked_count", 0)
+    )
     try:
         graph_count = int(graph_count_raw)
     except (TypeError, ValueError):

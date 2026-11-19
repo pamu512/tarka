@@ -57,14 +57,20 @@ async def test_graph_upsert_does_not_treat_rejected_link_as_success(monkeypatch)
         async def post(self, url, json=None, headers=None):
             self.posts.append((url, json))
             request = httpx.Request("POST", url)
-            return httpx.Response(422, request=request, json={"detail": "unsigned etype"})
+            return httpx.Response(
+                422, request=request, json={"detail": "unsigned etype"}
+            )
 
     body = EvaluateRequest(
         tenant_id="demo",
         event_type="payment",
         entity_id="fraud_frank",
         role="member",
-        payload={"amount": 10, "currency": "USD", "counterparty_entity_id": "mule_ivan"},
+        payload={
+            "amount": 10,
+            "currency": "USD",
+            "counterparty_entity_id": "mule_ivan",
+        },
     )
     with pytest.raises(httpx.HTTPStatusError):
         await _graph_upsert(_Http(), body, "tr-1", [], decision="allow")

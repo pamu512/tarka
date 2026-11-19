@@ -74,9 +74,7 @@ def test_gate_v1_rules_reload_then_evaluate_uses_new_logic(
         assert first.status_code == 200
         assert first.json().get("graph_context_fail_open") is False
         assert first.json()["actions"] == []
-        rel = client.post(
-            "/v1/rules/reload", headers={"X-Auth-Token": "test-admin-token"}
-        )
+        rel = client.post("/v1/rules/reload", headers={"X-Auth-Token": "test-admin-token"})
         assert rel.status_code == 200
         second = client.post("/v1/evaluate", json=body)
     assert second.status_code == 200

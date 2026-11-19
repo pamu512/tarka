@@ -131,14 +131,10 @@ class VelocityUpdateHandler(BaseOutboxHandler):
         tenant = tenant_id or "_"
         written = 0
         if device_token:
-            await store.record_event(
-                tenant, f"device:{device_token}", entity_id, fields, ts=ts
-            )
+            await store.record_event(tenant, f"device:{device_token}", entity_id, fields, ts=ts)
             written += 1
         for ip_token in ip_tokens:
-            await store.record_event(
-                tenant, f"ip:{ip_token}", entity_id, fields, ts=ts
-            )
+            await store.record_event(tenant, f"ip:{ip_token}", entity_id, fields, ts=ts)
             written += 1
 
         logger.info(

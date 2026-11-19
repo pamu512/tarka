@@ -16,4 +16,3 @@ def test_velocity_bucket_alignment() -> None:
     assert velocity_bucket(60, 120) == 2
     assert velocity_bucket(300, 600) == 2
     assert velocity_bucket(3600, 7200) == 2
-

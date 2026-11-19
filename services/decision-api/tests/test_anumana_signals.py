@@ -42,9 +42,13 @@ def test_anumana_velocity_reads_aggregate_store_device_key() -> None:
 
 
 def test_legacy_velocity_prefix_absent() -> None:
-    text = Path(__file__).resolve().parents[1].joinpath(
-        "src/decision_api/anumana_signals.py"
-    ).read_text()
+    text = (
+        Path(__file__)
+        .resolve()
+        .parents[1]
+        .joinpath("src/decision_api/anumana_signals.py")
+        .read_text()
+    )
     assert "anumana:velocity" not in text
 
 
@@ -58,7 +62,9 @@ def test_device_token_matches_orchestrator_derivation() -> None:
 
 
 class _FakeRedis:
-    def __init__(self, counts: list[int] | None = None, mapping: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, counts: list[int] | None = None, mapping: dict[str, str] | None = None
+    ) -> None:
         self.counts = list(counts or [])
         self.mapping = mapping or {}
         self.get_calls: list[str] = []

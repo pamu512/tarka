@@ -95,13 +95,9 @@ def _get_kv_cache(request: Request) -> KeyValueCache:
     return cache
 
 
-async def _count_events_for_tenant(
-    engine: BaseAnalyticsEngine, tenant_id: str, table: str
-) -> int:
+async def _count_events_for_tenant(engine: BaseAnalyticsEngine, tenant_id: str, table: str) -> int:
     def _run():
-        return engine.get_kpi(
-            tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS
-        )
+        return engine.get_kpi(tenant_id, table, max_execution_seconds=_KPI_MAX_EXECUTION_SECONDS)
 
     try:
         payload = await run_analytics_sync(_run)

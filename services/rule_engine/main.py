@@ -59,6 +59,7 @@ async def require_rules_admin_token(
         raise HTTPException(status_code=401, detail="invalid admin token")
     return token
 
+
 # In-memory demo ruleset when no ``fraud_rules`` / ``engine_rules`` rows exist (local dev / tests).
 # Lower ``priority`` runs first. ``STRESS_BLOCK_LANE`` in ``metadata`` JSON yields a deterministic
 # ``BLOCK`` for load tests (``scripts/stress_test_ingestion.py``); high amounts otherwise request

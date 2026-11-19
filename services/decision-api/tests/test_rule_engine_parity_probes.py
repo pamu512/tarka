@@ -229,7 +229,12 @@ _CSIGNAL_OR_PACK = {
                         "params": {},
                         "output_key": "probe_out",
                     },
-                    {"type": "condition", "op": "gte", "field": "amount", "value": 5000},
+                    {
+                        "type": "condition",
+                        "op": "gte",
+                        "field": "amount",
+                        "value": 5000,
+                    },
                 ],
             },
             "tags": [],

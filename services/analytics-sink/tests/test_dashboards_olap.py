@@ -16,9 +16,7 @@ from analytics.engine import DuckDBEngine
 
 
 def test_parse_dashboard_period_midnight_in_timezone() -> None:
-    utc_start, utc_end = parse_dashboard_period(
-        "2024-06-10", "2024-06-10", "America/New_York"
-    )
+    utc_start, utc_end = parse_dashboard_period("2024-06-10", "2024-06-10", "America/New_York")
     assert utc_start == "2024-06-10 04:00:00"
     assert utc_end == "2024-06-11 04:00:00"
 
@@ -27,9 +25,7 @@ def test_dashboard_cache_key_includes_table() -> None:
     k1 = dashboard_cache_key(
         "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="fraud_decisions"
     )
-    k2 = dashboard_cache_key(
-        "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other"
-    )
+    k2 = dashboard_cache_key("t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other")
     assert k1 != k2
     assert "fraud_decisions" in k1
 

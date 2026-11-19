@@ -338,7 +338,7 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
     finally:
-        _close_dashboards_infra(app)
+        await _close_dashboards_infra(app)
 
 
 async def _init_dashboards_infra(app: FastAPI) -> None:
@@ -370,7 +370,7 @@ async def _init_dashboards_infra(app: FastAPI) -> None:
         app.state.kv_cache = LocalDictCache()
 
 
-def _close_dashboards_infra(app: FastAPI) -> None:
+async def _close_dashboards_infra(app: FastAPI) -> None:
     eng = getattr(app.state, "analytics_engine", None)
     if eng is not None and hasattr(eng, "close"):
         try:

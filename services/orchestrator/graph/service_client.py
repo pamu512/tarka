@@ -81,9 +81,7 @@ def _hops_from_subgraph(data: dict[str, Any]) -> list[SignalHop]:
     for edge in data.get("edges") or []:
         if not isinstance(edge, dict):
             continue
-        src = str(
-            edge.get("from_id") or edge.get("from_external_id") or ""
-        ).strip()
+        src = str(edge.get("from_id") or edge.get("from_external_id") or "").strip()
         dst = str(edge.get("to_id") or edge.get("to_external_id") or "").strip()
         rel = str(edge.get("type") or edge.get("relationship") or "").strip()
         if not src or not dst or not rel:

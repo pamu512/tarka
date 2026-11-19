@@ -27,7 +27,9 @@ class _Store:
             raise RuntimeError("redis down")
         return self.reputation
 
-    async def update_device_reputation(self, tenant_id, device_id, decision, is_fraud_confirmed=False):
+    async def update_device_reputation(
+        self, tenant_id, device_id, decision, is_fraud_confirmed=False
+    ):
         self.updated = (tenant_id, device_id, decision, is_fraud_confirmed)
         return self.reputation
 
@@ -66,7 +68,12 @@ async def test_prior_row_sets_reputation_score_only():
     features: dict = {}
     tags: list[str] = []
     await apply_prior_device_reputation(
-        features, tags, store=_Store(reputation=rep), tenant_id="demo", device_id="dev-1", shadow=False
+        features,
+        tags,
+        store=_Store(reputation=rep),
+        tenant_id="demo",
+        device_id="dev-1",
+        shadow=False,
     )
     assert features == {"device_reputation_score": rep.calculate_risk_score()}
     assert tags == []
@@ -84,7 +91,12 @@ async def test_missing_row_client_and_shadow_leave_features_unset():
         features: dict = {}
         tags: list[str] = []
         await apply_prior_device_reputation(
-            features, tags, store=store, tenant_id="demo", device_id=device_id, shadow=shadow
+            features,
+            tags,
+            store=store,
+            tenant_id="demo",
+            device_id=device_id,
+            shadow=shadow,
         )
         assert features == {}
         assert tags == []
@@ -95,14 +107,24 @@ async def test_read_error_tags_and_does_not_set_score():
     features: dict = {}
     tags: list[str] = []
     await apply_prior_device_reputation(
-        features, tags, store=_Store(boom=True), tenant_id="demo", device_id="dev-1", shadow=False
+        features,
+        tags,
+        store=_Store(boom=True),
+        tenant_id="demo",
+        device_id="dev-1",
+        shadow=False,
     )
     assert features == {}
     assert tags == ["device_intelligence:unavailable"]
 
 
 def test_device_ip_payload_wins():
-    assert device_ip_for_velocity({"ip_address": " 203.0.113.8 "}, {"ip_address": "198.51.100.1"}) == "203.0.113.8"
+    assert (
+        device_ip_for_velocity(
+            {"ip_address": " 203.0.113.8 "}, {"ip_address": "198.51.100.1"}
+        )
+        == "203.0.113.8"
+    )
     assert device_ip_for_velocity({}, {"ip_address": "198.51.100.1"}) == "198.51.100.1"
     assert device_ip_for_velocity(None, None) == ""
 

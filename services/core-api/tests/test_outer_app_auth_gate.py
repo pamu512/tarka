@@ -72,14 +72,10 @@ def test_omni_search_requires_api_key_when_configured(outer_app, monkeypatch) ->
     denied = client.get("/v1/omni-search", params={"q": ""})
     assert denied.status_code == 401
 
-    allowed = client.get(
-        "/v1/omni-search", params={"q": ""}, headers={"X-API-Key": "test-key-1"}
-    )
+    allowed = client.get("/v1/omni-search", params={"q": ""}, headers={"X-API-Key": "test-key-1"})
     assert allowed.status_code == 200, allowed.text
 
-    wrong = client.get(
-        "/v1/omni-search", params={"q": ""}, headers={"X-API-Key": "not-the-key"}
-    )
+    wrong = client.get("/v1/omni-search", params={"q": ""}, headers={"X-API-Key": "not-the-key"})
     assert wrong.status_code == 401
 
 

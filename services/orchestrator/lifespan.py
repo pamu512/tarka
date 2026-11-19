@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 class JetStreamUnavailableError(RuntimeError):
     """Raised when the broker has no usable JetStream context."""
 
+
 _CLOUD_ENV_HINTS = frozenset({"production", "prod", "staging", "stage", "cloud"})
 
 

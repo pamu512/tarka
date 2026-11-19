@@ -147,9 +147,21 @@ def test_metadata_eq_and_contains_token() -> None:
 def test_graph_count_with_and_without_context() -> None:
     tx = _tx()
     _assert_parity(_cond("graph_linked_to_blocked_count", Operator.GT, 0), tx)
-    _assert_parity(_cond("graph_linked_to_blocked_count", Operator.GT, 0), tx, {"graph_linked_to_blocked_count": 3})
-    _assert_parity(_cond("graph_linked_to_blocked_count", Operator.EQ, 3), tx, {"graph_linked_to_blocked_count": "3"})
-    _assert_parity(_cond("graph_linked_to_blocked_count", Operator.LT, 5), tx, {"graph_linked_to_blocked_count": 3})
+    _assert_parity(
+        _cond("graph_linked_to_blocked_count", Operator.GT, 0),
+        tx,
+        {"graph_linked_to_blocked_count": 3},
+    )
+    _assert_parity(
+        _cond("graph_linked_to_blocked_count", Operator.EQ, 3),
+        tx,
+        {"graph_linked_to_blocked_count": "3"},
+    )
+    _assert_parity(
+        _cond("graph_linked_to_blocked_count", Operator.LT, 5),
+        tx,
+        {"graph_linked_to_blocked_count": 3},
+    )
 
 
 def test_nested_and_or_trees() -> None:
