@@ -35,6 +35,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "coupon_stack",
+    "explanation": "First-party flag: this promo is stacked or reused with another offer on the same redeem. Missing means absent — fail-closed.",
+    "source": "tarka_core"
+  },
+  {
     "name": "currency",
     "explanation": "Transaction currency on payload",
     "source": "tarka_core"
@@ -105,6 +110,11 @@
     "source": "tarka_core"
   },
   {
+    "name": "first_order_promo",
+    "explanation": "First-party flag: this promo is a first-order or new-customer coupon. Missing means absent — fail-closed.",
+    "source": "tarka_core"
+  },
+  {
     "name": "geo_city",
     "explanation": "Geo city from IP",
     "source": "tarka_core"
@@ -167,6 +177,11 @@
   {
     "name": "mandate_expires_at",
     "explanation": "Agent mandate expiry timestamp.",
+    "source": "tarka_core"
+  },
+  {
+    "name": "new_account",
+    "explanation": "First-party flag: the redeeming account is new. Missing means absent — fail-closed.",
     "source": "tarka_core"
   },
   {

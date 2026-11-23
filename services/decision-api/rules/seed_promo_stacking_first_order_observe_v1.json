@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "name": "seed_promo_stacking_first_order_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "observe_locked": true,
+  "author_notes": "Observe only. Cannot leave Observe or auto-Promote. First-party first-order / new-account / stack flags on existing promo. Fail-closed when the fields are absent. Not production loss-prevention evidence.",
+  "rules": [
+    {
+      "id": "seed_promo_first_order_new_account",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "promo" },
+        { "field": "first_order_promo", "op": "eq", "value": true },
+        { "field": "new_account", "op": "eq", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "First-order or new-customer coupon redeemed on a new account."
+    },
+    {
+      "id": "seed_promo_coupon_stack",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "promo" },
+        { "field": "coupon_stack", "op": "eq", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Stacked or reused coupon / discount offers on the same promo redeem."
+    }
+  ],
+  "tag_rules": []
+}

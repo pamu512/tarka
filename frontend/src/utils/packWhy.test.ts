@@ -164,6 +164,17 @@ describe("resolvePackWhy", () => {
     expect(view.advise).toBeNull();
   });
 
+  it("surfaces a non-missing Why for the promo-stacking first-order Observe seed rule id via rule_hits", () => {
+    const view = resolvePackWhy({
+      rule_pack_file: "seed_promo_stacking_first_order_observe_v1.json",
+      rule_hits: ["seed_promo_first_order_new_account"],
+    });
+    expect(view.packId).toBe("seed_promo_stacking_first_order_observe_v1");
+    expect(view.why).toBe("seed_promo_first_order_new_account");
+    expect(view.why).not.toBe(PACK_WHY_MISSING);
+    expect(view.advise).toBeNull();
+  });
+
   it("uses the timeout copy only when advise already timed out on the case", () => {
     const view = resolvePackWhy({
       rule_pack_file: "fintech.json",
