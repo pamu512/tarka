@@ -115,10 +115,7 @@ def test_fail_closed_when_required_fields_missing_empty_or_false():
 
 
 def test_partial_first_order_without_new_account_does_not_hit_rule_one():
-    assert (
-        _hits({"event_type": "promo", "first_order_promo": True})
-        == []
-    )
+    assert _hits({"event_type": "promo", "first_order_promo": True}) == []
     assert (
         _hits(
             {
