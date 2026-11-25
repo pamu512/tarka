@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tarka.local/schemas/pack.schema.json",
+  "title": "Rule pack (server-normalized wire form)",
+  "type": "object",
+  "required": ["version", "name", "rules"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "mode": { "type": ["string", "null"] },
+    "description": { "type": "string" },
+    "canary_percent": { "type": ["number", "null"] },
+    "effective_at": { "type": ["string", "null"] },
+    "approved_by": { "type": ["string", "null"] },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "tag_rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tagRule" }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["field", "op"],
+      "additionalProperties": true,
+      "properties": {
+        "field": { "type": "string" },
+        "op": { "type": "string" },
+        "value": {}
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["id", "when", "tags", "score_delta", "description"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "when": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/condition" }
+        },
+        "when_ast": { "type": ["object", "null"] },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "score_delta": { "type": "number" },
+        "description": { "type": "string" }
+      }
+    },
+    "tagRule": {
+      "type": "object",
+      "required": ["id", "any_tag", "tags", "score_delta", "description"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "any_tag": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "score_delta": { "type": "number" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
