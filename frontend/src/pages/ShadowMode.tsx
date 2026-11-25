@@ -49,12 +49,40 @@ export default function ShadowMode() {
         shadow.stats(),
         shadow.observations(200),
       ]);
+      let anyFulfilled = false;
       if (packsRes.status === "fulfilled") {
         setPacks(packsRes.value.packs ?? []);
+        anyFulfilled = true;
       }
-      if (statsRes.status === "fulfilled") setStats(statsRes.value);
-      if (obsRes.status === "fulfilled") setObservations((obsRes.value.observations ?? []) as Observation[]);
-      setError(null);
+      if (statsRes.status === "fulfilled") {
+        setStats(statsRes.value);
+        anyFulfilled = true;
+      }
+      if (obsRes.status === "fulfilled") {
+        setObservations((obsRes.value.observations ?? []) as Observation[]);
+        anyFulfilled = true;
+      }
+      if (anyFulfilled) {
+        // Partial degradation is fine: keep whichever plane answered.
+        setError(null);
+      } else {
+        // allSettled never throws; without this, total failure rendered as an
+        // empty-success page (all planes down, error cleared).
+        const firstRejection =
+          packsRes.status === "rejected"
+            ? packsRes.reason
+            : statsRes.status === "rejected"
+              ? statsRes.reason
+              : obsRes.status === "rejected"
+                ? obsRes.reason
+                : new Error("all shadow data planes failed");
+        setError(
+          toUserFacingError(firstRejection, {
+            subject: "Shadow mode",
+            action: "load shadow observations",
+          }),
+        );
+      }
     } catch (e) {
       setError(toUserFacingError(e, { subject: "Shadow mode", action: "load shadow observations" }));
     } finally {

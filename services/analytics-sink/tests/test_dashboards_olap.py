@@ -16,9 +16,7 @@ from analytics.engine import DuckDBEngine
 
 
 def test_parse_dashboard_period_midnight_in_timezone() -> None:
-    utc_start, utc_end = parse_dashboard_period(
-        "2024-06-10", "2024-06-10", "America/New_York"
-    )
+    utc_start, utc_end = parse_dashboard_period("2024-06-10", "2024-06-10", "America/New_York")
     assert utc_start == "2024-06-10 04:00:00"
     assert utc_end == "2024-06-11 04:00:00"
 
@@ -27,9 +25,7 @@ def test_dashboard_cache_key_includes_table() -> None:
     k1 = dashboard_cache_key(
         "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="fraud_decisions"
     )
-    k2 = dashboard_cache_key(
-        "t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other"
-    )
+    k2 = dashboard_cache_key("t1", "2024-01-01", "2024-01-02", "UTC", "duckdb", table="other")
     assert k1 != k2
     assert "fraud_decisions" in k1
 
@@ -86,14 +82,12 @@ async def test_dashboard_summary_endpoint_uses_cache(
 ) -> None:
     pytest.importorskip("tarka_core.cache")
     pytest.importorskip("httpx")
+    from fastapi import FastAPI
     from httpx import ASGITransport, AsyncClient
 
-    from decision_api.deps import get_kv_cache
-    from decision_api.main import app
+    from analytics_sink import dashboards as ad
+    from analytics_sink.dashboards import router
     from tarka_core.cache import LocalDictCache
-
-    monkeypatch.setenv("API_KEYS", "dash-test-key")
-    monkeypatch.setenv("ALLOW_INSECURE_NO_AUTH", "false")
 
     p = Path(tempfile.gettempdir()) / "tarka-dashboard-api-test.duckdb"
     p.unlink(missing_ok=True)
@@ -107,12 +101,12 @@ async def test_dashboard_summary_endpoint_uses_cache(
         """
     )
 
-    prev = getattr(app.state, "analytics_engine", None)
+    app = FastAPI()
+    app.include_router(router)
     app.state.analytics_engine = eng
     kv = LocalDictCache()
+    app.state.kv_cache = kv
     calls: list[int] = []
-
-    from decision_api import analytics_dashboards as ad
 
     real_fetch = fetch_dashboard_aggregates_sync
 
@@ -121,7 +115,6 @@ async def test_dashboard_summary_endpoint_uses_cache(
         return real_fetch(*a, **kw)  # type: ignore[misc]
 
     monkeypatch.setattr(ad, "fetch_dashboard_aggregates_sync", wrapped)
-    app.dependency_overrides[get_kv_cache] = lambda: kv
 
     transport = ASGITransport(app=app)
     try:
@@ -135,7 +128,6 @@ async def test_dashboard_summary_endpoint_uses_cache(
             r1 = await client.get(
                 "/v1/analytics/dashboards/summary",
                 params=q,
-                headers={"x-api-key": "dash-test-key"},
             )
             assert r1.status_code == 200, r1.text
             body1 = r1.json()
@@ -145,7 +137,6 @@ async def test_dashboard_summary_endpoint_uses_cache(
             r2 = await client.get(
                 "/v1/analytics/dashboards/summary",
                 params=q,
-                headers={"x-api-key": "dash-test-key"},
             )
             assert r2.status_code == 200
             assert r2.json() == body1
@@ -165,7 +156,5 @@ async def test_dashboard_summary_endpoint_uses_cache(
         cached = json.loads(raw)
         assert cached["total_events"] == 1
     finally:
-        app.dependency_overrides.pop(get_kv_cache, None)
-        app.state.analytics_engine = prev
         eng.close()
         p.unlink(missing_ok=True)

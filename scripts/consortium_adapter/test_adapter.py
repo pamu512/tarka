@@ -4,6 +4,9 @@ import json
 import sys
 from pathlib import Path
 
+import hashlib
+import uuid as uuid_lib
+
 import httpx
 import pytest
 
@@ -33,6 +36,38 @@ def test_validate_feedback_outcome():
         validate_ingest_record(
             {"op": "feedback", "tenant_id": "t", "entity_id": "e", "outcome": "bad"},
         )
+
+
+def test_post_feedback_targets_operational_signals():
+    """The legacy /v1/consortium/feedback bridge is gone; feedback posts directly."""
+    captured: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(202, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport, base_url="http://example.test") as http:
+        adapter = ConsortiumAdapter("http://ignored", http_client=http)
+        try:
+            adapter.post_feedback("acme", "ent-42", "false_positive", consortium_id="lane-a")
+        finally:
+            adapter.close()
+
+    assert len(captured) == 1
+    req = captured[0]
+    assert req.url.path == "/v1/operational-signals"
+    body = json.loads(req.content.decode())
+    assert body["signal_type"] == "MANUAL_OVERRIDE"
+    assert body["target_entity_id"] == str(
+        uuid_lib.UUID(hashlib.sha256(b"ent-42").hexdigest()[:32]),
+    )
+    assert body["metadata"]["override_action"] == "REVIEW"
+    assert body["metadata"]["reason_code"] == "FALSE_POSITIVE"
+    assert body["idempotency_key"].startswith("legacy:consortium_feedback:")
+    assert body["idempotency_key"].endswith(
+        hashlib.sha256(b"acme|ent-42|false_positive|lane-a").hexdigest()[:32],
+    )
 
 
 def test_share_signal_request_body():

@@ -212,3 +212,85 @@ def test_f4_dual_engine_missing_version_still_evaluates():
     py = _hits_python(pack, {"x": 1})
     rust = _hits_rust(pack, {"x": 1})
     assert py == rust == ["always"]
+
+
+_CSIGNAL_OR_PACK = {
+    "version": 1,
+    "name": "csignal-parity",
+    "rules": [
+        {
+            "id": "csignal_or_amount",
+            "when_ast": {
+                "type": "or",
+                "children": [
+                    {
+                        "type": "custom_signal",
+                        "plugin_id": "parity_probe",
+                        "params": {},
+                        "output_key": "probe_out",
+                    },
+                    {
+                        "type": "condition",
+                        "op": "gte",
+                        "field": "amount",
+                        "value": 5000,
+                    },
+                ],
+            },
+            "tags": [],
+            "score_delta": 1,
+        }
+    ],
+    "tag_rules": [],
+}
+
+
+@pytest.mark.parametrize(
+    ("features", "want_hit"),
+    [
+        ({"amount": 100}, False),
+        ({"amount": 100, "probe_out": False}, True),
+        ({"amount": 100, "probe_out": 0}, True),
+        ({"amount": 100, "probe_out": None}, False),
+    ],
+    ids=[
+        "unresolved_custom_signal_does_not_fire",
+        "injected_falsy_output_key_fires",
+        "injected_zero_output_key_fires",
+        "failed_resolution_null_does_not_fire",
+    ],
+)
+def test_c5_dual_engine_custom_signal_is_non_null_presence(features, want_hit):
+    """Rust must match Python: custom_signal matches on a present, non-null output_key.
+
+    Guards the old Rust pack path where an unresolved custom_signal evaluated
+    ``true``, firing ``or(custom_signal, X)`` rules Python would not match, and
+    pins the shared contract that the resolver's failure-injected ``None`` (and
+    a missing key) never satisfies a custom_signal while falsy values do.
+
+    Both engines see the same post-resolution feature map: the passthrough
+    plugin reproduces the value the production merge would have injected.
+    """
+    from tarka_core.engine_adapter import (
+        merge_features_with_resolved_from_packs,
+        register_custom_signal,
+        unregister_custom_signal,
+    )
+
+    # Handler receives the *request* features via ``features=`` kwarg. Stay registered
+    # for both engine calls: evaluate_packs_python re-resolves signals itself and an
+    # unregistered plugin would overwrite the injected value with None.
+    def _handler(_params, *, features, **__):
+        return features.get("probe_out")
+
+    register_custom_signal("parity_probe", _handler)
+    try:
+        merged = merge_features_with_resolved_from_packs(
+            features, [_CSIGNAL_OR_PACK], tenant_id="acme", entity_id="user-42"
+        )
+        py = _hits_python(_CSIGNAL_OR_PACK, merged)
+        rust = _hits_rust(_CSIGNAL_OR_PACK, merged)
+    finally:
+        unregister_custom_signal("parity_probe")
+
+    assert py == rust == (["csignal_or_amount"] if want_hit else [])

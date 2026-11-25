@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     stream_name: str = "FRAUD_DECISIONS"
     subject_prefix: str = "fraud.decisions"
     api_keys: str = ""
+    # Dashboards (moved from decision-api; prune plan v7 item 3.2)
+    clickhouse_analytics_events_table: str = "fraud_decisions"
+    nl_sql_allowed_tables: str = "fraud_decisions"
+    redis_url: str = ""
+    clickhouse_statement_timeout_ms: int = 30000
 
 
 settings = Settings()

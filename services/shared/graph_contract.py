@@ -36,6 +36,7 @@ CORE_ETYPES = frozenset(
         "USED_IP",
         "MADE_PAYMENT",
         "PERFORMED_LOGIN",
+        "TRANSACTED",
     }
 )
 

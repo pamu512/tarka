@@ -190,6 +190,33 @@ async def run_evaluate_decision(
     trace_id = uuid.uuid4()
     replay_ttl_seconds = int(os.environ.get("REPLAY_PAYLOAD_TTL_SECONDS", "300"))
     degrade_tags: list[str] = []
+    from decision_api.device_intelligence import device_intelligence
+    from decision_api.device_intelligence_eval import (
+        apply_prior_device_reputation,
+        device_ip_for_velocity,
+        record_device_intelligence_outcome,
+    )
+
+    async def _record_device_intel(decision: str) -> None:
+        signals = (
+            body.device_context.signals
+            if body.device_context and isinstance(body.device_context.signals, dict)
+            else None
+        )
+        payload = body.payload if isinstance(body.payload, dict) else None
+        ip = device_ip_for_velocity(payload, signals)
+        await record_device_intelligence_outcome(
+            degrade_tags,
+            store=device_intelligence,
+            tenant_id=body.tenant_id,
+            entity_id=body.entity_id,
+            device_id=body.device_context.device_id if body.device_context else None,
+            decision=decision,
+            signals=signals,
+            ip=ip or None,
+            shadow=shadow_request,
+        )
+
     from decision_api.policy_set import current_policy_set_id
 
     policy_set_id = current_policy_set_id() or None
@@ -404,6 +431,7 @@ async def run_evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            await _record_device_intel("allow")
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="allow",
@@ -479,6 +507,7 @@ async def run_evaluate_decision(
             )
             session.add(audit)
             await session.commit()
+            await _record_device_intel("deny")
             return EvaluateResponse(
                 trace_id=trace_id,
                 decision="deny",
@@ -676,6 +705,14 @@ async def run_evaluate_decision(
         from decision_api.feature_catalog import apply_feature_catalog_v1
 
         merge_device_context_into_features(features, body.device_context)
+        await apply_prior_device_reputation(
+            features,
+            degrade_tags,
+            store=device_intelligence,
+            tenant_id=body.tenant_id,
+            device_id=body.device_context.device_id if body.device_context else None,
+            shadow=shadow_request,
+        )
         if partner_features:
             features.update(partner_features)
         if body.session_id:
@@ -1302,6 +1339,11 @@ async def run_evaluate_decision(
             decision = "review"
         else:
             decision = "allow"
+
+        intel_decision = decision
+        if list_check and list_check.found and list_check.list_type == "test_bypass":
+            intel_decision = "allow"
+        await _record_device_intel(intel_decision)
 
         reasons: list[str] = []
         if combined_rule_hits:

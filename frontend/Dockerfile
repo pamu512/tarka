@@ -33,6 +33,15 @@ ENV VITE_SIGNAL_API_URL=${VITE_SIGNAL_API_URL}
 # Set together with services' API_KEYS so curl and UI both work on one box.
 ARG VITE_API_KEY=
 ENV VITE_API_KEY=${VITE_API_KEY}
+# A baked key ships in the public JS bundle. Only the single-box demo compose opts in
+# (ALLOW_BAKED_API_KEY=1, operator already holds the key); every other build,
+# including product desks real analysts receive, must refuse. Use API_KEYS on the
+# services plus the login/OIDC flow there instead.
+ARG ALLOW_BAKED_API_KEY=
+RUN if [ -n "$VITE_API_KEY" ] && [ "$ALLOW_BAKED_API_KEY" != "1" ]; then \
+      echo "ERROR: VITE_API_KEY must not be baked into the desk bundle; it is extractable from the shipped JS. The single-box demo sets ALLOW_BAKED_API_KEY=1 explicitly." >&2; \
+      exit 1; \
+    fi
 RUN npm run build
 
 FROM nginx:alpine

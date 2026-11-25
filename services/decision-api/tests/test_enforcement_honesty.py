@@ -24,7 +24,6 @@ _DEFAULT_SCAN = (
     _REPO / "docker-compose.local.yml",
     _REPO / "infra" / "deploy" / "docker-compose.yml",
     _REPO / "infra" / "deploy" / "docker-compose.lite.yml",
-    _REPO / "infra" / "deploy" / "docker-compose.demo-vertical.yml",
     _REPO / "infra" / "deploy" / "docker-compose.full-desk.yml",
     _REPO / "infra" / "deploy" / "docker-compose.fraud-desk.yml",
     _REPO / "infra" / "deploy" / "docker-compose.product.yml",

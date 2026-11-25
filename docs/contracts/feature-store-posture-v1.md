@@ -19,8 +19,7 @@ Two distinct L1 Redis populations; neither is a shared "counter service" (that w
 
 | Keys | Writer | Reader | Notes |
 |------|--------|--------|-------|
-| aggregate counters (`fraud_aggregates.AggregateStore`) | decision-api, local ownership | decision-api evaluate | Formerly counter-service remote fetch; flipped local. Circuit/metrics/env (`COUNTER_SERVICE_URL`) removed. |
-| `anumana:velocity:t:{tenant}:device|card|ip:{win}:{token}:{bucket}` (+`:amt`) | orchestrator `velocity_update` handler, Redis MULTI/EXEC (sole channel) | decision-api `anumana_signals` → evaluate features | ClickHouse mirror removed (write-only). Keys are TTL-bucketed counters, not a production online FS. |
+| aggregate counters (`fraud_aggregates.AggregateStore`), including `device:{token}` and `ip:{token}` | decision-api evaluate for the person; orchestrator for device and IP | decision-api evaluate | Person count stays on evaluate. Device and IP counts use the same store. |
 
 Removed write-only surfaces (no readers anywhere): `anumana:consortium:threat:*` + CH `orchestrator_consortium_threat_counters` (worker deleted; labels publishes continue), NATS `tarka.hypothesis.deployed` / `tarka.hypothesis.promoted` (Redis hypothesis deploy is the delivery channel; `shadow_hypothesis.py` reads it).
 

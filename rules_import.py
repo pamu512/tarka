@@ -137,7 +137,14 @@ def run_import_rules(
 
     reload_err: str | None = None
     if not skip_reload and not os.environ.get("TARKA_SKIP_RULE_RELOAD"):
-        base = (rule_engine_base or os.environ.get("RULE_ENGINE_URL", "http://127.0.0.1:8778")).strip().rstrip("/")
+        # Default target is decision-api via the core-api mount. RULE_ENGINE_URL remains
+        # an explicit override so the legacy python sidecar (rollback path) still works
+        # while its removal window is open (prune plan v7 item 2.1 S1b).
+        base = (
+            rule_engine_base
+            or os.environ.get("RULE_ENGINE_URL")
+            or os.environ.get("DECISION_API_URL", "http://127.0.0.1:8000/decisions")
+        ).strip().rstrip("/")
         reload_url = f"{base}/v1/rules/reload"
         try:
             with httpx.Client(timeout=30.0) as client:

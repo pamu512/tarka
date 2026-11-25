@@ -23,6 +23,7 @@ import case_api.main as case  # noqa: E402
 import decision_api.main as dec  # noqa: E402
 from case_api.models import Case  # noqa: E402
 from decision_api.json_rules import search_omni_rules  # noqa: E402
+from auth_rbac import setup_auth  # noqa: E402
 from fastapi import Depends, FastAPI, Query  # noqa: E402
 from observability import setup_observability  # noqa: E402
 from sqlalchemy import String, cast, or_, select  # noqa: E402
@@ -94,6 +95,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Tarka Core API", version="1.0.0", lifespan=lifespan)
     init_opentelemetry(app, dec.app, case.app)
     setup_observability(app, "core-api")
+    # Outer-app routes (omni-search, process-stats, demo-burst) get the same auth
+    # middleware the mounted decision/case sub-apps already run. Demo keeps working:
+    # ALLOW_INSECURE_NO_AUTH=true authenticates as anonymous viewer; production
+    # fail-closes via API_KEYS / OIDC and enforces tenant binding on omni-search.
+    setup_auth(app)
     register_demo_burst_route(app)
 
     @app.get("/v1/health")

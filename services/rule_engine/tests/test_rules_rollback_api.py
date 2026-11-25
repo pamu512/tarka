@@ -39,11 +39,23 @@ def _rule_v2() -> dict:
 def test_list_and_rollback_versions(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "rollback_api.sqlite"
     monkeypatch.setenv("RULE_ENGINE_DATABASE_URL", f"sqlite+pysqlite:///{db_path}")
+    monkeypatch.setenv("RULE_ENGINE_AUTH_TOKEN", "test-admin-token")
+    admin_headers = {"X-Auth-Token": "test-admin-token"}
 
     app = create_app()
     with TestClient(app) as client:
-        assert client.post("/v1/rules/deploy", json={"rules": [_rule_v1()]}).status_code == 200
-        assert client.post("/v1/rules/deploy", json={"rules": [_rule_v2()]}).status_code == 200
+        assert (
+            client.post(
+                "/v1/rules/deploy", json={"rules": [_rule_v1()]}, headers=admin_headers
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/v1/rules/deploy", json={"rules": [_rule_v2()]}, headers=admin_headers
+            ).status_code
+            == 200
+        )
 
         listed = client.get("/v1/rules/versions")
         assert listed.status_code == 200
@@ -52,7 +64,7 @@ def test_list_and_rollback_versions(tmp_path, monkeypatch) -> None:
         assert len(body["versions"]) == 2
         assert body["versions"][0]["version"] == 2
 
-        rb = client.post("/v1/rules/rollback/1")
+        rb = client.post("/v1/rules/rollback/1", headers=admin_headers)
         assert rb.status_code == 200
         assert rb.json()["active_version"] == 1
 

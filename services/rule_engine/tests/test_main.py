@@ -61,6 +61,7 @@ def test_gate_v1_rules_reload_then_evaluate_uses_new_logic(
         return next(loads)
 
     monkeypatch.setattr("main.load_active_ruleset", _fake_load)
+    monkeypatch.setenv("RULE_ENGINE_AUTH_TOKEN", "test-admin-token")
     app = create_app()
     body = {
         "entity_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
@@ -73,7 +74,7 @@ def test_gate_v1_rules_reload_then_evaluate_uses_new_logic(
         assert first.status_code == 200
         assert first.json().get("graph_context_fail_open") is False
         assert first.json()["actions"] == []
-        rel = client.post("/v1/rules/reload")
+        rel = client.post("/v1/rules/reload", headers={"X-Auth-Token": "test-admin-token"})
         assert rel.status_code == 200
         second = client.post("/v1/evaluate", json=body)
     assert second.status_code == 200
@@ -82,10 +83,11 @@ def test_gate_v1_rules_reload_then_evaluate_uses_new_logic(
     assert second.json()["blocking_rule_id"] == "bbbbbbbb-bbbb-bbbb-bbbb-000000000002"
 
 
-def test_v1_rules_reload_returns_count() -> None:
+def test_v1_rules_reload_returns_count(monkeypatch) -> None:
+    monkeypatch.setenv("RULE_ENGINE_AUTH_TOKEN", "test-admin-token")
     app = create_app()
     with TestClient(app) as client:
-        r = client.post("/v1/rules/reload")
+        r = client.post("/v1/rules/reload", headers={"X-Auth-Token": "test-admin-token"})
     assert r.status_code == 200
     data = r.json()
     assert data.get("ok") is True

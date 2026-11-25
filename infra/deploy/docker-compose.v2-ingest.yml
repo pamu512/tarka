@@ -1,5 +1,0 @@
-# Compatibility wrapper — lab file lives in archive/.
-# Prefer the advertised desk pair (lite + fraud-desk).
-
-include:
-  - path: archive/docker-compose.v2-ingest.yml

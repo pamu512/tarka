@@ -503,7 +503,7 @@ pub fn eval_ast(node: &AstNode, features: &Map<String, Value>) -> bool {
     match node {
         AstNode::GraphV1 { atom, etype, role } => eval_graph_v1(features, atom, etype, role),
         AstNode::CustomSignal { output_key, .. } => !output_key.is_empty()
-            && features.contains_key(output_key),
+            && features.get(output_key).is_some_and(|v| !v.is_null()),
         AstNode::Condition {
             op,
             field,

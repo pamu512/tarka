@@ -72,6 +72,7 @@ nav:
       - Graph Service: services/graph-service.md
       - Feature / ML (signal): services/feature-service.md
       - Investigation Agent: services/investigation-agent.md
+      - Velocity contract (anumana vs AggregateStore): services/velocity-contract.md
   - Guides:
       - Productionization (AI/ops): guides/repo-productionization-runbook.md
       - Deployment: guides/deployment.md
@@ -101,6 +102,9 @@ nav:
       - 1.3.0-beta: releases/v1.3.0-beta.md
       - Releases hub: releases/README.md
 
+  - SDKs:
+      - Python SDK: sdks/python.md
+      - TypeScript SDK: sdks/typescript.md
   - API Reference: api-reference.md
   - Operations:
       - SRE Compose profiles: operations/sre-compose-profiles.md

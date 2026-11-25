@@ -61,7 +61,8 @@ The console **trust/ops readiness** strip (`frontend/src/components/AnalystReadi
 | `POST` | `/v1/rules/backtest/run` | **410 Gone** — stub route removed; use `/jobs` |
 | `POST` | `/v1/reporting/nl-to-sql` | Natural language → bounded SQL (LLM when configured; template fallback otherwise) |
 | `POST` | `/v1/feature-store/definitions` | Upsert durable feature definitions and execute ClickHouse MV DDL |
-| `GET` | `/v1/analytics/dashboards/kpis` | Live KPI counts from analytics engine (**503** when offline; Redis cache when healthy) |
+| `GET` | `/api/analytics/v1/analytics/dashboards/kpis` | Live KPI counts from analytics engine (**503** when offline; Redis cache when healthy). Served by data-plane (moved from decision-api 2026-11-17); same-origin via nginx, API key + tenant binding |
+| `GET` | `/api/analytics/v1/analytics/dashboards/summary` | Executive OLAP summary (volume, block rate, top rules, geo spikes; **503** with distinct `reason_code` bodies when offline). Served by data-plane (moved from decision-api 2026-11-17) |
 | `GET` | `/v1/calibration/reliability-export.csv` | CSV of `decision_audit` scores + `inference_context` for offline reliability curves |
 | `GET` | `/v1/calibration/reliability-bins` | Equal-width bins vs proxy labels (caveat: not ground truth until `y_label` joined) |
 | `GET` | `/v1/vendors/registry` | List registered vendor adapters |

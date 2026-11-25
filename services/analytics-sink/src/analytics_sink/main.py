@@ -322,8 +322,9 @@ def _flush_batch(db: str, batch: list[dict[str, Any]]) -> bool:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
     _init_clickhouse()
+    await _init_dashboards_infra(app)
     consumer_coro = _nats_consumer()
     consumer_task = asyncio.create_task(consumer_coro)
     if not isinstance(consumer_task, asyncio.Task) and inspect.iscoroutine(consumer_coro):
@@ -336,6 +337,54 @@ async def lifespan(_: FastAPI):
             await consumer_task
     except asyncio.CancelledError:
         pass
+    finally:
+        await _close_dashboards_infra(app)
+
+
+async def _init_dashboards_infra(app: FastAPI) -> None:
+    """Analytics engine (ClickHouse or DuckDB) + KV cache for the dashboards routes."""
+    from analytics.engine import get_analytics_engine
+
+    app.state.analytics_engine = get_analytics_engine(
+        clickhouse_host=settings.clickhouse_host,
+        clickhouse_port=settings.clickhouse_port,
+        clickhouse_user=settings.clickhouse_user,
+        clickhouse_password=settings.clickhouse_password or "",
+        clickhouse_database=settings.clickhouse_database,
+        clickhouse_statement_timeout_ms=settings.clickhouse_statement_timeout_ms,
+    )
+    app.state.kv_cache = None
+    redis_url = (settings.redis_url or "").strip()
+    if redis_url:
+        try:
+            from tarka_core.cache import RedisCache
+
+            rc = RedisCache(redis_url)
+            await rc.connect()
+            app.state.kv_cache = rc
+        except Exception as e:  # pragma: no cover — redis optional
+            log.warning("Dashboard KV cache init failed, using local fallback: %s", e)
+    if app.state.kv_cache is None:
+        from tarka_core.cache import LocalDictCache
+
+        app.state.kv_cache = LocalDictCache()
+
+
+async def _close_dashboards_infra(app: FastAPI) -> None:
+    eng = getattr(app.state, "analytics_engine", None)
+    if eng is not None and hasattr(eng, "close"):
+        try:
+            eng.close()
+        except Exception as e:
+            log.warning("Analytics engine shutdown: %s", e)
+    app.state.analytics_engine = None
+    cache = getattr(app.state, "kv_cache", None)
+    if cache is not None and hasattr(cache, "aclose"):
+        try:
+            await cache.aclose()
+        except Exception:
+            pass
+    app.state.kv_cache = None
 
 
 app = FastAPI(
@@ -344,6 +393,9 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)],
 )
+from .dashboards import router as dashboards_router  # noqa: E402
+
+app.include_router(dashboards_router)
 # When mounted inside services/data-plane, observability is registered on the parent app only.
 if os.environ.get("TARKA_DATA_PLANE_SUBAPP", "").strip() != "1":
     setup_observability(app, "analytics-sink")
