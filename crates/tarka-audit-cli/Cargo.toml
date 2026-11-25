@@ -20,4 +20,4 @@ tarka-cli = { path = "../tarka-cli" }
 tarka-core = { path = "../tarka-core" }
 thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-url = "2"
+url = ">=2.5.9"  # RUSTSEC-2026-0592

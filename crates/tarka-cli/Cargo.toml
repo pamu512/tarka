@@ -19,6 +19,8 @@ hmac = "0.12"
 prost = "0.13"
 # Floor for RUSTSEC-2026-0338/0340/0343; transitive via reqwest → quinn.
 quinn-proto = ">=0.11.18"
+# Floor for RUSTSEC-2026-0538; transitive via reqwest → quinn → quinn-udp.
+quinn-udp = ">=0.5.16, <0.6"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # Floor for RUSTSEC-2026-0346..0349; transitive via reqwest → hyper-rustls → rustls.
 rustls = { version = ">=0.23.46", default-features = false }
@@ -33,7 +35,7 @@ tarka-core = { path = "../tarka-core" }
 thiserror = "1"
 tracing = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-url = "2"
+url = ">=2.5.9"  # RUSTSEC-2026-0592
 uuid = { version = "1", features = ["serde", "v4"] }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 rayon = "1.10"
