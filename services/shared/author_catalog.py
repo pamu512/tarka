@@ -33,6 +33,7 @@ PAYLOAD_FIELDS = (
     "first_order_promo",
     "new_account",
     "coupon_stack",
+    "instrument_kind",
 )
 IDENTITY_FIELDS = (
     "event_type",

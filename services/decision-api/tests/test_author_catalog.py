@@ -120,6 +120,7 @@ def test_catalog_payload_is_frozen_extras():
         "first_order_promo",
         "new_account",
         "coupon_stack",
+        "instrument_kind",
     ]
 
 
