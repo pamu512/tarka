@@ -39,7 +39,7 @@ sysinfo = { version = "0.32", default-features = false, features = ["system", "n
 # zstd-safe >=8.2.0 is still upstream-blocked (wasmtime's cache pins zstd ^0.13 through 50.x,
 # and zstd 0.13 cannot reach zstd-safe 8.x), so we go CVE-green by leaving zstd out of the
 # graph entirely, not by pinning 8.2.0 in-tree.
-wasmtime = { version = ">=36.0.20,<37", default-features = false, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363/0424
+wasmtime = { version = ">=36.0.21,<37", default-features = false, features = ["runtime", "cranelift"] }  # RUSTSEC-2026-0379/0380/0363/0424/0566/0569/0571
 # Floor for RUSTSEC-2026-0410. The original transitive path (wasmtime cache -> zstd ->
 # zstd-safe -> zstd-sys) is gone now that `cache` is dropped; this floor stands guard should
 # zstd-sys re-enter the graph through any other dependency.
