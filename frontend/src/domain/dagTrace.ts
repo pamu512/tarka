@@ -34,14 +34,14 @@ export function parseStepTrace(input: unknown): ParsedStepTrace {
     return { rows: [], warnings };
   }
   if (!Array.isArray(input)) {
-    warnings.push("step_trace is not a JSON array — cannot render the execution DAG.");
+    warnings.push("step_trace is not a JSON array, cannot render the execution DAG.");
     return { rows: [], warnings };
   }
   const rows: StepTraceRow[] = [];
   input.forEach((item, i) => {
     const o = asRecord(item);
     if (!o) {
-      warnings.push(`Entry ${i} is not an object — skipped.`);
+      warnings.push(`Entry ${i} is not an object, skipped.`);
       return;
     }
     const step = typeof o.step === "string" && o.step.trim() ? o.step.trim() : `unknown_step_${i}`;

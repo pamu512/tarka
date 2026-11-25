@@ -1,7 +1,7 @@
 # Leftover → Hunt → visual Observe pack (product)
 
 **Date:** 2026-09-05  
-**Status:** Design — approved in chat; not implemented.  
+**Status:** Design: approved in chat; not implemented.  
 **Related:** [desk demo vs product](./2026-09-05-desk-demo-vs-product-design.md), [leftover Hunt production](./2026-08-31-leftover-hunt-production-design.md), `frontend/src/components/RuleBuilder/`, `frontend/src/utils/sentencePack.ts`, `services/decision-api/src/decision_api/data/counter_manifest_v1.json`
 
 ## Goal
@@ -10,7 +10,7 @@ Make Tarka easier to use: the field an analyst picks is a field evaluate actuall
 
 On the **product** desk, leftover → Hunt → **Draft Observe pack** lands on the visual builder with leftover pack-why already applied. Save is Observe. Promote is not this slice.
 
-Authors do not maintain five field lists. One catalog drives Redis counters, graph growth keys, the desk picker, leftover seed, and the AI allow-list. The canvas picker is **function-shaped** (count / sum / avg / distinct / growth / hop + window). The saved pack is still `when.field` or `when_ast` `has_etype` — no new Rust atom.
+Authors do not maintain five field lists. One catalog drives Redis counters, graph growth keys, the desk picker, leftover seed, and the AI allow-list. The canvas picker is **function-shaped** (count / sum / avg / distinct / growth / hop + window). The saved pack is still `when.field` or `when_ast` `has_etype`, no new Rust atom.
 
 Demo skin, `make demo`, and `SentencePackPanel` stay unchanged until this product loop is done.
 
@@ -21,7 +21,7 @@ Demo skin, `make demo`, and `SentencePackPanel` stay unchanged until this produc
 - Leftovers stay the queue. Work happens on Hunt. Do not unhide `/cases`.
 - No `case.receipt_brief/v1`. No `rate` / `baseline_ratio`. No new Rust `velocity_v1`. No `velocity()` in pack JSON this slice.
 - Visual builder stays `RequireRole` RiskArchitect. Missing role → existing `/403-unauthorized`.
-- Leftover-sourced and visual **Save AST pack** stay Observe (`mode: shadow`). `POST /v1/rules` already forces shadow — do not add a live save path.
+- Leftover-sourced and visual **Save AST pack** stay Observe (`mode: shadow`). `POST /v1/rules` already forces shadow. Do not add a live save path.
 - Query-carry: Hunt stays Hunt. No canvas on the dossier.
 - No named third-party desks in published copy.
 - **Demo is out of scope.** Do not add Draft to the demo Hunt. Do not change fraud-desk compose, first-hour sentences, or clone-demo copy in this slice.
@@ -43,7 +43,7 @@ There is no product reason to keep that. Named keys stay as the **compile target
 |------|-----------------|------------------------|
 | Redis counter (count / sum / avg / distinct) | One row in `counter_manifest_v1.json` (`name`, `kind`, `window_seconds`, `field` when needed). Deploy. | Desk catalogs, sentences leftover-parse, AI allow-list, `compute_features` loops. |
 | Graph growth window | `GRAPH_GROWTH_WINDOWS` on graph-service. Restart graph-service. | Frontend 1h/24h/5/15 literals, `VELOCITY_KEYS` hand edits, a second env on decision-api. |
-| Hop etype | Still code (evaluate `PACK_HOP_ETYPES` + graph schema). **Not this slice.** | — |
+| Hop etype | Still code (evaluate `PACK_HOP_ETYPES` + graph schema). **Not this slice.** | n/a |
 
 Invalid manifest row (unknown `kind`, missing `name`, `window_seconds` ≤ 0 or > 30d) is skipped at load with a log line. Do not invent a key. Empty feature_outputs after skip → keep today’s eleven names as the built-in fallback so evaluate does not go blank.
 
@@ -87,7 +87,7 @@ If the catalog GET fails, the visual builder and `/rules` keep the last successf
 
 `normalized_velocity_key_names()` returns manifest names in file order.
 
-Existing test: compute keys match manifest when all branches apply — keep it; it becomes the driver, not a mirror check of two handwritten lists.
+Existing test: compute keys match manifest when all branches apply. Keep it; it becomes the driver, not a mirror check of two handwritten lists.
 
 ## Graph growth: config, query, evaluate keys
 
@@ -113,7 +113,7 @@ Stored node fields `relation_growth_1h` / `relation_growth_24h` may remain for e
 
 **Hunt (product)**
 
-- Dossier (testid `node-relation-growth`): one line per returned window (`{window} {count ?? "—"}`; threshold as title/hint). No `1h`/`24h` literals in the component.
+- Dossier (testid `node-relation-growth`): one line per returned window (`{window} {count ?? "n/a"}`; threshold as title/hint). No `1h`/`24h` literals in the component.
 - Left-rail `growthOnly`: keep a node if **any** configured window’s count is ≥ that window’s threshold. Load policy once per Hunt session. No `>= 5 || >= 15` in `graphInvestigation.ts`.
 - Risk scoring this slice: `FAST_GROWTH_*` for 1h and 24h read the matching configured thresholds. Do not add new score factors for extra windows (6h/7d).
 
@@ -180,7 +180,7 @@ Copy: **Draft Observe pack**. Do not say Promote.
 
 Add one palette node, allow-list catalog hops only.
 
-- Compile / save `when_ast`: `{ type: "graph_v1", atom: "has_etype", etype }` — same shape as `emitHopPack`.
+- Compile / save `when_ast`: `{ type: "graph_v1", atom: "has_etype", etype }`: same shape as `emitHopPack`.
 - Tags on the saved rule: `FLAG` and `graph:has_etype:{ETYPE}` (same as sentences).
 - Do not compile this node to `graph_score` or `graph_condition`.
 
@@ -200,7 +200,7 @@ Wire: Hop etype → Rule root (same handle rules as Graph Risk → root). No new
 - else `field` present → Rule root + Feature (`field`) + Operator (`gte`, value `0` placeholder the analyst must edit) + wires. Value `0` is a canvas default, not a claimed leftover threshold.
 - else empty default canvas.
 
-Banner (testid `leftover-visual-banner`): leftover id, pack id or `missing`, hits or `—`. If neither etype nor field: “No shipped hop or catalog key on this leftover — pick from the palette.” Back link to Hunt with the same entity/decision/leftover params.
+Banner (testid `leftover-visual-banner`): leftover id, pack id or `missing`, hits or `n/a`. If neither etype nor field: “No shipped hop or catalog key on this leftover. Pick from the palette.” Back link to Hunt with the same entity/decision/leftover params.
 
 **Save from `from=leftover`:** existing `rules.create` (server writes `mode: shadow`). Success copy: “Saved as Observe draft. Promote is not here.” Do not call `force-live` or `set_pack_mode(active)`.
 

@@ -14,11 +14,11 @@ LLM backends via ``SHADOW_LLM_BACKEND`` (default **ollama**):
 
 Override model with ``SHADOW_LLM_MODEL``. Evaluate (`POST /v1/analyze`) uses this client. Shadow still **advises only**.
 
-Unknown ``SHADOW_LLM_BACKEND`` values (for example ``azure``) **fail closed** — they do not fall through to laptop Ollama. For in-tenant Azure/Vertex/Bedrock-compatible OpenAI APIs use ``self-hosted`` / ``vllm`` plus ``SHADOW_LLM_BASE_URL``. ``TARKA_DEPLOYMENT_PROFILE=production`` refuses public ``api.openai.com`` / ``api.anthropic.com``.
+Unknown ``SHADOW_LLM_BACKEND`` values (for example ``azure``) **fail closed**. They do not fall through to laptop Ollama. For in-tenant Azure/Vertex/Bedrock-compatible OpenAI APIs use ``self-hosted`` / ``vllm`` plus ``SHADOW_LLM_BASE_URL``. ``TARKA_DEPLOYMENT_PROFILE=production`` refuses public ``api.openai.com`` / ``api.anthropic.com``.
 
 ## Pack authoring with BYO LLM
 
-When ``SHADOW_LLM_BACKEND`` and ``SHADOW_LLM_BASE_URL`` are set, ``publish_scout_pack`` sends the hypothesis report to the LLM and validates the response against ``PACK_AUTHOR.md`` before publishing. If the LLM returns an invalid pack or declines (insufficient evidence), the pack is dropped — no fallback to an invented rule.
+When ``SHADOW_LLM_BACKEND`` and ``SHADOW_LLM_BASE_URL`` are set, ``publish_scout_pack`` sends the hypothesis report to the LLM and validates the response against ``PACK_AUTHOR.md`` before publishing. If the LLM returns an invalid pack or declines (insufficient evidence), the pack is dropped, no fallback to an invented rule.
 
 Example for Azure OpenAI or vLLM:
 
@@ -37,4 +37,4 @@ Container build: see `Dockerfile` (context = repo root).
 
 ## Analyst force-multiplier (not omniscient autonomy)
 
-On LLM timeout, `evaluate` returns an **inconclusive** decision (`risk_score=50`, `confidence_metrics.timeout_fallback=true`, reasoning `TIMEOUT_FALLBACK`) — never a clear-looking `risk_score=0` that could flip FLAG→ALLOW upstream. Orchestrator defaults treat Shadow as escalate-only advisory; see `services/orchestrator/README.md`.
+On LLM timeout, `evaluate` returns an **inconclusive** decision (`risk_score=50`, `confidence_metrics.timeout_fallback=true`, reasoning `TIMEOUT_FALLBACK`), never a clear-looking `risk_score=0` that could flip FLAG→ALLOW upstream. Orchestrator defaults treat Shadow as escalate-only advisory; see `services/orchestrator/README.md`.

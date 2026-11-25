@@ -86,7 +86,7 @@ export default function Login(): ReactElement {
         <div className="space-y-3">
           <p className="text-sm text-gray-400">
             This desk uses your organization identity provider. Tokens stay on the server until
-            the callback finishes — they are not placed on the URL.
+            the callback finishes. They are not placed on the URL.
           </p>
           <a
             href={ssoHref}
@@ -99,7 +99,7 @@ export default function Login(): ReactElement {
       {!loading && config && !config.oidc_enabled ? (
         <div className="space-y-3 text-sm text-gray-400">
           <p>
-            Local mode — SSO is not configured on this desk (<code className="text-gray-300">OIDC_ISSUER</code>{" "}
+            Local mode: SSO is not configured on this desk (<code className="text-gray-300">OIDC_ISSUER</code>{" "}
             is empty). Use existing local credentials:{" "}
             <code className="text-gray-300">ALLOW_INSECURE_NO_AUTH</code> or{" "}
             <code className="text-gray-300">API_KEYS</code> still apply.

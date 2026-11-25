@@ -266,7 +266,7 @@ export default function Integrations() {
         <PageTitle module="integrations">Integrations</PageTitle>
         <p className="text-sm text-gray-400 mt-1">
           One-click integrations for top enrichment providers, workflows, and CRMs. Use{" "}
-          <strong className="text-gray-300">Configure</strong> to open the secure OSINT plugin hub — API keys use
+          <strong className="text-gray-300">Configure</strong> to open the secure OSINT plugin hub. API keys use
           password fields, are sent over HTTPS in production, and are never displayed in full after save (only{" "}
           <span className="font-mono text-gray-500">••••</span> plus last four characters). Monitor outgoing{" "}
           <Link to="/integrations/webhook-logs" className="text-brand-400 hover:text-brand-300 font-medium">
@@ -297,7 +297,7 @@ export default function Integrations() {
           ) : null}
           <p className="text-[11px] text-gray-500">
             LIVE claim allowed: {partnerFusion.promote_live_claim_allowed ? "yes" : "no"} · OpenSanctions:{" "}
-            {partnerFusion.opensanctions?.continuous_screening || "plugin"} —{" "}
+            {partnerFusion.opensanctions?.continuous_screening || "plugin"}:{" "}
             {partnerFusion.opensanctions?.note}
           </p>
           {partnerFusion.live_readiness ? (
@@ -456,7 +456,7 @@ export default function Integrations() {
                 {!screeningJournal.length ? (
                   <tr>
                     <td colSpan={4} className="py-2 text-gray-500">
-                      No journal rows yet — screens persist here after adapter invokes.
+                      No journal rows yet, screens persist here after adapter invokes.
                     </td>
                   </tr>
                 ) : null}
@@ -527,7 +527,7 @@ export default function Integrations() {
             <div>
               <h2 className="text-sm font-semibold text-gray-200">Integration scorecards</h2>
               <p className="text-xs text-gray-400 mt-1">
-                Installed providers — <code className="text-gray-500">GET /v1/integrations/scorecards</code>
+                Installed providers: <code className="text-gray-500">GET /v1/integrations/scorecards</code>
                 {scorecards.sla ? (
                   <>
                     {" "}

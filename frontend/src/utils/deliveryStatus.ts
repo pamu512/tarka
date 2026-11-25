@@ -30,14 +30,14 @@ export type DeliveryStatusView = {
 
 const HELP = "Delivery reliability is not an enforcement SKU suite.";
 
-const ADVISORY_HINT = `Advisory emit — ${HELP}`;
+const ADVISORY_HINT = `Advisory emit: ${HELP}`;
 
-const RETRY_HINT = `Advisory emit — webhook retry in flight. ${HELP}`;
+const RETRY_HINT = `Advisory emit, webhook retry in flight. ${HELP}`;
 
-const DLQ_HINT = `Advisory emit — delivery dead-lettered after retries. Not Demote. ${HELP}`;
+const DLQ_HINT = `Advisory emit, delivery dead-lettered after retries. Not Demote. ${HELP}`;
 
 const PLANE_OFF_HINT =
-  "Empty enforcement webhook URL — plane off, not configured. Not a fake ACK.";
+  "Empty enforcement webhook URL, plane off, not configured. Not a fake ACK.";
 
 const FAILED_STATUSES = new Set(["error", "non_2xx", "failed"]);
 

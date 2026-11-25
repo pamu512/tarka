@@ -104,4 +104,4 @@ Tune thresholds against [Service SLOs](service-slos-v1.md). These examples are o
 
 - Istio / service mesh required
 - Full alerting product (routing, on-call, SLO burn as a SKU)
-- Inventing `values.networkPolicy.egressCIDRs` — tighten managed PG/Redis with your own `ipBlock` if you need VPC CIDRs
+- Inventing `values.networkPolicy.egressCIDRs`. Tighten managed PG/Redis with your own `ipBlock` if you need VPC CIDRs

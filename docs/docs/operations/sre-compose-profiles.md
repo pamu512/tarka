@@ -1,4 +1,4 @@
-# SRE runbook — Linux Compose profiles
+# SRE runbook: Linux Compose profiles
 
 **Audience:** on-call / platform SRE.  
 **Default production shape:** one Linux VM (or a small VM pair), Docker Compose v2.  
@@ -32,7 +32,7 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 | Profile | Compose | Services (typical) | Linux RAM floor | When to turn on |
 |---------|---------|--------------------|-----------------|-----------------|
 | **Lite / thin desk** | `docker-compose.lite.yml` (optional `docker-compose.fraud-desk.yml`) | postgres (AGE), redis, graph-service, core-api, frontend | **~4 GB** | **Day-1 default.** Rust evaluate + packs + AGE Hunt. Lean `/graph`, `/leftovers`, `/ops/shadow`, `/decisions`, `/rules`. `/cases` hidden. No nats, no signal-api, no investigation-agent, no ingress. |
-| **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Desk Advise. Enable only with BYO OpenAI-compat (`OPENAI_BASE_URL` + key). Sets desk `VITE_INVESTIGATION_AGENT_URL` (URL only — never the key). Empty URL hides Advise chrome. |
+| **+ investigation** | lite + `docker-compose.investigation.yml` | investigation-agent `:8006` | **+1–2 GB** | Desk Advise. Enable only with BYO OpenAI-compat (`OPENAI_BASE_URL` + key). Sets desk `VITE_INVESTIGATION_AGENT_URL` (URL only, never the key). Empty URL hides Advise chrome. |
 | **+ signals** | lite + `docker-compose.signals.yml` | nats, signal-api `:8004`, integration-ingress `:8003` | **+2–3 GB** | Features / ML / calibration + ingress. Sets `FEATURE_SERVICE_URL` / `ML_SCORING_URL` and desk `VITE_SIGNAL_API_URL`. |
 | **Full desk** | `docker-compose.full-desk.yml` (lite + fraud-desk + signals + investigation) | lite plus nats, signal-api, ingress, investigation-agent | **~8 GB** | Former "Desk" shape. Analyst tools. AGE graph already on lite. Still no Janus, no Ollama. |
 | **+ ingest** | lite `--profile ingest` (optional `docker-compose.demo-vertical.yml`) | data-plane `:8007`, orchestrator `:8790`, outbox-processor, NATS JetStream | **+3–5 GB** | Async `POST /v1/events`. Same `ALLOW_INSECURE_NO_AUTH` / `API_KEYS` as core-api (consumer uses `UPSTREAM_API_KEY` or first `API_KEYS`). Durable is `decision-worker`. nginx `/api/orchestrator` and `/api/v1/demo` 503 without this profile. |
@@ -41,7 +41,7 @@ RAM is **host free memory** for that compose set, not a measured SLO. SSD. x86_6
 | **+ Shadow** | `docker-compose.v2-ingest.yml` (orchestrator + shadow_agent) | shadow_agent + LLM | **+8 GB** only if the model is **on this host** (Ollama/vLLM 7B-class). API backends add ~256 MB. | Ingest Advise (`SHADOW_LLM_*`). Not desk chrome. |
 | **Full triad on one box** | full desk + graph + large local LLM | all of the above | **~24 GB+** | Lab / demo. Not the production default. |
 
-Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Enable `investigationAgent` only when the operator supplies a BYO OpenAI-compat endpoint. Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay — do not treat it as this Day-1 shape.
+Helm chart `values.yaml` defaults match evaluate-only (`investigationAgent` / `signalApi` / `integrationIngress`: false). Enable `investigationAgent` only when the operator supplies a BYO OpenAI-compat endpoint. Sketch: `infra/deploy/helm/fraud-stack/presets/evaluate-only.yaml`. `prod-on-k8s` is a separate HA overlay, do not treat it as this Day-1 shape.
 
 Disk: **≥ 12 GB** free for lite images; **≥ 20 GB** for full desk; **≥ 40 GB** if you also store 30B-class weights.
 

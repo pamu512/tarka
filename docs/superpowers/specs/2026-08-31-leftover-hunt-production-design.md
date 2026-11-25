@@ -45,7 +45,7 @@ Do not quote a vendor 4.x because the 5-min worked.
 
 ---
 
-## A — Leftover station (production 3.8)
+## A: Leftover station (production 3.8)
 
 ### Leftover predicate
 
@@ -114,7 +114,7 @@ SLA uses existing `is_sla_breached` / case SLA fields.
 
 ### Desk
 
-- New lean path `/leftovers`. Add to `LEAN_NAV_PATHS`. Visible in lean when graph is on (same gate as Hunt: leftovers without Hunt is a ticket queue — hide if graph URL empty).
+- New lean path `/leftovers`. Add to `LEAN_NAV_PATHS`. Visible in lean when graph is on (same gate as Hunt: leftovers without Hunt is a ticket queue. Hide if graph URL empty).
 - `/cases` stays hidden. `/cases/:id` stays registered for SAR / dispute / QA.
 - Page is a table of the list API. Row click: claim (if free) → `/graph?entity_id=&tenant_id=`. Claimed-by-other rows are visible, not clickable as “work this,” show `claimed_by`.
 - No KPIs, bulk labels, saved views, or CaseDetail chrome.
@@ -128,7 +128,7 @@ SLA uses existing `is_sla_breached` / case SLA fields.
 
 ---
 
-## B — Hunt (production 4.0)
+## B: Hunt (production 4.0)
 
 ### Search keys (SQL)
 

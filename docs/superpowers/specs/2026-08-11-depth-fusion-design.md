@@ -1,11 +1,11 @@
 # Cross-Engine Depth Fusion Design
 
-> **Status:** Approved — 2026-08-11  
+> **Status:** Approved: 2026-08-11  
 > **Parent:** [lifecycle-ring-depth-design](./2026-08-11-lifecycle-ring-depth-design.md)
 
 ## Goal
 
-Detect multi-signal marketplace abuse: when lifecycle + ring (+ FTID/promo/trajectory/representment) co-occur on one evaluate, emit a **joint** depth score and host-actions — not independent flag stacking.
+Detect multi-signal marketplace abuse: when lifecycle + ring (+ FTID/promo/trajectory/representment) co-occur on one evaluate, emit a **joint** depth score and host-actions, not independent flag stacking.
 
 ## Non-goals
 

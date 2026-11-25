@@ -82,7 +82,7 @@ export function FeatureImportancePanel({ requestKey, payload }: FeatureImportanc
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Feature importance</h3>
           <p className="text-[11px] text-gray-500 mt-0.5 max-w-3xl leading-snug">
             Relative influence on the <span className="text-gray-300 font-mono tabular-nums">{payload.risk_score.toFixed(1)}</span>
-            /100 score for this trace — ranked from the audit inference bundle (not raw SHAP).
+            /100 score for this trace, ranked from the audit inference bundle (not raw SHAP).
           </p>
         </div>
         {data?.attribution_engine === "mock" ? (

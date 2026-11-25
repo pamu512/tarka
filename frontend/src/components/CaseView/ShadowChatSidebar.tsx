@@ -23,7 +23,7 @@ type CaseStatusProposal = {
 };
 
 const GRAPH_MISSING_BANNER =
-  "Graph neighborhood missing — narratives are ungrounded; status changes and promote stay blocked.";
+  "Graph neighborhood missing, narratives are ungrounded; status changes and promote stay blocked.";
 
 function isAbortError(e: unknown): boolean {
   return e instanceof DOMException && e.name === "AbortError";
@@ -313,7 +313,7 @@ export function ShadowChatSidebar({
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         <p className="text-[11px] leading-relaxed text-gray-500">
-          Ask about this case — grounded via investigation-agent tools and{" "}
+          Ask about this case, grounded via investigation-agent tools and{" "}
           <code className="text-gray-400">case_id</code>.
         </p>
         {messages.length === 0 && !streamingText ? (

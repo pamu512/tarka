@@ -45,7 +45,7 @@ export function DurableBoardSourceBadge({
       </span>
       {empty && isDurable ? (
         <p className="text-[11px] text-gray-500 leading-snug" data-testid="durable-board-empty-callout">
-          No tenant records yet — empty board, not demo SHA aggregates.
+          No tenant records yet, empty board, not demo SHA aggregates.
         </p>
       ) : null}
     </div>

@@ -49,7 +49,7 @@ export function GraphMetricHoverBody({
           </p>
         </>
       ) : (
-        <p className="text-[10px] text-gray-500">Janus entity payload missing — showing evaluate graph slice only.</p>
+        <p className="text-[10px] text-gray-500">Janus entity payload missing, showing evaluate graph slice only.</p>
       )}
       {inference ? (
         <div className={`space-y-2 ${risk ? "pt-2 border-t border-surface-700" : ""}`}>
@@ -82,7 +82,7 @@ export function GeoHoverBody({ ctx }: { ctx: InferenceContext | null }) {
   return (
     <div className="space-y-2">
       <p className="text-[10px] text-gray-500 leading-snug">
-        Optional enrichment — not account linker.
+        Optional enrichment, not account linker.
       </p>
       <MonoRow k="Geo consistency risk" v={ctx.geo_consistency_risk.toFixed(3)} />
       <MonoRow k="Impossible travel (proxy)" v={ctx.impossible_travel_risk.toFixed(3)} />
@@ -99,7 +99,7 @@ export function LoyaltyEconomicsHoverBody({ tags }: { tags?: readonly string[] |
     <div className="space-y-2">
       <p className="text-[10px] text-gray-500 leading-snug">
         Benefit gates (dispatch/redeem/order); not an order block. Related ≠ abusive. Warehouse feeds
-        required for eligibility — tag friction is advisory only.
+        required for eligibility, tag friction is advisory only.
       </p>
       {friction.length > 0 ? (
         friction.slice(0, 6).map((t) => <MonoRow key={t} k="tag" v={t} />)
@@ -115,7 +115,7 @@ export function QueueScoreHoverBody({ score }: { score: number | null | undefine
     <div className="space-y-2">
       <MonoRow k="case.queue_score" v={score != null && Number.isFinite(score) ? score.toFixed(4) : "—"} />
       <p className="text-[10px] text-gray-600 leading-snug">
-        Relative backlog priority — surfaced for routing and SLA ordering in the case queue.
+        Relative backlog priority, surfaced for routing and SLA ordering in the case queue.
       </p>
     </div>
   );

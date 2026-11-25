@@ -46,7 +46,7 @@ export default function FeatureStoreDdlEditorTab() {
         <p className="mt-1 text-sm text-gray-500 max-w-3xl">
           Runs exactly one gated ClickHouse DDL statement via{" "}
           <code className="text-gray-400">POST /v1/feature-store/ddl/execute</code> (admin only). Compilation and
-          driver errors from ClickHouse are returned verbatim in the response and shown below — nothing is swallowed.
+          driver errors from ClickHouse are returned verbatim in the response and shown below, nothing is swallowed.
         </p>
         {!hasApiKey ? (
           <p className="mt-2 text-sm text-amber-200/90 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2">

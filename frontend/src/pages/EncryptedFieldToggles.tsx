@@ -78,7 +78,7 @@ export default function EncryptedFieldToggles(): ReactElement {
         <p className="text-sm text-gray-500 mt-2 leading-relaxed">
           Sensitive PII (emails, phones, payment identifiers) renders <strong className="text-gray-400">masked</strong> by
           default. Each <strong className="text-brand-300">Reveal</strong> or <strong className="text-brand-300">Hide</strong>{" "}
-          click writes an immutable audit row — plaintext is never persisted server-side, only a SHA-256 fingerprint and
+          click writes an immutable audit row, plaintext is never persisted server-side, only a SHA-256 fingerprint and
           masked preview.
         </p>
         <p className="text-[11px] text-gray-600 mt-2 font-mono">POST /api/ingress/v1/compliance/pii-field-reveal</p>
@@ -131,7 +131,7 @@ export default function EncryptedFieldToggles(): ReactElement {
         ) : loading ? (
           <p className="px-4 py-6 text-sm text-gray-500">Loading audit…</p>
         ) : audit.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-gray-500">No reveal/hide events yet — toggle a field above.</p>
+          <p className="px-4 py-6 text-sm text-gray-500">No reveal/hide events yet, toggle a field above.</p>
         ) : (
           <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
             <table className="w-full text-xs">

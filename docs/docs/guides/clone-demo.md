@@ -16,7 +16,7 @@ make doctor && make demo
 
 Port conflicts? Every desk port can be remapped without touching Tarka: set `TARKA_PG_PORT`, `TARKA_REDIS_PORT`, `TARKA_NATS_PORT`, `TARKA_CORE_PORT`, `TARKA_GRAPH_PORT`, `TARKA_FRONTEND_PORT`, `TARKA_DATA_PLANE_PORT`, or `TARKA_ORCHESTRATOR_PORT` in `infra/deploy/.env` (defaults 5432/6379/4222/8000/8001/3000/8007/8790). `make doctor` names the variable to set when a port is busy.
 
-**The demo is a fraction of the stack.** Lite + fraud-desk starts five services (postgres, redis, graph-service, core-api, frontend): evaluate, hunt, receipts, rules UI. The async ingest plane — NATS, data-plane `POST /v1/events`, orchestrator, outbox-processor — is behind the `ingest` compose profile and is **not** started by `make demo`. To run events end-to-end through the async pipeline:
+**The demo is a fraction of the stack.** Lite + fraud-desk starts five services (postgres, redis, graph-service, core-api, frontend): evaluate, hunt, receipts, rules UI. The async ingest plane (NATS, data-plane `POST /v1/events`, orchestrator, outbox-processor) is behind the `ingest` compose profile and is **not** started by `make demo`. To run events end-to-end through the async pipeline:
 
 ```bash
 docker compose -f infra/deploy/docker-compose.lite.yml --profile ingest up -d --build
@@ -52,22 +52,22 @@ PYTHONPATH=scripts/oss python3 infra/scripts/ci/test_synth_loop.py
 1. `make doctor` (also run from `up_desk.sh` if evaluate is not already healthy). Copies `infra/deploy/env/community.env.example` to `infra/deploy/.env` when missing (local `ALLOW_INSECURE_NO_AUTH=true`).
 2. Optional TTY prompts: desk Advise (`OPENAI_BASE_URL` + key + model) and, separately, ingest sidecar (`SHADOW_LLM_*`). Enter skips. Values go in `infra/deploy/.env` only (not the browser). Empty desk URL = Advise chrome hidden. `make demo` / `make product` start investigation-agent only when `OPENAI_BASE_URL` is set. `shadow_agent` starts only when `SHADOW_LLM_BASE_URL` is set.
 3. `docker compose` lite + fraud-desk. If health never comes up (3 min), the script stops and does **not** run the walk.
-4. `python3 scripts/oss/walk_receipts.py` — three evaluate POSTs against **shipped** packs (`default.json`, `device_signals.json`, `vertical_payment_risk_v1.json`). Decisions are whatever evaluate returns. The walk does not invent ALLOW / REVIEW / DENY.
+4. `python3 scripts/oss/walk_receipts.py`: three evaluate POSTs against **shipped** packs (`default.json`, `device_signals.json`, `vertical_payment_risk_v1.json`). Decisions are whatever evaluate returns. The walk does not invent ALLOW / REVIEW / DENY.
 
-On those packs alone (base 10, review 50, deny 80) the three payloads score 10 / 75 / 90 → allow / review / deny. Live evaluate may add hop or degrade tags — believe the receipt. There is no consortium SKU on this walk.
+On those packs alone (base 10, review 50, deny 80) the three payloads score 10 / 75 / 90 → allow / review / deny. Live evaluate may add hop or degrade tags. Believe the receipt. There is no consortium SKU on this walk.
 
 demo-burst (investor / SAR pitch, token-gated) is not this path.
 
 ## After it prints PASS
 
-The last line before PASS is one click: `NEXT: http://127.0.0.1:3000/graph?entity_id=…` — open that. Other surfaces:
+The last line before PASS is one click: `NEXT: http://127.0.0.1:3000/graph?entity_id=…`. Open that. Other surfaces:
 
 | Surface | URL |
 |---------|-----|
-| Hunt | `/graph` (home when graph is on) — look up the printed `entity_id` |
+| Hunt | `/graph` (home when graph is on): look up the printed `entity_id` |
 | Receipts | `/decisions` |
 | Observe | `/ops/shadow` |
-| Notifications | `/notifications` — ready to Promote and live-rule slip (same English as Observe) |
+| Notifications | `/notifications`: ready to Promote and live-rule slip (same English as Observe) |
 
 Optional outbound copy of those events: set `TARKA_OBSERVE_NOTIFY_WEBHOOK_URL` (and optional `TARKA_OBSERVE_NOTIFY_WEBHOOK_SECRET`) on decision-api. Envelope `tarka.observe_notify/v1`. Empty URL = desk only. Webhook 5xx does not block evaluate or Promote.
 
@@ -93,8 +93,8 @@ Env: `DECISION_API` (default `http://127.0.0.1:8000/decisions`), optional `API_K
 
 - Packs control the decision. These POSTs hit shipped JSON packs under `services/decision-api/rules/`; evaluate never invents ALLOW / REVIEW / DENY.
 - Receipt why is `rule_hits` + `reasons` on the evaluate response and on desk `/decisions`.
-- Observe on `/ops/shadow` is pack canary + leftover promote + live-rule slip — not live production traffic and not a model.
-- Empty `GRAPH_SERVICE_URL` turns hops off (evaluate-only fallback) — **not sibling identity**. Lite compose sets the AGE graph URL. Hunt chrome is the same path: empty `VITE_GRAPH_SERVICE_URL` **or** `VITE_HUNT_ENABLED=0` (`TARKA_HUNT_ENABLED=0` / `hunt.enabled: false` on `make product`). File-only Hunt-off does not hide the baked desk until rebuild.
+- Observe on `/ops/shadow` is pack canary + leftover promote + live-rule slip, not live production traffic and not a model.
+- Empty `GRAPH_SERVICE_URL` turns hops off (evaluate-only fallback), **not sibling identity**. Lite compose sets the AGE graph URL. Hunt chrome is the same path: empty `VITE_GRAPH_SERVICE_URL` **or** `VITE_HUNT_ENABLED=0` (`TARKA_HUNT_ENABLED=0` / `hunt.enabled: false` on `make product`). File-only Hunt-off does not hide the baked desk until rebuild.
 - Hop packs (`USES_DEVICE` …) stay `mode=shadow`. Beachhead Observe seeds (promo / COD / payout / claims) stay Observe. Live FLAG only after human Promote.
 - An edge is real only when the receipt wrote it. This walk does not mock a hop SKU. Not GNN live.
 
@@ -104,4 +104,4 @@ If every receipt is ALLOW, that is an honest pack outcome on this desk, not a fa
 
 Proof-grade round-trip on a running desk: `make prove` (evaluate → signed evidence bundle → offline `tarka verify`, prints PASS).
 
-Step-by-step compose, curl, and troubleshooting: [15-minute first decision](./oss-15-minute-first-decision.md) (`python3 scripts/oss/first_decision_smoke.py`). Optional SDK path (same three cases via `DecisionClient`, desk already up): `make sdk-walk` — not a second Day-1 promise.
+Step-by-step compose, curl, and troubleshooting: [15-minute first decision](./oss-15-minute-first-decision.md) (`python3 scripts/oss/first_decision_smoke.py`). Optional SDK path (same three cases via `DecisionClient`, desk already up): `make sdk-walk`, not a second Day-1 promise.

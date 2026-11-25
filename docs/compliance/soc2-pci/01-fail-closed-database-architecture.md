@@ -1,4 +1,4 @@
-# Document 1 — Fail-closed database and analytics architecture
+# Document 1: Fail-closed database and analytics architecture
 
 ## 1.1 Control objective (narrative)
 
@@ -44,4 +44,4 @@ The service organization shall:
 
 ## 1.5 Cross-reference
 
-Formal mapping to **TSC** and **PCI DSS** requirements appears in [Appendix A — Control mapping matrix](./Appendix-A-control-mapping-matrix.md).
+Formal mapping to **TSC** and **PCI DSS** requirements appears in [Appendix A: Control mapping matrix](./Appendix-A-control-mapping-matrix.md).

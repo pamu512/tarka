@@ -13,7 +13,7 @@ export function WorkspaceBar() {
         onChange={(e) => setEnvironment(e.target.value as "sandbox" | "production")}
         className="bg-surface-800 border border-surface-600 rounded-md px-1.5 py-0.5 text-gray-300 max-w-[150px]"
         aria-label="Workspace environment (display only)"
-        title="Display only — does not switch live stacks"
+        title="Display only, does not switch live stacks"
       >
         <option value="sandbox">Sandbox (display only)</option>
         <option value="production">Production (display only)</option>

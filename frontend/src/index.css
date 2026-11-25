@@ -71,8 +71,8 @@ html {
   --g-200: #e5e7eb;
   --g-300: #d1d5db;
   --g-400: #9ca3af;
-  --g-500: #6b7280;
-  --g-600: #4b5563;
+  --g-500: #8e98a8;
+  --g-600: #8690a0;
   --g-700: #374151;
   --g-800: #1f2937;
   --g-900: #111827;
@@ -93,7 +93,7 @@ html:not(.dark) {
   --g-200: #1e293b;
   --g-300: #334155;
   --g-400: #475569;
-  --g-500: #64748b;
+  --g-500: #556275;
   --g-600: #475569;
   --g-700: #334155;
   --g-800: #1e293b;
@@ -140,7 +140,7 @@ body {
   animation: fade-in 0.3s ease-out;
 }
 
-/* TipTap / ProseMirror — SAR investigative notes */
+/* TipTap / ProseMirror: SAR investigative notes */
 .sar-notes-prose p {
   margin: 0.35em 0;
 }
@@ -176,7 +176,16 @@ body {
   border-radius: 0.25rem;
 }
 
-/* vis-network title popup. Never paint it — it sat on the leftover case canvas. */
+/* vis-network title popup. Never paint it. It sat on the leftover case canvas. */
 div.vis-tooltip {
   display: none !important;
+}
+
+/* Keyboard focus stays visible in both themes when a control also clears the default outline. */
+:focus-visible {
+  outline: 2px solid #93c5fd !important;
+  outline-offset: 2px;
+}
+html:not(.dark) :focus-visible {
+  outline-color: #1d4ed8 !important;
 }

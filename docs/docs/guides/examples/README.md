@@ -11,6 +11,6 @@ These guides are **copy-paste oriented**: they assume you can start a stack from
 | [Vertical pack benchmarks (Day 60)](../../api-reference.md) | Fixed **`seed: 42`**, `fintech` / `ecommerce` / `gaming` smoke + [thresholds](../../../../scripts/benchmarks/vertical_benchmark_thresholds.v1.json) | **core** (Decision API up) |
 | [IOC enrichment + graph (cyber)](./ioc-enrichment-graph.md) | OSINT aggregation + Neo4j subgraph | **Full** or **graph + integration** |
 
-For **synthetic benchmarks** (latency / throughput on your hardware), see [`scripts/benchmarks/README.md`](../../../../scripts/benchmarks/README.md). **Load tuning (`hey` / `k6`) is DEFERRED TO v1.3.0 (JUNE)** — May only requires reproducible simulation scorecards.
+For **synthetic benchmarks** (latency / throughput on your hardware), see [`scripts/benchmarks/README.md`](../../../../scripts/benchmarks/README.md). **Load tuning (`hey` / `k6`) is DEFERRED TO v1.3.0 (JUNE).** May only requires reproducible simulation scorecards.
 
 For **simulation-based A/B and vertical packs** (no live traffic), see [`shadow-and-ab-testing.md`](../shadow-and-ab-testing.md).

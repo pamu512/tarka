@@ -1,4 +1,4 @@
-# Investigation Copilot — LLM data flow (operators & compliance)
+# Investigation Copilot: LLM data flow (operators & compliance)
 
 The **investigation-agent** service (`services/investigation-agent`) sends **tenant-scoped investigation context** to a **configurable OpenAI-compatible HTTP API** (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`) for multi-turn chat with **function tools** that call internal APIs only.
 

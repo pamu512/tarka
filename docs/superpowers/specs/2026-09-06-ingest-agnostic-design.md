@@ -7,7 +7,7 @@
 
 ## Goal
 
-Open `event_type` past the closed six-name enum. Tarka SDK bools are present only when sent. Missing stays missing on glass — never invent `false` for an omitted collector signal.
+Open `event_type` past the closed six-name enum. Tarka SDK bools are present only when sent. Missing stays missing on glass, never invent `false` for an omitted collector signal.
 
 ## Locked choices
 
@@ -22,7 +22,7 @@ Open `event_type` past the closed six-name enum. Tarka SDK bools are present onl
 
 ## Why now
 
-`EventType` and `VALID_EVENT_TYPES` reject anything outside login / payment / signup / device / session / custom. A buyer `refund` cannot evaluate. Integrity already has missing≠false for `is_rooted` / `is_jailbroken` / `has_biometrics`. `device_signals` already uses `is_true` (omitted key does not fire). Golden/demo JSON still ships `is_bot: false` as if the SDK spoke. Feature snapshot copies `payload` as-is — omitted keys stay omitted unless a collector wrote `false`.
+`EventType` and `VALID_EVENT_TYPES` reject anything outside login / payment / signup / device / session / custom. A buyer `refund` cannot evaluate. Integrity already has missing≠false for `is_rooted` / `is_jailbroken` / `has_biometrics`. `device_signals` already uses `is_true` (omitted key does not fire). Golden/demo JSON still ships `is_bot: false` as if the SDK spoke. Feature snapshot copies `payload` as-is. Omitted keys stay omitted unless a collector wrote `false`.
 
 Rejected: unknown type silently becomes `custom`. Rejected: accept any regex with no allow-list. Rejected: taxonomy-only or missing-only split (both halves this PR).
 
@@ -50,11 +50,11 @@ Every `body.event_type.value` becomes the string (or `str(body.event_type)` if a
 
 `packages/shared-core/tarka_shared/ingest_contract_v1.py` (decision-api and event-ingest already import `tarka_shared`):
 
-- `SEED_EVENT_TYPES` — the six
+- `SEED_EVENT_TYPES`: the six
 - `validate_event_type_shape(name) -> str`
 - `parse_env_event_types(raw: str | None) -> frozenset[str]`
 - `allowed_event_types(overlay: frozenset[str], env: frozenset[str]) -> frozenset[str]`
-- `validate_required_envelope_fields(..., allowed: frozenset[str])` — replace the hard-coded `VALID_EVENT_TYPES` check
+- `validate_required_envelope_fields(..., allowed: frozenset[str])`: replace the hard-coded `VALID_EVENT_TYPES` check
 
 Do not keep a closed `VALID_EVENT_TYPES` as the only gate.
 
@@ -63,7 +63,7 @@ Do not keep a closed `VALID_EVENT_TYPES` as the only gate.
 Table `event_types`: `tenant_id`, `name` (unique pair). Alembic after current decision-api head. Demo PUT 403 (`event types persist on product Postgres`).
 
 `GET /v1/event-types?tenant_id=` → seed ∪ overlay ∪ env (sorted).  
-`PUT /v1/event-types` body `{ tenant_id, name }` — analyst role, shape + not a duplicate seed (seed already allowed; overlay of a seed name is a no-op 200).  
+`PUT /v1/event-types` body `{ tenant_id, name }`: analyst role, shape + not a duplicate seed (seed already allowed; overlay of a seed name is a no-op 200).  
 No delete this PR.
 
 Routes registered **above** any `/{name}` catch-all.
@@ -77,14 +77,14 @@ Rules:
 - Key omitted or not a bool → do not write `False` onto features, tags, or integrity glass.
 - `True` → copy / tag (today’s `extract_signal_tags` already requires `is True`).
 - `False` sent by the SDK → copy as `False` (`is_false` may fire). That is present-false, not missing.
-- `feature_snapshot_fallback` already does `dict(body.payload)` — do not add default `False` keys there.
+- `feature_snapshot_fallback` already does `dict(body.payload)`. Do not add default `False` keys there.
 - Collectors / demo seed / golden evaluate fixtures that invent `is_bot: false` (and the same for other SDK bools) **omit the key** unless the fixture’s job is “SDK sent false.”
 - `integrity_presence` unchanged (already honest for its three keys).
 - `device_signals.json` stays `is_true`. Add tests: omitted `is_bot` does not hit `sdk_bot`; explicit `false` does not hit `sdk_bot`; explicit `true` does.
 
 ### 5. Docs
 
-- `ingest-contract-v1.md`: `event_type` is an allow-listed name (seed six + tenant + env), not a closed enum. Keep the adapter table. Dual envelope: one public evaluate-shaped contract; orchestrator maps in (already true — do not invent a second public envelope).
+- `ingest-contract-v1.md`: `event_type` is an allow-listed name (seed six + tenant + env), not a closed enum. Keep the adapter table. Dual envelope: one public evaluate-shaped contract; orchestrator maps in (already true, do not invent a second public envelope).
 - Short note on `device_signals` / velocity-adjacent SDK page: packs fire on present `true` only.
 - Do not write a second ingest guide.
 
@@ -124,7 +124,7 @@ A tenant can add `refund` and evaluate it. A request with no SDK bools does not 
 - Opening a second public ingest envelope.
 - Changing Redis `count()` to `None`. New Rust atom.
 - Feast / feature-store. Deleting the six seed names.
-- Rewriting ML heuristic models that read `is_bot` (they already `safe_float` missing as 0 — out of scope unless a test requires it; do not teach evaluate to write 0).
+- Rewriting ML heuristic models that read `is_bot` (they already `safe_float` missing as 0, out of scope unless a test requires it; do not teach evaluate to write 0).
 
 ## Done when
 

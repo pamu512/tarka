@@ -1,4 +1,4 @@
-# Appendix A — Control mapping matrix
+# Appendix A: Control mapping matrix
 
 ## A.1 Introduction
 
@@ -8,23 +8,23 @@ This appendix establishes **traceability** between (a) the **technical themes** 
 
 | Code | Meaning |
 |------|---------|
-| **D** | **Design** — The technical mechanism **supports** control **design** when implemented and configured in accordance with service organization policies. |
-| **O** | **Operating** — **Operating effectiveness** requires **additional** evidence (sampling, change tickets, MRC reviews) not contained in source code alone. |
-| **CUEC** | **Complementary User Entity Control** — The mapping assumes **customer** or **user entity** responsibilities (e.g., identity governance, network segmentation). |
+| **D** | **Design**: The technical mechanism **supports** control **design** when implemented and configured in accordance with service organization policies. |
+| **O** | **Operating**: **Operating effectiveness** requires **additional** evidence (sampling, change tickets, MRC reviews) not contained in source code alone. |
+| **CUEC** | **Complementary User Entity Control**: The mapping assumes **customer** or **user entity** responsibilities (e.g., identity governance, network segmentation). |
 
 **Disclaimer:** Criterion titles are **abbreviated**. The authoritative text is **TSC 2017** (as updated) and **PCI DSS v4.0**. Numeration of PCI DSS **sub-requirements** may be cited at the **parent** requirement level where **workpaper granularity** does not require sub-item decomposition.
 
 ---
 
-## A.2 Matrix — Fail-closed database and analytics architecture
+## A.2 Matrix: Fail-closed database and analytics architecture
 
 | TSC ID | TSC criterion (abbreviated title) | Typical SOC 2 category | Mapping statement | Type |
 |--------|-----------------------------------|-------------------------|-------------------|------|
 | **CC6.1** | Logical access security software, infrastructure, and architectures over protected information assets | Security | Fail-closed **withholding** of analytics-backed paths reduces the likelihood of **unauthorized** or **unauthenticated** inference against a **failed** datastore. | D, O, CUEC |
 | **CC7.1** | Detection and monitoring procedures to identify anomalies affecting security | Security | Startup **health-check failure** surfaces as **detectable** application state (logged warning; client-visible degradation per API contract). | D, O |
-| **CC7.2** | System monitoring — components that have a significant effect on security | Security | Operational monitoring of **analytics availability** and **circuit** posture supports identification of **security-relevant** dependency failure. | O, CUEC |
+| **CC7.2** | System monitoring: components that have a significant effect on security | Security | Operational monitoring of **analytics availability** and **circuit** posture supports identification of **security-relevant** dependency failure. | O, CUEC |
 | **A1.2** | Environmental protections, software, data backup processes, recovery infrastructure | Availability | Fail-closed degradation is consistent with **controlled** reduction of functionality rather than **silent** data loss; **RTO/RPO** remain organization-defined. | D, CUEC |
-| **PI1.3** | Inputs are complete, accurate, and authorized — processing completeness | Processing Integrity | Evaluation steps that **omit** or **skip** dependent inputs under declared policy preserve **traceable** processing outcomes (e.g., **`fallback_reason`**). | D, O |
+| **PI1.3** | Inputs are complete, accurate, and authorized: processing completeness | Processing Integrity | Evaluation steps that **omit** or **skip** dependent inputs under declared policy preserve **traceable** processing outcomes (e.g., **`fallback_reason`**). | D, O |
 
 | PCI DSS v4 ref | Requirement theme (abbreviated) | Mapping statement | Type |
 |----------------|-----------------------------------|-------------------|------|
@@ -36,13 +36,13 @@ This appendix establishes **traceability** between (a) the **technical themes** 
 
 ---
 
-## A.3 Matrix — Pre-socket residency blocks
+## A.3 Matrix: Pre-socket residency blocks
 
 | TSC ID | TSC criterion (abbreviated title) | Typical SOC 2 category | Mapping statement | Type |
 |--------|-----------------------------------|-------------------------|-------------------|------|
-| **CC6.6** | External threats and malicious acts — protections implemented | Security | **Pre-socket** denial reduces **exfiltration** risk to **disallowed** jurisdictions or vendors prior to transport. | D, O |
-| **CC6.7** | Transmission, movement, and removal of information — restricted | Security | **Administrative** matrix blocks and **residency assertions** **restrict** movement of information to **unauthorized** third-party **regions** or **processors**. | D, O, CUEC |
-| **CC6.8** | Malicious software — detection, remediation | Security | Indirect: outbound **control** reduces **unintended** data exposure to **unapproved** SaaS; not a substitute for **endpoint** anti-malware. | CUEC |
+| **CC6.6** | External threats and malicious acts: protections implemented | Security | **Pre-socket** denial reduces **exfiltration** risk to **disallowed** jurisdictions or vendors prior to transport. | D, O |
+| **CC6.7** | Transmission, movement, and removal of information: restricted | Security | **Administrative** matrix blocks and **residency assertions** **restrict** movement of information to **unauthorized** third-party **regions** or **processors**. | D, O, CUEC |
+| **CC6.8** | Malicious software: detection, remediation | Security | Indirect: outbound **control** reduces **unintended** data exposure to **unapproved** SaaS; not a substitute for **endpoint** anti-malware. | CUEC |
 | **C1.1** | Confidential information identified and maintained | Confidentiality | Residency enforcement supports **confidentiality commitments** regarding **location** of processing. | D, O, CUEC |
 | **C1.2** | Confidential information disposed of securely | Confidentiality | Indirect: prevents **initiation** of transfers that would violate **retention** or **cross-border** contracts. | D, CUEC |
 | **P1.1** | Privacy notice communicated (if privacy category in scope) | Privacy | When **personal information** is subject to **geographic** restrictions, pre-socket blocks **support** notice commitments **if** such commitments exist. | D, CUEC |
@@ -57,17 +57,17 @@ This appendix establishes **traceability** between (a) the **technical themes** 
 
 ---
 
-## A.4 Matrix — Immutable audit logs and tamper-evident decision records
+## A.4 Matrix: Immutable audit logs and tamper-evident decision records
 
 | TSC ID | TSC criterion (abbreviated title) | Typical SOC 2 category | Mapping statement | Type |
 |--------|-----------------------------------|-------------------------|-------------------|------|
-| **CC7.1** | Detection and monitoring — anomalies | Security | Append-only **decision** and **compliance** logs increase **detectability** of **unauthorized** or **anomalous** activity when reviewed. | D, O |
+| **CC7.1** | Detection and monitoring: anomalies | Security | Append-only **decision** and **compliance** logs increase **detectability** of **unauthorized** or **anomalous** activity when reviewed. | D, O |
 | **CC7.2** | System monitoring | Security | **JSONL** and **relational** audit tables feed **monitoring** and **SIEM** use cases (organization-defined). | O, CUEC |
 | **CC7.3** | Security events evaluated | Security | **Replay** and **hash chain** verification procedures **support** **forensic** evaluation. | D, O |
 | **CC7.4** | Anomalies resolved | Security | Audit artifacts underpin **incident** **closure** workpapers when tied to **IR** procedures. | O |
-| **CC4.1** | Monitoring activities — assessments | Security / COSO | **Drift** and **replay** outputs **support** **ongoing** assessments of **processing** vs. **baseline**. | O |
+| **CC4.1** | Monitoring activities: assessments | Security / COSO | **Drift** and **replay** outputs **support** **ongoing** assessments of **processing** vs. **baseline**. | O |
 | **PI1.4** | Processing activities recorded completely and accurately | Processing Integrity | **Canonical** schema, **hash** linkage, and **`fallback_reason`** fields **support** **complete** documentation of **processing** outcomes. | D, O |
-| **PI1.5** | Processing activities recorded completely and accurately — inputs and outputs | Processing Integrity | **`payload_snapshot`** (subject to redaction) and **`inference_context`** **support** **reconstruction** of inputs/outputs. | D, O, CUEC |
+| **PI1.5** | Processing activities recorded completely and accurately: inputs and outputs | Processing Integrity | **`payload_snapshot`** (subject to redaction) and **`inference_context`** **support** **reconstruction** of inputs/outputs. | D, O, CUEC |
 
 | PCI DSS v4 ref | Requirement theme (abbreviated) | Mapping statement | Type |
 |----------------|-----------------------------------|-------------------|------|

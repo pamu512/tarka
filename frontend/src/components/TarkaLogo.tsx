@@ -19,7 +19,7 @@ export function TarkaLogo({
       <div
         className={`flex flex-col items-center text-center gap-1.5 min-w-0 ${theme} ${className}`.trim()}
         role="img"
-        aria-label="Tarka — Prove every signal."
+        aria-label="Tarka. Prove every signal."
       >
         <TarkaMark className="h-[3.25rem] w-[2.6rem] shrink-0" />
         <div className="text-[1.125rem] sm:text-xl font-extrabold tracking-[0.2em] leading-none">TARKA</div>

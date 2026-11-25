@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tarka — Rule Builder</title>
+<title>Tarka: Rule Builder</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0f172a;--card:#1e293b;--border:#334155;--accent:#3b82f6;--accent2:#8b5cf6;
@@ -222,7 +222,7 @@ function renderRules() {
   if (!activePack) { el.innerHTML = '<div class="empty-state">Select a pack</div>'; return; }
   const rules = activePack.rules || [];
   const tagRules = activePack.tag_rules || [];
-  if (!rules.length && !tagRules.length) { el.innerHTML = '<div class="empty-state">No rules yet — add one above</div>'; return; }
+  if (!rules.length && !tagRules.length) { el.innerHTML = '<div class="empty-state">No rules yet. Add one above</div>'; return; }
   let html = '';
   rules.forEach(r => {
     html += `<div class="rule-item" draggable="true" ondragstart="dragStart(event,'rule','${r.id}')" ondragover="dragOver(event)" ondrop="dropRule(event,'rule','${r.id}')">

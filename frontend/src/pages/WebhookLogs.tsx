@@ -243,7 +243,7 @@ export default function WebhookLogs(): ReactElement {
                     {detail.attempts.map((a, i) => (
                       <li key={i}>
                         #{a.attempt} {a.status_code ?? "err"} {a.latency_ms != null ? `${a.latency_ms}ms` : ""}{" "}
-                        {a.error ? `— ${a.error}` : ""}
+                        {a.error ? `: ${a.error}` : ""}
                       </li>
                     ))}
                   </ul>

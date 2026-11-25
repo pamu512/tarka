@@ -126,7 +126,7 @@ export function DataResidencyMatrix() {
           <h2 className="text-lg font-semibold text-gray-100">Data residency matrix</h2>
           <p className="text-sm text-gray-500 mt-1 max-w-3xl">
             Rows are tenants; columns are third-party vendors (OSINT + integration connectors). Toggle{" "}
-            <strong className="text-gray-400 font-medium">Block</strong> to enforce a pre-socket administrative deny —
+            <strong className="text-gray-400 font-medium">Block</strong> to enforce a pre-socket administrative deny,
             each change updates <span className="font-mono text-xs text-gray-500">PUT /v1/compliance/residency/matrix</span>{" "}
             (debounced {DEBOUNCE_MS} ms per cell). PUT requires an admin API key; optimistic UI rolls back on failure.
           </p>

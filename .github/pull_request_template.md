@@ -24,11 +24,11 @@ If AuditLog schema is not applicable, write **`AuditLog schema: N/A`** in the Su
 
 For release tags or customer diligence packs, attach **live** partner-fusion proof SHA **or** write an explicit waiver:
 
-`Partner live proof: WAIVED — reason: <…> — fixture pin 3d1ab910… still required in CI`
+`Partner live proof: WAIVED, reason: <…>. Fixture pin 3d1ab910… still required in CI`
 
 ## Rule engine / AST (read carefully)
 
-Pull requests that **break or make nondeterministic** the **JSON rule AST** evaluation path—operator semantics, ordered evaluation of `when_ast`, leaf operator parity with documented contracts, or materialized rules used for production decisions—**will be rejected** unless accompanied by an explicit maintainer-approved spec change and full regression coverage.
+Pull requests that **break or make nondeterministic** the **JSON rule AST** evaluation path: operator semantics, ordered evaluation of `when_ast`, leaf operator parity with documented contracts, or materialized rules used for production decisions. Such a change **will be rejected** unless accompanied by an explicit maintainer-approved spec change and full regression coverage.
 
 ---
 

@@ -99,8 +99,8 @@ export function RuleSandboxPanel({
         <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
           Test your{" "}
           <span className="text-gray-400 font-medium">unsaved draft pack</span> against stored decision-audit
-          payloads for this tenant — the same feature envelope analysts see in triage. Override evaluation uses the
-          decision-api replay path (Python matcher); deploy still routes production through Rust — validate deltas before
+          payloads for this tenant, the same feature envelope analysts see in triage. Override evaluation uses the
+          decision-api replay path (Python matcher); deploy still routes production through Rust, validate deltas before
           publishing.
         </p>
       </div>

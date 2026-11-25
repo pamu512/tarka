@@ -177,7 +177,7 @@ export function SarManagementPanel({ caseId, tenantId }: Props) {
                 className="text-sky-400/90 hover:underline"
                 to={`/cases/${encodeURIComponent(caseId)}/sar-intent/${encodeURIComponent(intent.id)}?tenant_id=${encodeURIComponent(tenantId)}`}
               >
-                SAR intent detail — investigative notes &amp; FinCEN digest
+                SAR intent detail: investigative notes &amp; FinCEN digest
               </Link>
             </p>
             <ol className="flex flex-wrap items-center gap-0 list-none p-0 m-0" aria-label="SAR filing progress">

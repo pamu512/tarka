@@ -504,7 +504,7 @@ export default function Rules() {
   async function handleInstallVerticalPack(vertical: string) {
     const metrics = installMetricsByVertical[vertical];
     if (!metrics) {
-      setError("Run a vertical benchmark first — install requires kill_criteria metrics.");
+      setError("Run a vertical benchmark first, install requires kill_criteria metrics.");
       return;
     }
     setInstallingVertical(vertical);
@@ -1022,7 +1022,7 @@ export default function Rules() {
                   </p>
                 )}
                 {telemetryRows.length === 0 ? (
-                  <p className="text-[11px] text-gray-600">No rule hits recorded yet — run evaluations against this API.</p>
+                  <p className="text-[11px] text-gray-600">No rule hits recorded yet, run evaluations against this API.</p>
                 ) : (
                   <ul className="max-h-[min(24rem,60vh)] overflow-y-auto space-y-0.5 font-mono text-[11px]">
                     {telemetryRows.map((r, i) => (
@@ -1425,7 +1425,7 @@ function RuleCard({
           <span className="text-xs text-gray-500">Conditions</span>
           {rule.when.length === 0 && (
             <p className="text-[11px] text-gray-600 italic ml-1">
-              No conditions — rule will never fire
+              No conditions, rule will never fire
             </p>
           )}
           {rule.when.map((cond, ci) => (

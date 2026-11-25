@@ -136,7 +136,7 @@ export default function OpsCounters() {
   const redisKeyVersion =
     data?.redis_key_version != null && String(data.redis_key_version).trim() !== ""
       ? String(data.redis_key_version)
-      : "(unset — legacy AGG_KEY_VERSION)";
+      : "(unset, legacy AGG_KEY_VERSION)";
   const lastParity = (data?.last_parity_run as Record<string, unknown> | undefined) ?? undefined;
 
   return (
@@ -198,7 +198,7 @@ export default function OpsCounters() {
           </div>
         ) : (
           <div className="sm:col-span-3 text-xs text-gray-600">
-            No <span className="font-mono">counter_parity_last.json</span> yet — CI nightly /{" "}
+            No <span className="font-mono">counter_parity_last.json</span> yet, CI nightly /{" "}
             <span className="font-mono">counter_replay_job.py</span> writes it for ops.
           </div>
         )}
@@ -282,7 +282,7 @@ export default function OpsCounters() {
       <div className="rounded-xl border border-surface-700 bg-surface-900 p-4 space-y-3">
         <h3 className="text-sm font-medium text-gray-300">Live velocity &amp; parity</h3>
         <p className="text-xs text-gray-500">
-          Requires feature-service Redis shared with decision-api writers. Empty expected JSON is rejected — paste
+          Requires feature-service Redis shared with decision-api writers. Empty expected JSON is rejected, paste
           golden counters after seeding (fixture replay or evaluate).
         </p>
         <label className="block text-xs text-gray-400">

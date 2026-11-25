@@ -19,7 +19,7 @@ export TARKA_REQUIRE_BACKTEST_BEFORE_PROMOTE=1
 
 When set, omit/`pending`/`failed` jobs → **409** with `backtest_promote_gate.blockers`.
 
-When unset, `backtest_job_id` omitted → **waived** (simulation metrics only — legacy).
+When unset, `backtest_job_id` omitted → **waived** (simulation metrics only, legacy).
 
 ## UI
 

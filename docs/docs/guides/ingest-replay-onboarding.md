@@ -34,15 +34,15 @@ out = decision.evaluate("tenant", "login", "user-1", payload={"ip": "1.2.3.4"})
 ingest.send_event("tenant", "login", "user-1", payload={"ip": "1.2.3.4"})
 ```
 
-- **`EventIngestClient.send_event` / `send_batch`** — REST only; optional **`idempotency_key=`** sends the `Idempotency-Key` header for **`POST /v1/events`** and **`POST /v1/events/batch`** (see below).
-- **`send_event_async` / `send_batch_async`** — same for async `httpx` callers.
+- **`EventIngestClient.send_event` / `send_batch`:** REST only; optional **`idempotency_key=`** sends the `Idempotency-Key` header for **`POST /v1/events`** and **`POST /v1/events/batch`** (see below).
+- **`send_event_async` / `send_batch_async`:** same for async `httpx` callers.
 
 ## TypeScript SDK
 
 Package: `packages/fraud-sdk-typescript` (`npm run build`).
 
-- **`DecisionClient`** — `evaluate()`, attestation helpers, audit fetch.
-- **`EventIngestClient`** — `sendEvent()`, `sendBatch()`; optional **`idempotencyKey`** on both.
+- **`DecisionClient`:** `evaluate()`, attestation helpers, audit fetch.
+- **`EventIngestClient`:** `sendEvent()`, `sendBatch()`; optional **`idempotencyKey`** on both.
 
 ## Ingest hardening (event-ingest service)
 
@@ -83,17 +83,17 @@ See also: [ingest-contract-v1](./ingest-contract-v1.md).
 
 ### Idempotency (batch)
 
-**`POST /v1/events/batch`** supports a **whole-batch** key: header **`Idempotency-Key`** or JSON field **`idempotency_key`** (sibling of **`events`**). The cache fingerprint is **`SHA256(idem + canonical JSON of events)`** — same key with different event payloads publishes again. Response may include **`duplicate: true`** on replay. Per-row idempotency is not applied inside a batch; use single-event **`POST /v1/events`** for row-level keys.
+**`POST /v1/events/batch`** supports a **whole-batch** key: header **`Idempotency-Key`** or JSON field **`idempotency_key`** (sibling of **`events`**). The cache fingerprint is **`SHA256(idem + canonical JSON of events)`**. Same key with different event payloads publishes again. Response may include **`duplicate: true`** on replay. Per-row idempotency is not applied inside a batch; use single-event **`POST /v1/events`** for row-level keys.
 
 ### Consumer metrics
 
 The NATS → Decision worker increments Prometheus counters (exposed on **`/metrics`** with other service metrics):
 
-- **`ingest_consumer_evaluate_2xx_total`** — evaluate returned &lt; 400  
-- **`ingest_consumer_evaluate_4xx_total`** — evaluate 4xx (message **acked**; fix payload/rules)  
-- **`ingest_consumer_evaluate_5xx_total`** — evaluate 5xx (**NAK** + retry)  
-- **`ingest_consumer_json_decode_errors_total`** — invalid JSON on stream  
-- **`ingest_consumer_nats_ack_total`** / **`ingest_consumer_nats_nak_total`** — JetStream disposition  
+- **`ingest_consumer_evaluate_2xx_total`:** evaluate returned &lt; 400  
+- **`ingest_consumer_evaluate_4xx_total`:** evaluate 4xx (message **acked**; fix payload/rules)  
+- **`ingest_consumer_evaluate_5xx_total`:** evaluate 5xx (**NAK** + retry)  
+- **`ingest_consumer_json_decode_errors_total`:** invalid JSON on stream  
+- **`ingest_consumer_nats_ack_total`** / **`ingest_consumer_nats_nak_total`:** JetStream disposition  
 
 ### Health
 
@@ -105,7 +105,7 @@ Set **`INGEST_DLQ_SUBJECT`** (default **`fraud.dlq.evaluate`**) and **`INGEST_DL
 
 ### Silver export checks
 
-**`scripts/etl/check_silver_features.py`** — validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** shape (`^[a-z][a-z0-9_]{0,127}$`), numeric **`amount`**.
+**`scripts/etl/check_silver_features.py`:** validates JSONL rows for **`tenant_id`**, **`entity_id`**, **`event_type`** shape (`^[a-z][a-z0-9_]{0,127}$`), numeric **`amount`**.
 
 ## Offline aggregate replay (v1.2)
 
@@ -119,7 +119,7 @@ python scripts/replay/replay_aggregates.py --manifest-info
 
 **Counter manifest:** `replay_aggregates.py --manifest-info` prints the bundled version; **Decision API** exposes the same JSON at **`GET /v1/internal/counters/manifest`**. For small JSON batches (no file), **`POST /v1/internal/counters/replay`** writes to a scratch Redis URL when **`COUNTER_REPLAY_TOKEN`** is set and you send header **`X-Tarka-Counter-Replay-Token`**.
 
-JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line. If **`ts`** is omitted, **`metadata.event_time`**-style keys on the row (with **`fields`**) are used — same rules as evaluate; see **[Late arrival & watermarks](./ingest-contract-v1.md)**.
+JSONL rows should include **`tenant_id`**, **`entity_id`**, and either **`fields`** (object) or **`payload`** / **`request_body`** for aggregate dimensions. Optional **`event_id`**, **`trace_id`**, or **`ts`** (unix) per line. If **`ts`** is omitted, **`metadata.event_time`**-style keys on the row (with **`fields`**) are used. Same rules as evaluate; see **[Late arrival & watermarks](./ingest-contract-v1.md)**.
 
 See **`scripts/replay/README.md`** and **[counter-replay-parity.md](./counter-replay-parity.md)** for the full v1.2 acceptance picture.
 
@@ -143,6 +143,6 @@ Exit code **0** means every **`fraud:agg*`** ZSET present on either side matches
 
 ## Related docs
 
-- **[quickstart.md](../quickstart.md)** — lite / fraud-desk → first evaluate  
-- **[oss-15-minute-first-decision.md](./oss-15-minute-first-decision.md)** — smoke path  
-- **[feature-data-flows.md](./feature-data-flows.md)** — how ingest/evaluate affect downstream 
+- **[quickstart.md](../quickstart.md):** lite / fraud-desk → first evaluate  
+- **[oss-15-minute-first-decision.md](./oss-15-minute-first-decision.md):** smoke path  
+- **[feature-data-flows.md](./feature-data-flows.md):** how ingest/evaluate affect downstream 

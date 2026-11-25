@@ -7,7 +7,7 @@ Use these steps on a **non-production** machine to validate degradation paths, S
 ## Prerequisites
 
 - Repo root as working directory for paths below.
-- Stack up with at least **`core`** (and optionally **`streaming`**, **`graph`**, **`ml`**) profiles — see `infra/deploy/docker-compose.yml` header comments.
+- Stack up with at least **`core`** (and optionally **`streaming`**, **`graph`**, **`ml`**) profiles. See `infra/deploy/docker-compose.yml` header comments.
 
 Example (core only):
 
@@ -45,7 +45,7 @@ docker compose -f docker-compose.yml ps
 
 ## CI / automation (R4.2)
 
-- **Script:** `scripts/chaos/chaos_smoke.py` — baseline recovery path (`redis` or `postgres`) plus optional dependency fallback matrix checks (`graph-service`, `feature-service`, `ml-scoring`, `location-service`, `calibration-service`) that assert evaluate remains `200` with expected `fallback_reason` fragments.
+- **Script:** `scripts/chaos/chaos_smoke.py`: baseline recovery path (`redis` or `postgres`) plus optional dependency fallback matrix checks (`graph-service`, `feature-service`, `ml-scoring`, `location-service`, `calibration-service`) that assert evaluate remains `200` with expected `fallback_reason` fragments.
 - **GitHub Actions:** workflow **`chaos-smoke`** (manual dispatch only) in `.github/workflows/chaos-smoke.yml`. Choose profile (`core`/`full`), fault service, and whether to run dependency fallback checks.
 
 ```bash

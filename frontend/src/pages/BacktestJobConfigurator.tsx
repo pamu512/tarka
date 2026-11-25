@@ -292,7 +292,7 @@ export default function BacktestJobConfigurator() {
             <option value="">{packsLoading ? "Loading packs…" : "Select a pack…"}</option>
             {packs.map((p) => (
               <option key={p._file} value={p._file}>
-                {p.name} ({p._file}) — {p.rules?.length ?? 0} rules
+                {p.name} ({p._file}): {p.rules?.length ?? 0} rules
               </option>
             ))}
           </select>
@@ -364,7 +364,7 @@ export default function BacktestJobConfigurator() {
           <p className="text-gray-500">
             Wall timeout (streaming job budget): {lastEnqueue.wall_timeout_seconds}s · chunk {lastEnqueue.chunk_size} rows. A timeout marks the job{" "}
             <code className="text-gray-400">failed_timeout</code> with detail{" "}
-            <code className="text-gray-400">FAILED_TIMEOUT</code> — widen the service window or shrink data if appropriate.
+            <code className="text-gray-400">FAILED_TIMEOUT</code>, widen the service window or shrink data if appropriate.
           </p>
         </section>
       ) : null}

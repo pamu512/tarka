@@ -23,7 +23,7 @@ function transactionSchemaPayload(audit: AuditEntry): Record<string, unknown> {
     return ep as Record<string, unknown>;
   }
   return {
-    _note: "evaluate_payload absent — minimal audit projection",
+    _note: "evaluate_payload absent, minimal audit projection",
     trace_id: audit.trace_id,
     tenant_id: audit.tenant_id,
     entity_id: audit.entity_id,

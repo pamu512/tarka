@@ -262,7 +262,7 @@ Named predicates for the typology scoring DSL (version-pinned with `typology_def
 GET /v1/admin/typology/predicate-registry
 ```
 
-Guide: [Typology DSL + predicate registry](../guides/rules.md). Full tables: [API Reference — Decision API](../api-reference.md#decision-api). OpenAPI: `contracts/openapi/decision-api.yaml`.
+Guide: [Typology DSL + predicate registry](../guides/rules.md). Full tables: [API Reference:  Decision API](../api-reference.md#decision-api). OpenAPI: `contracts/openapi/decision-api.yaml`.
 
 ---
 
@@ -277,7 +277,7 @@ GET /v1/slo
 
 **Evaluation posture** returns evaluation mode (detection vs compliance), deployment tier hint, `tenant_reliability_profile`, compliance degradation reasons, typology count, predicate registry pin match, dependency rows, and `last_rules_reload_at`. **SLO** returns in-process counters plus Redis/NATS connectivity hints where configured.
 
-[API Reference — Trust / ops readiness](../api-reference.md#trust-ops-readiness) · [Community vs Pro profiles](../guides/deployment.md)
+[API Reference:  Trust / ops readiness](../api-reference.md#trust-ops-readiness) · [Community vs Pro profiles](../guides/deployment.md)
 
 ---
 

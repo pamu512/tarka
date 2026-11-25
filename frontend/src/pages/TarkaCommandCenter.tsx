@@ -75,7 +75,7 @@ export default function TarkaCommandCenter(): ReactElement {
             <div>
               <PageTitle module="dashboard">Tarka Command Center</PageTitle>
               <p className="text-sm text-gray-500 mt-2 max-w-2xl leading-relaxed">
-                Unified analyst cockpit — queue depth, fraud signals, marketplace controls, and compliance toggles in
+                Unified analyst cockpit: queue depth, fraud signals, marketplace controls, and compliance toggles in
                 one surface. Use <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-surface-600 text-[10px] font-mono text-gray-300">⌘K</kbd> to jump anywhere.
               </p>
               <p className="text-[11px] text-gray-600 mt-2 font-mono">

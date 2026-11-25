@@ -1,10 +1,10 @@
-# Example: Classic payment fraud — rules + ONNX autoencoder
+# Example: Classic payment fraud: rules + ONNX autoencoder
 
 **Goal:** Show a high-risk payment evaluation with **`inference_context`**, rule hits, and optional **ML scoring** via `ml-scoring` (heuristic by default; **ONNX** when configured).
 
 ## 1. Start services
 
-**Option A — Lite** (heuristic ML only, no separate `ml-scoring` container):
+**Option A: Lite** (heuristic ML only, no separate `ml-scoring` container):
 
 ```bash
 docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
@@ -12,7 +12,7 @@ docker compose -f infra/deploy/docker-compose.lite.yml up -d --build
 
 Point Decision API at ML service only if you run **`ml-scoring`** separately (see Option B).
 
-**Option B — Core + ML** (from repo root, under `infra/deploy/`):
+**Option B: Core + ML** (from repo root, under `infra/deploy/`):
 
 ```bash
 docker compose -f docker-compose.yml --profile core --profile ml up -d --build

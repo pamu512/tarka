@@ -1,12 +1,12 @@
 # Observe (shadow mode), simulation, and A/B rule testing
 
-Tarka separates **live decisions** from **observe-only evaluate** and offline simulation. In this guide, **shadow mode** means **Observe** — evaluate with no live side effects — not the LLM sidecar (Advise).
+Tarka separates **live decisions** from **observe-only evaluate** and offline simulation. In this guide, **shadow mode** means **Observe** (evaluate with no live side effects), not the LLM sidecar (Advise).
 
-Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). Observe is a canary — **not live**. The leftover card is leftover **cost** + leftover-extra **helpfulness**. **Live rule slip** names a live `rule_id` when fire-rate or hit-mix shifts; a host shadow parks only when exactly one of retire / successor has support. GET `shadow-promote-gate` does not write packs. Promote does not strip the live rule. Scout cannot clobber a slip draft (`409 slip_draft_exists`). Auto-Promote is **off** and is not a shipped unattended path. L2 leftover / HIL override → Observe draft; AI author needs a backtest pass first. Leftover FLAG mint / multi-claim / QA isolate / receipt brief are `desk_provision.leftover.*` or `TARKA_*`. Caps (`leftover_add_cap` and peers) stay on the first-review file.
+Desk: `/ops/shadow` is always-on lean (not behind an empty signals URL). Observe is a canary, **not live**. The leftover card is leftover **cost** + leftover-extra **helpfulness**. **Live rule slip** names a live `rule_id` when fire-rate or hit-mix shifts; a host shadow parks only when exactly one of retire / successor has support. GET `shadow-promote-gate` does not write packs. Promote does not strip the live rule. Scout cannot clobber a slip draft (`409 slip_draft_exists`). Auto-Promote is **off** and is not a shipped unattended path. L2 leftover / HIL override → Observe draft; AI author needs a backtest pass first. Leftover FLAG mint / multi-claim / QA isolate / receipt brief are `desk_provision.leftover.*` or `TARKA_*`. Caps (`leftover_add_cap` and peers) stay on the first-review file.
 
-- **Live:** `POST /v1/decisions/evaluate` — production side effects when not marked observe.
-- **Observe (named contract):** same evaluate path with `metadata.shadow: true` — full scoring + audit, **non-mutating** side effects.
-- **Offline / synthetic:** `/v1/simulation/*` — labeled scenarios and A/B without production traffic.
+- **Live:** `POST /v1/decisions/evaluate`, production side effects when not marked observe.
+- **Observe (named contract):** same evaluate path with `metadata.shadow: true`, full scoring + audit, **non-mutating** side effects.
+- **Offline / synthetic:** `/v1/simulation/*`, labeled scenarios and A/B without production traffic.
 
 ## 1. Observe contract (`metadata.shadow: true`)
 
@@ -27,7 +27,7 @@ When ``metadata.shadow`` is true (see `evaluate_shadow_request.is_shadow_evaluat
 1. Evaluation runs and writes an audit row with ``payload_snapshot.shadow: true`` and tag ``evaluate:shadow``.
 2. **Non-mutating side effects:** no Redis aggregate writes, no fingerprint/entity-link writes, no graph upsert, no challenge webhook, no auto case create, no enforcement adapters.
 3. Warehouse diff: [`scripts/oss/shadow_vs_primary_diff_recipe.sql`](../../../scripts/oss/shadow_vs_primary_diff_recipe.sql).
-4. Promote only when vertical ``promote_gate`` / ``kill_criteria`` allow — prove with:
+4. Promote only when vertical ``promote_gate`` / ``kill_criteria`` allow, prove with:
 
 ```bash
 python3 scripts/oss/shadow_promote_gate_smoke.py
@@ -43,7 +43,7 @@ curl -s -X POST http://localhost:8000/decisions/v1/simulation/run \
   -d '{"scenario": "bot_attack", "evaluate_rules": true, "include_ml": false}'
 ```
 
-Response includes **`experiment_guardrails`** — read the **notes** before treating metrics as KPIs.
+Response includes **`experiment_guardrails`**, read the **notes** before treating metrics as KPIs.
 
 ## 3. A/B two rule sets (same synthetic traffic)
 
@@ -77,12 +77,12 @@ Requires a defined pack in **`vertical_packs`** for that key. Promotion uses the
 
 ## 6. Observe-only pack canary (not Flagger)
 
-Issue #150 progressive rule delivery is **observe-only** on `POST /v1/decisions/evaluate` in this slice — not Flagger, not Argo, and **not** a live verdict flip. Decision-api / the Rust JSON AST remains the sole allow/deny engine.
+Issue #150 progressive rule delivery is **observe-only** on `POST /v1/decisions/evaluate` in this slice, not Flagger, not Argo, and **not** a live verdict flip. Decision-api / the Rust JSON AST remains the sole allow/deny engine.
 
 Set via env (Helm `coreApi.extraEnv` is fine; there is no new Helm key):
 
-- `PACK_CANARY_PERCENT` — default `0` (off). A deterministic tenant+entity bucket selects that fraction of traffic.
-- `PACK_CANARY_PACK_ID` — pack `id` / `name` / filename under `RULES_PATH`, **or** `PACK_CANARY_PATH` — a candidate JSON pack file.
+- `PACK_CANARY_PERCENT`: default `0` (off). A deterministic tenant+entity bucket selects that fraction of traffic.
+- `PACK_CANARY_PACK_ID`: pack `id` / `name` / filename under `RULES_PATH`, **or** `PACK_CANARY_PATH`: a candidate JSON pack file.
 
 When percent is `0`, evaluate does no candidate work. When percent is `>0` and the candidate pack is missing, evaluate **fail-closes** (`503 pack_canary_candidate_missing`) instead of silently scoring live-only while claiming canary. Header `x-tarka-pack-canary: 1` forces the candidate on a single request (desk/QA).
 

@@ -172,7 +172,7 @@ function SidebarBody({
     return (
       <div className="space-y-2 px-1 py-2 text-[11px] text-amber-200/90">
         <p>
-          Graph unavailable — multi-party neighbors could not be loaded
+          Graph unavailable, multi-party neighbors could not be loaded
           {data.degraded_reason ? ` (${data.degraded_reason.replace(/_/g, " ")})` : ""}.
         </p>
         <button

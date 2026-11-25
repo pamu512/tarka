@@ -114,11 +114,11 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         policy_experiment_id: null,
         ml_model: "heuristic-v1",
         ml_summary:
-          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
+          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100, elevated risk, manual review recommended",
         ml_top_factors: [
           {
             code: "ELEVATED_RISK",
-            description: "Overall risk score 71/100 — elevated risk, manual review recommended",
+            description: "Overall risk score 71/100, elevated risk, manual review recommended",
             impact: "high",
           },
           {
@@ -481,7 +481,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         : [
             { step: "ingest_normalize", status: "ok", duration_ms: 1 },
             { step: "list_checks", status: "ok", duration_ms: 0 },
-            { step: "sanctions_vendor", status: "skipped", reason: "routing: alternate path — primary vendor timeout" },
+            { step: "sanctions_vendor", status: "skipped", reason: "routing: alternate path, primary vendor timeout" },
             { step: "velocity_rules", status: "ok", duration_ms: 4 },
             { step: "ml_host", status: "failed", reason: "http_error: upstream 503", duration_ms: 120 },
             { step: "aggregate_decision", status: "skipped", reason: "downstream: ml_host failed" },
@@ -541,11 +541,11 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
         policy_experiment_id: null,
         ml_model: "heuristic-v1",
         ml_summary:
-          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100 — elevated risk, manual review recommended",
+          "ML risk score 71.0/100 (heuristic-v1). Top signals: ELEVATED_RISK: Overall risk score 71/100, elevated risk, manual review recommended",
         ml_top_factors: [
           {
             code: "ELEVATED_RISK",
-            description: "Overall risk score 71/100 — elevated risk, manual review recommended",
+            description: "Overall risk score 71/100, elevated risk, manual review recommended",
             impact: "high",
           },
           {
@@ -599,7 +599,7 @@ export function getDecisionsMockResponse(req: DecisionsMockRequest): unknown | n
       schema_id: "tarka.reliability_bins/v1",
       tenant_id: "demo",
       rows_scanned: 120,
-      caveat: "proxy_label_from_decision — join real y_label for true reliability diagrams",
+      caveat: "proxy_label_from_decision, join real y_label for true reliability diagrams",
       labeled_rows: 120,
       proxy_label_rows: 120,
       label_source: "proxy_from_decision",

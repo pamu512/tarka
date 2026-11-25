@@ -59,7 +59,7 @@
 - Test: `services/graph-service/tests/test_entity_search.py` (append)
 
 **Interfaces:**
-- Consumes: existing `SEARCH_PROP_KEYS`, `SEARCH_OWNER_FANOUT`, `matched_on_from_props` (CONTAINS, Neo4j/AGE — do not change its behavior)
+- Consumes: existing `SEARCH_PROP_KEYS`, `SEARCH_OWNER_FANOUT`, `matched_on_from_props` (CONTAINS, Neo4j/AGE. Do not change its behavior)
 - Produces:
   - `matched_on_from_props_prefix(props: dict \| None, q: str) -> str \| None`
   - `eligible_search_node_prefix(entity_id: str, props: dict \| None, q: str) -> str \| None`
@@ -131,7 +131,7 @@ def test_cap_identifier_owners_dedupes_via_owner_pair():
     assert [h["entity_id"] for h in capped] == [f"u-{i:02d}" for i in range(10)]
 ```
 
-Keep `test_cap_identifier_owners_fanout_10` — it must still pass (12 distinct owners → 10).
+Keep `test_cap_identifier_owners_fanout_10`. It must still pass (12 distinct owners → 10).
 
 - [ ] **Step 3: Run tests to verify they fail**
 
@@ -225,7 +225,7 @@ EOF
 - Modify: `frontend/src/api/mockData.ts`
 - Modify: `frontend/src/api/client.ts` (type only)
 - Modify: `services/graph-service/tests/test_entity_search.py`
-- Modify: `services/graph-service/src/graph_service/janusgraph_store.py` — temporary `(rows, False)` return so the tuple contract type-checks until Task 3. Do **not** rewrite the scan yet.
+- Modify: `services/graph-service/src/graph_service/janusgraph_store.py`: temporary `(rows, False)` return so the tuple contract type-checks until Task 3. Do **not** rewrite the scan yet.
 
 **Interfaces:**
 - Consumes: store `search_entities(...)` 
@@ -299,7 +299,7 @@ def test_search_http_truncated_true(monkeypatch):
 cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_entity_search.py::test_search_http_forwards_label_and_limit tests/test_entity_search.py::test_search_http_truncated_true -v
 ```
 
-Expected: FAIL (`truncated` missing / mock return is a list so unpack errors after you change the handler — write tests first against current handler, which returns `{entities}` only).
+Expected: FAIL (`truncated` missing / mock return is a list so unpack errors after you change the handler. Write tests first against current handler, which returns `{entities}` only).
 
 - [ ] **Step 3: Implementation**
 
@@ -312,15 +312,15 @@ async def search_entities(
     return await _store().search_entities(tenant_id, q, label=label, limit=limit)
 ```
 
-`neo4j_client.py` — keep the Cypher body; change only the last line:
+`neo4j_client.py`: keep the Cypher body; change only the last line:
 
 ```python
     return merge_search_hits(directs + owners, label=label, limit=limit), False
 ```
 
-`age_client.py` — same last line.
+`age_client.py`: same last line.
 
-`janusgraph_store.py` `search_entities` — change the inner return and async return to a tuple **without** rewriting the scan:
+`janusgraph_store.py` `search_entities`: change the inner return and async return to a tuple **without** rewriting the scan:
 
 ```python
         return merge_search_hits(directs + owners, label=label, limit=limit), False
@@ -368,13 +368,13 @@ OpenAPI `EntitySearchResponse`:
 
 Update `/v1/entities/search` 200 description to mention `truncated` and Janus prefix vs Neo4j/AGE CONTAINS.
 
-`frontend/src/api/client.ts` — search return type:
+`frontend/src/api/client.ts`: search return type:
 
 ```typescript
 return request<{ entities: GraphSearchHit[]; truncated?: boolean }>(`/api/graph/v1/entities/search?${q}`);
 ```
 
-`frontend/src/api/mockData.ts` — every non-empty search return adds `truncated: false`. Empty `q` stays `{ entities: [] }`. Example:
+`frontend/src/api/mockData.ts`: every non-empty search return adds `truncated: false`. Empty `q` stays `{ entities: [] }`. Example:
 
 ```typescript
 if (!q.trim()) return { entities: [] };
@@ -498,7 +498,7 @@ Expected: FAIL (`textContainsPrefix` / `vertexSearch` / `Client` missing; tenant
 
 - [ ] **Step 3: Gremlin Client + Groovy ensure**
 
-In `janusgraph_gremlin.py` add (keep existing connection helpers). Import `SEARCH_PROP_KEYS` inside the groovy builder to avoid import cycles if needed — `entity_risk_score` does not import gremlin, so a top-level import is fine.
+In `janusgraph_gremlin.py` add (keep existing connection helpers). Import `SEARCH_PROP_KEYS` inside the groovy builder to avoid import cycles if needed. `entity_risk_score` does not import gremlin, so a top-level import is fine.
 
 ```python
 from gremlin_python.driver.client import Client
@@ -510,7 +510,7 @@ _vertex_search_checked = False
 
 
 def _vertex_search_groovy() -> str:
-    # Frozen allowlist identifiers only — never interpolate user q.
+    # Frozen allowlist identifiers only. Never interpolate user q.
     key_decls: list[str] = []
     add_keys: list[str] = []
     status_keys = ["tenant_id", *SEARCH_PROP_KEYS]
@@ -797,7 +797,7 @@ description="Max vertices loaded into memory for JanusGraph analytics and search
 cd services/graph-service && PYTHONPATH=src:.:../shared GRAPH_BACKEND=neo4j pytest tests/test_janus_search_scale.py tests/test_entity_search.py -v
 ```
 
-Expected: PASS. `test_janus_search_filters_in_python_not_full_graph_scan_without_tenant` in `test_entity_search.py` still asserts `"both()"` and `"eligible_search_node"` — **update that test** in this task:
+Expected: PASS. `test_janus_search_filters_in_python_not_full_graph_scan_without_tenant` in `test_entity_search.py` still asserts `"both()"` and `"eligible_search_node"`. **Update that test** in this task:
 
 ```python
 def test_janus_search_filters_in_python_not_full_graph_scan_without_tenant():
@@ -1003,7 +1003,7 @@ Replace the Indexes bullets in `janusgraph-adapter.md` with:
 - Composite unique `(tenant_id, external_id)` (`byTenantExternal`) is **not** created in this change (parked). GRAPH_INGEST vertices that never received `tenant_id` / `external_id` still miss typeahead and cannot seed subgraph.
 - Subgraph / deep-context: one Gremlin round-trip per depth layer. Super-node neighborhoods can be large in RAM (no silent per-vertex edge cap).
 
-Fix the adapter table if it still says `GRAPH_BACKEND` default `neo4j` — `config.py` default is `janusgraph`. Do not rewrite the whole adapter.
+Fix the adapter table if it still says `GRAPH_BACKEND` default `neo4j`. `config.py` default is `janusgraph`. Do not rewrite the whole adapter.
 
 - [ ] **Step 2: Product docs**
 

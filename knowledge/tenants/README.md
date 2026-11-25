@@ -14,6 +14,6 @@ python3 scripts/oss/advise_sop_import.py --zip /path/to/tenant-okf.zip --tenant-
 ```
 
 Compose mounts `${OKF_TENANT_OVERLAYS_PATH:-../../knowledge/tenants}` read-only as
-`OKF_TENANT_ROOT`. Do not export a path relative to the repo root — compose
+`OKF_TENANT_ROOT`. Do not export a path relative to the repo root. Compose
 resolves bind mounts from `infra/deploy/`. Empty `OPENAI_BASE_URL` keeps the
 Advise plane off.

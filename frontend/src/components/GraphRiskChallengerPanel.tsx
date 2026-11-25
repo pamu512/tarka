@@ -95,7 +95,7 @@ export function GraphRiskChallengerPanel({
       </div>
       <p className="text-[11px] text-gray-500">
         Fixed recipe only (no knobs). Enable shadow stays off unless holdout beats heuristic_v1.
-        Live FLAG/REVIEW requires a Promoted pack that reads the score — not a model switch.
+        Live FLAG/REVIEW requires a Promoted pack that reads the score, not a model switch.
       </p>
       {msg ? <p className="text-xs text-gray-400">{msg}</p> : null}
     </div>

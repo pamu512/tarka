@@ -1,6 +1,6 @@
 # Provision reader unify Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. User said `go` — implement in this session.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. User said `go`. Implement in this session.
 
 **Goal:** Named-desk auto-promote and leftover switches resolve through `desk_provision.json`; `TARKA_*` wins; the legacy shadow JSON is not a silent on-switch for those keys.
 
@@ -16,7 +16,7 @@
 - Demo ≠ product. Do not enable auto-promote by default.
 - No CRM verbs. No new Slack/email sinks. No second provision system.
 - No third-party desk / editor names in published copy. Do not call Tarka OSS.
-- Leftover flags already use `leftover_flag` — do not re-wire them.
+- Leftover flags already use `leftover_flag`. Do not re-wire them.
 
 ---
 
@@ -76,7 +76,7 @@ def test_leftover_flag_ignores_shadow_auto_promote_json(tmp_path, monkeypatch):
     assert leftover_flag("TARKA_FLAG_MINTS_LEFTOVER", "flag_mints_leftover") is False
 ```
 
-- [ ] **Step 2: Run tests — expect FAIL** (`observe_auto_promote` not defined)
+- [ ] **Step 2: Run tests: expect FAIL** (`observe_auto_promote` not defined)
 
 Run: `PYTHONPATH=services/shared python3 -m pytest services/shared/tests/test_desk_provision.py -q`
 
@@ -104,7 +104,7 @@ def host_auto_promote(file_flag: bool) -> bool:
     return bool(file_flag)
 ```
 
-- [ ] **Step 4: Run tests — expect PASS**
+- [ ] **Step 4: Run tests: expect PASS**
 
 ---
 
@@ -126,7 +126,7 @@ GET after that PUT reports `auto_promote: false`.
 Env `TARKA_AUTO_PROMOTE=0` same.  
 Existing file-only tests stay green (no `TARKA_DESK_PROVISION_PATH`).
 
-- [ ] **Step 2: Run — expect FAIL** (tick still promotes)
+- [ ] **Step 2: Run: expect FAIL** (tick still promotes)
 
 Run: `cd services/decision-api && PYTHONPATH=src:.:../shared python3 -m pytest tests/test_shadow_auto_promote.py -q -k 'desk_provision or named_desk or env_off'`
 
@@ -146,7 +146,7 @@ def public_provision(tenant_id: str) -> dict[str, Any]:
 `maybe_auto_promote_shadow`: `if not host_auto_promote(bool(provision.get("auto_promote"))):` → `not_provisioned`.  
 GET: `return public_provision(tenant_id)`. PUT still `save_provision`.
 
-- [ ] **Step 4: Run full file — expect PASS**
+- [ ] **Step 4: Run full file: expect PASS**
 
 Run: `cd services/decision-api && PYTHONPATH=src:.:../shared python3 -m pytest tests/test_shadow_auto_promote.py tests/test_shadow_promote_gate_api.py -q`
 

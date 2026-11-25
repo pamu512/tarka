@@ -33,7 +33,7 @@ export function CopilotWorkbenchRail() {
 
   const refreshCitations = useCallback(async () => {
     if (!caseData?.trace_id) {
-      setCitationError("No trace on this case — citations require an audit trace.");
+      setCitationError("No trace on this case, citations require an audit trace.");
       setCitations([]);
       return;
     }

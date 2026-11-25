@@ -170,7 +170,7 @@ export default function Simulation() {
 
   async function handleInstallVerticalPack(vertical: string) {
     if (!verticalResult || verticalResult.vertical !== vertical) {
-      setError("Run a vertical benchmark for this pack first — install requires kill_criteria metrics.");
+      setError("Run a vertical benchmark for this pack first, install requires kill_criteria metrics.");
       return;
     }
     const pack = verticalResult.vertical_pack as SimResult & {
@@ -341,13 +341,13 @@ export default function Simulation() {
           <span>
             Allow underpowered runs (&lt;{MIN_HOLD_OUT_N} events). Server rejects with{" "}
             <span className="font-mono text-gray-500">SIMULATION_UNDERPOWERED</span> /{" "}
-            <span className="font-mono text-gray-500">holdout_required</span> unless checked —
+            <span className="font-mono text-gray-500">holdout_required</span> unless checked,
             overrides must not be treated as production KPIs.
           </span>
         </label>
         {allowUnderpowered ? (
           <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-            Underpowered override on — holdout sample size gate bypassed for this run.
+            Underpowered override on, holdout sample size gate bypassed for this run.
           </div>
         ) : null}
       </div>
@@ -357,7 +357,7 @@ export default function Simulation() {
           <div>
             <h2 className="text-sm font-semibold text-gray-300">Experiment registry</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Filtered <span className="font-mono">GET /v1/simulation/experiments</span> —{" "}
+              Filtered <span className="font-mono">GET /v1/simulation/experiments</span>:{" "}
               <span className="font-mono">kpi_eligible</span> means n ≥ {MIN_HOLD_OUT_N} (override never makes a KPI).
             </p>
           </div>
@@ -775,7 +775,7 @@ function ABTestResults({ result }: { result: ABResult }) {
       {a.confusion_matrix && b.confusion_matrix && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-surface-900 border border-surface-700 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-blue-400 mb-3">Set A — Confusion Matrix</h3>
+            <h3 className="text-sm font-semibold text-blue-400 mb-3">Set A: Confusion Matrix</h3>
             <div className="grid grid-cols-2 gap-3">
               <ConfusionCell label="TP" value={a.confusion_matrix.tp} color="text-red-400" bg="bg-red-500/10" />
               <ConfusionCell label="FP" value={a.confusion_matrix.fp} color="text-amber-400" bg="bg-amber-500/10" />
@@ -784,7 +784,7 @@ function ABTestResults({ result }: { result: ABResult }) {
             </div>
           </div>
           <div className="bg-surface-900 border border-surface-700 rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-purple-400 mb-3">Set B — Confusion Matrix</h3>
+            <h3 className="text-sm font-semibold text-purple-400 mb-3">Set B: Confusion Matrix</h3>
             <div className="grid grid-cols-2 gap-3">
               <ConfusionCell label="TP" value={b.confusion_matrix.tp} color="text-red-400" bg="bg-red-500/10" />
               <ConfusionCell label="FP" value={b.confusion_matrix.fp} color="text-amber-400" bg="bg-amber-500/10" />

@@ -7,7 +7,7 @@ See [counter replay parity](../../docs/docs/guides/counter-replay-parity.md) and
 ## Usage
 
 ```bash
-# From repo root — validate file only
+# From repo root: validate file only
 python scripts/replay/replay_aggregates.py --input audits.jsonl --dry-run
 
 # Replay into a scratch Redis database (e.g. DB 15)
@@ -34,7 +34,7 @@ Accepted time formats:
 - ISO-8601 strings (`2026-04-01T12:30:00Z`)
 - Naive ISO strings are interpreted as UTC.
 
-Compare key counts or field sums against production using the same tenant/entity keys (`fraud:agg:...` — see `decision_api.aggregates`).
+Compare key counts or field sums against production using the same tenant/entity keys (`fraud:agg:...`). See `decision_api.aggregates`.
 
 ## Prod vs scratch diff
 
@@ -75,11 +75,11 @@ Uses **`payload_snapshot.payload`** as aggregate **`fields`** (same as evaluate)
 
 With **`COUNTER_REPLAY_TOKEN`** set and header **`X-Tarka-Counter-Replay-Token`**:
 
-`POST /v1/internal/counters/replay/from-audit` — JSON body `scratch_redis_url`, `tenant_id`, `entity_id`, optional `limit` (max 20_000).
+`POST /v1/internal/counters/replay/from-audit`: JSON body `scratch_redis_url`, `tenant_id`, `entity_id`, optional `limit` (max 20_000).
 
 ## Fixture for CI
 
-[`fixtures/parity_smoke.jsonl`](fixtures/parity_smoke.jsonl) — used by [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml).
+[`fixtures/parity_smoke.jsonl`](fixtures/parity_smoke.jsonl): used by [`.github/workflows/counter-parity-smoke.yml`](../../.github/workflows/counter-parity-smoke.yml).
 
 ## Audit-shaped offline parity (one command)
 
@@ -99,14 +99,14 @@ python scripts/replay/run_audit_offline_parity.py \
   --agg-key-version ci_parity_v1
 ```
 
-- `--mode file --audit-input PATH` — same payload_snapshot shape from a local export.
-- `--mode export --tenant-id … --entity-id …` — runs `export_audit_to_jsonl.py` (needs `DATABASE_URL`) then parity.
+- `--mode file --audit-input PATH`: same payload_snapshot shape from a local export.
+- `--mode export --tenant-id … --entity-id …`: runs `export_audit_to_jsonl.py` (needs `DATABASE_URL`) then parity.
 
 Converter unit tests: `pytest scripts/replay/test_audit_snapshot_to_replay.py -q`.
 
 ## CI parity gate (threshold)
 
-The **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift** — the diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). The job is dispatch-only (scheduled replay moved to **Counter parity nightly**); dispatch it at the RC SHA as release gate **C-3b**. For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
+The **[Counter parity smoke](../../.github/workflows/counter-parity-smoke.yml)** job is the **replay parity gate**: the same fixture is replayed into **two** empty Redis DB indices with the same `AGG_KEY_VERSION`, then **`diff_aggregate_redis.py`** compares aggregate ZSETs. The **threshold is zero drift**. The diff step must exit **0** (any missing key or member/score mismatch exits **1** and fails CI). The job is dispatch-only (scheduled replay moved to **Counter parity nightly**); dispatch it at the RC SHA as release gate **C-3b**. For offline reports with a reference Redis, **`run_offline_parity.py`** writes JSON you can archive; treat **no diff** as the pass condition for parity checks.
 
 ## Changing Redis key prefix (`AGG_KEY_VERSION`)
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Attach one Python-computed share `event_count_1h_share_24h` on evaluate after 24h warmup, list it on the author catalog, and let packs FLAG on it — without Redis `rate`/`baseline_ratio` keys or a new Rust atom.
+**Goal:** Attach one Python-computed share `event_count_1h_share_24h` on evaluate after 24h warmup, list it on the author catalog, and let packs FLAG on it, without Redis `rate`/`baseline_ratio` keys or a new Rust atom.
 
 **Architecture:** A shared helper mutates the evaluate feature dict after Redis `compute_features`. The catalog grows a `computed[]` group (not a registry row). The name is reserved so overlay/map cannot steal it. Warmup is env until `desk_provision` (P-day1).
 
@@ -191,7 +191,7 @@ git commit -m "feat: add event_count_1h_share_24h helper"
 **Files:**
 - Modify: `services/shared/field_registry.py` (`validate_registry_name`)
 - Modify: `services/shared/author_catalog.py` (`build_author_catalog`, `catalog_field_names`)
-- Modify: `services/decision-api/src/decision_api/field_store.py` (`upsert_map` — validate target name)
+- Modify: `services/decision-api/src/decision_api/field_store.py` (`upsert_map`: validate target name)
 - Modify: `services/decision-api/tests/test_field_registry.py`
 - Modify: `services/decision-api/tests/test_author_catalog.py`
 - Modify: `services/decision-api/tests/test_field_api.py`
@@ -256,7 +256,7 @@ Expected: FAIL
 
 - [ ] **Step 3: Implement**
 
-`field_registry.py` — import `COMPUTED_NAME` and reject it in `validate_registry_name` alongside `LEGACY_ALIASES`.
+`field_registry.py`: import `COMPUTED_NAME` and reject it in `validate_registry_name` alongside `LEGACY_ALIASES`.
 
 `author_catalog.py`:
 

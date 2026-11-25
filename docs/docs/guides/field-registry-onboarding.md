@@ -1,6 +1,6 @@
 # Field registry onboarding (P-reg1)
 
-A feature exists in Tarka because onboarding **mapped** a buyer payload key onto a **registry name** (plus a short explanation). The author catalog, evaluate remap, and pack allow-list all read from that register — not from ad hoc manifest copies.
+A feature exists in Tarka because onboarding **mapped** a buyer payload key onto a **registry name** (plus a short explanation). The author catalog, evaluate remap, and pack allow-list all read from that register, not from ad hoc manifest copies.
 
 Tarka application code is **source-available** under Elastic License 2.0 (not open-source). Self-hosting on your own metal or VPC for your own operations is allowed; providing Tarka to third parties as a hosted or managed service is not.
 
@@ -12,7 +12,7 @@ Related: [Rule authoring](rules.md) · [Hop pack authoring](hop-pack-authoring.m
 
 ## Seed vs overlay
 
-**Seed** — bundled `field_registry_v1.json` (`source: tarka_core`). Built from:
+**Seed:** bundled `field_registry_v1.json` (`source: tarka_core`). Built from:
 
 - every `counter_manifest_v1.json` `feature_outputs[].name`
 - every `PAYLOAD_FIELDS` name in `author_catalog.py`
@@ -20,9 +20,9 @@ Related: [Rule authoring](rules.md) · [Hop pack authoring](hop-pack-authoring.m
 
 Growth names and hop etypes are **not** seeded.
 
-**Overlay** — tenant rows in Postgres (`field_registry` table) on product images. List = seed ∪ overlay; overlay wins on the same `name`. Tenants may add rows with `source` in `new_feature`, `mapped_buyer`, `enrichment`, or `sdk_tarka`. They cannot delete or rename a seed `tarka_core` name (`FieldRegistrySeedLocked` → HTTP 400).
+**Overlay:** tenant rows in Postgres (`field_registry` table) on product images. List = seed ∪ overlay; overlay wins on the same `name`. Tenants may add rows with `source` in `new_feature`, `mapped_buyer`, `enrichment`, or `sdk_tarka`. They cannot delete or rename a seed `tarka_core` name (`FieldRegistrySeedLocked` → HTTP 400).
 
-There is no `desk_provision.json` in this slice — provisioning stays manual via the APIs and desk panel below.
+There is no `desk_provision.json` in this slice. Provisioning stays manual via the APIs and desk panel below.
 
 ---
 
@@ -63,12 +63,12 @@ Response buckets:
 |--------|---------|
 | `already_named` | Payload key equals a registry name (e.g. `amount`). |
 | `mapped` | Payload key has a tenant map (e.g. `txn_amt` → `amount`). |
-| `candidates` | Neither — suggested `source: new_feature`; **not** auto-inserted. |
+| `candidates` | Neither, suggested `source: new_feature`; **not** auto-inserted. |
 
 Workflow for each candidate:
 
-1. `PUT /v1/fields/{name}` — create overlay row (`explanation`, `source`).
-2. `PUT /v1/fields/maps` — body `{ "tenant_id", "buyer_key", "registry_name" }`. Target name must already exist (`FieldRegistryUnknownName` → HTTP 400).
+1. `PUT /v1/fields/{name}`: create overlay row (`explanation`, `source`).
+2. `PUT /v1/fields/maps`: body `{ "tenant_id", "buyer_key", "registry_name" }`. Target name must already exist (`FieldRegistryUnknownName` → HTTP 400).
 
 On product `/rules`, the **Field map** panel (RiskArchitect) lists `GET /v1/fields`, runs discover, and upserts rows/maps. Hidden when `TARKA_DESK_PROFILE=demo`.
 
@@ -111,18 +111,18 @@ No map rows → evaluate is identical to pre-registry behavior.
 | | Demo (`TARKA_DESK_PROFILE=demo`) | Product (Postgres `DATABASE_URL`) |
 |---|----------------------------------|-----------------------------------|
 | Registry seed | Bundled `field_registry_v1.json` (**file/fixture**) | Same seed file |
-| Overlay rows | Not durable — seed file/fixture only | `field_registry` table (survives restart) |
-| Maps | Not durable — seed file/fixture only | `field_maps` table (survives restart) |
+| Overlay rows | Not durable, seed file/fixture only | `field_registry` table (survives restart) |
+| Maps | Not durable, seed file/fixture only | `field_maps` table (survives restart) |
 | `GET /v1/fields`, discover | Allowed (seed fixture) | Allowed |
-| `PUT /v1/fields/*`, `PUT /v1/fields/maps` | **403** — `maps persist on product Postgres` | Persists in Postgres |
+| `PUT /v1/fields/*`, `PUT /v1/fields/maps` | **403:** `maps persist on product Postgres` | Persists in Postgres |
 
-Demo recreate without a volume **drops** any leftover tenant rows. That is a documented limitation, not a second API. Fraud-desk compose is unchanged — do not expect durable registry writes from `make demo`. PUT 403 is the demo write path.
+Demo recreate without a volume **drops** any leftover tenant rows. That is a documented limitation, not a second API. Fraud-desk compose is unchanged. Do not expect durable registry writes from `make demo`. PUT 403 is the demo write path.
 
 ---
 
 ## Empty or missing seed
 
-If `field_registry_v1.json` is missing or invalid, seed load returns `[]` (logged once). Catalog **redis** and **payload** groups fail closed to `[]` for that tenant join. **Hops** and **growth** stay `#377` behavior — they are not filtered by the registry.
+If `field_registry_v1.json` is missing or invalid, seed load returns `[]` (logged once). Catalog **redis** and **payload** groups fail closed to `[]` for that tenant join. **Hops** and **growth** stay `#377` behavior. They are not filtered by the registry.
 
 Do not delete the seed file in production images.
 
@@ -134,7 +134,7 @@ Do not delete the seed file in production images.
 |---------|----------------|
 | Counter **windows** (`window_seconds`) | `services/decision-api/src/decision_api/data/counter_manifest_v1.json` only |
 | Graph **growth** windows / thresholds | `GET /v1/graph/growth-policy` (graph-service parses `GRAPH_GROWTH_WINDOWS`) |
-| Hop etypes (`USES_DEVICE`, …) | `CATALOG_HOPS` in `author_catalog.py` — not registry rows |
+| Hop etypes (`USES_DEVICE`, …) | `CATALOG_HOPS` in `author_catalog.py`, not registry rows |
 | Legacy `tx_*` **aliases** | Read-only on `ai_allowed_fields` for existing packs |
 | New `tx_*` registry names | **Rejected** on `PUT /v1/fields/{name}` (migrate-only naming) |
 

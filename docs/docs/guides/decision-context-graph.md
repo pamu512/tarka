@@ -2,7 +2,7 @@
 
 Decision-context SQLite is not the identity-hop Graph SKU (`GRAPH_SERVICE_URL` / AGE).
 
-Tarka records **decisions as durable objects** — not just logs — so you can answer months later: *what did we decide, why, what influenced it, and what happened next?*
+Tarka records **decisions as durable objects** (not just logs) so you can answer months later: *what did we decide, why, what influenced it, and what happened next?*
 
 Native SoR on graph-service; optional mirror sidecar behind feature flags.
 
@@ -18,7 +18,7 @@ Native SoR on graph-service; optional mirror sidecar behind feature flags.
 | AuditLog | What the rule engine emitted |
 | **Decision graph** | What the **system decided** (evaluate, agent advise, human disposition), causal links, invalidation |
 
-Observability is execution-centric. The decision graph is **domain-centric** — the same question regulators ask: *show the decision chain without replaying the model.*
+Observability is execution-centric. The decision graph is **domain-centric**. The same question regulators ask: *show the decision chain without replaying the model.*
 
 ---
 
@@ -63,7 +63,7 @@ sequenceDiagram
 
 | Step | kind | outcome | Edge to parent |
 |------|------|---------|----------------|
-| 1 | `evaluate` | `review` | — |
+| 1 | `evaluate` | `review` | n/a |
 | 2 | `agent_advise` | cluster summary | `INFLUENCED` ← evaluate |
 | 3 | `human_disposition` | `escalated` | `CAUSED` ← agent_advise |
 
@@ -80,7 +80,7 @@ Invalidation: `POST /v1/decisions/{id}/invalidate` sets `invalidated_at`; option
 | `human_disposition` | Case status apply (maker-checker) | `escalated`, `resolved` |
 | `policy_gate` | (reserved) | deterministic gate id |
 
-Each record has: `scenario`, `reasoning` (defendable only — no hidden CoT), `rule_ids`, `trace_id`, `case_id`, `entity_external_ids`, `evidence_ids`, `audit_log_id`, `agent_run_id`, `shadow`, `invalidated_at`.
+Each record has: `scenario`, `reasoning` (defendable only, no hidden CoT), `rule_ids`, `trace_id`, `case_id`, `entity_external_ids`, `evidence_ids`, `audit_log_id`, `agent_run_id`, `shadow`, `invalidated_at`.
 
 ---
 
@@ -210,7 +210,7 @@ python3 scripts/oss/decision_context_chain_smoke.py
 
 ## Philosophy
 
-- Fail-soft writers — evaluate/ingest never fails because graph is down
+- Fail-soft writers: evaluate/ingest never fails because graph is down
 - AI never auto-resolves cases via the graph
 - `reasoning` field = evidence you would defend to an auditor, not model chain-of-thought
-- Invalidation is soft-delete + optional supersede — history remains queryable
+- Invalidation is soft-delete + optional supersede. History remains queryable

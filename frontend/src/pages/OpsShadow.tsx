@@ -438,7 +438,7 @@ export default function OpsShadow() {
     try {
       const out = await decisions.l3LedgerArm(body);
       setL3(out.ledger as L3Ledger);
-      setL3Msg("L3 armed — clock started (claim still locked until COMPLETE).");
+      setL3Msg("L3 armed, clock started (claim still locked until COMPLETE).");
     } catch (e) {
       setL3Msg(toUserFacingError(e, { subject: "L3 ledger", action: "arm four-week clock" }));
     } finally {
@@ -890,7 +890,7 @@ export default function OpsShadow() {
             <p className="text-[11px] font-mono text-gray-500" data-testid="last-rule-force-live">
               last rule_force_live {lastForceLive.actor || "?"}
               {lastForceLive.ts ? ` @ ${lastForceLive.ts}` : ""}
-              {lastForceLive.detail?.reason ? ` — ${lastForceLive.detail.reason}` : ""}
+              {lastForceLive.detail?.reason ? `: ${lastForceLive.detail.reason}` : ""}
             </p>
           ) : null}
         </div>
@@ -972,20 +972,20 @@ export default function OpsShadow() {
             </div>
             <div>
               McNemar: {mcnemar?.discordant_pairs ?? 0}/{mcnemar?.min_discordant_pairs ?? 20}
-              {mcnemar?.mid_p != null ? ` mid-p=${mcnemar.mid_p}` : ""} —{" "}
+              {mcnemar?.mid_p != null ? ` mid-p=${mcnemar.mid_p}` : ""}:{" "}
               <span className={mcnemar?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {mcnemar?.promote_allowed ? "ok" : "blocked"}
               </span>
             </div>
             <div>
-              Drift: {driftGate?.drift_score ?? "n/a"} —{" "}
+              Drift: {driftGate?.drift_score ?? "n/a"}:{" "}
               <span className={driftGate?.promote_allowed ? "text-emerald-400" : "text-amber-300"}>
                 {driftGate?.promote_allowed ? "ok" : "blocked"}
               </span>
             </div>
             <div data-testid="calibration-window-status">
               Window: {windowGate?.days ?? 0}/{windowGate?.min_days ?? 7}d ·{" "}
-              {windowGate?.label_count ?? 0}/{windowGate?.min_labels ?? 20} labels —{" "}
+              {windowGate?.label_count ?? 0}/{windowGate?.min_labels ?? 20} labels:{" "}
               <span className={windowGate?.ok ? "text-emerald-400" : "text-amber-300"}>
                 {windowGate?.ok ? "ok" : (windowGate?.blockers || []).join(",") || "blocked"}
               </span>
@@ -993,8 +993,8 @@ export default function OpsShadow() {
           </dl>
           <p className="text-xs text-gray-500">{data.honesty}</p>
           <div className="text-xs text-gray-400 space-y-1">
-            <div>Kill smoke — underpowered: promote {data.blocked?.promote_allowed ? "allowed" : "blocked"}</div>
-            <div>Kill smoke — healthy metrics: promote {data.allowed?.promote_allowed ? "allowed" : "blocked"}</div>
+            <div>Kill smoke, underpowered: promote {data.blocked?.promote_allowed ? "allowed" : "blocked"}</div>
+            <div>Kill smoke, healthy metrics: promote {data.allowed?.promote_allowed ? "allowed" : "blocked"}</div>
             <code className="text-[10px] text-gray-500">{data.recipe_path}</code>
           </div>
         </section>
@@ -1042,7 +1042,7 @@ export default function OpsShadow() {
                 {!cc.audit_rows?.length ? (
                   <tr>
                     <td colSpan={4} className="py-2 text-gray-500">
-                      No policy_routing rows yet — enable POLICY_CHAMPION_CHALLENGER and evaluate traffic.
+                      No policy_routing rows yet, enable POLICY_CHAMPION_CHALLENGER and evaluate traffic.
                     </td>
                   </tr>
                 ) : null}
@@ -1078,12 +1078,12 @@ export default function OpsShadow() {
         >
           <h2 className="text-sm font-semibold text-gray-200">Typology weighted telemetry</h2>
           <p className="text-xs text-gray-500">
-            {typology.aggregation?.mode} — {typology.aggregation?.note}
+            {typology.aggregation?.mode}: {typology.aggregation?.note}
           </p>
           {typology.audit_breach_histogram ? (
             <p className="text-[11px] font-mono text-gray-500">
               Audit breaches:{" "}
-              {JSON.stringify(typology.audit_breach_histogram.highest_breach_counts || {})} — alert/warn{" "}
+              {JSON.stringify(typology.audit_breach_histogram.highest_breach_counts || {})}: alert/warn{" "}
               {typology.audit_breach_histogram.alert_or_warning_rows ?? 0}/
               {typology.audit_breach_histogram.rows_with_typology_summary ?? 0}
             </p>

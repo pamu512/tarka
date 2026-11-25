@@ -28,7 +28,7 @@ See [docs/docs/guides/security-scanning.md](docs/docs/guides/security-scanning.m
 
 ## Investigation Copilot (LLM)
 
-The **investigation-agent** forwards chat, system instructions, optional platform-audit context, and **tool results** (cases, graph, decision audits) to the configured LLM endpoint. Operators should read **[Investigation Copilot — LLM data flow](docs/docs/guides/investigation-agent-llm-data-flow.md)** for subprocessors, tenant scoping, and the **`claims` / `reply`** response split before enabling in regulated environments.
+The **investigation-agent** forwards chat, system instructions, optional platform-audit context, and **tool results** (cases, graph, decision audits) to the configured LLM endpoint. Operators should read **[Investigation Copilot: LLM data flow](docs/docs/guides/investigation-agent-llm-data-flow.md)** for subprocessors, tenant scoping, and the **`claims` / `reply`** response split before enabling in regulated environments.
 
 ## Scope and out of scope
 
