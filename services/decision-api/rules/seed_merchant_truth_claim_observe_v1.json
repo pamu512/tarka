@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "name": "seed_merchant_truth_claim_observe",
+  "mode": "shadow",
+  "authored_by": "seed",
+  "is_ai_authored": false,
+  "author_notes": "Promote to live; seeds are Observe.",
+  "rules": [
+    {
+      "id": "seed_nad_vs_merchant_delivery",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "false_nad", "op": "is_true", "value": true },
+        { "field": "merchant_delivery_confirmed", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Customer not-as-described / item-not-received claim contradicted by retailer delivery truth. Observe only: claim event joins first-party false_nad with first-party merchant delivery/POD confirmation. Missing retailer signal means absent (fail-closed), never risky-because-silent. Human Promote required."
+    },
+    {
+      "id": "seed_synthetic_receipt_vs_merchant_checkout",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "synthetic_receipt_evidence", "op": "is_true", "value": true },
+        { "field": "merchant_checkout_session_ok", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Synthetic or AI-faked receipt evidence contradicted by intact retailer checkout-session truth. Observe only: claim event joins first-party synthetic_receipt_evidence with first-party merchant checkout-session integrity. Missing retailer signal means absent (fail-closed), never risky-because-silent. Human Promote required."
+    },
+    {
+      "id": "seed_synthetic_damage_vs_merchant_payment",
+      "when": [
+        { "field": "event_type", "op": "eq", "value": "claim" },
+        { "field": "synthetic_damage_evidence", "op": "is_true", "value": true },
+        { "field": "merchant_payment_record_match", "op": "is_true", "value": true }
+      ],
+      "tags": [],
+      "score_delta": 8,
+      "description": "Synthetic or AI-faked damage evidence contradicted by matching retailer payment/order record. Observe only: claim event joins first-party synthetic_damage_evidence with first-party merchant payment-record match. Missing retailer signal means absent (fail-closed), never risky-because-silent. Human Promote required."
+    }
+  ],
+  "tag_rules": []
+}
