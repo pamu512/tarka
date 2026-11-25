@@ -14,6 +14,7 @@ from decision_api.evaluate.score import (
     _DEGRADE_SKIP_SCORE,
     blend_scores,
     degrade_skip_score_delta,
+    hop_unread_reason,
 )
 
 
@@ -132,3 +133,17 @@ def test_fail_closed_graph_stale_forces_deny():
 def test_fail_closed_with_skip_tags_still_forces_deny():
     tags = ["graph:unavailable", "feature:catalog_fail_closed", "ml:unavailable"]
     assert force_deny_from_degrade_tags(tags)
+
+
+def test_hop_ok_is_not_an_unread_reason():
+    assert hop_unread_reason({"status": "graph:ok", "named_edges": []}, []) is None
+
+
+def test_missing_graph_url_reason_is_graph_missing():
+    assert hop_unread_reason({"status": "graph:missing"}, ["graph:missing"]) == "graph:missing"
+
+
+def test_unread_hop_reason_does_not_force_deny():
+    for tag in ("graph:missing", "graph:unavailable", "graph:empty", "graph:stale_skipped"):
+        assert hop_unread_reason({"status": tag}, [tag]) == tag
+        assert not force_deny_from_degrade_tags([tag])

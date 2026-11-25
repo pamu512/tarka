@@ -1160,26 +1160,15 @@ async def investigation_mule_path(
     payout_entity_id: str | None = None,
     _user=Depends(require_role("analyst")),
 ):
-    """Trace fund flow User A → mule (User B) → external payout (Prompt 179)."""
-    from fastapi import HTTPException
+    """TRANSACTED edges from origin. No edges means an empty path."""
+    from integration_ingress.mule_path_visualizer import load_mule_path
 
-    from integration_ingress.mule_path_visualizer import build_mule_path_payload
-
-    try:
-        return build_mule_path_payload(
-            tenant_id=tenant_id,
-            origin_entity_id=origin_entity_id,
-            mule_entity_id=mule_entity_id,
-            payout_entity_id=payout_entity_id,
-        )
-    except PermissionError as exc:
-        raise HTTPException(
-            status_code=501,
-            detail={
-                "reason_code": "MULE_PATH_DEMO_DISABLED",
-                "message": str(exc),
-            },
-        ) from exc
+    del payout_entity_id
+    return await load_mule_path(
+        tenant_id=tenant_id,
+        origin_entity_id=origin_entity_id,
+        mule_entity_id=mule_entity_id,
+    )
 
 
 @app.get("/v1/analytics/promo-abuse")

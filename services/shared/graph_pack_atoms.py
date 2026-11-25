@@ -35,6 +35,7 @@ PACK_HOP_ETYPES = frozenset(
         "SEEN_FROM_IP",
         "SEEN_AT",
         "PAYS_WITH",
+        "TRANSACTED",
         "REDEEMS",
         "ON_ORDER",
         "PARTY_WITH",

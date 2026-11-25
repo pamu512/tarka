@@ -67,6 +67,7 @@ ALLOWED_RELS = frozenset(
         "USED_SESSION",
         "USED_IP",
         "MADE_PAYMENT",
+        "TRANSACTED",
         "PERFORMED_LOGIN",
         "USES_DEVICE",
         "HAS_EMAIL",
