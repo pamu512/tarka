@@ -30,6 +30,9 @@ PAYLOAD_FIELDS = (
     "ip_is_proxy",
     "distinct_countries_7d",
     "email_domain",
+    "first_order_promo",
+    "new_account",
+    "coupon_stack",
 )
 IDENTITY_FIELDS = (
     "event_type",

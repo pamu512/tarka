@@ -117,6 +117,9 @@ def test_catalog_payload_is_frozen_extras():
         "ip_is_proxy",
         "distinct_countries_7d",
         "email_domain",
+        "first_order_promo",
+        "new_account",
+        "coupon_stack",
     ]
 
 
