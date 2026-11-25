@@ -90,8 +90,14 @@ def main() -> int:
         body_obj = DEFAULT_BODY
     body = json.dumps(body_obj).encode("utf-8")
 
+    warmup_codes: list[int] = []
     for _ in range(args.warmup):
-        one_post(target, body, args.timeout)
+        _ms, code = one_post(target, body, args.timeout)
+        warmup_codes.append(code)
+    if args.warmup:
+        from collections import Counter
+
+        print(f"warmup: requests={args.warmup} status:", dict(Counter(warmup_codes)))
 
     latencies: list[float] = []
     codes: list[int] = []
